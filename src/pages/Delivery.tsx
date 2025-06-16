@@ -110,31 +110,31 @@ const Delivery = () => {
           ))}
         </div>
 
-        {/* Decorative Delivery Truck Scene - emerging from screen edge */}
-        <div className="mt-12 md:mt-20 relative overflow-hidden">
+        {/* Decorative Delivery Truck Scene */}
+        <div className="mt-12 md:mt-20 relative">
           <div
-            className="relative w-full min-h-96 md:min-h-[500px] bg-cover bg-center bg-no-repeat rounded-[60px] md:rounded-[90px] flex items-center justify-center"
+            className="relative w-full min-h-96 md:min-h-[500px] bg-cover bg-center bg-no-repeat rounded-[60px] md:rounded-[90px] flex items-center justify-center overflow-hidden"
             style={{
               backgroundImage:
                 "url('https://cdn.builder.io/api/v1/image/assets/TEMP/42ea39e91dfa521df07efab09e43a372a5aa099f?placeholderIfAbsent=true')",
             }}
+          ></div>
+
+          {/* Truck emerging from left edge - outside container */}
+          <div
+            className="absolute left-0 bottom-8 md:bottom-12 z-50"
+            style={{
+              transform: "translateX(-30%)",
+            }}
           >
-            {/* Truck emerging from left edge */}
-            <div
-              className="absolute left-0 bottom-8 md:bottom-12"
+            <img
+              src="https://cdn.builder.io/api/v1/image/assets/TEMP/093934205b7e6b614cb384b055954bd8bd17366c?placeholderIfAbsent=true"
+              alt="Фургончик доставки Марико"
+              className="w-32 md:w-40 lg:w-48 h-auto object-contain"
               style={{
-                transform: "translateX(-50%)",
+                filter: "drop-shadow(0 4px 20px rgba(0,0,0,0.2))",
               }}
-            >
-              <img
-                src="https://cdn.builder.io/api/v1/image/assets/TEMP/093934205b7e6b614cb384b055954bd8bd17366c?placeholderIfAbsent=true"
-                alt="Фургончик доставки Марико"
-                className="w-48 md:w-60 lg:w-72 h-auto object-contain"
-                style={{
-                  filter: "drop-shadow(0 4px 20px rgba(0,0,0,0.2))",
-                }}
-              />
-            </div>
+            />
           </div>
         </div>
       </div>
