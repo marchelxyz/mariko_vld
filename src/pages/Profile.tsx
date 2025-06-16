@@ -1,4 +1,4 @@
-import { Ruble, CreditCard, User, MapPin } from "lucide-react";
+import { DollarSign, CreditCard, User, MapPin } from "lucide-react";
 import { Header } from "@/components/Header";
 import { ActionButton } from "@/components/ActionButton";
 import { BottomNavigation } from "@/components/BottomNavigation";
@@ -33,7 +33,7 @@ const Profile = () => {
         {/* Profile Action Buttons */}
         <div className="mt-8 md:mt-12 space-y-6 md:space-y-8">
           <ActionButton
-            icon={<Ruble className="w-full h-full" />}
+            icon={<DollarSign className="w-full h-full" />}
             title="Баланс: 1987"
             onClick={() => console.log("Баланс")}
           />
