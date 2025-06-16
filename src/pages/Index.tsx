@@ -61,12 +61,16 @@ const Index = () => {
           <MenuCard
             title="Меню"
             imageUrl="https://cdn.builder.io/api/v1/image/assets/TEMP/690e0689acfa56ebed78a2279312c0ee027ff6c5?placeholderIfAbsent=true"
-            onClick={() => console.log("Меню")}
+            onClick={() =>
+              window.open("https://telegra.ph/Menu-Mariko-01-01", "_blank")
+            }
           />
           <MenuCard
             title="Бар"
             imageUrl="https://cdn.builder.io/api/v1/image/assets/TEMP/247118815d27a2329c9ce91c5e93971be8886dc6?placeholderIfAbsent=true"
-            onClick={() => console.log("Бар")}
+            onClick={() =>
+              window.open("https://telegra.ph/Bar-Menu-Mariko-01-01", "_blank")
+            }
           />
         </div>
 
@@ -75,12 +79,19 @@ const Index = () => {
           <MenuCard
             title="Вакансии"
             imageUrl="https://cdn.builder.io/api/v1/image/assets/TEMP/5b52e54d8beda399ec6db08edd02c2b55ecea62d?placeholderIfAbsent=true"
-            onClick={() => console.log("Вакансии")}
+            onClick={() =>
+              window.open(
+                "https://hh.ru/search/vacancy?text=хачапури+марико",
+                "_blank",
+              )
+            }
           />
           <MenuCard
             title="Шеф-меню"
             imageUrl="https://cdn.builder.io/api/v1/image/assets/TEMP/9b4dbdbaca264a434e1abb1d7ae5eaf61942142e?placeholderIfAbsent=true"
-            onClick={() => console.log("Шеф-меню")}
+            onClick={() =>
+              window.open("https://telegra.ph/Chef-Menu-Mariko-01-01", "_blank")
+            }
           />
         </div>
 

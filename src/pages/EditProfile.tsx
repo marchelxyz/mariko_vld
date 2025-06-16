@@ -71,6 +71,25 @@ const EditProfile = () => {
             value="+7 (930) 805-22-22"
             onEdit={() => handleEdit("телефон")}
           />
+
+          {/* Notification Settings */}
+          <div className="bg-mariko-secondary/80 backdrop-blur-sm rounded-[90px] px-6 md:px-8 py-4 md:py-6">
+            <label className="flex items-center justify-between text-white font-el-messiri text-xl md:text-2xl font-semibold tracking-tight">
+              <span>Отключить уведомления</span>
+              <input
+                type="checkbox"
+                className="w-6 h-6 rounded border-2 border-white bg-transparent checked:bg-white checked:border-white"
+                onChange={(e) =>
+                  handleEdit(
+                    `уведомления: ${e.target.checked ? "отключены" : "включены"}`,
+                  )
+                }
+              />
+            </label>
+            <p className="text-white/70 font-el-messiri text-sm mt-2">
+              Отключает чат-рассылку от бота
+            </p>
+          </div>
         </div>
 
         {/* Bottom Character Section */}
