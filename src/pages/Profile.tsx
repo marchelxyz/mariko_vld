@@ -1,12 +1,15 @@
 import { CreditCard, User, MapPin } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { ActionButton } from "@/components/ActionButton";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { RubleIcon } from "@/components/RubleIcon";
+import { BarcodeModal } from "@/components/BarcodeModal";
 
 const Profile = () => {
   const navigate = useNavigate();
+  const [showBarcodeModal, setShowBarcodeModal] = useState(false);
 
   return (
     <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col">
@@ -45,7 +48,7 @@ const Profile = () => {
           <ActionButton
             icon={<CreditCard className="w-full h-full" />}
             title="Бонус-карта"
-            onClick={() => console.log("Бонус-карта")}
+            onClick={() => setShowBarcodeModal(true)}
           />
 
           <ActionButton
@@ -67,6 +70,12 @@ const Profile = () => {
 
       {/* Bottom Navigation */}
       <BottomNavigation currentPage="profile" />
+
+      {/* Barcode Modal */}
+      <BarcodeModal
+        isOpen={showBarcodeModal}
+        onClose={() => setShowBarcodeModal(false)}
+      />
     </div>
   );
 };
