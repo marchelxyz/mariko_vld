@@ -17,12 +17,12 @@ const Profile = () => {
       <Header />
 
       {/* Main Content */}
-      <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full">
+      <div className="flex-1 px-4 md:px-12 max-w-6xl mx-auto w-full">
         {/* Location Banner */}
         <div className="mt-8 md:mt-12 flex items-center justify-between gap-4">
           <div className="flex-1">
             <img
-              src="https://cdn.builder.io/api/v1/image/assets/TEMP/d6ab6bf572f38ad828c6837dda516225e8876446?placeholderIfAbsent=true"
+              src="https://cdn.builder.io/api/v1/image/assets/TEMP/f332e5a598bea4896258ee94a78f59e081351903?placeholderIfAbsent=true"
               alt="Хачапури логотип"
               className="w-full h-auto max-w-md"
             />
@@ -53,17 +53,17 @@ const Profile = () => {
 
           <ActionButton
             icon={<User className="w-full h-full" />}
-            title="Редактирование профиля"
+            title="Профиль"
             onClick={() => navigate("/edit-profile")}
           />
         </div>
 
-        {/* Decorative Image */}
-        <div className="mt-12 md:mt-20 flex justify-center">
+        {/* Decorative Georgian Pottery Image */}
+        <div className="mt-12 md:mt-24 flex justify-end">
           <img
-            src="https://cdn.builder.io/api/v1/image/assets/TEMP/840cb6472d5c74ac0c2a3deb34c389036f45c22d?placeholderIfAbsent=true"
+            src="https://cdn.builder.io/api/v1/image/assets/TEMP/0b9a511509924ad915d1664cb807c07d1330f1ed?placeholderIfAbsent=true"
             alt="Грузинские кувшины"
-            className="w-full h-auto max-w-2xl"
+            className="w-full h-auto max-w-4xl"
           />
         </div>
       </div>
