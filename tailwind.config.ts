@@ -18,7 +18,18 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        "el-messiri": ["El Messiri", "sans-serif"],
+      },
       colors: {
+        mariko: {
+          primary: "#8E1A1B", // Main red background
+          secondary: "#721516", // Button background
+          dark: "#172127", // Header background
+          accent: "#761516", // Footer background
+          "text-light": "#EBEBEB", // Light text
+          "text-secondary": "#ABB3B3", // Secondary text
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
