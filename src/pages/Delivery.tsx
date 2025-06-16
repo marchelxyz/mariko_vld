@@ -1,9 +1,97 @@
 import { Car, Bike, CircleDot, MapPin } from "lucide-react";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { ActionButton } from "@/components/ActionButton";
 import { BottomNavigation } from "@/components/BottomNavigation";
 
+interface Restaurant {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+}
+
 const Delivery = () => {
+  const [selectedRestaurant, setSelectedRestaurant] =
+    useState<Restaurant | null>(null);
+
+  useEffect(() => {
+    // Получаем выбранный ресторан из localStorage
+    const saved = localStorage.getItem("selectedRestaurant");
+    if (saved) {
+      setSelectedRestaurant(JSON.parse(saved));
+    } else {
+      // Ресторан по умолчанию
+      setSelectedRestaurant({
+        id: "nn-rozh",
+        name: "Нижний Новгород",
+        address: "Рождественская, 39",
+        city: "Нижний Новгород",
+      });
+    }
+  }, []);
+
+  const getDeliveryOptions = () => {
+    // В зависимости от р��сторана предлагаем разные варианты доставки
+    const baseOptions = [
+      {
+        icon: <Car className="w-full h-full" />,
+        title: "Доставка Марико",
+        onClick: () => window.open("https://vhachapuri.ru/delivery", "_blank"),
+      },
+      {
+        icon: <Bike className="w-full h-full" />,
+        title: "Самовывоз",
+        onClick: () =>
+          console.log("Самовывоз из:", selectedRestaurant?.address),
+      },
+    ];
+
+    // Добавляем внешние сервисы в зависимости от города
+    if (
+      selectedRestaurant?.city.includes("Нижний Новгород") ||
+      selectedRestaurant?.city.includes("СПб")
+    ) {
+      baseOptions.push(
+        {
+          icon: (
+            <div className="w-full h-full flex items-center justify-center">
+              <img
+                src="https://cdn.builder.io/api/v1/image/assets/TEMP/8fb69a54dd17376a9b06711103d33471ccbe2cb7?placeholderIfAbsent=true"
+                alt="Яндекс Еда"
+                className="w-16 h-16 object-contain"
+              />
+            </div>
+          ),
+          title: "Яндекс Еда",
+          onClick: () =>
+            window.open(
+              "https://eda.yandex.ru/restaurant/khachapuri_mariko",
+              "_blank",
+            ),
+        },
+        {
+          icon: (
+            <div className="w-full h-full flex items-center justify-center">
+              <img
+                src="https://cdn.builder.io/api/v1/image/assets/TEMP/0e46aa72fcfd3aa8f0cfa3cac579108968ad4d2b?placeholderIfAbsent=true"
+                alt="Delivery Club"
+                className="w-full h-full object-cover rounded-[90px_0_90px_90px]"
+              />
+            </div>
+          ),
+          title: "Delivery Club",
+          onClick: () =>
+            window.open(
+              "https://deliveryclub.ru/restaurant/khachapuri_mariko",
+              "_blank",
+            ),
+        },
+      );
+    }
+
+    return baseOptions;
+  };
   return (
     <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col">
       {/* Header */}
@@ -22,9 +110,9 @@ const Delivery = () => {
           </div>
           <div className="flex items-center gap-2 text-white font-el-messiri text-2xl md:text-3xl font-semibold tracking-tight">
             <div>
-              Нижний Новгород
+              {selectedRestaurant?.name || "Нижний Новгород"}
               <br />
-              Рождественская, 39
+              {selectedRestaurant?.address || "Рождественская, 39"}
             </div>
             <MapPin className="w-16 h-16 md:w-20 md:h-20 text-white flex-shrink-0" />
           </div>
@@ -32,45 +120,14 @@ const Delivery = () => {
 
         {/* Delivery Options */}
         <div className="mt-8 md:mt-12 space-y-6 md:space-y-8">
-          <ActionButton
-            icon={<Car className="w-full h-full" />}
-            title="Доставка Марико"
-            onClick={() => console.log("Доставка Марико")}
-          />
-
-          <ActionButton
-            icon={<Bike className="w-full h-full" />}
-            title="Самовывоз"
-            onClick={() => console.log("Самовывоз")}
-          />
-
-          <ActionButton
-            icon={
-              <div className="w-full h-full flex items-center justify-center">
-                <img
-                  src="https://cdn.builder.io/api/v1/image/assets/TEMP/8fb69a54dd17376a9b06711103d33471ccbe2cb7?placeholderIfAbsent=true"
-                  alt="Яндекс Еда"
-                  className="w-16 h-16 object-contain"
-                />
-              </div>
-            }
-            title="Яндекс Еда"
-            onClick={() => console.log("Яндекс Еда")}
-          />
-
-          <ActionButton
-            icon={
-              <div className="w-full h-full flex items-center justify-center">
-                <img
-                  src="https://cdn.builder.io/api/v1/image/assets/TEMP/0e46aa72fcfd3aa8f0cfa3cac579108968ad4d2b?placeholderIfAbsent=true"
-                  alt="Delivery Club"
-                  className="w-full h-full object-cover rounded-[90px_0_90px_90px]"
-                />
-              </div>
-            }
-            title="Delivery Club"
-            onClick={() => console.log("Delivery Club")}
-          />
+          {getDeliveryOptions().map((option, index) => (
+            <ActionButton
+              key={index}
+              icon={option.icon}
+              title={option.title}
+              onClick={option.onClick}
+            />
+          ))}
         </div>
 
         {/* Decorative Delivery Truck Image */}

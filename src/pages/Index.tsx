@@ -25,14 +25,17 @@ const Index = () => {
               className="w-full h-auto max-w-md"
             />
           </div>
-          <div className="flex items-center gap-2 text-white font-el-messiri text-2xl md:text-3xl font-semibold tracking-tight">
+          <button
+            onClick={() => navigate("/restaurants")}
+            className="flex items-center gap-2 text-white font-el-messiri text-2xl md:text-3xl font-semibold tracking-tight hover:bg-white/10 rounded-lg p-2 transition-colors"
+          >
             <div>
               Нижний Новгород
               <br />
               Рождественская, 39
             </div>
             <MapPin className="w-16 h-16 md:w-20 md:h-20 text-white flex-shrink-0" />
-          </div>
+          </button>
         </div>
 
         {/* Main Action Buttons */}
@@ -95,11 +98,16 @@ const Index = () => {
           />
         </div>
 
-        <div className="mt-4 md:mt-6 grid grid-cols-1 gap-4 md:gap-6">
+        <div className="mt-4 md:mt-6 grid grid-cols-2 gap-4 md:gap-6">
           <MenuCard
             title="Акции"
             imageUrl="https://cdn.builder.io/api/v1/image/assets/TEMP/89ad2d18cf715439bf30ec0a63f2079875e962bb?placeholderIfAbsent=true"
             onClick={() => navigate("/promotions")}
+          />
+          <MenuCard
+            title="Сайт"
+            imageUrl="https://cdn.builder.io/api/v1/image/assets/TEMP/690e0689acfa56ebed78a2279312c0ee027ff6c5?placeholderIfAbsent=true"
+            onClick={() => window.open("https://vhachapuri.ru/", "_blank")}
           />
         </div>
 
