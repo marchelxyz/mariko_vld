@@ -1,38 +1,17 @@
 import { Car, Bike, CircleDot, MapPin } from "lucide-react";
-import { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { ActionButton } from "@/components/ActionButton";
 import { BottomNavigation } from "@/components/BottomNavigation";
-
-interface Restaurant {
-  id: string;
-  name: string;
-  address: string;
-  city: string;
-}
+import { useCityContext } from "@/contexts/CityContext";
 
 const Delivery = () => {
-  const [selectedRestaurant, setSelectedRestaurant] =
-    useState<Restaurant | null>(null);
+  const { selectedCity } = useCityContext();
 
-  useEffect(() => {
-    // Получаем выбранный ресторан из localStorage
-    const saved = localStorage.getItem("selectedRestaurant");
-    if (saved) {
-      setSelectedRestaurant(JSON.parse(saved));
-    } else {
-      // Ресторан по умолчанию
-      setSelectedRestaurant({
-        id: "nn-rozh",
-        name: "Нижний Новгород",
-        address: "Рождественская, 39",
-        city: "Нижний Новгород",
-      });
-    }
-  }, []);
+  // Используем первый ресторан из выбранного города
+  const selectedRestaurant = selectedCity?.restaurants[0];
 
   const getDeliveryOptions = () => {
-    // В зависимости от р��сторана предлагаем разные варианты доставки
+    // В зависимости от ресторана предлагаем разные варианты доставки
     const baseOptions = [
       {
         icon: <Car className="w-full h-full" />,
@@ -49,8 +28,8 @@ const Delivery = () => {
 
     // Добавляем внешние сервисы в зависимости от города
     if (
-      selectedRestaurant?.city.includes("Нижний Новгород") ||
-      selectedRestaurant?.city.includes("СПб")
+      selectedCity?.name.includes("Нижний Новгород") ||
+      selectedCity?.name.includes("Санкт-Петербург")
     ) {
       baseOptions.push(
         {
@@ -92,6 +71,7 @@ const Delivery = () => {
 
     return baseOptions;
   };
+
   return (
     <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col">
       {/* Header */}
@@ -110,7 +90,7 @@ const Delivery = () => {
           </div>
           <div className="flex items-center gap-2 text-white font-el-messiri text-2xl md:text-3xl font-semibold tracking-tight">
             <div>
-              {selectedRestaurant?.name || "Нижний Новгород"}
+              {selectedCity?.name || "Нижний Новгород"}
               <br />
               {selectedRestaurant?.address || "Рождественская, 39"}
             </div>
