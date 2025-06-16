@@ -123,7 +123,7 @@ const Delivery = () => {
             <div
               className="absolute left-0 bottom-8 md:bottom-12"
               style={{
-                transform: "translateX(-30%)",
+                transform: "translateX(-40%)",
               }}
             >
               <img
