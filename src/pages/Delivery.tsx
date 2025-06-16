@@ -111,7 +111,7 @@ const Delivery = () => {
         </div>
 
         {/* Delivery Truck Illustration */}
-        <div className="mt-4 flex justify-center relative z-10">
+        <div className="flex justify-center relative z-10">
           <img
             src="https://cdn.builder.io/api/v1/image/assets/TEMP/7b483c106c0873fef56b5de8673db668ccbe0325?placeholderIfAbsent=true"
             alt="Грузовик доставки Марико"
