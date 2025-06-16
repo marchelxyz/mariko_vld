@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, Star, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { BottomNavigation } from "@/components/BottomNavigation";
+import { botApi, telegramWebApp } from "@/lib/botApi";
 
 const Review = () => {
   const navigate = useNavigate();
@@ -13,30 +14,48 @@ const Review = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Здесь будет отправка отзыва в ИИ для анализа
-    console.log("Отзыв:", { rating, reviewText });
-
     setIsSubmitted(true);
 
-    // Имитация ИИ анализа
-    const isPositive =
-      rating >= 4 &&
-      !reviewText.toLowerCase().includes("плохо") &&
-      !reviewText.toLowerCase().includes("ужас");
+    try {
+      // Получаем данные пользователя
+      const telegramUser = telegramWebApp.getUserData();
+      let userName = "Гость";
+      let userPhone = "";
+      let selectedRestaurant = "Нижний Новгород, Рождественская, 39";
 
-    setTimeout(() => {
-      if (isPositive) {
-        setShowExternalReviews(true);
-      } else {
-        // Отправка уведомления ответственному лицу
-        console.log("Отправлено уведомление об отрицательном отзыве");
-        alert(
-          "Спасибо за ваш отзыв! Мы обязательно учтем ваши замечания и постараемся улучшить качество обслуживания.",
-        );
-        navigate("/");
+      if (telegramUser) {
+        const profile = await botApi.getUserProfile(telegramUser.id.toString());
+        userName = profile.name;
+        userPhone = profile.phone;
+        selectedRestaurant = profile.selectedRestaurant;
       }
-    }, 2000);
+
+      // Отправляем отзыв на анализ
+      const analysisResult = await botApi.submitReview({
+        rating,
+        text: reviewText,
+        restaurant: selectedRestaurant,
+        userPhone,
+        userName,
+      });
+
+      // Обрабатываем результат анализа
+      setTimeout(() => {
+        if (analysisResult.isPositive) {
+          setShowExternalReviews(true);
+        } else {
+          // Уведомление уже отправлено ответственному лицу через botApi
+          alert(
+            "Спасибо за ваш отзыв! Мы обязательно учтем ваши замечания и постараемся улучшить качество обслуживания.",
+          );
+          navigate("/");
+        }
+      }, 2000);
+    } catch (error) {
+      console.error("Ошибка отправки отзыва:", error);
+      alert("Ошибка при отправке отзыва. Попробуйте еще раз.");
+      setIsSubmitted(false);
+    }
   };
 
   const handleExternalReview = (platform: string) => {

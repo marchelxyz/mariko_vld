@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, MapPin, Calendar, Clock, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { BottomNavigation } from "@/components/BottomNavigation";
+import { botApi, telegramWebApp } from "@/lib/botApi";
 
 const Booking = () => {
   const navigate = useNavigate();
@@ -15,6 +16,31 @@ const Booking = () => {
     restaurant: "Нижний Новгород, Рождественская, 39", // Подтягивается из профиля
     comment: "",
   });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Загружаем данные пользователя из Telegram/профиля
+    const loadUserData = async () => {
+      try {
+        const telegramUser = telegramWebApp.getUserData();
+        if (telegramUser) {
+          const profile = await botApi.getUserProfile(
+            telegramUser.id.toString(),
+          );
+          setFormData((prev) => ({
+            ...prev,
+            name: profile.name,
+            phone: profile.phone,
+            restaurant: profile.selectedRestaurant,
+          }));
+        }
+      } catch (error) {
+        console.error("Ошибка загрузки данных пользователя:", error);
+      }
+    };
+
+    loadUserData();
+  }, []);
 
   const restaurants = [
     "Нижний Новгород, Рождественская, 39",
@@ -23,7 +49,7 @@ const Booking = () => {
     "СПб, Сенная, 5",
     "СПб, Итальянская, 6/4",
     "СПб, Малая Морская, 5а",
-    "СПб, Малая Садовая, 3/54",
+    "СПб, Малая Садов��я, 3/54",
     "Новосибирск",
     "Кемерово",
     "Томск",
@@ -56,15 +82,54 @@ const Booking = () => {
     "22:00",
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Здесь будет отправка данных в бот/API
-    console.log("Данные бронирования:", formData);
-    // Показываем подтверждение
-    alert(
-      "Ваша заявка на бронирование отправлена! Мы свяжемся с вами в ближайшее время.",
-    );
-    navigate("/");
+    setLoading(true);
+
+    try {
+      // Получаем дату рождения из профиля (скрытое поле для АЙКО)
+      const telegramUser = telegramWebApp.getUserData();
+      let birthDate = "24.05.2023"; // По умолчанию
+
+      if (telegramUser) {
+        const profile = await botApi.getUserProfile(telegramUser.id.toString());
+        birthDate = profile.birthDate;
+      }
+
+      // Отправляем бронирование
+      const result = await botApi.submitBooking({
+        name: formData.name,
+        phone: formData.phone,
+        guests: parseInt(formData.guests),
+        date: formData.date,
+        time: formData.time,
+        restaurant: formData.restaurant,
+        comment: formData.comment,
+        birthDate: birthDate, // Скрытое поле для АЙКО
+      });
+
+      if (result.success) {
+        alert(
+          `Ваша заявка на бронирование №${result.bookingId} отправлена! Мы свяжемся с вами в ближайшее время.`,
+        );
+
+        // Отправляем данные обратно в бот
+        telegramWebApp.sendData({
+          action: "booking_submitted",
+          bookingId: result.bookingId,
+          data: formData,
+        });
+
+        navigate("/");
+      } else {
+        alert("Ошибка при отправке бронирования. Попробуйте еще раз.");
+      }
+    } catch (error) {
+      console.error("Ошибка бронирования:", error);
+      alert("Ошибка при отправке бронирования. Попробуйте еще раз.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -231,9 +296,17 @@ const Booking = () => {
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full bg-mariko-primary border-2 border-white rounded-[90px] px-8 py-4 text-white font-el-messiri text-2xl font-bold tracking-tight hover:bg-white hover:text-mariko-primary transition-colors"
+            disabled={loading}
+            className="w-full bg-mariko-primary border-2 border-white rounded-[90px] px-8 py-4 text-white font-el-messiri text-2xl font-bold tracking-tight hover:bg-white hover:text-mariko-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Забронировать
+            {loading ? (
+              <div className="flex items-center justify-center gap-2">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                Отправка...
+              </div>
+            ) : (
+              "Забронировать"
+            )}
           </button>
         </form>
       </div>
