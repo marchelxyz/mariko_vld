@@ -109,15 +109,6 @@ const Delivery = () => {
             />
           ))}
         </div>
-
-        {/* Decorative Delivery Truck Image */}
-        <div className="mt-12 md:mt-20 flex justify-center">
-          <img
-            src="https://cdn.builder.io/api/v1/image/assets/TEMP/093934205b7e6b614cb384b055954bd8bd17366c?placeholderIfAbsent=true"
-            alt="Грузовик доставки"
-            className="w-full h-auto max-w-xs"
-          />
-        </div>
       </div>
 
       {/* Bottom Navigation */}
