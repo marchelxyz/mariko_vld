@@ -124,12 +124,16 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Chef image aligned to the right */}
-          <div className="flex-shrink-0 flex items-center justify-end lg:justify-center">
+          {/* Chef image aligned to the right edge */}
+          <div className="flex-shrink-0 flex items-end justify-end lg:justify-end relative">
             <img
               src="https://cdn.builder.io/api/v1/image/assets/TEMP/7c2c5fe36795ccb3afae2b769acaa83ff859f88f?placeholderIfAbsent=true"
               alt="Шеф-повар"
-              className="w-full h-auto max-w-xs lg:max-w-sm shadow-xl rounded-lg"
+              className="w-auto h-auto max-w-none lg:max-w-none max-h-80 lg:max-h-96 object-contain object-bottom"
+              style={{
+                filter: "drop-shadow(0 0 20px rgba(0,0,0,0.1))",
+                transform: "scale(1.05)",
+              }}
             />
           </div>
         </div>
