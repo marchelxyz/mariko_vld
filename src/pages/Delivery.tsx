@@ -109,19 +109,19 @@ const Delivery = () => {
             />
           ))}
         </div>
+      </div>
 
-        {/* Delivery Truck Illustration */}
-        <div className="flex justify-center relative z-10 -mt-4 -mb-4">
-          <img
-            src="https://cdn.builder.io/api/v1/image/assets/TEMP/7b483c106c0873fef56b5de8673db668ccbe0325?placeholderIfAbsent=true"
-            alt="Грузовик доставки Марико"
-            className="w-full h-auto max-w-md lg:max-w-lg"
-            style={{
-              aspectRatio: "0.725",
-              objectFit: "contain",
-            }}
-          />
-        </div>
+      {/* Delivery Truck Illustration - Outside main container */}
+      <div className="flex justify-center relative z-10 w-full">
+        <img
+          src="https://cdn.builder.io/api/v1/image/assets/TEMP/7b483c106c0873fef56b5de8673db668ccbe0325?placeholderIfAbsent=true"
+          alt="Грузовик доставки Марико"
+          className="w-full h-auto max-w-md lg:max-w-lg"
+          style={{
+            aspectRatio: "0.725",
+            objectFit: "contain",
+          }}
+        />
       </div>
 
       {/* Bottom Navigation */}
