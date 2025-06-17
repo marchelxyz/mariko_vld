@@ -9,7 +9,32 @@ import { BarcodeModal } from "@/components/BarcodeModal";
 
 const Profile = () => {
   const navigate = useNavigate();
-  const [showBarcodeModal, setShowBarcodeModal] = useState(false);
+  const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
+  const { profile, loading, error } = useProfile();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-mariko-primary flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-white animate-spin" />
+      </div>
+    );
+  }
+
+  if (error || !profile) {
+    return (
+      <div className="min-h-screen bg-mariko-primary flex items-center justify-center">
+        <div className="text-white text-center">
+          <p className="font-el-messiri text-xl">Ошибка загрузки профиля</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 bg-white text-mariko-primary px-6 py-2 rounded-full"
+          >
+            Попробовать снова
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col">
@@ -20,18 +45,21 @@ const Profile = () => {
       <div className="flex-1 px-3 md:px-12 max-w-sm md:max-w-6xl mx-auto w-full">
         {/* Location Banner */}
         <div className="mt-3 md:mt-8 flex items-center justify-between gap-2">
-          <div className="flex-1">
-            <img
-              src="https://cdn.builder.io/api/v1/image/assets/TEMP/f332e5a598bea4896258ee94a78f59e081351903?placeholderIfAbsent=true"
-              alt="Хачапури логотип"
-              className="w-full h-auto max-w-md"
-            />
-          </div>
-          <div className="flex items-center gap-2 text-white font-el-messiri text-2xl md:text-3xl font-semibold tracking-tight">
-            <div>
-              Нижний Новгород
-              <br />
-              Рождественская, 39
+            <div className="w-20 h-20 md:w-28 md:h-28 rounded-full overflow-hidden flex-shrink-0">
+              <img
+                src={profile.photo}
+                alt="Фото профиля"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="flex-1">
+              <div className="text-white font-el-messiri text-4xl md:text-5xl font-bold tracking-tight">
+                {profile.bonusPoints}
+              </div>
+              <p className="text-white/80 font-el-messiri text-lg mt-1">
+                {profile.name}
+              </p>
+            </div>
             </div>
             <MapPin className="w-16 h-16 md:w-20 md:h-20 text-white flex-shrink-0" />
           </div>
@@ -65,7 +93,7 @@ const Profile = () => {
             alt="Грузинские кувшины"
             className="w-full h-auto max-w-4xl"
             style={{
-              transform: "translateX(20%)",
+              transform: "translateX(20%)"
             }}
           />
         </div>
