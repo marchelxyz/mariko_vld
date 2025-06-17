@@ -64,6 +64,9 @@ const Profile = () => {
             src="https://cdn.builder.io/api/v1/image/assets/TEMP/0b9a511509924ad915d1664cb807c07d1330f1ed?placeholderIfAbsent=true"
             alt="Грузинские кувшины"
             className="w-full h-auto max-w-4xl"
+            style={{
+              transform: "translateX(40%)",
+            }}
           />
         </div>
       </div>
