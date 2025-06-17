@@ -10,7 +10,7 @@ const Booking = () => {
   const navigate = useNavigate();
   const { selectedCity } = useCityContext();
 
-  const currentRestaurant = selectedCity?.restaurants[0];
+  const currentRestaurant = selectedCity.restaurants[0];
   const defaultRestaurantName = currentRestaurant
     ? `${currentRestaurant.city}, ${currentRestaurant.address}`
     : "Нижний Новгород, Рождественская, 39";
@@ -25,7 +25,6 @@ const Booking = () => {
     comment: "",
   });
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{[key: string]: string}>({});
 
   useEffect(() => {
     // Обновляем ресторан при смене города
@@ -52,38 +51,16 @@ const Booking = () => {
         }
       } catch (error) {
         console.error("Ошибка загрузки данных пользователя:", error);
-        telegramWebApp.showAlert("Ошибка загрузки данных пользователя");
       }
     };
 
     loadUserData();
+  }, []);
 
-    // Показываем кнопку "Назад"
-    telegramWebApp.showBackButton(() => navigate("/"));
-
-    return () => {
-      telegramWebApp.hideBackButton();
-    };
-  }, [navigate]);
-
-  // Если выбран город, показываем только его рестораны, иначе все
-  const restaurants = selectedCity?.restaurants.map(
+  // Показываем рестораны выбранного города
+  const restaurants = selectedCity.restaurants.map(
     (r) => `${r.city}, ${r.address}`,
-  ) || [
-    "Нижний Новгород, Рождественская, 39",
-    "Нижний Новгород, Парк Швейцария",
-    "Нижний Новгород, Волжская набережная, 23а",
-    "СПб, Сенная, 5",
-    "СПб, Итальянская, 6/4",
-    "СПб, Малая Морская, 5а",
-    "СПб, Малая Садовая, 3/54",
-    "Новосибирск",
-    "Кемерово",
-    "Томск",
-    "Уфа",
-    "Казань, Пушкина, 10",
-    "Казань, Право-Булачная, 33",
-  ];
+  );
 
   const timeSlots = [
     "12:00",
@@ -109,70 +86,9 @@ const Booking = () => {
     "22:00",
   ];
 
-  const validateForm = () => {
-    const newErrors: {[key: string]: string} = {};
-
-    if (!formData.name.trim()) {
-      newErrors.name = "Введите имя";
-    } else if (formData.name.trim().length < 2) {
-      newErrors.name = "Имя должно содержать минимум 2 символа";
-    }
-
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Введите номер телефона";
-    } else {
-      // Более гибкая проверка телефона
-      const phoneDigits = formData.phone.replace(/\D/g, '');
-      if (phoneDigits.length !== 11 || !phoneDigits.startsWith('7')) {
-        newErrors.phone = "Неверный формат номера телефона";
-      }
-    }
-
-    if (!formData.date) {
-      newErrors.date = "Выберите дату";
-    } else {
-      const selectedDate = new Date(formData.date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      if (selectedDate < today) {
-        newErrors.date = "Нельзя выбрать прошедшую дату";
-      }
-
-      // Проверяем, что дата не слишком далеко в будущем (например, не более 3 месяцев)
-      const maxDate = new Date();
-      maxDate.setMonth(maxDate.getMonth() + 3);
-      if (selectedDate > maxDate) {
-        newErrors.date = "Нельзя бронировать более чем на 3 месяца вперед";
-      }
-    }
-
-    if (!formData.time) {
-      newErrors.time = "Выберите время";
-    }
-
-    if (!formData.restaurant) {
-      newErrors.restaurant = "Выберите ресторан";
-    }
-
-    if (parseInt(formData.guests) < 1 || parseInt(formData.guests) > 20) {
-      newErrors.guests = "Количество гостей должно быть от 1 до 20";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      telegramWebApp.hapticFeedback('notification');
-      return;
-    }
-
     setLoading(true);
-    telegramWebApp.hapticFeedback('impact');
 
     try {
       // Получаем дату рождения из профиля (скрытое поле для АЙКО)
@@ -197,9 +113,8 @@ const Booking = () => {
       });
 
       if (result.success) {
-        telegramWebApp.hapticFeedback('notification');
-        telegramWebApp.showAlert(
-          `Ваша заявка на бронирование №${result.bookingId} отправлена! Мы свяжемся с вами в ближайшее время.`
+        alert(
+          `Ваша заявка на бронирование №${result.bookingId} отправлена! Мы свяжемся с вами в ближайшее время.`,
         );
 
         // Отправляем данные обратно в бот
@@ -211,13 +126,11 @@ const Booking = () => {
 
         navigate("/");
       } else {
-        telegramWebApp.showAlert("Ошибка при отправке бронирования. Попробуйте еще раз.");
+        alert("Ошибка ��ри отправ��е ��ронировани��. По��робуйте еще раз.");
       }
     } catch (error) {
       console.error("Ошибка бронирования:", error);
-      telegramWebApp.showAlert(
-        error instanceof Error ? error.message : "Ошибка при отправке бронирования. Попробуйте еще раз."
-      );
+      alert("Ошибка при отправке бронирования. Попробуйте еще раз.");
     } finally {
       setLoading(false);
     }
@@ -248,76 +161,50 @@ const Booking = () => {
           {/* Name */}
           <div className="bg-mariko-secondary rounded-[90px] px-6 py-4">
             <label className="block text-white font-el-messiri text-lg font-semibold mb-2">
-              Имя *
+              Имя
             </label>
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => {
-                setFormData({ ...formData, name: e.target.value });
-                // Очищаем ошибку при вводе
-                if (errors.name && e.target.value.trim().length >= 2) {
-                  setErrors(prev => ({ ...prev, name: "" }));
-                }
-              }}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
               className="w-full bg-transparent text-white placeholder-white/60 border-none outline-none font-el-messiri text-xl"
-              placeholder="Введите ваше имя"
               required
             />
-            {errors.name && (
-              <p className="text-red-300 text-sm mt-1">{errors.name}</p>
-            )}
           </div>
 
           {/* Phone */}
           <div className="bg-mariko-secondary rounded-[90px] px-6 py-4">
             <label className="block text-white font-el-messiri text-lg font-semibold mb-2">
-              Телефон *
+              Телефон
             </label>
             <input
               type="tel"
               value={formData.phone}
-              onChange={(e) => {
-                setFormData({ ...formData, phone: e.target.value });
-                // Очищаем ошибку при вводе корректного номера
-                if (errors.phone) {
-                  const phoneDigits = e.target.value.replace(/\D/g, '');
-                  if (phoneDigits.length === 11 && phoneDigits.startsWith('7')) {
-                    setErrors(prev => ({ ...prev, phone: "" }));
-                  }
-                }
-              }}
+              onChange={(e) =>
+                setFormData({ ...formData, phone: e.target.value })
+              }
               className="w-full bg-transparent text-white placeholder-white/60 border-none outline-none font-el-messiri text-xl"
-              placeholder="+7 (999) 999-99-99"
               required
             />
-            {errors.phone && (
-              <p className="text-red-300 text-sm mt-1">{errors.phone}</p>
-            )}
           </div>
 
           {/* Guests */}
           <div className="bg-mariko-secondary rounded-[90px] px-6 py-4">
             <label className="flex items-center gap-2 text-white font-el-messiri text-lg font-semibold mb-2">
               <Users className="w-5 h-5" />
-              Количество гостей *
+              Количество гостей
             </label>
             <select
               value={formData.guests}
-              onChange={(e) => {
-                setFormData({ ...formData, guests: e.target.value });
-                // Очищаем ошибку при выборе корректного количества
-                if (errors.guests) {
-                  const guests = parseInt(e.target.value);
-                  if (guests >= 1 && guests <= 20) {
-                    setErrors(prev => ({ ...prev, guests: "" }));
-                  }
-                }
-              }}
+              onChange={(e) =>
+                setFormData({ ...formData, guests: e.target.value })
+              }
               className="w-full bg-transparent text-white border-none outline-none font-el-messiri text-xl"
               required
             >
-              {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                 <option
                   key={num}
                   value={num}
@@ -327,57 +214,37 @@ const Booking = () => {
                 </option>
               ))}
             </select>
-            {errors.guests && (
-              <p className="text-red-300 text-sm mt-1">{errors.guests}</p>
-            )}
           </div>
 
           {/* Date */}
           <div className="bg-mariko-secondary rounded-[90px] px-6 py-4">
             <label className="flex items-center gap-2 text-white font-el-messiri text-lg font-semibold mb-2">
               <Calendar className="w-5 h-5" />
-              Дата *
+              Дата
             </label>
             <input
               type="date"
               value={formData.date}
-              onChange={(e) => {
-                setFormData({ ...formData, date: e.target.value });
-                // Очищаем ошибку при выборе корректной даты
-                if (errors.date && e.target.value) {
-                  const selectedDate = new Date(e.target.value);
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  if (selectedDate >= today) {
-                    setErrors(prev => ({ ...prev, date: "" }));
-                  }
-                }
-              }}
+              onChange={(e) =>
+                setFormData({ ...formData, date: e.target.value })
+              }
               min={new Date().toISOString().split("T")[0]}
-              max={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]} // 3 месяца вперед
               className="w-full bg-transparent text-white border-none outline-none font-el-messiri text-xl"
               required
             />
-            {errors.date && (
-              <p className="text-red-300 text-sm mt-1">{errors.date}</p>
-            )}
           </div>
 
           {/* Time */}
           <div className="bg-mariko-secondary rounded-[90px] px-6 py-4">
             <label className="flex items-center gap-2 text-white font-el-messiri text-lg font-semibold mb-2">
               <Clock className="w-5 h-5" />
-              Время *
+              Время
             </label>
             <select
               value={formData.time}
-              onChange={(e) => {
-                setFormData({ ...formData, time: e.target.value });
-                // Очищаем ошибку при выборе времени
-                if (errors.time && e.target.value) {
-                  setErrors(prev => ({ ...prev, time: "" }));
-                }
-              }}
+              onChange={(e) =>
+                setFormData({ ...formData, time: e.target.value })
+              }
               className="w-full bg-transparent text-white border-none outline-none font-el-messiri text-xl"
               required
             >
@@ -394,26 +261,19 @@ const Booking = () => {
                 </option>
               ))}
             </select>
-            {errors.time && (
-              <p className="text-red-300 text-sm mt-1">{errors.time}</p>
-            )}
           </div>
 
           {/* Restaurant */}
           <div className="bg-mariko-secondary rounded-[90px] px-6 py-4">
             <label className="flex items-center gap-2 text-white font-el-messiri text-lg font-semibold mb-2">
               <MapPin className="w-5 h-5" />
-              Ресторан *
+              Ресторан
             </label>
             <select
               value={formData.restaurant}
-              onChange={(e) => {
-                setFormData({ ...formData, restaurant: e.target.value });
-                // Очищаем ошибку при выборе ресторана
-                if (errors.restaurant && e.target.value) {
-                  setErrors(prev => ({ ...prev, restaurant: "" }));
-                }
-              }}
+              onChange={(e) =>
+                setFormData({ ...formData, restaurant: e.target.value })
+              }
               className="w-full bg-transparent text-white border-none outline-none font-el-messiri text-xl"
               required
             >
@@ -427,9 +287,6 @@ const Booking = () => {
                 </option>
               ))}
             </select>
-            {errors.restaurant && (
-              <p className="text-red-300 text-sm mt-1">{errors.restaurant}</p>
-            )}
           </div>
 
           {/* Comment */}
@@ -443,13 +300,9 @@ const Booking = () => {
                 setFormData({ ...formData, comment: e.target.value })
               }
               rows={3}
-              maxLength={200}
               className="w-full bg-transparent text-white placeholder-white/60 border-none outline-none font-el-messiri text-xl resize-none"
               placeholder="Особые пожелания..."
             />
-            <p className="text-white/60 text-sm mt-1 text-right">
-              {formData.comment.length}/200
-            </p>
           </div>
 
           {/* Submit Button */}
