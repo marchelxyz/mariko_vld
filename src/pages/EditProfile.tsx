@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { MapPin, Camera, X } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { MapPin, Camera, X, Loader2 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { EditableField } from "@/components/EditableField";
 import { BottomNavigation } from "@/components/BottomNavigation";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { botApi } from "@/lib/botApi";
+import { useProfile } from "@/hooks/useProfile";
 
 interface ProfileData {
   name: string;
@@ -21,46 +21,59 @@ interface ProfileData {
 const EditProfile = () => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [profileData, setProfileData] = useState<ProfileData>({
-    name: "Аннуфриева Валентина Федоровна",
-    birthDate: "24.05.2023",
-    gender: "Женский",
-    phone: "+7 (930) 805-22-22",
-    photo:
-      "https://cdn.builder.io/api/v1/image/assets/TEMP/f2cb5ca47004ec14f2e0c3003157a1a2b57e7d97?placeholderIfAbsent=true",
-    notificationsEnabled: false,
-  });
+  const { profile, loading, error, updateProfile, updatePhoto } = useProfile();
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
 
-  const handleEdit = (field: keyof ProfileData) => {
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-mariko-primary flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-white animate-spin" />
+      </div>
+    );
+  }
+
+  if (error || !profile) {
+    return (
+      <div className="min-h-screen bg-mariko-primary flex items-center justify-center">
+        <div className="text-white text-center">
+          <p className="font-el-messiri text-xl">Ошибка загрузки профиля</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 bg-white text-mariko-primary px-6 py-2 rounded-full"
+          >
+            Попробовать снова
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const handleEdit = (field: string) => {
     setEditingField(field);
-    setEditValue(profileData[field].toString());
+    setEditValue(profile[field as keyof typeof profile]?.toString() || "");
   };
 
   const handleSave = async () => {
     if (!editingField) return;
 
     try {
-      const updatedData = {
-        ...profileData,
+      const success = await updateProfile({
         [editingField]: editValue,
-      };
-
-      setProfileData(updatedData);
-
-      // Сохраняем в API
-      await botApi.updateUserProfile("user_id", updatedData);
-
-      toast({
-        title: "Профиль обновлен",
-        description: "Изменения успешно сохранены",
       });
 
-      setEditingField(null);
-      setEditValue("");
+      if (success) {
+        toast({
+          title: "Профиль обновлен",
+          description: "Изменения успешно сохранены",
+        });
+
+        setEditingField(null);
+        setEditValue("");
+      } else {
+        throw new Error("Не удалось сохранить");
+      }
     } catch (error) {
       toast({
         title: "Ошибка",
@@ -75,7 +88,9 @@ const EditProfile = () => {
     setEditValue("");
   };
 
-  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -99,29 +114,32 @@ const EditProfile = () => {
       return;
     }
 
-    // Создаем URL для превью
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setProfileData((prev) => ({ ...prev, photo: result }));
-
+    try {
+      const photoUrl = await updatePhoto(file);
+      if (photoUrl) {
+        await updateProfile({ photo: photoUrl });
+        toast({
+          title: "Фото обновлено",
+          description: "Новое фото профиля установлено",
+        });
+      }
+    } catch (error) {
       toast({
-        title: "Фото обновлено",
-        description: "Новое фото профиля установлено",
+        title: "Ошибка",
+        description: "Не удалось загрузить фото",
+        variant: "destructive",
       });
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
-  const handleNotificationToggle = (checked: boolean) => {
-    setProfileData((prev) => ({
-      ...prev,
+  const handleNotificationToggle = async (checked: boolean) => {
+    await updateProfile({
       notificationsEnabled: !checked,
-    }));
+    });
   };
 
   const renderField = (
-    key: keyof ProfileData,
+    key: string,
     label: string,
     value: string,
     type: string = "text",
@@ -301,7 +319,7 @@ const EditProfile = () => {
         <div className="mt-12 md:mt-16 flex items-end justify-between">
           <div className="bg-orange-300 rounded-[40px] px-6 md:px-8 py-4 md:py-6 max-w-xs">
             <p className="text-mariko-secondary font-el-messiri text-lg md:text-xl font-semibold leading-tight">
-              Ты всегда можешь изменить данные, Дорогой!
+              Ты всегда можешь изменить да��ные, Дорогой!
             </p>
           </div>
           <div className="flex-shrink-0 ml-4">
