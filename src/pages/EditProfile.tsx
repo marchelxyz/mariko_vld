@@ -210,7 +210,7 @@ const EditProfile = () => {
           <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6">
             <div className="relative w-20 h-20 md:w-28 md:h-28 rounded-full overflow-hidden flex-shrink-0 group">
               <img
-                src={profileData.photo}
+                src={profile.photo}
                 alt="Фото профиля"
                 className="w-full h-full object-cover transition-all group-hover:brightness-75"
               />
@@ -241,13 +241,8 @@ const EditProfile = () => {
 
         {/* Editable Fields */}
         <div className="mt-8 md:mt-12 space-y-4 md:space-y-6">
-          {renderField("name", "ФИО", profileData.name)}
-          {renderField(
-            "birthDate",
-            "Дата рождения",
-            profileData.birthDate,
-            "date",
-          )}
+          {renderField("name", "ФИО", profile.name)}
+          {renderField("birthDate", "Дата рождения", profile.birthDate, "date")}
 
           {/* Gender Selection */}
           {editingField === "gender" ? (
@@ -291,12 +286,12 @@ const EditProfile = () => {
             </div>
           ) : (
             <EditableField
-              value={profileData.gender}
+              value={profile.gender}
               onEdit={() => handleEdit("gender")}
             />
           )}
 
-          {renderField("phone", "Телефон", profileData.phone, "tel")}
+          {renderField("phone", "Телефон", profile.phone, "tel")}
 
           {/* Notification Settings */}
           <div className="bg-mariko-secondary/80 backdrop-blur-sm rounded-[90px] px-6 md:px-8 py-4 md:py-6">
@@ -304,7 +299,7 @@ const EditProfile = () => {
               <span>Отключить уведомления</span>
               <input
                 type="checkbox"
-                checked={!profileData.notificationsEnabled}
+                checked={!profile.notificationsEnabled}
                 className="w-6 h-6 rounded border-2 border-white bg-transparent checked:bg-white checked:border-white"
                 onChange={(e) => handleNotificationToggle(e.target.checked)}
               />
@@ -319,7 +314,7 @@ const EditProfile = () => {
         <div className="mt-12 md:mt-16 flex items-end justify-between">
           <div className="bg-orange-300 rounded-[40px] px-6 md:px-8 py-4 md:py-6 max-w-xs">
             <p className="text-mariko-secondary font-el-messiri text-lg md:text-xl font-semibold leading-tight">
-              Ты всегда можешь изменить да��ные, Дорогой!
+              Ты всегда можешь изменить данные, Дорогой!
             </p>
           </div>
           <div className="flex-shrink-0 ml-4">
