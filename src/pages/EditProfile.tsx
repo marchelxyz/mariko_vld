@@ -34,6 +34,19 @@ const EditProfile = () => {
   const handleSave = async () => {
     if (!editingField) return;
 
+    // Валидация даты рождения
+    if (editingField === "birthDate") {
+      const dateRegex = /^\d{2}\.\d{2}\.\d{4}$/;
+      if (!dateRegex.test(editValue)) {
+        toast({
+          title: "Ошибка",
+          description: "Дата должна быть в формате дд.мм.гггг",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     try {
       const success = await updateProfile({
         [editingField]: editValue,
@@ -275,7 +288,7 @@ const EditProfile = () => {
           {/* Notification Settings */}
           <div className="bg-mariko-secondary/80 backdrop-blur-sm rounded-[90px] px-6 md:px-8 py-4 md:py-6">
             <label className="flex items-center justify-between text-white font-el-messiri text-xl md:text-2xl font-semibold tracking-tight">
-              <span>Отключить уведомления</span>
+              <span>От��лючить уведомления</span>
               <input
                 type="checkbox"
                 checked={!profile.notificationsEnabled}
