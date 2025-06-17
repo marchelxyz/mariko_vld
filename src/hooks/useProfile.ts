@@ -30,6 +30,7 @@ export const useProfile = () => {
   const [profile, setProfile] = useState<UserProfile>(defaultProfile);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string>("");
 
   useEffect(() => {
     loadProfile();
@@ -42,9 +43,10 @@ export const useProfile = () => {
 
       // Получаем ID пользователя из Telegram
       const telegramUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
-      const userId = telegramUser?.id?.toString() || "demo_user";
+      const currentUserId = telegramUser?.id?.toString() || "demo_user";
+      setUserId(currentUserId);
 
-      const userProfile = await botApi.getUserProfile(userId);
+      const userProfile = await botApi.getUserProfile(currentUserId);
       setProfile({ ...defaultProfile, ...userProfile });
     } catch (err) {
       setError("Не удалось загрузить профиль");
@@ -59,12 +61,14 @@ export const useProfile = () => {
     try {
       const updatedProfile = { ...profile, ...updates };
 
-      // Обновляем в API
-      await botApi.updateUserProfile(profile.id, updatedProfile);
+      // ИСПРАВЛЕНО: Используем правильный userId вместо profile.id
+      const currentUserId = userId || "demo_user";
+      await botApi.updateUserProfile(currentUserId, updatedProfile);
 
       // Обновляем локальное состояние
       setProfile(updatedProfile);
 
+      console.log('✅ Профиль успешно сохранён:', updates);
       return true;
     } catch (err) {
       setError("Не удалось обновить профиль");
