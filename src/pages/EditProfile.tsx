@@ -142,8 +142,7 @@ const EditProfile = () => {
             </Button>
             <Button
               onClick={handleCancel}
-              variant="outline"
-              className="border-white/20 text-white hover:bg-white/10 px-6"
+              className="bg-red-600 hover:bg-red-700 text-white border-0 px-6"
             >
               <X className="w-4 h-4" />
             </Button>
@@ -218,7 +217,12 @@ const EditProfile = () => {
         {/* Editable Fields */}
         <div className="mt-8 md:mt-12 space-y-4 md:space-y-6">
           {renderField("name", "ФИО", profile.name)}
-          {renderField("birthDate", "Дата рождения", profile.birthDate, "date")}
+          {renderField(
+            "birthDate",
+            "Дата рождения (дд.мм.гггг)",
+            profile.birthDate,
+            "text",
+          )}
 
           {/* Gender Selection */}
           {editingField === "gender" ? (
@@ -253,8 +257,7 @@ const EditProfile = () => {
                 </Button>
                 <Button
                   onClick={handleCancel}
-                  variant="outline"
-                  className="border-white/20 text-white hover:bg-white/10 px-6"
+                  className="bg-red-600 hover:bg-red-700 text-white border-0 px-6"
                 >
                   <X className="w-4 h-4" />
                 </Button>
