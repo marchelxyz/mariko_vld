@@ -8,7 +8,7 @@ import {
 import { cities, type City } from "@/components/CitySelector";
 
 interface CityContextType {
-  selectedCity: City | null;
+  selectedCity: City;
   setSelectedCity: (city: City) => void;
 }
 
@@ -27,7 +27,8 @@ interface CityProviderProps {
 }
 
 export const CityProvider = ({ children }: CityProviderProps) => {
-  const [selectedCity, setSelectedCityState] = useState<City | null>(null);
+  // Инициализируем с первым городом по умолчанию, чтобы избежать null
+  const [selectedCity, setSelectedCityState] = useState<City>(cities[0]);
 
   // Загружаем сохраненный город из localStorage при инициализации
   useEffect(() => {
@@ -38,17 +39,14 @@ export const CityProvider = ({ children }: CityProviderProps) => {
         const city = cities.find((c) => c.id === cityData.id);
         if (city) {
           setSelectedCityState(city);
-        } else {
-          // Если сохраненный город не найден, выбираем Ниж��ий Новгород по умолчанию
-          setSelectedCityState(cities[0]);
         }
+        // Если город не найден, оставляем текущий (cities[0])
       } catch (error) {
         console.error("Ошибка при загрузке сохраненного города:", error);
-        setSelectedCityState(cities[0]); // Нижний Новгород по умолчанию
+        // Оставляем cities[0] как есть
       }
-    } else {
-      setSelectedCityState(cities[0]); // Нижний Новгород по умолчанию
     }
+    // Если нет сохраненного города, оставляем cities[0]
   }, []);
 
   const setSelectedCity = (city: City) => {
