@@ -11,31 +11,7 @@ import { useProfile } from "@/hooks/useProfile";
 const Profile = () => {
   const navigate = useNavigate();
   const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
-  const { profile, loading, error } = useProfile();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-mariko-primary flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-white animate-spin" />
-      </div>
-    );
-  }
-
-  if (error || !profile) {
-    return (
-      <div className="min-h-screen bg-mariko-primary flex items-center justify-center">
-        <div className="text-white text-center">
-          <p className="font-el-messiri text-xl">Ошибка загрузки профиля</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 bg-white text-mariko-primary px-6 py-2 rounded-full"
-          >
-            Попробовать снова
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const { profile, loading } = useProfile();
 
   return (
     <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col">
