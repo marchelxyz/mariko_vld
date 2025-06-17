@@ -8,7 +8,7 @@ const Delivery = () => {
   const { selectedCity } = useCityContext();
 
   // Используем первый ресторан из выбранного города
-  const selectedRestaurant = selectedCity?.restaurants[0];
+  const selectedRestaurant = selectedCity.restaurants[0];
 
   const getDeliveryOptions = () => {
     // В зависимости от ресторана предлагаем разные варианты доставки
@@ -28,8 +28,8 @@ const Delivery = () => {
 
     // Добавляем внешние сервисы в зависимости от города
     if (
-      selectedCity?.name.includes("Нижний Новгород") ||
-      selectedCity?.name.includes("Санкт-Петербург")
+      selectedCity.name.includes("Нижний Новгород") ||
+      selectedCity.name.includes("Санкт-Петербург")
     ) {
       baseOptions.push(
         {
@@ -90,7 +90,7 @@ const Delivery = () => {
           </div>
           <div className="flex items-center gap-2 text-white font-el-messiri text-2xl md:text-3xl font-semibold tracking-tight">
             <div>
-              {selectedCity?.name || "Нижний Новгород"}
+              {selectedCity.name}
               <br />
               {selectedRestaurant?.address || "Рождественская, 39"}
             </div>
