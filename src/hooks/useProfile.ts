@@ -13,8 +13,21 @@ export interface UserProfile {
   selectedRestaurant: string;
 }
 
+const defaultProfile: UserProfile = {
+  id: "default",
+  name: "Пользователь",
+  phone: "+7 (000) 000-00-00",
+  birthDate: "01.01.2000",
+  gender: "Не указан",
+  photo:
+    "https://cdn.builder.io/api/v1/image/assets/TEMP/f2cb5ca47004ec14f2e0c3003157a1a2b57e7d97?placeholderIfAbsent=true",
+  bonusPoints: 0,
+  notificationsEnabled: true,
+  selectedRestaurant: "Нижний Новгород, Рождественская, 39",
+};
+
 export const useProfile = () => {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profile, setProfile] = useState<UserProfile>(defaultProfile);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,18 +45,17 @@ export const useProfile = () => {
       const userId = telegramUser?.id?.toString() || "demo_user";
 
       const userProfile = await botApi.getUserProfile(userId);
-      setProfile(userProfile);
+      setProfile({ ...defaultProfile, ...userProfile });
     } catch (err) {
       setError("Не удалось загрузить профиль");
       console.error("Ошибка загрузки профиля:", err);
+      // В случае ошибки оставляем дефолтный профиль
     } finally {
       setLoading(false);
     }
   };
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
-    if (!profile) return false;
-
     try {
       const updatedProfile = { ...profile, ...updates };
 
