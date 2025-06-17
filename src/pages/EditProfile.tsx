@@ -194,7 +194,13 @@ const EditProfile = () => {
       );
     }
 
-    return <EditableField value={value} onEdit={() => handleEdit(key)} />;
+    return (
+      <EditableField
+        label={label}
+        value={value}
+        onEdit={() => handleEdit(key)}
+      />
+    );
   };
 
   return (
@@ -308,6 +314,7 @@ const EditProfile = () => {
             </div>
           ) : (
             <EditableField
+              label="Пол"
               value={profile.gender}
               onEdit={() => handleEdit("gender")}
             />
@@ -327,7 +334,7 @@ const EditProfile = () => {
               />
             </label>
             <p className="text-white/70 font-el-messiri text-sm mt-2">
-              Отклю��ает чат-рассылку от бота
+              Отключает чат-рассылку от бота
             </p>
           </div>
         </div>
