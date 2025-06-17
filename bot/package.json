@@ -1,0 +1,37 @@
+{
+  "name": "khachapuri-mariko-bot",
+  "version": "1.0.0",
+  "description": "Telegram Bot для сети ресторанов Хачапури Марико",
+  "main": "dist/bot.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/bot.js",
+    "dev": "tsx --watch src/bot.ts",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write src/**/*.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "grammy": "^1.21.1",
+    "express": "^4.18.2",
+    "@types/express": "^4.17.21"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "tsx": "^4.6.2",
+    "typescript": "^5.3.3",
+    "eslint": "^8.56.0",
+    "prettier": "^3.1.1"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "restaurant",
+    "food",
+    "khachapuri",
+    "mariko"
+  ],
+  "author": "Хачапури Марико",
+  "license": "MIT"
+} 
