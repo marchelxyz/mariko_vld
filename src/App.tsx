@@ -13,7 +13,6 @@ import Promotions from "./pages/Promotions";
 import Booking from "./pages/Booking";
 import Review from "./pages/Review";
 import Restaurants from "./pages/Restaurants";
-import AdminPanel from "./pages/AdminPanel";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,7 +38,6 @@ const App = () => (
               path="/restaurants/:restaurantId"
               element={<Restaurants />}
             />
-            <Route path="/admin" element={<AdminPanel />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
