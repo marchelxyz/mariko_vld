@@ -43,7 +43,7 @@ const Restaurants = () => {
 
   function getCityUrlSlug(cityName: string): string {
     const cityMap: { [key: string]: string } = {
-      "Нижний Новгоро��": "nizhnynovgorod",
+      "Нижний Новгород": "nizhnynovgorod",
       "Санкт-Петербург": "spb",
       Казань: "kazan",
       Кемерово: "kemerovo",
@@ -77,7 +77,7 @@ const Restaurants = () => {
           restaurant.city.toLowerCase().includes(searchQuery.toLowerCase()),
       );
 
-  // Автоматически устанавливаем горо�� при просмотре конкретного ресторана
+  // Автоматически устанавливаем город при просмотре конкретного ресторана
   useEffect(() => {
     if (restaurantId) {
       const restaurant = allRestaurants.find((r) => r.id === restaurantId);
@@ -85,7 +85,7 @@ const Restaurants = () => {
         const restaurantCity = cities.find((city) =>
           city.restaurants.some((r) => r.id === restaurant.id),
         );
-        if (restaurantCity && selectedCity?.id !== restaurantCity.id) {
+        if (restaurantCity && selectedCity.id !== restaurantCity.id) {
           setSelectedCity(restaurantCity);
         }
       }
