@@ -1,13 +1,11 @@
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { telegramWebApp } from "@/lib/botApi";
 
 interface ActionButtonProps {
   icon: ReactNode;
   title: string;
   onClick?: () => void;
   className?: string;
-  disabled?: boolean;
 }
 
 export const ActionButton = ({
@@ -15,21 +13,22 @@ export const ActionButton = ({
   title,
   onClick,
   className,
-  disabled = false,
 }: ActionButtonProps) => {
   const handleClick = () => {
-    if (!disabled && onClick) {
-      telegramWebApp.hapticFeedback('selection');
-      onClick();
+    try {
+      if (onClick) {
+        onClick();
+      }
+    } catch (error) {
+      console.error("Ошибка в ActionButton onClick:", error);
     }
   };
 
   return (
     <button
       onClick={handleClick}
-      disabled={disabled}
       className={cn(
-        "w-full bg-mariko-secondary rounded-[45px] md:rounded-[90px] flex items-center text-white font-el-messiri text-lg md:text-3xl font-bold tracking-tight transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
+        "w-full bg-mariko-secondary rounded-[45px] md:rounded-[90px] flex items-center text-white font-el-messiri text-lg md:text-3xl font-bold tracking-tight transition-transform hover:scale-105 active:scale-95",
         className,
       )}
     >
