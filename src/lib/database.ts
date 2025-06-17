@@ -172,19 +172,44 @@ class ProfileDatabase {
         userId,
         action,
         timestamp: new Date().toISOString(),
-        data,
+        data: data
+          ? typeof data === "string"
+            ? data
+            : JSON.stringify(data).slice(0, 200)
+          : undefined, // Ограничиваем размер данных
       };
 
       activities.push(newActivity);
 
-      // Храним только последние 1000 записей
-      if (activities.length > 1000) {
-        activities.splice(0, activities.length - 1000);
+      // Храним только последние 200 записей для экономии места
+      if (activities.length > 200) {
+        activities.splice(0, activities.length - 200);
       }
 
-      localStorage.setItem(this.activityKey, JSON.stringify(activities));
+      const activityString = JSON.stringify(activities);
+
+      // Проверяем размер активности
+      if (activityString.length > 1 * 1024 * 1024) {
+        // 1MB лимит для активности
+        console.warn("Активность слишком большая, очищаем старые записи");
+        const recentActivities = activities.slice(-100); // Оставляем только последние 100
+        localStorage.setItem(
+          this.activityKey,
+          JSON.stringify(recentActivities),
+        );
+      } else {
+        localStorage.setItem(this.activityKey, activityString);
+      }
     } catch (error) {
       console.error("Ошибка записи активности:", error);
+
+      // Fallback: очищаем активность если не получается записать
+      try {
+        localStorage.removeItem(this.activityKey);
+        console.log("Очищена история активности из-за переполнения");
+      } catch (e) {
+        console.error("Не удалось очистить активность");
+      }
     }
   }
 
@@ -227,9 +252,67 @@ class ProfileDatabase {
   // Приватные методы
   private saveProfiles(profiles: UserProfile[]): void {
     try {
-      localStorage.setItem(this.storageKey, JSON.stringify(profiles));
+      const dataString = JSON.stringify(profiles);
+
+      // Проверяем размер данных (примерно)
+      if (dataString.length > 4.5 * 1024 * 1024) {
+        // 4.5MB лимит
+        console.warn("Данные профилей слишком большие, очищаем старые записи");
+
+        // Сортируем по дате последнего входа и оставляем только 100 последних
+        const sortedProfiles = profiles
+          .sort(
+            (a, b) =>
+              new Date(b.lastLogin).getTime() - new Date(a.lastLogin).getTime(),
+          )
+          .slice(0, 100);
+
+        localStorage.setItem(this.storageKey, JSON.stringify(sortedProfiles));
+      } else {
+        localStorage.setItem(this.storageKey, dataString);
+      }
     } catch (error) {
       console.error("Ошибка сохранения профилей:", error);
+
+      // Fallback: попробуем сохранить только самые важные данные
+      try {
+        const essentialProfiles = profiles
+          .sort(
+            (a, b) =>
+              new Date(b.lastLogin).getTime() - new Date(a.lastLogin).getTime(),
+          )
+          .slice(0, 50)
+          .map((profile) => ({
+            id: profile.id,
+            telegramId: profile.telegramId,
+            name: profile.name,
+            phone: profile.phone,
+            birthDate: profile.birthDate,
+            gender: profile.gender,
+            photo: profile.photo.includes("TEMP") ? "" : profile.photo, // Убираем большие изображения
+            bonusPoints: profile.bonusPoints,
+            notificationsEnabled: profile.notificationsEnabled,
+            selectedRestaurant: profile.selectedRestaurant,
+            createdAt: profile.createdAt,
+            updatedAt: profile.updatedAt,
+            lastLogin: profile.lastLogin,
+          }));
+
+        localStorage.setItem(
+          this.storageKey,
+          JSON.stringify(essentialProfiles),
+        );
+        console.log("Сохранены только ключевые данные профилей");
+      } catch (fallbackError) {
+        console.error("Критическая ошибка сохранения:", fallbackError);
+        // Очищаем localStorage если совсем не получается
+        try {
+          localStorage.removeItem(this.storageKey);
+          localStorage.removeItem(this.activityKey);
+        } catch (e) {
+          console.error("Не удалось очистить localStorage");
+        }
+      }
     }
   }
 
@@ -245,6 +328,81 @@ class ProfileDatabase {
 
   private generateId(): string {
     return `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  // Проверка размера localStorage
+  getStorageInfo() {
+    try {
+      const profiles = localStorage.getItem(this.storageKey) || "[]";
+      const activities = localStorage.getItem(this.activityKey) || "[]";
+
+      return {
+        profilesSize: this.formatBytes(profiles.length),
+        activitiesSize: this.formatBytes(activities.length),
+        totalSize: this.formatBytes(profiles.length + activities.length),
+        profilesCount: JSON.parse(profiles).length,
+        activitiesCount: JSON.parse(activities).length,
+      };
+    } catch (error) {
+      return {
+        profilesSize: "Ошибка",
+        activitiesSize: "Ошибка",
+        totalSize: "Ошибка",
+        profilesCount: 0,
+        activitiesCount: 0,
+      };
+    }
+  }
+
+  private formatBytes(bytes: number): string {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  }
+
+  // Очистка старых данных
+  cleanupOldData(): void {
+    try {
+      const profiles = this.getAllProfiles();
+      const now = new Date();
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      // Удаляем профили старше месяца без активности
+      const activeProfiles = profiles.filter(
+        (profile) => new Date(profile.lastLogin) > monthAgo,
+      );
+
+      if (activeProfiles.length < profiles.length) {
+        console.log(
+          `Удалено ${profiles.length - activeProfiles.length} неактивных профилей`,
+        );
+        this.saveProfiles(activeProfiles);
+      }
+
+      // Очищаем старую активность
+      const activities = this.getAllActivities();
+      const recentActivities = activities.filter(
+        (activity) => new Date(activity.timestamp) > monthAgo,
+      );
+
+      if (recentActivities.length < activities.length) {
+        console.log(
+          `Удалено ${activities.length - recentActivities.length} старых записей активности`,
+        );
+        try {
+          localStorage.setItem(
+            this.activityKey,
+            JSON.stringify(recentActivities),
+          );
+        } catch (error) {
+          console.error("Ошибка очистки активности:", error);
+        }
+      }
+    } catch (error) {
+      console.error("Ошибка очистки данных:", error);
+    }
   }
 }
 
