@@ -53,13 +53,14 @@ class ProfileDatabase {
 
   // Получить все профили (для админ панели)
   getAllProfiles(): UserProfile[] {
-    try {
-      const data = localStorage.getItem(this.storageKey);
-      return data ? JSON.parse(data) : [];
-    } catch (error) {
-      console.error("Ошибка чтения базы профилей:", error);
-      return [];
-    }
+    return this.safeLocalStorageOperation(
+      () => {
+        const data = localStorage.getItem(this.storageKey);
+        return data ? JSON.parse(data) : [];
+      },
+      [],
+      "чтения базы профилей",
+    );
   }
 
   // Получить профиль по ID
@@ -339,12 +340,66 @@ class ProfileDatabase {
   }
 
   private getAllActivities(): UserActivity[] {
+    return this.safeLocalStorageOperation(
+      () => {
+        const data = localStorage.getItem(this.activityKey);
+        return data ? JSON.parse(data) : [];
+      },
+      [],
+      "чтения активности",
+    );
+  }
+
+  // Безопасная обертка для операций с localStorage
+  private safeLocalStorageOperation<T>(
+    operation: () => T,
+    fallbackValue: T,
+    operationName: string,
+  ): T {
     try {
-      const data = localStorage.getItem(this.activityKey);
-      return data ? JSON.parse(data) : [];
+      return operation();
     } catch (error) {
-      console.error("Ошибка чтения активности:", error);
-      return [];
+      console.error(`Ошибка ${operationName}:`, error);
+
+      // Если это ошибка переполнения, пытаемся очистить место
+      if (error instanceof Error && error.name === "QuotaExceededError") {
+        console.warn("localStorage переполнен, выполняем экстренную очистку");
+        this.emergencyCleanup();
+      }
+
+      return fallbackValue;
+    }
+  }
+
+  // Экстренная очистка при переполнении
+  private emergencyCleanup(): void {
+    try {
+      // Очищаем активность полностью
+      localStorage.removeItem(this.activityKey);
+
+      // Оставляем только 20 самых свежих профилей
+      const profiles = this.getAllProfiles();
+      const recentProfiles = profiles
+        .sort(
+          (a, b) =>
+            new Date(b.lastLogin).getTime() - new Date(a.lastLogin).getTime(),
+        )
+        .slice(0, 20)
+        .map((profile) => ({
+          ...profile,
+          photo: profile.photo.includes("TEMP") ? "" : profile.photo, // Убираем тяжелые изображения
+        }));
+
+      localStorage.setItem(this.storageKey, JSON.stringify(recentProfiles));
+      console.log("Экстренная очистка завершена");
+    } catch (error) {
+      console.error("Ошибка экстренной очистки:", error);
+      // В крайнем случае очищаем все
+      try {
+        localStorage.clear();
+      } catch (e) {
+        console.error("Не удалось очистить localStorage");
+      }
     }
   }
 
