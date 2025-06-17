@@ -29,6 +29,28 @@ class ProfileDatabase {
   private storageKey = "mariko_profiles_db";
   private activityKey = "mariko_activity_db";
 
+  constructor() {
+    // Автоматическая очистка при создании экземпляра
+    this.initCleanup();
+  }
+
+  private initCleanup(): void {
+    try {
+      // Проверяем, когда последний раз была очистка
+      const lastCleanup = localStorage.getItem("mariko_last_cleanup");
+      const now = Date.now();
+      const dayAgo = now - 24 * 60 * 60 * 1000; // 24 часа
+
+      if (!lastCleanup || parseInt(lastCleanup) < dayAgo) {
+        console.log("Выполняем автоматическую очистку базы данных...");
+        this.cleanupOldData();
+        localStorage.setItem("mariko_last_cleanup", now.toString());
+      }
+    } catch (error) {
+      console.error("Ошибка инициализации очистки:", error);
+    }
+  }
+
   // Получить все профили (для админ панели)
   getAllProfiles(): UserProfile[] {
     try {
