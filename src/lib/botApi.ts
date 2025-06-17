@@ -1,6 +1,8 @@
 // Telegram Bot API интеграция
 // Эти функции будут интегрированы с бэкендом бота
 
+import { profileDB, type UserProfile as DBUserProfile } from "./database";
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -42,21 +44,65 @@ export interface ReviewAnalysisResult {
 export const botApi = {
   // Получение профиля пользователя
   async getUserProfile(telegramUserId: string): Promise<UserProfile> {
-    // В реальной интеграции будет запрос к API бота
-    const mockProfile: UserProfile = {
-      id: telegramUserId,
-      name: "Валентина",
-      phone: "+7 (930) 805-22-22",
-      birthDate: "24.05.2023",
-      gender: "Женский",
-      photo:
-        "https://cdn.builder.io/api/v1/image/assets/TEMP/f2cb5ca47004ec14f2e0c3003157a1a2b57e7d97?placeholderIfAbsent=true",
-      bonusPoints: 1987,
-      notificationsEnabled: true,
-      selectedRestaurant: "Нижний Новгород, Рождественская, 39",
-    };
+    try {
+      // Пытаемся найти профиль по Telegram ID
+      const telegramId = parseInt(telegramUserId);
+      let profile = isNaN(telegramId)
+        ? profileDB.getProfile(telegramUserId)
+        : profileDB.getProfileByTelegramId(telegramId);
 
-    return mockProfile;
+      // Если профиля нет, создаем новый
+      if (!profile) {
+        const telegramUser = telegramWebApp.getUserData();
+
+        profile = profileDB.createProfile({
+          id: telegramUserId,
+          telegramId: telegramId || undefined,
+          name: telegramUser?.first_name
+            ? `${telegramUser.first_name} ${telegramUser.last_name || ""}`.trim()
+            : "Новый пользователь",
+          phone: "",
+          birthDate: "",
+          gender: "Не указан",
+          bonusPoints: 100, // Бонус за регистрацию
+        });
+
+        // Логируем первый вход
+        profileDB.logActivity(profile.id, "first_login", { telegramUser });
+      } else {
+        // Обновляем время последнего входа
+        profileDB.updateLastLogin(profile.id);
+      }
+
+      // Конвертируем в нужный формат
+      return {
+        id: profile.id,
+        name: profile.name,
+        phone: profile.phone,
+        birthDate: profile.birthDate,
+        gender: profile.gender,
+        photo: profile.photo,
+        bonusPoints: profile.bonusPoints,
+        notificationsEnabled: profile.notificationsEnabled,
+        selectedRestaurant: profile.selectedRestaurant,
+      };
+    } catch (error) {
+      console.error("Ошибка получения профиля:", error);
+
+      // Fallback профиль
+      return {
+        id: telegramUserId,
+        name: "Пользователь",
+        phone: "",
+        birthDate: "",
+        gender: "Не указан",
+        photo:
+          "https://cdn.builder.io/api/v1/image/assets/TEMP/f2cb5ca47004ec14f2e0c3003157a1a2b57e7d97?placeholderIfAbsent=true",
+        bonusPoints: 0,
+        notificationsEnabled: true,
+        selectedRestaurant: "Нижний Новгород, Рождественская, 39",
+      };
+    }
   },
 
   // Обновление профиля пользователя
@@ -64,9 +110,25 @@ export const botApi = {
     telegramUserId: string,
     profile: Partial<UserProfile>,
   ): Promise<boolean> {
-    console.log("Обновление профиля:", { telegramUserId, profile });
-    // В реальной интеграции будет POST запрос к API
-    return true;
+    try {
+      console.log("Обновление профиля:", { telegramUserId, profile });
+
+      const updatedProfile = profileDB.updateProfile(telegramUserId, profile);
+
+      if (updatedProfile) {
+        // Логируем изменения
+        profileDB.logActivity(telegramUserId, "profile_updated", {
+          changes: profile,
+        });
+
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Ошибка обновления профиля:", error);
+      return false;
+    }
   },
 
   // Отправка бронирования
