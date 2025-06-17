@@ -90,7 +90,7 @@ const Profile = () => {
         <div className="mt-4 md:mt-8 space-y-3 md:space-y-6">
           <ActionButton
             icon={<RubleIcon className="w-full h-full text-white" />}
-            title={`Баланс: ${profile.bonusPoints}`}
+            title={`Баланс: ${profile.bonusPoints || 0}`}
             onClick={() => console.log("Баланс")}
           />
 
@@ -128,7 +128,7 @@ const Profile = () => {
         isOpen={isBarcodeModalOpen}
         onClose={() => setIsBarcodeModalOpen(false)}
         cardNumber="640509 040147"
-        bonusPoints={profile.bonusPoints}
+        bonusPoints={profile.bonusPoints || 0}
       />
     </div>
   );
