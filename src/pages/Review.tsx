@@ -3,24 +3,16 @@ import { ArrowLeft, Star, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { BottomNavigation } from "@/components/BottomNavigation";
-import { botApi, telegramWebApp } from "@/lib/botApi";
+import { useCityContext } from "@/contexts/CityContext";
 
 const Review = () => {
   const navigate = useNavigate();
+  const { selectedCity } = useCityContext();
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showExternalReviews, setShowExternalReviews] = useState(false);
   const [errors, setErrors] = useState<{[key: string]: string}>({});
-
-  useEffect(() => {
-    // Показываем кнопку "Назад"
-    telegramWebApp.showBackButton(() => navigate("/"));
-
-    return () => {
-      telegramWebApp.hideBackButton();
-    };
-  }, [navigate]);
 
   const validateForm = () => {
     const newErrors: {[key: string]: string} = {};
@@ -45,67 +37,48 @@ const Review = () => {
     e.preventDefault();
     
     if (!validateForm()) {
-      telegramWebApp.hapticFeedback('notification');
       return;
     }
 
     setIsSubmitted(true);
-    telegramWebApp.hapticFeedback('impact');
 
     try {
-      // Получаем данные пользователя
-      const telegramUser = telegramWebApp.getUserData();
-      let userName = "Гость";
-      let userPhone = "";
-      let selectedRestaurant = "Нижний Новгород, Рождественская, 39";
+      // Имитация отправки отзыва
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-      if (telegramUser) {
-        const profile = await botApi.getUserProfile(telegramUser.id.toString());
-        userName = profile.name;
-        userPhone = profile.phone;
-        selectedRestaurant = profile.selectedRestaurant;
+      // Простая логика анализа
+      const isPositive = rating >= 4 && !containsNegativeWords(reviewText);
+
+      if (isPositive) {
+        setShowExternalReviews(true);
+      } else {
+        alert("Спасибо за ваш отзыв! Мы обязательно учтем ваши замечания и постараемся улучшить качество обслуживания.");
+        navigate("/");
       }
-
-      // Отправляем отзыв на анализ
-      const analysisResult = await botApi.submitReview({
-        rating,
-        text: reviewText,
-        restaurant: selectedRestaurant,
-        userPhone,
-        userName,
-      });
-
-      // Обрабатываем результат анализа
-      setTimeout(() => {
-        if (analysisResult.isPositive) {
-          setShowExternalReviews(true);
-          telegramWebApp.hapticFeedback('notification');
-        } else {
-          // Уведомление уже отправлено ответственному лицу через botApi
-          telegramWebApp.showAlert(
-            "Спасибо за ваш отзыв! Мы обязательно учтем ваши замечания и постараемся улучшить качество обслуживания."
-          );
-          navigate("/");
-        }
-      }, 2000);
     } catch (error) {
       console.error("Ошибка отправки отзыва:", error);
-      telegramWebApp.showAlert(
-        error instanceof Error ? error.message : "Ошибка при отправке отзыва. Попробуйте еще раз."
-      );
+      alert("Ошибка при отправке отзыва. Попробуйте еще раз.");
       setIsSubmitted(false);
     }
   };
 
+  const containsNegativeWords = (text: string) => {
+    const negativeWords = [
+      "плохо", "ужас", "отвратительно", "кошмар", 
+      "никому не советую", "отвратительный", "плохой"
+    ];
+    return negativeWords.some(word => 
+      text.toLowerCase().includes(word)
+    );
+  };
+
   const handleExternalReview = (platform: string) => {
-    const restaurant = "Нижний Новгород, Рождественская, 39"; // Из профиля
-
+    const restaurant = selectedCity.restaurants[0];
+    
     const urls = {
-      yandex: "https://yandex.ru/maps/org/khachapuri_mariko/", // Реальные ссылки по ресторанам
-      gis: "https://2gis.ru/nizhnynovgorod/firm/", // Реальные ссылки по ресторанам
+      yandex: "https://yandex.ru/maps/org/khachapuri_mariko/",
+      gis: "https://2gis.ru/nizhnynovgorod/firm/",
     };
-
-    telegramWebApp.hapticFeedback('selection');
 
     if (platform === "yandex") {
       window.open(urls.yandex, "_blank");
@@ -162,6 +135,17 @@ const Review = () => {
 
       {/* Main Content */}
       <div className="flex-1 px-4 md:px-6 max-w-4xl mx-auto w-full">
+        {/* Logo */}
+        <div className="mt-8 md:mt-12">
+          <div className="flex justify-center">
+            <img
+              src="https://cdn.builder.io/api/v1/image/assets/TEMP/d6ab6bf572f38ad828c6837dda516225e8876446?placeholderIfAbsent=true"
+              alt="Хачапури логотип"
+              className="w-full h-auto max-w-md"
+            />
+          </div>
+        </div>
+
         {/* Back Button and Title */}
         <div className="mt-8 flex items-center gap-4 mb-8">
           <button
@@ -189,7 +173,6 @@ const Review = () => {
                     type="button"
                     onClick={() => {
                       setRating(star);
-                      telegramWebApp.hapticFeedback('selection');
                       // Очищаем ошибку при выборе рейтинга
                       if (errors.rating) {
                         setErrors(prev => ({ ...prev, rating: "" }));

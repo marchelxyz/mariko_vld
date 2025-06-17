@@ -5,7 +5,7 @@ import { ActionButton } from "@/components/ActionButton";
 import { MenuCard } from "@/components/MenuCard";
 import { RestaurantCard } from "@/components/RestaurantCard";
 import { BottomNavigation } from "@/components/BottomNavigation";
-import { CitySelector } from "@/components/CitySelector";
+import { CitySelectorSimple } from "@/components/CitySelectorSimple";
 import { useCityContext } from "@/contexts/CityContext";
 
 const Index = () => {
@@ -28,7 +28,7 @@ const Index = () => {
               className="w-full h-auto max-w-32 md:max-w-md"
             />
           </div>
-          <CitySelector
+          <CitySelectorSimple
             selectedCity={selectedCity}
             onCityChange={setSelectedCity}
           />
