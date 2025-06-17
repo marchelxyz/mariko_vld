@@ -11,10 +11,46 @@ const Review = () => {
   const [reviewText, setReviewText] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showExternalReviews, setShowExternalReviews] = useState(false);
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
+
+  useEffect(() => {
+    // Показываем кнопку "Назад"
+    telegramWebApp.showBackButton(() => navigate("/"));
+
+    return () => {
+      telegramWebApp.hideBackButton();
+    };
+  }, [navigate]);
+
+  const validateForm = () => {
+    const newErrors: {[key: string]: string} = {};
+
+    if (rating === 0) {
+      newErrors.rating = "Поставьте оценку";
+    }
+
+    if (!reviewText.trim()) {
+      newErrors.reviewText = "Напишите отзыв";
+    } else if (reviewText.trim().length < 10) {
+      newErrors.reviewText = "Отзыв должен содержать минимум 10 символов";
+    } else if (reviewText.length > 500) {
+      newErrors.reviewText = "Отзыв не должен превышать 500 символов";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      telegramWebApp.hapticFeedback('notification');
+      return;
+    }
+
     setIsSubmitted(true);
+    telegramWebApp.hapticFeedback('impact');
 
     try {
       // Получаем данные пользователя
@@ -43,17 +79,20 @@ const Review = () => {
       setTimeout(() => {
         if (analysisResult.isPositive) {
           setShowExternalReviews(true);
+          telegramWebApp.hapticFeedback('notification');
         } else {
           // Уведомление уже отправлено ответственному лицу через botApi
-          alert(
-            "Спасибо за ваш отзыв! Мы обязательно учтем ваши замечания и постараемся улучшить качество обслуживания.",
+          telegramWebApp.showAlert(
+            "Спасибо за ваш отзыв! Мы обязательно учтем ваши замечания и постараемся улучшить качество обслуживания."
           );
           navigate("/");
         }
       }, 2000);
     } catch (error) {
       console.error("Ошибка отправки отзыва:", error);
-      alert("Ошибка при отправке отзыва. Попробуйте еще раз.");
+      telegramWebApp.showAlert(
+        error instanceof Error ? error.message : "Ошибка при отправке отзыва. Попробуйте еще раз."
+      );
       setIsSubmitted(false);
     }
   };
@@ -65,6 +104,8 @@ const Review = () => {
       yandex: "https://yandex.ru/maps/org/khachapuri_mariko/", // Реальные ссылки по ресторанам
       gis: "https://2gis.ru/nizhnynovgorod/firm/", // Реальные ссылки по ресторанам
     };
+
+    telegramWebApp.hapticFeedback('selection');
 
     if (platform === "yandex") {
       window.open(urls.yandex, "_blank");
@@ -139,14 +180,21 @@ const Review = () => {
             {/* Rating */}
             <div className="bg-mariko-secondary rounded-[90px] px-6 py-6">
               <label className="block text-white font-el-messiri text-lg font-semibold mb-4">
-                Оцените наш ресторан
+                Оцените наш ресторан *
               </label>
               <div className="flex justify-center gap-2">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
                     key={star}
                     type="button"
-                    onClick={() => setRating(star)}
+                    onClick={() => {
+                      setRating(star);
+                      telegramWebApp.hapticFeedback('selection');
+                      // Очищаем ошибку при выборе рейтинга
+                      if (errors.rating) {
+                        setErrors(prev => ({ ...prev, rating: "" }));
+                      }
+                    }}
                     className="p-1 transition-transform hover:scale-110"
                   >
                     <Star
@@ -170,27 +218,47 @@ const Review = () => {
                   </>
                 )}
               </p>
+              {errors.rating && (
+                <p className="text-red-300 text-sm mt-1 text-center">{errors.rating}</p>
+              )}
             </div>
 
             {/* Review Text */}
             <div className="bg-mariko-secondary rounded-[90px] px-6 py-4">
               <label className="flex items-center gap-2 text-white font-el-messiri text-lg font-semibold mb-2">
                 <MessageCircle className="w-5 h-5" />
-                Ваш отзыв
+                Ваш отзыв *
               </label>
               <textarea
                 value={reviewText}
-                onChange={(e) => setReviewText(e.target.value)}
+                onChange={(e) => {
+                  setReviewText(e.target.value);
+                  // Очищаем ошибку при вводе текста
+                  if (errors.reviewText && e.target.value.trim().length >= 10) {
+                    setErrors(prev => ({ ...prev, reviewText: "" }));
+                  }
+                }}
                 placeholder="Расскажите о вашем впечатлении..."
                 className="w-full bg-transparent text-white placeholder-white/60 border-none outline-none font-el-messiri text-xl resize-none h-32"
+                maxLength={500}
                 required
               />
+              <div className="flex justify-between items-center mt-2">
+                {errors.reviewText && (
+                  <p className="text-red-300 text-sm">{errors.reviewText}</p>
+                )}
+                <p className={`text-sm ml-auto ${
+                  reviewText.length > 450 ? 'text-red-300' : 'text-white/60'
+                }`}>
+                  {reviewText.length}/500
+                </p>
+              </div>
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={rating === 0}
+              disabled={rating === 0 || !reviewText.trim() || reviewText.length > 500}
               className="w-full bg-mariko-primary border-2 border-white rounded-[90px] px-8 py-4 text-white font-el-messiri text-2xl font-bold tracking-tight hover:bg-white hover:text-mariko-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Отправить отзыв

@@ -7,10 +7,17 @@ import { RestaurantCard } from "@/components/RestaurantCard";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { CitySelector } from "@/components/CitySelector";
 import { useCityContext } from "@/contexts/CityContext";
+import { telegramWebApp } from "@/lib/botApi";
+import { useEffect } from "react";
 
 const Index = () => {
   const navigate = useNavigate();
   const { selectedCity, setSelectedCity } = useCityContext();
+
+  useEffect(() => {
+    // Скрываем кнопку "Назад" на главной странице
+    telegramWebApp.hideBackButton();
+  }, []);
 
   return (
     <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col">
@@ -60,16 +67,18 @@ const Index = () => {
           <MenuCard
             title="Меню"
             imageUrl="https://cdn.builder.io/api/v1/image/assets/TEMP/690e0689acfa56ebed78a2279312c0ee027ff6c5?placeholderIfAbsent=true"
-            onClick={() =>
-              window.open("https://telegra.ph/Menu-Mariko-01-01", "_blank")
-            }
+            onClick={() => {
+              telegramWebApp.hapticFeedback('selection');
+              window.open("https://telegra.ph/Menu-Mariko-01-01", "_blank");
+            }}
           />
           <MenuCard
             title="Бар"
             imageUrl="https://cdn.builder.io/api/v1/image/assets/TEMP/247118815d27a2329c9ce91c5e93971be8886dc6?placeholderIfAbsent=true"
-            onClick={() =>
-              window.open("https://telegra.ph/Bar-Menu-Mariko-01-01", "_blank")
-            }
+            onClick={() => {
+              telegramWebApp.hapticFeedback('selection');
+              window.open("https://telegra.ph/Bar-Menu-Mariko-01-01", "_blank");
+            }}
           />
         </div>
 
@@ -78,19 +87,21 @@ const Index = () => {
           <MenuCard
             title="Вакансии"
             imageUrl="https://cdn.builder.io/api/v1/image/assets/TEMP/5b52e54d8beda399ec6db08edd02c2b55ecea62d?placeholderIfAbsent=true"
-            onClick={() =>
+            onClick={() => {
+              telegramWebApp.hapticFeedback('selection');
               window.open(
                 "https://hh.ru/search/vacancy?text=хачапури+марико",
                 "_blank",
-              )
-            }
+              );
+            }}
           />
           <MenuCard
             title="Шеф-меню"
             imageUrl="https://cdn.builder.io/api/v1/image/assets/TEMP/9b4dbdbaca264a434e1abb1d7ae5eaf61942142e?placeholderIfAbsent=true"
-            onClick={() =>
-              window.open("https://telegra.ph/Chef-Menu-Mariko-01-01", "_blank")
-            }
+            onClick={() => {
+              telegramWebApp.hapticFeedback('selection');
+              window.open("https://telegra.ph/Chef-Menu-Mariko-01-01", "_blank");
+            }}
           />
         </div>
 
@@ -103,7 +114,10 @@ const Index = () => {
           <MenuCard
             title="Сайт"
             imageUrl="https://cdn.builder.io/api/v1/image/assets/TEMP/690e0689acfa56ebed78a2279312c0ee027ff6c5?placeholderIfAbsent=true"
-            onClick={() => window.open("https://vhachapuri.ru/", "_blank")}
+            onClick={() => {
+              telegramWebApp.hapticFeedback('selection');
+              window.open("https://vhachapuri.ru/", "_blank");
+            }}
           />
         </div>
       </div>
@@ -161,14 +175,17 @@ const Index = () => {
             <h2 className="text-white font-el-messiri text-4xl md:text-5xl font-bold tracking-tight">
               Рестораны
             </h2>
-            <button className="bg-mariko-primary rounded-full p-3 md:p-4 hover:scale-105 transition-transform">
+            <button 
+              onClick={() => navigate("/restaurants")}
+              className="bg-mariko-primary rounded-full p-3 md:p-4 hover:scale-105 transition-transform"
+            >
               <Search className="w-8 h-8 md:w-10 md:h-10 text-white" />
             </button>
           </div>
 
           {/* Restaurant List */}
           <div className="space-y-6 md:space-y-8">
-            {selectedCity?.restaurants.map((restaurant) => (
+            {selectedCity?.restaurants.slice(0, 3).map((restaurant) => (
               <RestaurantCard
                 key={restaurant.id}
                 city={restaurant.city}
@@ -176,6 +193,14 @@ const Index = () => {
                 onClick={() => navigate(`/restaurants/${restaurant.id}`)}
               />
             ))}
+            {selectedCity && selectedCity.restaurants.length > 3 && (
+              <button
+                onClick={() => navigate("/restaurants")}
+                className="w-full bg-mariko-primary rounded-[90px] px-6 py-4 text-white font-el-messiri text-xl font-bold hover:scale-105 transition-transform"
+              >
+                Показать все рестораны ({selectedCity.restaurants.length})
+              </button>
+            )}
           </div>
         </div>
       </footer>
