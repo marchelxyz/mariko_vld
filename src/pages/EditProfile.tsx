@@ -127,6 +127,34 @@ const EditProfile = () => {
     });
   };
 
+  const formatDateInput = (value: string) => {
+    // Убираем все символы кроме цифр
+    const numbers = value.replace(/\D/g, "");
+
+    // Добавляем точки в нужных местах
+    if (numbers.length <= 2) {
+      return numbers;
+    } else if (numbers.length <= 4) {
+      return `${numbers.slice(0, 2)}.${numbers.slice(2)}`;
+    } else {
+      return `${numbers.slice(0, 2)}.${numbers.slice(2, 4)}.${numbers.slice(4, 8)}`;
+    }
+  };
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    fieldKey: string,
+  ) => {
+    let value = e.target.value;
+
+    // Форматируем дату рождения
+    if (fieldKey === "birthDate") {
+      value = formatDateInput(value);
+    }
+
+    setEditValue(value);
+  };
+
   const renderField = (
     key: string,
     label: string,
@@ -143,8 +171,10 @@ const EditProfile = () => {
             <Input
               type={type}
               value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
+              onChange={(e) => handleInputChange(e, key)}
               className="flex-1 bg-white/10 border-white/20 text-white placeholder-white/60 font-el-messiri text-lg"
+              placeholder={key === "birthDate" ? "дд.мм.гггг" : ""}
+              maxLength={key === "birthDate" ? 10 : undefined}
               autoFocus
             />
             <Button
@@ -288,7 +318,7 @@ const EditProfile = () => {
           {/* Notification Settings */}
           <div className="bg-mariko-secondary/80 backdrop-blur-sm rounded-[90px] px-6 md:px-8 py-4 md:py-6">
             <label className="flex items-center justify-between text-white font-el-messiri text-xl md:text-2xl font-semibold tracking-tight">
-              <span>От��лючить уведомления</span>
+              <span>Отключить уведомления</span>
               <input
                 type="checkbox"
                 checked={!profile.notificationsEnabled}
@@ -297,7 +327,7 @@ const EditProfile = () => {
               />
             </label>
             <p className="text-white/70 font-el-messiri text-sm mt-2">
-              Отключает чат-рассылку от бота
+              Отклю��ает чат-рассылку от бота
             </p>
           </div>
         </div>
