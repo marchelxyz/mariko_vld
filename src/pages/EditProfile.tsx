@@ -1,12 +1,164 @@
-import { MapPin } from "lucide-react";
+import { useState, useRef } from "react";
+import { MapPin, Camera, X } from "lucide-react";
 import { Header } from "@/components/Header";
 import { EditableField } from "@/components/EditableField";
 import { BottomNavigation } from "@/components/BottomNavigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { botApi } from "@/lib/botApi";
+
+interface ProfileData {
+  name: string;
+  birthDate: string;
+  gender: string;
+  phone: string;
+  photo: string;
+  notificationsEnabled: boolean;
+}
 
 const EditProfile = () => {
-  const handleEdit = (field: string) => {
-    console.log(`Редактировать ${field}`);
-    // Здесь будет логика редактирования
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [profileData, setProfileData] = useState<ProfileData>({
+    name: "Аннуфриева Валентина Федоровна",
+    birthDate: "24.05.2023",
+    gender: "Женский",
+    phone: "+7 (930) 805-22-22",
+    photo:
+      "https://cdn.builder.io/api/v1/image/assets/TEMP/f2cb5ca47004ec14f2e0c3003157a1a2b57e7d97?placeholderIfAbsent=true",
+    notificationsEnabled: false,
+  });
+
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  const handleEdit = (field: keyof ProfileData) => {
+    setEditingField(field);
+    setEditValue(profileData[field].toString());
+  };
+
+  const handleSave = async () => {
+    if (!editingField) return;
+
+    try {
+      const updatedData = {
+        ...profileData,
+        [editingField]: editValue,
+      };
+
+      setProfileData(updatedData);
+
+      // Сохраняем в API
+      await botApi.updateUserProfile("user_id", updatedData);
+
+      toast({
+        title: "Профиль обновлен",
+        description: "Изменения успешно сохранены",
+      });
+
+      setEditingField(null);
+      setEditValue("");
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось сохранить изменения",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCancel = () => {
+    setEditingField(null);
+    setEditValue("");
+  };
+
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Проверяем тип файла
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Ошибка",
+        description: "Пожалуйста, выберите изображение",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Проверяем размер файла (макс 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Ошибка",
+        description: "Размер файла не должен превышать 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Создаем URL для превью
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setProfileData((prev) => ({ ...prev, photo: result }));
+
+      toast({
+        title: "Фото обновлено",
+        description: "Новое фото профиля установлено",
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleNotificationToggle = (checked: boolean) => {
+    setProfileData((prev) => ({
+      ...prev,
+      notificationsEnabled: !checked,
+    }));
+  };
+
+  const renderField = (
+    key: keyof ProfileData,
+    label: string,
+    value: string,
+    type: string = "text",
+  ) => {
+    if (editingField === key) {
+      return (
+        <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-4 md:py-6">
+          <Label className="text-white font-el-messiri text-lg font-semibold mb-3 block">
+            {label}
+          </Label>
+          <div className="flex gap-3">
+            <Input
+              type={type}
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              className="flex-1 bg-white/10 border-white/20 text-white placeholder-white/60 font-el-messiri text-lg"
+              autoFocus
+            />
+            <Button
+              onClick={handleSave}
+              className="bg-green-600 hover:bg-green-700 text-white px-6"
+            >
+              ✓
+            </Button>
+            <Button
+              onClick={handleCancel}
+              variant="outline"
+              className="border-white/20 text-white hover:bg-white/10 px-6"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return <EditableField value={value} onEdit={() => handleEdit(key)} />;
   };
 
   return (
@@ -35,42 +187,98 @@ const EditProfile = () => {
           </div>
         </div>
 
-        {/* Profile Header */}
+        {/* Profile Header with Photo Upload */}
         <div className="mt-8 md:mt-12">
           <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6">
-            <div className="w-20 h-20 md:w-28 md:h-28 rounded-full overflow-hidden flex-shrink-0">
+            <div className="relative w-20 h-20 md:w-28 md:h-28 rounded-full overflow-hidden flex-shrink-0 group">
               <img
-                src="https://cdn.builder.io/api/v1/image/assets/TEMP/f2cb5ca47004ec14f2e0c3003157a1a2b57e7d97?placeholderIfAbsent=true"
+                src={profileData.photo}
                 alt="Фото профиля"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-all group-hover:brightness-75"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Camera className="w-6 h-6 md:w-8 md:h-8 text-white" />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                className="hidden"
               />
             </div>
             <div className="flex-1">
               <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold tracking-tight">
                 Гостья наша Дорогая!
               </h2>
+              <p className="text-white/70 font-el-messiri text-sm md:text-base mt-1">
+                Нажмите на фото для изменения
+              </p>
             </div>
           </div>
         </div>
 
         {/* Editable Fields */}
         <div className="mt-8 md:mt-12 space-y-4 md:space-y-6">
-          <EditableField
-            value="Аннуфриева Валентина Федоровна"
-            onEdit={() => handleEdit("ФИО")}
-          />
+          {renderField("name", "ФИО", profileData.name)}
+          {renderField(
+            "birthDate",
+            "Дата рождения",
+            profileData.birthDate,
+            "date",
+          )}
 
-          <EditableField
-            value="24.05.2023"
-            onEdit={() => handleEdit("дата рождения")}
-          />
+          {/* Gender Selection */}
+          {editingField === "gender" ? (
+            <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-4 md:py-6">
+              <Label className="text-white font-el-messiri text-lg font-semibold mb-3 block">
+                Пол
+              </Label>
+              <div className="flex gap-3">
+                <select
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  className="flex-1 bg-white/10 border border-white/20 text-white font-el-messiri text-lg rounded-lg px-3 py-2"
+                >
+                  <option
+                    value="Женский"
+                    className="bg-mariko-secondary text-white"
+                  >
+                    Женский
+                  </option>
+                  <option
+                    value="Мужской"
+                    className="bg-mariko-secondary text-white"
+                  >
+                    Мужской
+                  </option>
+                </select>
+                <Button
+                  onClick={handleSave}
+                  className="bg-green-600 hover:bg-green-700 text-white px-6"
+                >
+                  ✓
+                </Button>
+                <Button
+                  onClick={handleCancel}
+                  variant="outline"
+                  className="border-white/20 text-white hover:bg-white/10 px-6"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <EditableField
+              value={profileData.gender}
+              onEdit={() => handleEdit("gender")}
+            />
+          )}
 
-          <EditableField value="Женский" onEdit={() => handleEdit("пол")} />
-
-          <EditableField
-            value="+7 (930) 805-22-22"
-            onEdit={() => handleEdit("телефон")}
-          />
+          {renderField("phone", "Телефон", profileData.phone, "tel")}
 
           {/* Notification Settings */}
           <div className="bg-mariko-secondary/80 backdrop-blur-sm rounded-[90px] px-6 md:px-8 py-4 md:py-6">
@@ -78,12 +286,9 @@ const EditProfile = () => {
               <span>Отключить уведомления</span>
               <input
                 type="checkbox"
+                checked={!profileData.notificationsEnabled}
                 className="w-6 h-6 rounded border-2 border-white bg-transparent checked:bg-white checked:border-white"
-                onChange={(e) =>
-                  handleEdit(
-                    `уведомления: ${e.target.checked ? "отключены" : "включены"}`,
-                  )
-                }
+                onChange={(e) => handleNotificationToggle(e.target.checked)}
               />
             </label>
             <p className="text-white/70 font-el-messiri text-sm mt-2">
