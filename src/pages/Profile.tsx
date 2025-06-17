@@ -65,7 +65,7 @@ const Profile = () => {
             alt="Грузинские кувшины"
             className="w-full h-auto max-w-4xl"
             style={{
-              transform: "translateX(30%)",
+              transform: "translateX(20%)",
             }}
           />
         </div>
