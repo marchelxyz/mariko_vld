@@ -67,8 +67,8 @@ export const botApi = {
           bonusPoints: 100, // Бонус за регистрацию
         });
 
-        // Логируем первый вход
-        profileDB.logActivity(profile.id, "first_login", { telegramUser });
+        // Логируем первый вход (без больших данных)
+        profileDB.logActivity(profile.id, "first_login");
       } else {
         // Обновляем время последнего входа
         profileDB.updateLastLogin(profile.id);
@@ -116,10 +116,12 @@ export const botApi = {
       const updatedProfile = profileDB.updateProfile(telegramUserId, profile);
 
       if (updatedProfile) {
-        // Логируем изменения
-        profileDB.logActivity(telegramUserId, "profile_updated", {
-          changes: profile,
-        });
+        // Логируем изменения (только ключи полей)
+        profileDB.logActivity(
+          telegramUserId,
+          "profile_updated",
+          Object.keys(profile).join(","),
+        );
 
         return true;
       }
