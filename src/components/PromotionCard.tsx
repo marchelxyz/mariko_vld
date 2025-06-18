@@ -19,7 +19,7 @@ export const PromotionCard = ({
     <button
       onClick={onClick}
       className={cn(
-        "relative w-full rounded-[90px] overflow-hidden transition-transform hover:scale-105 active:scale-95 shadow-lg",
+        "relative w-full rounded-[90px] overflow-hidden transition-transform hover:scale-105 active:scale-95",
         className,
       )}
     >
