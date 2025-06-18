@@ -317,6 +317,13 @@ export const CitySelector = ({
 
   return (
     <div className={cn("relative", className)}>
+      {/* Красивая надпись "Выбери город" */}
+      <div className="text-center mb-3">
+        <span className="inline-block bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 border border-white/20 text-white/90 font-el-messiri text-sm md:text-base font-medium tracking-wide shadow-lg">
+          Выбери город
+        </span>
+      </div>
+      
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-1 text-white font-el-messiri text-sm md:text-2xl font-semibold tracking-tight hover:bg-white/10 rounded-lg p-1 md:p-2 transition-colors"
