@@ -111,13 +111,15 @@ const Index = () => {
       {/* Quote Section - Vertical text along the chef */}
       <div className="mt-4 md:mt-12 relative z-10 px-3 md:px-6">
         <div className="max-w-sm md:max-w-6xl mx-auto relative flex justify-end">
-          {/* Vertical Column Quote positioned along the chef middle - extending beyond left edge */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-60">
-            {/* Background extending beyond edges */}
+          {/* Vertical Column Quote positioned at the left edge - extending beyond left edge */}
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 z-60">
+            {/* Background extending beyond left edge */}
             <div
               className="absolute inset-0 rounded-[60px] md:rounded-[90px]"
               style={{
-                width: "200px",
+                width: "320px",
+                height: "280px",
+                transform: "translateX(-25%)",
                 backgroundImage:
                   "url('https://cdn.builder.io/api/v1/image/assets/TEMP/6adaa69b9b695b102edc1027007a2c3d466235b8?placeholderIfAbsent=true')",
                 backgroundSize: "cover",
@@ -126,9 +128,15 @@ const Index = () => {
             />
             {/* Text on top of background */}
             <div
-              className="relative z-10 text-mariko-secondary font-el-messiri text-lg md:text-3xl lg:text-4xl font-bold leading-tight p-3 md:p-8 text-center"
+              className="relative z-10 text-mariko-secondary font-el-messiri text-xl md:text-3xl lg:text-4xl font-bold leading-tight p-4 md:p-8"
               style={{
-                width: "200px",
+                width: "280px",
+                height: "280px",
+                transform: "translateX(-20%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                textAlign: "center",
               }}
             >
               «Если хачапури пекут счастливые люди, это означает, что данное
