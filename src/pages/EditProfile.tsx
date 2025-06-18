@@ -322,7 +322,7 @@ const EditProfile = () => {
         <div className="mt-8 md:mt-12">
           <div className="flex justify-center">
             <img
-              src="https://cdn.builder.io/api/v1/image/assets/TEMP/d6ab6bf572f38ad828c6837dda516225e8876446?placeholderIfAbsent=true"
+              src="/images/logos/logo-main.svg"
               alt="Хачапури логотип"
               className="w-full h-auto max-w-md"
             />
@@ -508,7 +508,7 @@ const EditProfile = () => {
           </div>
           <div className="flex-shrink-0 ml-4">
             <img
-              src="https://cdn.builder.io/api/v1/image/assets/TEMP/02b61b7aabad947a6521432b5c65b416619b1a08?placeholderIfAbsent=true"
+              src="/images/characters/character-warrior.png"
               alt="Грузинский воин"
               className="w-auto h-auto max-w-48 md:max-w-56"
               style={{

@@ -33,7 +33,7 @@ const Profile = () => {
         <div className="mt-8 md:mt-12">
           <div className="flex justify-center">
             <img
-              src="https://cdn.builder.io/api/v1/image/assets/TEMP/d6ab6bf572f38ad828c6837dda516225e8876446?placeholderIfAbsent=true"
+              src="/images/logos/logo-main.svg"
               alt="Хачапури логотип"
               className="w-full h-auto max-w-md"
             />
@@ -85,7 +85,7 @@ const Profile = () => {
         {/* Decorative Georgian Pottery Image */}
         <div className="mt-6 md:mt-24 flex justify-end">
           <img
-            src="https://cdn.builder.io/api/v1/image/assets/TEMP/0b9a511509924ad915d1664cb807c07d1330f1ed?placeholderIfAbsent=true"
+            src="/images/characters/character-bonus.png"
             alt="Грузинские кувшины"
             className="w-full h-auto max-w-xs md:max-w-4xl"
             style={{

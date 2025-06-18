@@ -23,7 +23,7 @@ const Index = () => {
         <div className="mt-4 md:mt-8 flex items-center justify-between gap-2">
           <div className="flex-1">
             <img
-              src="https://cdn.builder.io/api/v1/image/assets/TEMP/8c24472e785233499cd3beb16447964a9bc3cbf4?placeholderIfAbsent=true"
+              src="/images/heroes/hero-image.svg"
               alt="Хачапури логотип"
               className="w-full h-auto max-w-32 md:max-w-md"
             />
@@ -68,14 +68,14 @@ const Index = () => {
         <div className="mt-4 md:mt-8 grid grid-cols-2 gap-3 md:gap-6">
           <MenuCard
             title="Меню"
-            imageUrl="https://cdn.builder.io/api/v1/image/assets/TEMP/690e0689acfa56ebed78a2279312c0ee027ff6c5?placeholderIfAbsent=true"
+            imageUrl="/images/menu/menu-khachapuri.png"
             onClick={() =>
               window.open("https://telegra.ph/Menu-Mariko-01-01", "_blank")
             }
           />
           <MenuCard
             title="Бар"
-            imageUrl="https://cdn.builder.io/api/v1/image/assets/TEMP/247118815d27a2329c9ce91c5e93971be8886dc6?placeholderIfAbsent=true"
+            imageUrl="/images/menu/menu-barbecue.png"
             onClick={() =>
               window.open("https://telegra.ph/Bar-Menu-Mariko-01-01", "_blank")
             }
@@ -86,7 +86,7 @@ const Index = () => {
         <div className="mt-3 md:mt-6 grid grid-cols-3 gap-2 md:gap-4">
           <MenuCard
             title="Вакансии"
-            imageUrl="https://cdn.builder.io/api/v1/image/assets/TEMP/5b52e54d8beda399ec6db08edd02c2b55ecea62d?placeholderIfAbsent=true"
+            imageUrl="/images/menu/menu-wine.png"
             onClick={() =>
               window.open(
                 "https://hh.ru/search/vacancy?text=хачапури+марико",
@@ -96,14 +96,14 @@ const Index = () => {
           />
           <MenuCard
             title="Шеф-меню"
-            imageUrl="https://cdn.builder.io/api/v1/image/assets/TEMP/9b4dbdbaca264a434e1abb1d7ae5eaf61942142e?placeholderIfAbsent=true"
+            imageUrl="/images/menu/menu-dessert.png"
             onClick={() =>
               window.open("https://telegra.ph/Chef-Menu-Mariko-01-01", "_blank")
             }
           />
           <MenuCard
             title="Акции"
-            imageUrl="https://cdn.builder.io/api/v1/image/assets/TEMP/89ad2d18cf715439bf30ec0a63f2079875e962bb?placeholderIfAbsent=true"
+            imageUrl="/images/menu/menu-drinks.png"
             onClick={() => navigate("/promotions")}
           />
         </div>
@@ -124,7 +124,7 @@ const Index = () => {
                 height: "280px",
                 transform: "translateX(-25%)",
                 backgroundImage:
-                  "url('https://cdn.builder.io/api/v1/image/assets/TEMP/6adaa69b9b695b102edc1027007a2c3d466235b8?placeholderIfAbsent=true')",
+                  "url('/images/backgrounds/quote-background.png')",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
               }}
@@ -150,7 +150,7 @@ const Index = () => {
           {/* Chef image aligned to the right edge */}
           <div className="flex-shrink-0 flex items-end justify-end relative z-50">
             <img
-              src="https://cdn.builder.io/api/v1/image/assets/TEMP/7c2c5fe36795ccb3afae2b769acaa83ff859f88f?placeholderIfAbsent=true"
+              src="/images/characters/character-chef.png"
               alt="Шеф-повар"
               className="w-auto h-auto max-w-48 lg:max-w-sm object-contain object-bottom"
               style={{
