@@ -316,36 +316,36 @@ export const CitySelectorSimple = ({
   return (
     <div className={cn("relative", className)}>
       {/* Надпись "Выбери город" с изгибающейся стрелочкой */}
-      <div className="relative text-center mb-3">
-        <span className="text-mariko-text-light font-el-messiri text-sm md:text-lg font-semibold tracking-wide">
+      <div className="relative flex items-start justify-center gap-2 mb-6 -mt-2">
+        <span className="text-mariko-text-light font-el-messiri text-sm md:text-lg font-semibold tracking-wide whitespace-nowrap">
           Выбери город
         </span>
         {/* Изгибающаяся стрелочка */}
-        <div className="absolute top-full left-1/2 transform -translate-x-1/2 translate-y-1">
+        <div className="flex-shrink-0 mt-1">
           <svg 
-            width="60" 
-            height="30" 
-            viewBox="0 0 60 30" 
+            width="50" 
+            height="25" 
+            viewBox="0 0 50 25" 
             className="text-mariko-text-secondary"
           >
             <defs>
               <marker
                 id="arrowhead"
-                markerWidth="10"
-                markerHeight="7"
-                refX="9"
-                refY="3.5"
+                markerWidth="8"
+                markerHeight="6"
+                refX="7"
+                refY="3"
                 orient="auto"
               >
                 <polygon
-                  points="0 0, 10 3.5, 0 7"
+                  points="0 0, 8 3, 0 6"
                   fill="currentColor"
                   className="animate-pulse"
                 />
               </marker>
             </defs>
             <path
-              d="M 5 5 Q 30 10, 55 25"
+              d="M 5 8 Q 25 12, 45 20"
               stroke="currentColor"
               strokeWidth="2"
               fill="none"
