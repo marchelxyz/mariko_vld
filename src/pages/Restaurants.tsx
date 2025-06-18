@@ -44,18 +44,24 @@ const Restaurants = () => {
       "nn-rozh": {
         yandexMapsUrl: "https://yandex.ru/maps/47/nizhny-novgorod/?ll=44.005986%2C56.326797&mode=poi&poi%5Bpoint%5D=44.005986%2C56.326797&poi%5Buri%5D=ymapsbm1%3A%2F%2Forg%3Foid%3D1076392938&z=17",
         gisUrl: "https://2gis.ru/nizhnynovgorod/firm/1435960302441559",
+        yandexParkingUrl: "https://yandex.ru/maps/47/nizhny-novgorod/?ll=44.005986%2C56.326797&z=16&text=parking",
+        gisParkingUrl: "https://2gis.ru/nizhnynovgorod/search/parking/filters/rubric%2C42/center/44.005986%2C56.326797",
         yandexReviewUrl: "https://yandex.ru/maps/47/nizhny-novgorod/?ll=44.005986%2C56.326797&mode=poi&poi%5Bpoint%5D=44.005986%2C56.326797&poi%5Buri%5D=ymapsbm1%3A%2F%2Forg%3Foid%3D1076392938&z=17&tab=reviews",
         gisReviewUrl: "https://2gis.ru/nizhnynovgorod/firm/1435960302441559/tab/reviews"
       },
       "nn-park": {
         yandexMapsUrl: "https://yandex.ru/maps/47/nizhny-novgorod/?text=%D0%9F%D0%B0%D1%80%D0%BA%20%D0%A8%D0%B2%D0%B5%D0%B9%D1%86%D0%B0%D1%80%D0%B8%D1%8F%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=43.931400%2C56.299800&z=16",
         gisUrl: "https://2gis.ru/nizhnynovgorod/search/%D0%9F%D0%B0%D1%80%D0%BA%20%D0%A8%D0%B2%D0%B5%D0%B9%D1%86%D0%B0%D1%80%D0%B8%D1%8F%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE",
+        yandexParkingUrl: "https://yandex.ru/maps/47/nizhny-novgorod/?ll=43.931400%2C56.299800&z=16&text=parking",
+        gisParkingUrl: "https://2gis.ru/nizhnynovgorod/search/parking/filters/rubric%2C42/center/43.931400%2C56.299800",
         yandexReviewUrl: "https://yandex.ru/maps/47/nizhny-novgorod/?text=%D0%9F%D0%B0%D1%80%D0%BA%20%D0%A8%D0%B2%D0%B5%D0%B9%D1%86%D0%B0%D1%80%D0%B8%D1%8F%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=43.931400%2C56.299800&z=16",
         gisReviewUrl: "https://2gis.ru/nizhnynovgorod/search/%D0%9F%D0%B0%D1%80%D0%BA%20%D0%A8%D0%B2%D0%B5%D0%B9%D1%86%D0%B0%D1%80%D0%B8%D1%8F%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
       },
       "nn-volga": {
         yandexMapsUrl: "https://yandex.ru/maps/47/nizhny-novgorod/?text=%D0%92%D0%BE%D0%BB%D0%B6%D1%81%D0%BA%D0%B0%D1%8F%20%D0%BD%D0%B0%D0%B1%D0%B5%D1%80%D0%B5%D0%B6%D0%BD%D0%B0%D1%8F%2023%D0%B0%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=44.002200%2C56.320500&z=16",
         gisUrl: "https://2gis.ru/nizhnynovgorod/search/%D0%92%D0%BE%D0%BB%D0%B6%D1%81%D0%BA%D0%B0%D1%8F%20%D0%BD%D0%B0%D0%B1%D0%B5%D1%80%D0%B5%D0%B6%D0%BD%D0%B0%D1%8F%2023%D0%B0%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE",
+        yandexParkingUrl: "https://yandex.ru/maps/47/nizhny-novgorod/?ll=44.002200%2C56.320500&z=16&text=parking",
+        gisParkingUrl: "https://2gis.ru/nizhnynovgorod/search/parking/filters/rubric%2C42/center/44.002200%2C56.320500",
         yandexReviewUrl: "https://yandex.ru/maps/47/nizhny-novgorod/?text=%D0%92%D0%BE%D0%BB%D0%B6%D1%81%D0%BA%D0%B0%D1%8F%20%D0%BD%D0%B0%D0%B1%D0%B5%D1%80%D0%B5%D0%B6%D0%BD%D0%B0%D1%8F%2023%D0%B0%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=44.002200%2C56.320500&z=16",
         gisReviewUrl: "https://2gis.ru/nizhnynovgorod/search/%D0%92%D0%BE%D0%BB%D0%B6%D1%81%D0%BA%D0%B0%D1%8F%20%D0%BD%D0%B0%D0%B1%D0%B5%D1%80%D0%B5%D0%B6%D0%BD%D0%B0%D1%8F%2023%D0%B0%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
       },
@@ -64,24 +70,32 @@ const Restaurants = () => {
       "spb-sennaya": {
         yandexMapsUrl: "https://yandex.ru/maps/2/saint-petersburg/?text=%D0%A1%D0%B5%D0%BD%D0%BD%D0%B0%D1%8F%205%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=30.320472%2C59.927011&z=16",
         gisUrl: "https://2gis.ru/spb/search/%D0%A1%D0%B5%D0%BD%D0%BD%D0%B0%D1%8F%205%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE",
+        yandexParkingUrl: "https://yandex.ru/maps/2/saint-petersburg/?ll=30.320472%2C59.927011&z=16&text=parking",
+        gisParkingUrl: "https://2gis.ru/spb/search/parking/filters/rubric%2C42/center/30.320472%2C59.927011",
         yandexReviewUrl: "https://yandex.ru/maps/2/saint-petersburg/?text=%D0%A1%D0%B5%D0%BD%D0%BD%D0%B0%D1%8F%205%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=30.320472%2C59.927011&z=16",
         gisReviewUrl: "https://2gis.ru/spb/search/%D0%A1%D0%B5%D0%BD%D0%BD%D0%B0%D1%8F%205%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
       },
       "spb-italyanskaya": {
         yandexMapsUrl: "https://yandex.ru/maps/2/saint-petersburg/?text=%D0%98%D1%82%D0%B0%D0%BB%D1%8C%D1%8F%D0%BD%D1%81%D0%BA%D0%B0%D1%8F%206%2F4%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=30.340500%2C59.936000&z=16",
         gisUrl: "https://2gis.ru/spb/search/%D0%98%D1%82%D0%B0%D0%BB%D1%8C%D1%8F%D0%BD%D1%81%D0%BA%D0%B0%D1%8F%206%2F4%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE",
+        yandexParkingUrl: "https://yandex.ru/maps/2/saint-petersburg/?ll=30.340500%2C59.936000&z=16&text=parking",
+        gisParkingUrl: "https://2gis.ru/spb/search/parking/filters/rubric%2C42/center/30.340500%2C59.936000",
         yandexReviewUrl: "https://yandex.ru/maps/2/saint-petersburg/?text=%D0%98%D1%82%D0%B0%D0%BB%D1%8C%D1%8F%D0%BD%D1%81%D0%BA%D0%B0%D1%8F%206%2F4%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=30.340500%2C59.936000&z=16",
         gisReviewUrl: "https://2gis.ru/spb/search/%D0%98%D1%82%D0%B0%D0%BB%D1%8C%D1%8F%D0%BD%D1%81%D0%BA%D0%B0%D1%8F%206%2F4%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
       },
       "spb-nevsky": {
         yandexMapsUrl: "https://yandex.ru/maps/2/saint-petersburg/?text=%D0%9D%D0%B5%D0%B2%D1%81%D0%BA%D0%B8%D0%B9%2088%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=30.360000%2C59.930000&z=16",
         gisUrl: "https://2gis.ru/spb/search/%D0%9D%D0%B5%D0%B2%D1%81%D0%BA%D0%B8%D0%B9%2088%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE",
+        yandexParkingUrl: "https://yandex.ru/maps/2/saint-petersburg/?ll=30.360000%2C59.930000&z=16&text=parking",
+        gisParkingUrl: "https://2gis.ru/spb/search/parking/filters/rubric%2C42/center/30.360000%2C59.930000",
         yandexReviewUrl: "https://yandex.ru/maps/2/saint-petersburg/?text=%D0%9D%D0%B5%D0%B2%D1%81%D0%BA%D0%B8%D0%B9%2088%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=30.360000%2C59.930000&z=16",
         gisReviewUrl: "https://2gis.ru/spb/search/%D0%9D%D0%B5%D0%B2%D1%81%D0%BA%D0%B8%D0%B9%2088%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
       },
       "spb-vasilyevsky": {
         yandexMapsUrl: "https://yandex.ru/maps/2/saint-petersburg/?text=%D0%92%D0%B0%D1%81%D0%B8%D0%BB%D1%8C%D0%B5%D0%B2%D1%81%D0%BA%D0%B8%D0%B9%20%D0%BE%D1%81%D1%82%D1%80%D0%BE%D0%B2%20%D0%9C%D0%B0%D0%BB%D1%8B%D0%B9%20%D0%BF%D1%80%D0%BE%D1%81%D0%BF%D0%B5%D0%BA%D1%82%2054%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=30.280000%2C59.940000&z=16",
         gisUrl: "https://2gis.ru/spb/search/%D0%92%D0%B0%D1%81%D0%B8%D0%BB%D1%8C%D0%B5%D0%B2%D1%81%D0%BA%D0%B8%D0%B9%20%D0%BE%D1%81%D1%82%D1%80%D0%BE%D0%B2%20%D0%9C%D0%B0%D0%BB%D1%8B%D0%B9%20%D0%BF%D1%80%D0%BE%D1%81%D0%BF%D0%B5%D0%BA%D1%82%2054%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE",
+        yandexParkingUrl: "https://yandex.ru/maps/2/saint-petersburg/?ll=30.280000%2C59.940000&z=16&text=parking",
+        gisParkingUrl: "https://2gis.ru/spb/search/parking/filters/rubric%2C42/center/30.280000%2C59.940000",
         yandexReviewUrl: "https://yandex.ru/maps/2/saint-petersburg/?text=%D0%92%D0%B0%D1%81%D0%B8%D0%BB%D1%8C%D0%B5%D0%B2%D1%81%D0%BA%D0%B8%D0%B9%20%D0%BE%D1%81%D1%82%D1%80%D0%BE%D0%B2%20%D0%9C%D0%B0%D0%BB%D1%8B%D0%B9%20%D0%BF%D1%80%D0%BE%D1%81%D0%BF%D0%B5%D0%BA%D1%82%2054%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=30.280000%2C59.940000&z=16",
         gisReviewUrl: "https://2gis.ru/spb/search/%D0%92%D0%B0%D1%81%D0%B8%D0%BB%D1%8C%D0%B5%D0%B2%D1%81%D0%BA%D0%B8%D0%B9%20%D0%BE%D1%81%D1%82%D1%80%D0%BE%D0%B2%20%D0%9C%D0%B0%D0%BB%D1%8B%D0%B9%20%D0%BF%D1%80%D0%BE%D1%81%D0%BF%D0%B5%D0%BA%D1%82%2054%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
       },
@@ -90,12 +104,16 @@ const Restaurants = () => {
       "kazan-pushkina": {
         yandexMapsUrl: "https://yandex.ru/maps/43/kazan/?text=%D0%9F%D1%83%D1%88%D0%BA%D0%B8%D0%BD%D0%B0%2010%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=49.122800%2C55.788500&z=16",
         gisUrl: "https://2gis.ru/kazan/search/%D0%9F%D1%83%D1%88%D0%BA%D0%B8%D0%BD%D0%B0%2010%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE",
+        yandexParkingUrl: "https://yandex.ru/maps/43/kazan/?ll=49.122800%2C55.788500&z=16&text=parking",
+        gisParkingUrl: "https://2gis.ru/kazan/search/parking/filters/rubric%2C42/center/49.122800%2C55.788500",
         yandexReviewUrl: "https://yandex.ru/maps/43/kazan/?text=%D0%9F%D1%83%D1%88%D0%BA%D0%B8%D0%BD%D0%B0%2010%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=49.122800%2C55.788500&z=16",
         gisReviewUrl: "https://2gis.ru/kazan/search/%D0%9F%D1%83%D1%88%D0%BA%D0%B8%D0%BD%D0%B0%2010%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
       },
       "kazan-bauman": {
         yandexMapsUrl: "https://yandex.ru/maps/43/kazan/?text=%D0%91%D0%B0%D1%83%D0%BC%D0%B0%D0%BD%D0%B0%2045%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=49.122200%2C55.790000&z=16",
         gisUrl: "https://2gis.ru/kazan/search/%D0%91%D0%B0%D1%83%D0%BC%D0%B0%D0%BD%D0%B0%2045%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE",
+        yandexParkingUrl: "https://yandex.ru/maps/43/kazan/?ll=49.122200%2C55.790000&z=16&text=parking",
+        gisParkingUrl: "https://2gis.ru/kazan/search/parking/filters/rubric%2C42/center/49.122200%2C55.790000",
         yandexReviewUrl: "https://yandex.ru/maps/43/kazan/?text=%D0%91%D0%B0%D1%83%D0%BC%D0%B0%D0%BD%D0%B0%2045%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=49.122200%2C55.790000&z=16",
         gisReviewUrl: "https://2gis.ru/kazan/search/%D0%91%D0%B0%D1%83%D0%BC%D0%B0%D0%BD%D0%B0%2045%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
       },
@@ -104,6 +122,8 @@ const Restaurants = () => {
       "kemerovo-sovetsky": {
         yandexMapsUrl: "https://yandex.ru/maps/64/kemerovo/?text=%D0%A1%D0%BE%D0%B2%D0%B5%D1%82%D1%81%D0%BA%D0%B8%D0%B9%20%D0%BF%D1%80%D0%BE%D1%81%D0%BF%D0%B5%D0%BA%D1%82%2012%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=86.087200%2C55.354900&z=16",
         gisUrl: "https://2gis.ru/kemerovo/search/%D0%A1%D0%BE%D0%B2%D0%B5%D1%82%D1%81%D0%BA%D0%B8%D0%B9%20%D0%BF%D1%80%D0%BE%D1%81%D0%BF%D0%B5%D0%BA%D1%82%2012%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE",
+        yandexParkingUrl: "https://yandex.ru/maps/64/kemerovo/?ll=86.087200%2C55.354900&z=16&text=parking",
+        gisParkingUrl: "https://2gis.ru/kemerovo/search/parking/filters/rubric%2C42/center/86.087200%2C55.354900",
         yandexReviewUrl: "https://yandex.ru/maps/64/kemerovo/?text=%D0%A1%D0%BE%D0%B2%D0%B5%D1%82%D1%81%D0%BA%D0%B8%D0%B9%20%D0%BF%D1%80%D0%BE%D1%81%D0%BF%D0%B5%D0%BA%D1%82%2012%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=86.087200%2C55.354900&z=16",
         gisReviewUrl: "https://2gis.ru/kemerovo/search/%D0%A1%D0%BE%D0%B2%D0%B5%D1%82%D1%81%D0%BA%D0%B8%D0%B9%20%D0%BF%D1%80%D0%BE%D1%81%D0%BF%D0%B5%D0%BA%D1%82%2012%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
       },
@@ -112,6 +132,8 @@ const Restaurants = () => {
       "tomsk-lenina": {
         yandexMapsUrl: "https://yandex.ru/maps/75/tomsk/?text=%D0%9B%D0%B5%D0%BD%D0%B8%D0%BD%D0%B0%2078%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=84.956200%2C56.488100&z=16",
         gisUrl: "https://2gis.ru/tomsk/search/%D0%9B%D0%B5%D0%BD%D0%B8%D0%BD%D0%B0%2078%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE",
+        yandexParkingUrl: "https://yandex.ru/maps/75/tomsk/?ll=84.956200%2C56.488100&z=16&text=parking",
+        gisParkingUrl: "https://2gis.ru/tomsk/search/parking/filters/rubric%2C42/center/84.956200%2C56.488100",
         yandexReviewUrl: "https://yandex.ru/maps/75/tomsk/?text=%D0%9B%D0%B5%D0%BD%D0%B8%D0%BD%D0%B0%2078%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=84.956200%2C56.488100&z=16",
         gisReviewUrl: "https://2gis.ru/tomsk/search/%D0%9B%D0%B5%D0%BD%D0%B8%D0%BD%D0%B0%2078%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
       },
@@ -120,6 +142,8 @@ const Restaurants = () => {
       "volgograd-mira": {
         yandexMapsUrl: "https://yandex.ru/maps/38/volgograd/?text=%D0%9C%D0%B8%D1%80%D0%B0%2023%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=44.515200%2C48.707100&z=16",
         gisUrl: "https://2gis.ru/volgograd/search/%D0%9C%D0%B8%D1%80%D0%B0%2023%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE",
+        yandexParkingUrl: "https://yandex.ru/maps/38/volgograd/?ll=44.515200%2C48.707100&z=16&text=parking",
+        gisParkingUrl: "https://2gis.ru/volgograd/search/parking/filters/rubric%2C42/center/44.515200%2C48.707100",
         yandexReviewUrl: "https://yandex.ru/maps/38/volgograd/?text=%D0%9C%D0%B8%D1%80%D0%B0%2023%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=44.515200%2C48.707100&z=16",
         gisReviewUrl: "https://2gis.ru/volgograd/search/%D0%9C%D0%B8%D1%80%D0%B0%2023%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
       }
@@ -130,8 +154,8 @@ const Restaurants = () => {
       return {
         yandexMapsUrl: restaurantLinksMap[restaurantId].yandexMapsUrl,
         gisUrl: restaurantLinksMap[restaurantId].gisUrl,
-        yandexParkingUrl: `https://yandex.ru/maps/${getCityMapId(city)}/?text=parking`,
-        gisParkingUrl: `https://2gis.ru/${getCityUrlSlug(city)}/search/parking`,
+        yandexParkingUrl: restaurantLinksMap[restaurantId].yandexParkingUrl,
+        gisParkingUrl: restaurantLinksMap[restaurantId].gisParkingUrl,
         yandexReviewUrl: restaurantLinksMap[restaurantId].yandexReviewUrl,
         gisReviewUrl: restaurantLinksMap[restaurantId].gisReviewUrl,
       };
@@ -139,14 +163,15 @@ const Restaurants = () => {
 
     // Fallback - поиск по адресу
     const encodedAddress = encodeURIComponent(`${address} Хачапури Марико`);
+    const encodedAddressOnly = encodeURIComponent(address);
     const cityUrlSlug = getCityUrlSlug(city);
     const cityMapId = getCityMapId(city);
 
     return {
       yandexMapsUrl: `https://yandex.ru/maps/${cityMapId}/?text=${encodedAddress}`,
       gisUrl: `https://2gis.ru/${cityUrlSlug}/search/${encodedAddress}`,
-      yandexParkingUrl: `https://yandex.ru/maps/${cityMapId}/?text=parking`,
-      gisParkingUrl: `https://2gis.ru/${cityUrlSlug}/search/parking`,
+      yandexParkingUrl: `https://yandex.ru/maps/${cityMapId}/?text=${encodedAddressOnly}%20parking`,
+      gisParkingUrl: `https://2gis.ru/${cityUrlSlug}/search/parking/poi/${encodedAddressOnly}`,
       yandexReviewUrl: `https://yandex.ru/maps/${cityMapId}/?text=${encodedAddress}`,
       gisReviewUrl: `https://2gis.ru/${cityUrlSlug}/search/${encodedAddress}`,
     };
