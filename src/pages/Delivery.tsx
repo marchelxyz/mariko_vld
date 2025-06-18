@@ -11,7 +11,7 @@ const Delivery = () => {
   const selectedRestaurant = selectedCity.restaurants[0];
 
   const getDeliveryOptions = () => {
-    // В зависимости от ресторана предлагаем разные варианты доставки
+    // Базовые варианты доставки
     const baseOptions = [
       {
         icon: <Car className="w-full h-full" />,
@@ -26,48 +26,43 @@ const Delivery = () => {
       },
     ];
 
-    // Добавляем внешние сервисы в зависимости от города
-    if (
-      selectedCity.name.includes("Нижний Новгород") ||
-      selectedCity.name.includes("Санкт-Петербург")
-    ) {
-      baseOptions.push(
-        {
-          icon: (
-            <div className="w-full h-full flex items-center justify-center">
-              <img
-                src="https://cdn.builder.io/api/v1/image/assets/TEMP/8fb69a54dd17376a9b06711103d33471ccbe2cb7?placeholderIfAbsent=true"
-                alt="Яндекс Еда"
-                className="w-16 h-16 object-contain"
-              />
-            </div>
+    // Всегда добавляем внешние сервисы доставки
+    baseOptions.push(
+      {
+        icon: (
+          <div className="w-full h-full flex items-center justify-center">
+            <img
+              src="https://cdn.builder.io/api/v1/image/assets/TEMP/8fb69a54dd17376a9b06711103d33471ccbe2cb7?placeholderIfAbsent=true"
+              alt="Яндекс Еда"
+              className="w-16 h-16 object-contain"
+            />
+          </div>
+        ),
+        title: "Яндекс Еда",
+        onClick: () =>
+          window.open(
+            "https://eda.yandex.ru/restaurant/khachapuri_mariko",
+            "_blank",
           ),
-          title: "Яндекс Еда",
-          onClick: () =>
-            window.open(
-              "https://eda.yandex.ru/restaurant/khachapuri_mariko",
-              "_blank",
-            ),
-        },
-        {
-          icon: (
-            <div className="w-full h-full flex items-center justify-center">
-              <img
-                src="https://cdn.builder.io/api/v1/image/assets/TEMP/0e46aa72fcfd3aa8f0cfa3cac579108968ad4d2b?placeholderIfAbsent=true"
-                alt="Delivery Club"
-                className="w-full h-full object-cover rounded-[90px_0_90px_90px]"
-              />
-            </div>
+      },
+      {
+        icon: (
+          <div className="w-full h-full flex items-center justify-center">
+            <img
+              src="https://cdn.builder.io/api/v1/image/assets/TEMP/0e46aa72fcfd3aa8f0cfa3cac579108968ad4d2b?placeholderIfAbsent=true"
+              alt="Delivery Club"
+              className="w-full h-full object-cover rounded-[90px_0_90px_90px]"
+            />
+          </div>
+        ),
+        title: "Delivery Club",
+        onClick: () =>
+          window.open(
+            "https://deliveryclub.ru/restaurant/khachapuri_mariko",
+            "_blank",
           ),
-          title: "Delivery Club",
-          onClick: () =>
-            window.open(
-              "https://deliveryclub.ru/restaurant/khachapuri_mariko",
-              "_blank",
-            ),
-        },
-      );
-    }
+      },
+    );
 
     return baseOptions;
   };
@@ -103,16 +98,15 @@ const Delivery = () => {
         </div>
       </div>
 
-      {/* Delivery Truck Illustration - Fill remaining space */}
-      <div className="flex-grow flex items-center justify-center overflow-hidden">
+      {/* Delivery Truck Illustration - Positioned to touch footer */}
+      <div className="relative flex justify-start items-end overflow-hidden -mb-2">
         <img
           src="https://cdn.builder.io/api/v1/image/assets/TEMP/7b483c106c0873fef56b5de8673db668ccbe0325?placeholderIfAbsent=true"
           alt="Грузовик доставки Марико"
-          className="w-full h-full max-w-sm md:max-w-none"
+          className="w-auto h-auto max-w-sm md:max-w-lg"
           style={{
             objectFit: "contain",
-            objectPosition: "center",
-            transform: "scale(1.2) md:scale(1.5)",
+            transform: "translateX(-10%) scale(1.0) md:scale(1.2)",
           }}
         />
       </div>
