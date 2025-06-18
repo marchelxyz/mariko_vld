@@ -334,7 +334,7 @@ const Review = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Rating */}
             <div className="bg-mariko-secondary rounded-[90px] px-6 py-6">
-              <label className="block text-white font-el-messiri text-lg font-semibold mb-4">
+              <label className="block text-white font-el-messiri text-lg font-semibold mb-4 pl-6">
                 Оцените наш ресторан *
               </label>
               <div className="flex justify-center gap-2">
@@ -379,7 +379,7 @@ const Review = () => {
 
             {/* Review Text */}
             <div className="bg-mariko-secondary rounded-[90px] px-6 py-4">
-              <label className="flex items-center gap-2 text-white font-el-messiri text-lg font-semibold mb-2">
+              <label className="flex items-center gap-2 text-white font-el-messiri text-lg font-semibold mb-2 pl-6">
                 <MessageCircle className="w-5 h-5" />
                 Ваш отзыв *
               </label>
