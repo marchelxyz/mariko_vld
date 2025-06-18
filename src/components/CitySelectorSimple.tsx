@@ -51,27 +51,27 @@ const cities: City[] = [
     name: "Санкт-Петербург",
     restaurants: [
       {
+        id: "spb-sadovaya",
+        name: "Хачапури Марико",
+        address: "Малая Садовая, 3/54",
+        city: "Санкт-Петербург",
+      },
+      {
         id: "spb-sennaya",
         name: "Хачапури Марико",
         address: "Сенная, 5",
         city: "Санкт-Петербург",
       },
       {
+        id: "spb-morskaya",
+        name: "Хачапури Марико",
+        address: "Малая Морская, 5а",
+        city: "Санкт-Петербург",
+      },
+      {
         id: "spb-italyanskaya",
         name: "Хачапури Марико",
         address: "Итальянская, 6/4",
-        city: "Санкт-Петербург",
-      },
-      {
-        id: "spb-nevsky",
-        name: "Хачапури Марико",
-        address: "Невский, 88",
-        city: "Санкт-Петербург",
-      },
-      {
-        id: "spb-vasilyevsky",
-        name: "Хачапури Марико",
-        address: "В.О., Малый пр. 54",
         city: "Санкт-Петербург",
       },
     ],
@@ -81,15 +81,15 @@ const cities: City[] = [
     name: "Казань",
     restaurants: [
       {
-        id: "kazan-pushkina",
+        id: "kazan-bulachnaya",
         name: "Хачапури Марико",
-        address: "Пушкина, 10",
+        address: "Право-Булачная, 33",
         city: "Казань",
       },
       {
-        id: "kazan-bauman",
+        id: "kazan-pushkina",
         name: "Хачапури Марико",
-        address: "Баумана, 45",
+        address: "Пушкина, 10",
         city: "Казань",
       },
     ],
@@ -99,9 +99,9 @@ const cities: City[] = [
     name: "Кемерово",
     restaurants: [
       {
-        id: "kemerovo-sovetsky",
+        id: "kemerovo-krasnoarmeyskaya",
         name: "Хачапури Марико",
-        address: "Советский пр., 12",
+        address: "Красноармейская, 144",
         city: "Кемерово",
       },
     ],
@@ -111,22 +111,196 @@ const cities: City[] = [
     name: "Томск",
     restaurants: [
       {
-        id: "tomsk-lenina",
+        id: "tomsk-batenkova",
         name: "Хачапури Марико",
-        address: "Ленина, 78",
+        address: "Переулок Батенькова, 7",
         city: "Томск",
       },
     ],
   },
   {
-    id: "volgograd",
-    name: "Волгоград",
+    id: "smolensk",
+    name: "Смоленск",
     restaurants: [
       {
-        id: "volgograd-mira",
+        id: "smolensk-nikolaeva",
         name: "Хачапури Марико",
-        address: "Мира, 23",
-        city: "Волгоград",
+        address: "Николаева, 12а, ТЦ «Центрум»",
+        city: "Смоленск",
+      },
+    ],
+  },
+  {
+    id: "kaluga",
+    name: "Калуга",
+    restaurants: [
+      {
+        id: "kaluga-kirova",
+        name: "Хачапури Марико",
+        address: "Кирова, 39, ТЦ «Европейский»",
+        city: "Калуга",
+      },
+    ],
+  },
+  {
+    id: "samara",
+    name: "Самара",
+    restaurants: [
+      {
+        id: "samara-kuibysheva",
+        name: "Хачапури Марико",
+        address: "Куйбышева, 89",
+        city: "Самара",
+      },
+      {
+        id: "samara-galaktionovskaya",
+        name: "Хачапури Марико",
+        address: "Галактионовская, 39",
+        city: "Самара",
+      },
+    ],
+  },
+  {
+    id: "novosibirsk",
+    name: "Новосибирск",
+    restaurants: [
+      {
+        id: "novosibirsk-sovetskaya",
+        name: "Хачапури Марико",
+        address: "Советская, 64",
+        city: "Новосибирск",
+      },
+    ],
+  },
+  {
+    id: "magnitogorsk",
+    name: "Магнитогорск",
+    restaurants: [
+      {
+        id: "magnitogorsk-zavenyagina",
+        name: "Хачапури Марико",
+        address: "Завенягина, 4б",
+        city: "Магнитогорск",
+      },
+    ],
+  },
+  {
+    id: "balakhna",
+    name: "Балахна",
+    restaurants: [
+      {
+        id: "balakhna-sovetskaya",
+        name: "Хачапури Марико",
+        address: "Советская площадь, 16",
+        city: "Балахна",
+      },
+    ],
+  },
+  {
+    id: "kstovo",
+    name: "Кстово",
+    restaurants: [
+      {
+        id: "kstovo-lenina",
+        name: "Хачапури Марико",
+        address: "Ленина, 5",
+        city: "Кстово",
+      },
+    ],
+  },
+  {
+    id: "lesnoy-gorodok",
+    name: "Лесной Городок",
+    restaurants: [
+      {
+        id: "lesnoy-shkolnaya",
+        name: "Хачапури Марико",
+        address: "Школьная, 1",
+        city: "Лесной Городок",
+      },
+    ],
+  },
+  {
+    id: "novorossiysk",
+    name: "Новороссийск",
+    restaurants: [
+      {
+        id: "novorossiysk-sovetov",
+        name: "Хачапури Марико",
+        address: "Советов, 51",
+        city: "Новороссийск",
+      },
+    ],
+  },
+  {
+    id: "zhukovsky",
+    name: "Жуковский",
+    restaurants: [
+      {
+        id: "zhukovsky-myasishcheva",
+        name: "Хачапури Марико",
+        address: "Мясищева, 1",
+        city: "Жуковский",
+      },
+    ],
+  },
+  {
+    id: "odintsovo",
+    name: "Одинцово",
+    restaurants: [
+      {
+        id: "odintsovo-mozhayskoe",
+        name: "Хачапури Марико",
+        address: "Можайское шоссе, 122",
+        city: "Одинцово",
+      },
+    ],
+  },
+  {
+    id: "neftekamsk",
+    name: "Нефтекамск",
+    restaurants: [
+      {
+        id: "neftekamsk-parkovaya",
+        name: "Хачапури Марико",
+        address: "Парковая, 12",
+        city: "Нефтекамск",
+      },
+    ],
+  },
+  {
+    id: "penza",
+    name: "Пенза",
+    restaurants: [
+      {
+        id: "penza-zasechnoe",
+        name: "Хачапури Марико",
+        address: "с. Засечное, Прибрежный, 2А",
+        city: "Пенза",
+      },
+    ],
+  },
+  {
+    id: "astana",
+    name: "Астана",
+    restaurants: [
+      {
+        id: "astana-koshkarbaeva",
+        name: "Хачапури Марико",
+        address: "Рахимжана Кошкарбаева, 27",
+        city: "Астана",
+      },
+    ],
+  },
+  {
+    id: "atyrau",
+    name: "Атырау",
+    restaurants: [
+      {
+        id: "atyrau-avangard",
+        name: "Хачапури Марико",
+        address: "м-рн Авангард, 3, строение 76а",
+        city: "Атырау",
       },
     ],
   },
