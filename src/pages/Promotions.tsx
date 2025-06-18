@@ -7,14 +7,14 @@ const Promotions = () => {
     {
       id: 1,
       imageUrl:
-        "https://cdn.builder.io/api/v1/image/assets/TEMP/b11cbe081eef24239e98f1d05d71f79fbbc83b5a?placeholderIfAbsent=true",
+        "/images/promotions/promo-birthday.png",
       title: "Безлимит винограда",
       description: "При заказе от 1500₽ на гостя по вторникам",
     },
     {
       id: 2,
       imageUrl:
-        "https://cdn.builder.io/api/v1/image/assets/TEMP/d3cf65f195c7a4eb03d53cb7f046396734ecf61f?placeholderIfAbsent=true",
+        "/images/promotions/promo-cashback.png",
       title: "Вай, со своим отмечай!",
       description:
         "Принесите свои горячительные напитки на свою закуску у Марико! Билеты со своя закусками от 2500₽ на гостя",
@@ -22,7 +22,7 @@ const Promotions = () => {
     {
       id: 3,
       imageUrl:
-        "https://cdn.builder.io/api/v1/image/assets/TEMP/99d05873de5bc1df592899ed1c73f44d92fa0937?placeholderIfAbsent=true",
+        "/images/promotions/promo-delivery.png",
       title: "Накормим 300 гостей",
       description: "Совершенно бесплатно",
     },
@@ -39,7 +39,7 @@ const Promotions = () => {
         <div className="mt-8 md:mt-12">
           <div className="flex justify-center">
             <img
-              src="https://cdn.builder.io/api/v1/image/assets/TEMP/797c0156cea27f69a9b5f89ccf9b3885ce3fd8cc?placeholderIfAbsent=true"
+              src="/images/characters/promo-character.svg"
               alt="Хачапури логотип"
               className="w-full h-auto max-w-md"
             />

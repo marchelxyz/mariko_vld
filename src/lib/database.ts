@@ -222,7 +222,7 @@ class ProfileDatabase {
       birthDate: "",
       gender: "Не указан",
       photo:
-        "https://cdn.builder.io/api/v1/image/assets/TEMP/f2cb5ca47004ec14f2e0c3003157a1a2b57e7d97?placeholderIfAbsent=true",
+        "/images/avatars/avatar-default.svg",
       bonusPoints: 0,
       notificationsEnabled: true,
       selectedRestaurant: "Нижний Новгород, Рождественская, 39",

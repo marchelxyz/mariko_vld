@@ -32,7 +32,7 @@ const Delivery = () => {
         icon: (
           <div className="w-full h-full flex items-center justify-center">
             <img
-              src="https://cdn.builder.io/api/v1/image/assets/TEMP/8fb69a54dd17376a9b06711103d33471ccbe2cb7?placeholderIfAbsent=true"
+              src="/images/delivery/delivery-courier.svg"
               alt="Яндекс Еда"
               className="w-16 h-16 object-contain"
             />
@@ -49,7 +49,7 @@ const Delivery = () => {
         icon: (
           <div className="w-full h-full flex items-center justify-center">
             <img
-              src="https://cdn.builder.io/api/v1/image/assets/TEMP/0e46aa72fcfd3aa8f0cfa3cac579108968ad4d2b?placeholderIfAbsent=true"
+              src="/images/delivery/delivery-car.svg"
               alt="Delivery Club"
               className="w-full h-full object-cover rounded-[90px_0_90px_90px]"
             />
@@ -78,7 +78,7 @@ const Delivery = () => {
         <div className="mt-8 md:mt-12">
           <div className="flex justify-center">
             <img
-              src="https://cdn.builder.io/api/v1/image/assets/TEMP/2812f8c2673606b4f69890ad4c064c85ff37ee30?placeholderIfAbsent=true"
+              src="/images/delivery/delivery-pickup.svg"
               alt="Хачапури логотип"
               className="w-full h-auto max-w-md"
             />
@@ -101,7 +101,7 @@ const Delivery = () => {
       {/* Delivery Truck Illustration - Positioned to touch footer */}
       <div className="relative flex justify-start items-end overflow-hidden -mb-8 md:-mb-10">
         <img
-          src="https://cdn.builder.io/api/v1/image/assets/TEMP/7b483c106c0873fef56b5de8673db668ccbe0325?placeholderIfAbsent=true"
+          src="/images/delivery/delivery-restaurant.png"
           alt="Грузовик доставки Марико"
           className="w-auto h-auto max-w-sm md:max-w-lg"
           style={{
