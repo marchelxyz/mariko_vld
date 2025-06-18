@@ -26,6 +26,15 @@ const EditProfile = () => {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
 
+  // Функция для генерации приветствия в зависимости от пола
+  const getGreeting = () => {
+    if (profile.gender === "Женский") {
+      return "Гостья наша Дорогая!";
+    }
+    // По умолчанию мужской род (включая "Не указан" и пустые значения)
+    return "Гость наш Дорогой!";
+  };
+
   const handleEdit = (field: string) => {
     setEditingField(field);
     setEditValue(profile[field as keyof typeof profile]?.toString() || "");
@@ -246,7 +255,7 @@ const EditProfile = () => {
             </div>
             <div className="flex-1">
               <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold tracking-tight">
-                Гостья наша Дорогая!
+                {getGreeting()}
               </h2>
               <p className="text-white/70 font-el-messiri text-sm md:text-base mt-1">
                 Нажмите на фото для изменения
@@ -335,7 +344,7 @@ const EditProfile = () => {
         <div className="mt-12 md:mt-16 flex items-end justify-between">
           <div className="bg-orange-300 rounded-[40px] px-6 md:px-8 py-4 md:py-6 max-w-xs">
             <p className="text-mariko-secondary font-el-messiri text-lg md:text-xl font-semibold leading-tight">
-              Ты всегда можешь изменить данные, Дорогой!
+              Ты всегда можешь изменить данные, {profile.gender === "Женский" ? "Дорогая" : "Дорогой"}!
             </p>
           </div>
           <div className="flex-shrink-0 ml-4">

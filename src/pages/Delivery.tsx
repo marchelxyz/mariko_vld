@@ -106,7 +106,7 @@ const Delivery = () => {
           className="w-auto h-auto max-w-sm md:max-w-lg"
           style={{
             objectFit: "contain",
-            transform: "translateX(-25%) scale(1.0) md:scale(1.2)",
+            transform: "translateX(-40%) scale(1.0) md:scale(1.2)",
           }}
         />
       </div>
