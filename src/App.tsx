@@ -12,6 +12,7 @@ import Delivery from "./pages/Delivery";
 import Promotions from "./pages/Promotions";
 import Booking from "./pages/Booking";
 import Review from "./pages/Review";
+import SelectRestaurantForReview from "./pages/SelectRestaurantForReview";
 import Restaurants from "./pages/Restaurants";
 import NotFound from "./pages/NotFound";
 
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/promotions" element={<Promotions />} />
             <Route path="/booking" element={<Booking />} />
             <Route path="/review" element={<Review />} />
+            <Route path="/select-restaurant-review" element={<SelectRestaurantForReview />} />
             <Route path="/restaurants" element={<Restaurants />} />
             <Route
               path="/restaurants/:restaurantId"

@@ -5,6 +5,7 @@ import { Header } from "@/components/Header";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { CitySelector, cities } from "@/components/CitySelector";
 import { useCityContext } from "@/contexts/CityContext";
+import RestaurantReviews from "@/components/RestaurantReviews";
 
 interface Restaurant {
   id: string;
@@ -415,12 +416,22 @@ const Restaurants = () => {
                 </p>
                 <div className="flex gap-2">
                   <button
+                    onClick={() => {
+                      // Сохраняем ID конкретного ресторана
+                      localStorage.setItem('selectedRestaurantForReview', restaurant.id);
+                      navigate("/review");
+                    }}
+                    className="flex-1 bg-mariko-primary border-2 border-white rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-white hover:text-mariko-primary transition-colors text-white"
+                  >
+                    В приложении
+                  </button>
+                  <button
                     onClick={() =>
                       window.open(restaurant.yandexReviewUrl, "_blank")
                     }
                     className="flex-1 bg-yellow-500 text-black rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-yellow-400 transition-colors"
                   >
-                    Яндекс Карты
+                    Яндекс
                   </button>
                   <button
                     onClick={() =>
@@ -432,6 +443,16 @@ const Restaurants = () => {
                   </button>
                 </div>
               </div>
+
+              {/* Отзывы ресторана - показываем только для конкретного ресторана */}
+              {restaurantId && (
+                <div className="mt-6">
+                  <RestaurantReviews 
+                    restaurantId={restaurant.id} 
+                    restaurantName={restaurant.name}
+                  />
+                </div>
+              )}
             </div>
           ))}
         </div>

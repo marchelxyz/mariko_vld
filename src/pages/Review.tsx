@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { useCityContext } from "@/contexts/CityContext";
+import { botApi } from "@/lib/botApi";
+import { profileDB } from "@/lib/database";
 
 const Review = () => {
   const navigate = useNavigate();
@@ -43,13 +45,40 @@ const Review = () => {
     setIsSubmitted(true);
 
     try {
-      // Имитация отправки отзыва
+      // Получаем данные пользователя
+      const userProfile = profileDB.getAllProfiles()[0] || {
+        id: "anonymous_user",
+        name: "Гость", 
+        phone: "",
+      };
+
+      // Получаем выбранный ресторан из localStorage или берем первый
+      const selectedRestaurantId = localStorage.getItem('selectedRestaurantForReview');
+      const restaurant = selectedRestaurantId 
+        ? selectedCity.restaurants.find(r => r.id === selectedRestaurantId) || selectedCity.restaurants[0]
+        : selectedCity.restaurants[0];
+
+      // Сохраняем отзыв в базу данных
+      const result = await botApi.createReview({
+        userId: userProfile.id,
+        userName: userProfile.name,
+        userPhone: userProfile.phone,
+        restaurantId: restaurant.id,
+        restaurantName: restaurant.name,
+        restaurantAddress: restaurant.address,
+        rating,
+        text: reviewText,
+      });
+
+      console.log("Отзыв сохранен:", result);
+
+      // Имитация задержки обработки
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Простая логика анализа
-      const isPositive = rating >= 4 && !containsNegativeWords(reviewText);
+      // Очищаем выбранный ресторан после отправки
+      localStorage.removeItem('selectedRestaurantForReview');
 
-      if (isPositive) {
+      if (result.shouldRedirectToExternal) {
         setShowExternalReviews(true);
       } else {
         alert("Спасибо за ваш отзыв! Мы обязательно учтем ваши замечания и постараемся улучшить качество обслуживания.");
@@ -274,14 +303,31 @@ const Review = () => {
         {/* Back Button and Title */}
         <div className="mt-8 flex items-center gap-4 mb-8">
           <button
-            onClick={() => navigate("/")}
+            onClick={() => {
+              // Очищаем выбранный ресторан при возврате
+              localStorage.removeItem('selectedRestaurantForReview');
+              navigate("/");
+            }}
             className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
-          <h1 className="text-white font-el-messiri text-3xl md:text-4xl font-bold">
-            Оставить отзыв
-          </h1>
+          <div className="flex-1">
+            <h1 className="text-white font-el-messiri text-3xl md:text-4xl font-bold">
+              Оставить отзыв
+            </h1>
+            {(() => {
+              const selectedRestaurantId = localStorage.getItem('selectedRestaurantForReview');
+              const restaurant = selectedRestaurantId 
+                ? selectedCity.restaurants.find(r => r.id === selectedRestaurantId) || selectedCity.restaurants[0]
+                : selectedCity.restaurants[0];
+              return (
+                <p className="text-white/70 font-el-messiri text-lg mt-2">
+                  {restaurant.name} • {restaurant.address}
+                </p>
+              );
+            })()}
+          </div>
         </div>
 
         {!isSubmitted ? (

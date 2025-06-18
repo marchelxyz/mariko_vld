@@ -64,11 +64,12 @@ def check_requirements():
         print(f"{Colors.RED}❌ npm не установлен!{Colors.END}")
         return False
     
-    # Проверка что мы в папке бота
-    current_dir = Path.cwd()
-    if not (current_dir / 'package.json').exists():
-        print(f"{Colors.RED}❌ Файл package.json не найден!{Colors.END}")
-        print(f"{Colors.YELLOW}💡 Убедитесь что вы запускаете скрипт из папки bot/{Colors.END}")
+    # Проверка что package.json есть в папке bot
+    script_dir = Path(__file__).parent
+    bot_dir = script_dir
+    if not (bot_dir / 'package.json').exists():
+        print(f"{Colors.RED}❌ Файл package.json не найден в папке bot!{Colors.END}")
+        print(f"{Colors.YELLOW}💡 Убедитесь что структура проекта правильная{Colors.END}")
         return False
     
     print(f"{Colors.GREEN}✅ Папка бота найдена{Colors.END}")
@@ -78,8 +79,11 @@ def setup_environment():
     """Настройка окружения для бота"""
     print(f"{Colors.YELLOW}⚙️  Настройка окружения для бота...{Colors.END}")
     
-    env_file = Path('.env')
-    env_example = Path('env.example')
+    # Работаем в папке bot
+    script_dir = Path(__file__).parent
+    bot_dir = script_dir
+    env_file = bot_dir / '.env'
+    env_example = bot_dir / 'env.example'
     
     # Создаем .env если его нет
     if not env_file.exists() and env_example.exists():
@@ -163,10 +167,14 @@ def install_dependencies():
     print(f"{Colors.YELLOW}📦 Установка зависимостей для бота...{Colors.END}")
     
     try:
+        # Работаем в папке bot
+        script_dir = Path(__file__).parent
+        bot_dir = script_dir
+        
         # Проверяем наличие node_modules
-        if not Path('./node_modules').exists():
+        if not (bot_dir / 'node_modules').exists():
             print(f"{Colors.YELLOW}📥 Установка npm пакетов для бота...{Colors.END}")
-            result = subprocess.run(['npm', 'install'], check=True)
+            result = subprocess.run(['npm', 'install'], check=True, cwd=bot_dir)
             print(f"{Colors.GREEN}✅ Зависимости бота установлены{Colors.END}")
         else:
             print(f"{Colors.GREEN}✅ Зависимости бота уже установлены{Colors.END}")
@@ -181,7 +189,11 @@ def build_bot():
     print(f"{Colors.YELLOW}🔨 Сборка TypeScript кода бота...{Colors.END}")
     
     try:
-        result = subprocess.run(['npm', 'run', 'build'], check=True, capture_output=True, text=True)
+        # Работаем в папке bot
+        script_dir = Path(__file__).parent
+        bot_dir = script_dir
+        
+        result = subprocess.run(['npm', 'run', 'build'], check=True, capture_output=True, text=True, cwd=bot_dir)
         print(f"{Colors.GREEN}✅ Сборка бота завершена{Colors.END}")
         return True
     except subprocess.CalledProcessError as e:
@@ -201,8 +213,12 @@ def start_bot():
     print("─" * 60)
     
     try:
-        # Запускаем ТОЛЬКО бота в режиме разработки (polling)
-        subprocess.run(['npm', 'run', 'dev'], check=True)
+        # Получаем путь к папке bot относительно скрипта
+        script_dir = Path(__file__).parent
+        bot_dir = script_dir
+        
+        # Запускаем ТОЛЬКО бота в режиме разработки (polling) из папки bot
+        subprocess.run(['npm', 'run', 'dev'], check=True, cwd=bot_dir)
     except subprocess.CalledProcessError as e:
         print(f"{Colors.RED}❌ Ошибка запуска бота: {e}{Colors.END}")
         return False

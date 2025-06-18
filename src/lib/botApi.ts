@@ -1,7 +1,7 @@
 // Telegram Bot API интеграция
 // Эти функции будут интегрированы с бэкендом бота
 
-import { profileDB, type UserProfile as DBUserProfile } from "./database";
+import { profileDB, type UserProfile as DBUserProfile, type Review } from "./database";
 
 export interface UserProfile {
   id: string;
@@ -39,6 +39,35 @@ export interface ReviewAnalysisResult {
   sentiment: "positive" | "negative";
   confidence: number;
 }
+
+// Функция для анализа тональности отзыва
+export const analyzeSentiment = (rating: number, text: string): 'positive' | 'negative' | 'neutral' => {
+  const negativeWords = [
+    'плохо', 'ужас', 'отвратительно', 'кошмар', 
+    'никому не советую', 'отвратительный', 'плохой',
+    'холодный', 'невкусный', 'долго ждали', 'грубый',
+    'антисанитария', 'несвежий', 'ужасно', 'кошмарно',
+    'отврат', 'омерзительно', 'гадость', 'мерзко'
+  ];
+  
+  const positiveWords = [
+    'отлично', 'вкусно', 'прекрасно', 'рекомендую',
+    'быстро', 'вежливый', 'свежий', 'качественно',
+    'замечательно', 'превосходно', 'великолепно', 'шикарно'
+  ];
+
+  const hasNegativeWords = negativeWords.some(word => 
+    text.toLowerCase().includes(word)
+  );
+  
+  const hasPositiveWords = positiveWords.some(word => 
+    text.toLowerCase().includes(word)
+  );
+
+  if (rating >= 4 && !hasNegativeWords) return 'positive';
+  if (rating <= 2 || hasNegativeWords) return 'negative';
+  return 'neutral';
+};
 
 // API функции для интеграции с ботом
 export const botApi = {
@@ -257,6 +286,132 @@ export const botApi = {
     };
 
     return telegraphLinks[menuType];
+  },
+
+  // === МЕТОДЫ ДЛЯ РАБОТЫ С ОТЗЫВАМИ ===
+
+  // Создание нового отзыва
+  async createReview(data: {
+    userId: string;
+    userName: string;
+    userPhone: string;
+    restaurantId: string;
+    restaurantName: string;
+    restaurantAddress: string;
+    rating: number;
+    text: string;
+  }): Promise<{ reviewId: string; sentiment: string; shouldRedirectToExternal: boolean }> {
+    try {
+      const sentiment = analyzeSentiment(data.rating, data.text);
+      const shouldRedirectToExternal = sentiment === 'positive';
+
+      const review = profileDB.createReview({
+        userId: data.userId,
+        userName: data.userName,
+        userPhone: data.userPhone,
+        restaurantId: data.restaurantId,
+        restaurantName: data.restaurantName,
+        restaurantAddress: data.restaurantAddress,
+        rating: data.rating,
+        text: data.text,
+        sentiment,
+        status: sentiment === 'negative' ? 'pending' : 'processed',
+        isPublic: true, // Все отзывы теперь публичные
+      });
+
+      // Если отзыв негативный - уведомляем менеджера
+      if (sentiment === 'negative') {
+        await this.notifyManager({
+          type: "negative_review",
+          data: {
+            userName: data.userName,
+            userPhone: data.userPhone,
+            restaurant: data.restaurantName,
+            reviewText: data.text,
+            rating: data.rating,
+            timestamp: review.createdAt,
+          }
+        });
+      }
+
+      console.log("Отзыв создан:", {
+        reviewId: review.id,
+        sentiment,
+        restaurant: data.restaurantName,
+        rating: data.rating
+      });
+
+      return {
+        reviewId: review.id,
+        sentiment,
+        shouldRedirectToExternal
+      };
+    } catch (error) {
+      console.error("Ошибка создания отзыва:", error);
+      throw new Error("Не удалось сохранить отзыв");
+    }
+  },
+
+  // Получение отзывов ресторана
+  async getRestaurantReviews(restaurantId: string): Promise<Review[]> {
+    try {
+      return profileDB.getRestaurantReviews(restaurantId);
+    } catch (error) {
+      console.error("Ошибка получения отзывов:", error);
+      return [];
+    }
+  },
+
+  // Получение статистики отзывов
+  async getReviewsStats(restaurantId?: string): Promise<{
+    total: number;
+    positive: number;
+    negative: number;
+    neutral: number;
+    averageRating: number;
+    recentReviews: number;
+    pendingReviews: number;
+  }> {
+    try {
+      return profileDB.getReviewsStats(restaurantId);
+    } catch (error) {
+      console.error("Ошибка получения статистики отзывов:", error);
+      return {
+        total: 0,
+        positive: 0,
+        negative: 0,
+        neutral: 0,
+        averageRating: 0,
+        recentReviews: 0,
+        pendingReviews: 0,
+      };
+    }
+  },
+
+  // Получение отзывов пользователя
+  async getUserReviews(userId: string): Promise<Review[]> {
+    try {
+      return profileDB.getUserReviews(userId);
+    } catch (error) {
+      console.error("Ошибка получения отзывов пользователя:", error);
+      return [];
+    }
+  },
+
+  // Обновление статуса отзыва (для менеджеров)
+  async updateReviewStatus(reviewId: string, status: 'pending' | 'processed' | 'resolved', managerResponse?: string): Promise<boolean> {
+    try {
+      const updates: Partial<Review> = { status };
+      if (managerResponse) {
+        updates.managerResponse = managerResponse;
+      }
+
+      const updatedReview = profileDB.updateReview(reviewId, updates);
+      return !!updatedReview;
+    } catch (error) {
+      console.error("Ошибка обновления статуса отзыва:", error);
+      return false;
+    }
   },
 };
 

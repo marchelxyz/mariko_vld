@@ -51,7 +51,16 @@ const Index = () => {
           <ActionButton
             icon={<Star className="w-full h-full" />}
             title="Оставить отзыв"
-            onClick={() => navigate("/review")}
+            onClick={() => {
+              // Если в городе несколько ресторанов - идем на выбор ресторана
+              if (selectedCity.restaurants.length > 1) {
+                navigate("/select-restaurant-review");
+              } else {
+                // Если ресторан один - сразу на отзыв
+                localStorage.setItem('selectedRestaurantForReview', selectedCity.restaurants[0].id);
+                navigate("/review");
+              }
+            }}
           />
         </div>
 
