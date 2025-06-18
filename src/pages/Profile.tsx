@@ -76,13 +76,13 @@ const Profile = () => {
         </div>
 
         {/* Decorative Georgian Pottery Image */}
-        <div className="mt-12 md:mt-24 flex justify-end">
+        <div className="mt-6 md:mt-24 flex justify-end">
           <img
             src="https://cdn.builder.io/api/v1/image/assets/TEMP/0b9a511509924ad915d1664cb807c07d1330f1ed?placeholderIfAbsent=true"
             alt="Грузинские кувшины"
-            className="w-full h-auto max-w-4xl"
+            className="w-full h-auto max-w-xs md:max-w-4xl"
             style={{
-              transform: "translateX(20%)",
+              transform: "translateX(10%)",
             }}
           />
         </div>
