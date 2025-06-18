@@ -74,7 +74,7 @@ const Index = () => {
         </div>
 
         {/* Additional Menu Items */}
-        <div className="mt-3 md:mt-6 grid grid-cols-2 gap-3 md:gap-4">
+        <div className="mt-3 md:mt-6 grid grid-cols-3 gap-2 md:gap-4">
           <MenuCard
             title="Вакансии"
             imageUrl="https://cdn.builder.io/api/v1/image/assets/TEMP/5b52e54d8beda399ec6db08edd02c2b55ecea62d?placeholderIfAbsent=true"
@@ -92,20 +92,14 @@ const Index = () => {
               window.open("https://telegra.ph/Chef-Menu-Mariko-01-01", "_blank")
             }
           />
-        </div>
-
-        <div className="mt-4 md:mt-6 grid grid-cols-2 gap-4 md:gap-6">
           <MenuCard
             title="Акции"
             imageUrl="https://cdn.builder.io/api/v1/image/assets/TEMP/89ad2d18cf715439bf30ec0a63f2079875e962bb?placeholderIfAbsent=true"
             onClick={() => navigate("/promotions")}
           />
-          <MenuCard
-            title="Сайт"
-            imageUrl="https://cdn.builder.io/api/v1/image/assets/TEMP/690e0689acfa56ebed78a2279312c0ee027ff6c5?placeholderIfAbsent=true"
-            onClick={() => window.open("https://vhachapuri.ru/", "_blank")}
-          />
         </div>
+
+
       </div>
 
       {/* Quote Section - Vertical text along the chef */}

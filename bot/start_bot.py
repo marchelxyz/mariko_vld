@@ -197,23 +197,10 @@ def start_bot():
     print(f"{Colors.GREEN}{Colors.BOLD}🤖 ЗАПУСК TELEGRAM БОТА...{Colors.END}")
     print(f"{Colors.CYAN}📱 Mini App уже работает: https://hachapurimariko.netlify.app{Colors.END}")
     print(f"{Colors.BLUE}🔧 Запускается только бот (polling режим){Colors.END}")
-    print(f"{Colors.PURPLE}📍 Текущая папка: {Path.cwd()}{Colors.END}")
-    print(f"{Colors.PURPLE}⚡ Команда: npm run dev{Colors.END}")
     print(f"{Colors.YELLOW}💡 Для остановки бота нажмите Ctrl+C{Colors.END}")
     print("─" * 60)
     
     try:
-        # Показываем что именно в package.json
-        print(f"{Colors.CYAN}🔍 Проверяю команду dev в package.json...{Colors.END}")
-        with open('package.json', 'r') as f:
-            import json
-            pkg = json.load(f)
-            dev_script = pkg.get('scripts', {}).get('dev', 'НЕ НАЙДЕНО')
-            print(f"{Colors.BLUE}📋 npm run dev = {dev_script}{Colors.END}")
-        
-        print(f"{Colors.GREEN}🚀 Запускаю: {dev_script}{Colors.END}")
-        print("─" * 60)
-        
         # Запускаем ТОЛЬКО бота в режиме разработки (polling)
         subprocess.run(['npm', 'run', 'dev'], check=True)
     except subprocess.CalledProcessError as e:
@@ -229,24 +216,6 @@ def main():
     print(f"{Colors.BLUE}ℹ️  Этот скрипт запускает ТОЛЬКО Telegram бота.{Colors.END}")
     print(f"{Colors.BLUE}ℹ️  Мини-приложение уже развернуто на Netlify.{Colors.END}")
     print()
-    
-    # КРИТИЧЕСКИ ВАЖНО: убедимся что мы в папке bot
-    current_dir = Path.cwd()
-    
-    # Если мы НЕ в папке bot, но видим папку bot рядом
-    if current_dir.name != 'bot' and (current_dir / 'bot').exists():
-        print(f"{Colors.YELLOW}🔄 Обнаружено: скрипт запущен из корня проекта{Colors.END}")
-        print(f"{Colors.YELLOW}📁 Автоматически перехожу в папку bot/...{Colors.END}")
-        os.chdir('bot')
-        print(f"{Colors.GREEN}✅ Теперь в папке: {Path.cwd()}{Colors.END}")
-        print()
-    
-    # Если мы все еще НЕ в папке bot
-    if not (Path.cwd() / 'package.json').exists() or Path.cwd().name != 'bot':
-        print(f"{Colors.RED}❌ ОШИБКА: Неправильная папка!{Colors.END}")
-        print(f"{Colors.YELLOW}📍 Текущая папка: {Path.cwd()}{Colors.END}")
-        print(f"{Colors.YELLOW}💡 Нужно запускать из папки bot/ или рядом с ней{Colors.END}")
-        sys.exit(1)
     
     # Проверка требований
     if not check_requirements():

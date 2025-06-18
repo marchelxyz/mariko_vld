@@ -25,7 +25,6 @@ export const MenuCard = ({
         className="absolute inset-0 bg-cover bg-center"
         style={{ backgroundImage: `url(${imageUrl})` }}
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
       <div className="absolute bottom-2 md:bottom-4 left-2 right-2 text-center">
         <h3 className="text-white font-el-messiri text-sm md:text-3xl font-bold tracking-tight">
           {title}
