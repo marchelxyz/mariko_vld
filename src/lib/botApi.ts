@@ -140,7 +140,7 @@ export const botApi = {
     profile: Partial<UserProfile>,
   ): Promise<boolean> {
     try {
-      console.log("Обновление профиля:", { telegramUserId, profile });
+      // Обновление профиля
 
       const updatedProfile = profileDB.updateProfile(telegramUserId, profile);
 
@@ -166,7 +166,7 @@ export const botApi = {
   async submitBooking(
     booking: BookingData,
   ): Promise<{ success: boolean; bookingId?: string }> {
-    console.log("Отправка бронирования в АЙКО:", booking);
+    // Отправка бронирования в АЙКО
 
     // В реальной интеграции:
     // 1. Отправляем данные в АЙКО систему
@@ -181,7 +181,7 @@ export const botApi = {
 
   // Анализ отзыва с помощью ИИ
   async analyzeReview(review: ReviewData): Promise<ReviewAnalysisResult> {
-    console.log("Анализ отзыва:", review);
+    // Анализ отзыва
 
     // Простая логика анализа (в реальности будет ML модель)
     const negativeWords = [
@@ -206,13 +206,13 @@ export const botApi = {
 
   // Отправка отзыва
   async submitReview(review: ReviewData): Promise<ReviewAnalysisResult> {
-    console.log("Отправка отзыва:", review);
+    // Отправка отзыва
 
     const analysis = await this.analyzeReview(review);
 
     if (analysis.isPositive) {
       // Отправляем предложение оставить отзыв на внешних платформах
-      console.log("Отправка предложения внешних отзывов пользователю");
+      // Отправка предложения внешних отзывов пользователю
     } else {
       // Отправляем уведомление ответственному лицу
       await this.notifyManager({
@@ -243,7 +243,7 @@ export const botApi = {
       timestamp: string;
     };
   }): Promise<boolean> {
-    console.log("Уведомление менеджера:", notification);
+    // Уведомление менеджера
 
     // В реальной интеграции отправляем сообщение ответственному лицу
     // через Telegram API с кнопками "Отработано" / "Не отработано"
@@ -269,7 +269,7 @@ export const botApi = {
   async getRestaurantsByCity(city?: string): Promise<any[]> {
     // В реальной интеграции будет запрос к базе данных ресторанов
     // с актуальной информацией о работе, меню, акциях
-    console.log("Получение ресторанов для города:", city);
+    // Получение ресторанов для города
     return [];
   },
 
@@ -334,12 +334,7 @@ export const botApi = {
         });
       }
 
-      console.log("Отзыв создан:", {
-        reviewId: review.id,
-        sentiment,
-        restaurant: data.restaurantName,
-        rating: data.rating
-      });
+      // Отзыв создан успешно
 
       return {
         reviewId: review.id,

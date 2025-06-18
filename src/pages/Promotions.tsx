@@ -54,7 +54,7 @@ const Promotions = () => {
               imageUrl={promo.imageUrl}
               title={promo.title}
               description={promo.description}
-              onClick={() => console.log(`Акция: ${promo.title}`)}
+                              onClick={() => {/* Акция: ${promo.title} */}}
             />
           ))}
         </div>

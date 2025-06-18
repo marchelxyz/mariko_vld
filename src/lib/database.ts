@@ -166,7 +166,7 @@ class ProfileDatabase {
     ];
 
     localStorage.setItem(this.reviewsKey, JSON.stringify(testReviews));
-    console.log("Созданы тестовые отзывы для демонстрации функциональности");
+    // Созданы тестовые отзывы для демонстрации функциональности
   }
 
   private initCleanup(): void {
@@ -177,7 +177,7 @@ class ProfileDatabase {
       const dayAgo = now - 24 * 60 * 60 * 1000; // 24 часа
 
       if (!lastCleanup || parseInt(lastCleanup) < dayAgo) {
-        console.log("Выполняем автоматическую очистку базы данных...");
+        // Выполняем автоматическую очистку базы данных
         this.cleanupOldData();
         localStorage.setItem("mariko_last_cleanup", now.toString());
       }
@@ -364,7 +364,7 @@ class ProfileDatabase {
       // Fallback: очищаем активность если не получается записать
       try {
         localStorage.removeItem(this.activityKey);
-        console.log("Очищена история активности из-за переполнения");
+        // Очищена история активности из-за переполнения
       } catch (e) {
         console.error("Не удалось очистить активность");
       }
