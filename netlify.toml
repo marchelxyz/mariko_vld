@@ -1,35 +1,32 @@
 [build]
-  command = "npm run build && cd bot && npm run build"
+  command = "npm run build && cd bot && npm run build && cd ../netlify/functions && npm install"
   functions = "netlify/functions"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "18"
 
-# Настройки для бота
-[[functions]]
-  path = "bot/src/bot.ts"
-  included_files = ["bot/**"]
+# 🤖 Функции для бота
+[functions]
+  external_node_modules = ["grammy", "dotenv"]
+  node_bundler = "esbuild"
 
-# Редиректы для Telegram webhook
+# 🔗 Редиректы для API
 [[redirects]]
-  from = "/api/webhook"
-  to = "/.netlify/functions/bot"
+  from = "/api/bot/*"
+  to = "/.netlify/functions/bot/:splat"
   status = 200
-  force = true
 
 [[redirects]]
   from = "/health"
   to = "/.netlify/functions/bot"
   status = 200
-  force = true
 
-# SPA редирект для React приложения
+# 🌐 SPA редирект для React приложения
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-  conditions = {Role = [""], Country = [""]}
 
 # Настройки безопасности
 [[headers]]
