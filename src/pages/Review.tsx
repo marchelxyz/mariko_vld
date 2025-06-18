@@ -75,67 +75,135 @@ const Review = () => {
   const handleExternalReview = (platform: string) => {
     const restaurant = selectedCity.restaurants[0];
     
-    // Используем те же актуальные ссылки что и в Restaurants.tsx
-    const getRestaurantReviewLinks = (restaurantId: string) => {
+    // Используем те же актуальные ссылки что и в Restaurants.tsx с полной синхронизацией
+    const getRestaurantReviewLinks = (restaurantId: string, city: string, address: string) => {
+      // Актуальные ссылки для каждого ресторана - точно такие же как в Restaurants.tsx
       const restaurantLinksMap: { [key: string]: any } = {
+        // Нижний Новгород
         "nn-rozh": {
           yandex: "https://yandex.ru/maps/47/nizhny-novgorod/?ll=44.005986%2C56.326797&mode=poi&poi%5Bpoint%5D=44.005986%2C56.326797&poi%5Buri%5D=ymapsbm1%3A%2F%2Forg%3Foid%3D1076392938&z=17&tab=reviews",
           gis: "https://2gis.ru/nizhnynovgorod/firm/1435960302441559/tab/reviews"
         },
         "nn-park": {
-          yandex: "https://yandex.ru/maps/47/nizhny-novgorod/?text=%D0%9F%D0%B0%D1%80%D0%BA%20%D0%A8%D0%B2%D0%B5%D0%B9%D1%86%D0%B0%D1%80%D0%B8%D1%8F%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=43.931400%2C56.299800&z=16",
+          yandex: "https://yandex.ru/maps/47/nizhny-novgorod/?text=%D0%9F%D0%B0%D1%80%D0%BA%20%D0%A8%D0%B2%D0%B5%D0%B9%D1%86%D0%B0%D1%80%D0%B8%D1%8F%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=43.931400%2C56.299800&z=16&tab=reviews",
           gis: "https://2gis.ru/nizhnynovgorod/search/%D0%9F%D0%B0%D1%80%D0%BA%20%D0%A8%D0%B2%D0%B5%D0%B9%D1%86%D0%B0%D1%80%D0%B8%D1%8F%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
         },
         "nn-volga": {
-          yandex: "https://yandex.ru/maps/47/nizhny-novgorod/?text=%D0%92%D0%BE%D0%BB%D0%B6%D1%81%D0%BA%D0%B0%D1%8F%20%D0%BD%D0%B0%D0%B1%D0%B5%D1%80%D0%B5%D0%B6%D0%BD%D0%B0%D1%8F%2023%D0%B0%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=44.002200%2C56.320500&z=16",
+          yandex: "https://yandex.ru/maps/47/nizhny-novgorod/?text=%D0%92%D0%BE%D0%BB%D0%B6%D1%81%D0%BA%D0%B0%D1%8F%20%D0%BD%D0%B0%D0%B1%D0%B5%D1%80%D0%B5%D0%B6%D0%BD%D0%B0%D1%8F%2023%D0%B0%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=44.002200%2C56.320500&z=16&tab=reviews",
           gis: "https://2gis.ru/nizhnynovgorod/search/%D0%92%D0%BE%D0%BB%D0%B6%D1%81%D0%BA%D0%B0%D1%8F%20%D0%BD%D0%B0%D0%B1%D0%B5%D1%80%D0%B5%D0%B6%D0%BD%D0%B0%D1%8F%2023%D0%B0%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
         },
+        
+        // Санкт-Петербург
         "spb-sadovaya": {
-          yandex: "https://yandex.ru/maps/2/saint-petersburg/?text=%D0%9C%D0%B0%D0%BB%D0%B0%D1%8F%20%D0%A1%D0%B0%D0%B4%D0%BE%D0%B2%D0%B0%D1%8F%203%2F54%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=30.318000%2C59.928000&z=16",
+          yandex: "https://yandex.ru/maps/2/saint-petersburg/?text=%D0%9C%D0%B0%D0%BB%D0%B0%D1%8F%20%D0%A1%D0%B0%D0%B4%D0%BE%D0%B2%D0%B0%D1%8F%203%2F54%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=30.318000%2C59.928000&z=16&tab=reviews",
           gis: "https://2gis.ru/spb/search/%D0%9C%D0%B0%D0%BB%D0%B0%D1%8F%20%D0%A1%D0%B0%D0%B4%D0%BE%D0%B2%D0%B0%D1%8F%203%2F54%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
         },
         "spb-sennaya": {
-          yandex: "https://yandex.ru/maps/2/saint-petersburg/?text=%D0%A1%D0%B5%D0%BD%D0%BD%D0%B0%D1%8F%205%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=30.320472%2C59.927011&z=16",
+          yandex: "https://yandex.ru/maps/2/saint-petersburg/?text=%D0%A1%D0%B5%D0%BD%D0%BD%D0%B0%D1%8F%205%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=30.320472%2C59.927011&z=16&tab=reviews",
           gis: "https://2gis.ru/spb/search/%D0%A1%D0%B5%D0%BD%D0%BD%D0%B0%D1%8F%205%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
         },
         "spb-morskaya": {
-          yandex: "https://yandex.ru/maps/2/saint-petersburg/?text=%D0%9C%D0%B0%D0%BB%D0%B0%D1%8F%20%D0%9C%D0%BE%D1%80%D1%81%D0%BA%D0%B0%D1%8F%205%D0%B0%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=30.315000%2C59.932000&z=16",
+          yandex: "https://yandex.ru/maps/2/saint-petersburg/?text=%D0%9C%D0%B0%D0%BB%D0%B0%D1%8F%20%D0%9C%D0%BE%D1%80%D1%81%D0%BA%D0%B0%D1%8F%205%D0%B0%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=30.315000%2C59.932000&z=16&tab=reviews",
           gis: "https://2gis.ru/spb/search/%D0%9C%D0%B0%D0%BB%D0%B0%D1%8F%20%D0%9C%D0%BE%D1%80%D1%81%D0%BA%D0%B0%D1%8F%205%D0%B0%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
         },
         "spb-italyanskaya": {
-          yandex: "https://yandex.ru/maps/2/saint-petersburg/?text=%D0%98%D1%82%D0%B0%D0%BB%D1%8C%D1%8F%D0%BD%D1%81%D0%BA%D0%B0%D1%8F%206%2F4%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=30.340500%2C59.936000&z=16",
+          yandex: "https://yandex.ru/maps/2/saint-petersburg/?text=%D0%98%D1%82%D0%B0%D0%BB%D1%8C%D1%8F%D0%BD%D1%81%D0%BA%D0%B0%D1%8F%206%2F4%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=30.340500%2C59.936000&z=16&tab=reviews",
           gis: "https://2gis.ru/spb/search/%D0%98%D1%82%D0%B0%D0%BB%D1%8C%D1%8F%D0%BD%D1%81%D0%BA%D0%B0%D1%8F%206%2F4%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
         },
+        
+        // Казань
         "kazan-bulachnaya": {
-          yandex: "https://yandex.ru/maps/43/kazan/?text=%D0%9F%D1%80%D0%B0%D0%B2%D0%BE-%D0%91%D1%83%D0%BB%D0%B0%D1%87%D0%BD%D0%B0%D1%8F%2033%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=49.118000%2C55.788000&z=16",
+          yandex: "https://yandex.ru/maps/43/kazan/?text=%D0%9F%D1%80%D0%B0%D0%B2%D0%BE-%D0%91%D1%83%D0%BB%D0%B0%D1%87%D0%BD%D0%B0%D1%8F%2033%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=49.118000%2C55.788000&z=16&tab=reviews",
           gis: "https://2gis.ru/kazan/search/%D0%9F%D1%80%D0%B0%D0%B2%D0%BE-%D0%91%D1%83%D0%BB%D0%B0%D1%87%D0%BD%D0%B0%D1%8F%2033%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
         },
         "kazan-pushkina": {
-          yandex: "https://yandex.ru/maps/43/kazan/?text=%D0%9F%D1%83%D1%88%D0%BA%D0%B8%D0%BD%D0%B0%2010%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=49.122800%2C55.788500&z=16",
+          yandex: "https://yandex.ru/maps/43/kazan/?text=%D0%9F%D1%83%D1%88%D0%BA%D0%B8%D0%BD%D0%B0%2010%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=49.122800%2C55.788500&z=16&tab=reviews",
           gis: "https://2gis.ru/kazan/search/%D0%9F%D1%83%D1%88%D0%BA%D0%B8%D0%BD%D0%B0%2010%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
         },
+        
+        // Кемерово
         "kemerovo-krasnoarmeyskaya": {
-          yandex: "https://yandex.ru/maps/64/kemerovo/?text=%D0%9A%D1%80%D0%B0%D1%81%D0%BD%D0%BE%D0%B0%D1%80%D0%BC%D0%B5%D0%B9%D1%81%D0%BA%D0%B0%D1%8F%20144%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=86.090000%2C55.355000&z=16",
+          yandex: "https://yandex.ru/maps/64/kemerovo/?text=%D0%9A%D1%80%D0%B0%D1%81%D0%BD%D0%BE%D0%B0%D1%80%D0%BC%D0%B5%D0%B9%D1%81%D0%BA%D0%B0%D1%8F%20144%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=86.090000%2C55.355000&z=16&tab=reviews",
           gis: "https://2gis.ru/kemerovo/search/%D0%9A%D1%80%D0%B0%D1%81%D0%BD%D0%BE%D0%B0%D1%80%D0%BC%D0%B5%D0%B9%D1%81%D0%BA%D0%B0%D1%8F%20144%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
         },
+        
+        // Томск
         "tomsk-batenkova": {
-          yandex: "https://yandex.ru/maps/75/tomsk/?text=%D0%9F%D0%B5%D1%80%D0%B5%D1%83%D0%BB%D0%BE%D0%BA%20%D0%91%D0%B0%D1%82%D0%B5%D0%BD%D1%8C%D0%BA%D0%BE%D0%B2%D0%B0%207%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=84.945000%2C56.485000&z=16",
+          yandex: "https://yandex.ru/maps/75/tomsk/?text=%D0%9F%D0%B5%D1%80%D0%B5%D1%83%D0%BB%D0%BE%D0%BA%20%D0%91%D0%B0%D1%82%D0%B5%D0%BD%D1%8C%D0%BA%D0%BE%D0%B2%D0%B0%207%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=84.945000%2C56.485000&z=16&tab=reviews",
           gis: "https://2gis.ru/tomsk/search/%D0%9F%D0%B5%D1%80%D0%B5%D1%83%D0%BB%D0%BE%D0%BA%20%D0%91%D0%B0%D1%82%D0%B5%D0%BD%D1%8C%D0%BA%D0%BE%D0%B2%D0%B0%207%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
         }
       };
 
+      // Если есть конкретные ссылки для ресторана, используем их
       if (restaurantLinksMap[restaurantId]) {
         return restaurantLinksMap[restaurantId];
       }
 
-      // Fallback для общих ссылок
+      // Fallback - поиск по адресу с теми же функциями что и в Restaurants.tsx
+      const encodedAddress = encodeURIComponent(`${address} Хачапури Марико`);
+      const cityUrlSlug = getCityUrlSlug(city);
+      const cityMapId = getCityMapId(city);
+
       return {
-        yandex: "https://yandex.ru/maps/org/khachapuri_mariko/",
-        gis: "https://2gis.ru/search/хачапури%20марико"
+        yandex: `https://yandex.ru/maps/${cityMapId}/?text=${encodedAddress}&tab=reviews`,
+        gis: `https://2gis.ru/${cityUrlSlug}/search/${encodedAddress}`,
       };
     };
 
-    const links = getRestaurantReviewLinks(restaurant.id);
+    // Функции для получения URL слагов - точно такие же как в Restaurants.tsx
+    const getCityUrlSlug = (cityName: string): string => {
+      const cityMap: { [key: string]: string } = {
+        "Нижний Новгород": "nizhnynovgorod",
+        "Санкт-Петербург": "spb",
+        Казань: "kazan",
+        Кемерово: "kemerovo",
+        Томск: "tomsk",
+        Смоленск: "smolensk",
+        Калуга: "kaluga",
+        Самара: "samara",
+        Новосибирск: "novosibirsk",
+        Магнитогорск: "magnitogorsk",
+        Балахна: "balakhna",
+        Кстово: "kstovo",
+        "Лесной Городок": "lesnoy_gorodok",
+        Новороссийск: "novorossiysk",
+        Жуковский: "zhukovsky",
+        Одинцово: "odintsovo",
+        Нефтекамск: "neftekamsk",
+        Пенза: "penza",
+        Астана: "astana",
+        Атырау: "atyrau"
+      };
+      return cityMap[cityName] || "nizhnynovgorod";
+    };
+
+    const getCityMapId = (cityName: string): string => {
+      const cityMap: { [key: string]: string } = {
+        "Нижний Новгород": "47/nizhny-novgorod",
+        "Санкт-Петербург": "2/saint-petersburg",
+        Казань: "43/kazan",
+        Кемерово: "64/kemerovo",
+        Томск: "75/tomsk",
+        Смоленск: "12/smolensk",
+        Калуга: "6/kaluga",
+        Самара: "51/samara",
+        Новосибирск: "65/novosibirsk",
+        Магнитогорск: "107/magnitogorsk",
+        Балахна: "47/nizhny-novgorod",
+        Кстово: "47/nizhny-novgorod",
+        "Лесной Городок": "1/moscow",
+        Новороссийск: "35/novorossiysk",
+        Жуковский: "1/moscow",
+        Одинцово: "1/moscow",
+        Нефтекамск: "172/neftekamsk",
+        Пенза: "56/penza",
+        Астана: "162/nur-sultan",
+        Атырау: "164/atyrau"
+      };
+      return cityMap[cityName] || "47/nizhny-novgorod";
+    };
+
+    const links = getRestaurantReviewLinks(restaurant.id, restaurant.city, restaurant.address);
 
     if (platform === "yandex") {
       window.open(links.yandex, "_blank");
