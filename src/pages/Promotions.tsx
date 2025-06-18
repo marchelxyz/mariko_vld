@@ -1,4 +1,3 @@
-
 import { Header } from "@/components/Header";
 import { PromotionCard } from "@/components/PromotionCard";
 import { BottomNavigation } from "@/components/BottomNavigation";
@@ -48,7 +47,7 @@ const Promotions = () => {
         </div>
 
         {/* Promotions Grid */}
-        <div className="mt-8 md:mt-12 space-y-8 md:space-y-12">
+        <div className="mt-6 md:mt-12 space-y-4 md:space-y-12">
           {promotions.map((promo) => (
             <PromotionCard
               key={promo.id}

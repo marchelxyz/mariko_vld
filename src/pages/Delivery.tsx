@@ -108,11 +108,11 @@ const Delivery = () => {
         <img
           src="https://cdn.builder.io/api/v1/image/assets/TEMP/7b483c106c0873fef56b5de8673db668ccbe0325?placeholderIfAbsent=true"
           alt="Грузовик доставки Марико"
-          className="w-full h-full"
+          className="w-full h-full max-w-sm md:max-w-none"
           style={{
-            objectFit: "cover",
+            objectFit: "contain",
             objectPosition: "center",
-            transform: "scale(1.5)",
+            transform: "scale(1.2) md:scale(1.5)",
           }}
         />
       </div>

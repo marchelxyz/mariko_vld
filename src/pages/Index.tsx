@@ -128,11 +128,11 @@ const Index = () => {
             />
             {/* Text on top of background */}
             <div
-              className="relative z-10 text-mariko-secondary font-el-messiri text-xl md:text-3xl lg:text-4xl font-bold leading-tight p-4 md:p-8"
+              className="relative z-10 text-mariko-secondary font-el-messiri text-2xl md:text-3xl lg:text-4xl font-bold leading-tight p-4 md:p-8"
               style={{
                 width: "280px",
                 height: "280px",
-                transform: "translateX(-20%)",
+                transform: "translateX(-10%)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
