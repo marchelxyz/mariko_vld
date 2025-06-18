@@ -32,7 +32,7 @@ export const ActionButton = ({
         className,
       )}
     >
-      <div className="bg-gradient-to-br from-gray-600 to-gray-800 rounded-[45px_0_45px_45px] md:rounded-[90px_0_90px_90px] shadow-lg p-4 md:p-12 flex items-center justify-center flex-shrink-0">
+      <div className="bg-gradient-to-br from-gray-600 to-gray-800 rounded-[45px_0_45px_45px] md:rounded-[90px_0_90px_90px] p-4 md:p-12 flex items-center justify-center flex-shrink-0">
         <div className="w-8 h-8 md:w-16 md:h-16 text-white flex items-center justify-center">
           {icon}
         </div>
