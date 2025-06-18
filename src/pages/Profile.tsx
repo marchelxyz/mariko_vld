@@ -96,7 +96,6 @@ const Profile = () => {
         isOpen={isBarcodeModalOpen}
         onClose={() => setIsBarcodeModalOpen(false)}
         cardNumber="640509 040147"
-        bonusPoints={profile.bonusPoints || 0}
       />
     </div>
   );

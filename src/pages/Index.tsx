@@ -1,4 +1,4 @@
-import { Calendar, Truck, Star, Search, ChefHat } from "lucide-react";
+import { Calendar, Truck, Star, ChefHat } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { ActionButton } from "@/components/ActionButton";
@@ -112,13 +112,12 @@ const Index = () => {
       <div className="mt-4 md:mt-12 relative z-10 px-3 md:px-6">
         <div className="max-w-sm md:max-w-6xl mx-auto relative flex justify-end">
           {/* Vertical Column Quote positioned along the chef middle - extending beyond left edge */}
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 z-60">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-60">
             {/* Background extending beyond edges */}
             <div
               className="absolute inset-0 rounded-[60px] md:rounded-[90px]"
               style={{
                 width: "200px",
-                transform: "translateX(-15%)",
                 backgroundImage:
                   "url('https://cdn.builder.io/api/v1/image/assets/TEMP/6adaa69b9b695b102edc1027007a2c3d466235b8?placeholderIfAbsent=true')",
                 backgroundSize: "cover",
@@ -127,10 +126,9 @@ const Index = () => {
             />
             {/* Text on top of background */}
             <div
-              className="relative z-10 text-mariko-secondary font-el-messiri text-lg md:text-3xl lg:text-4xl font-bold leading-tight p-3 md:p-8"
+              className="relative z-10 text-mariko-secondary font-el-messiri text-lg md:text-3xl lg:text-4xl font-bold leading-tight p-3 md:p-8 text-center"
               style={{
-                width: "160px",
-                transform: "translateX(-15%)",
+                width: "200px",
               }}
             >
               «Если хачапури пекут счастливые люди, это означает, что данное
@@ -154,16 +152,13 @@ const Index = () => {
       </div>
 
       {/* Footer */}
-      <footer className="bg-mariko-accent rounded-t-[90px] -mt-4 md:-mt-6 px-4 md:px-6 py-4 md:py-12 shadow-2xl relative z-40">
+      <footer className="bg-mariko-accent rounded-t-[45px] -mt-4 md:-mt-6 px-4 md:px-6 py-4 md:py-12 shadow-2xl relative z-40">
         <div className="max-w-6xl mx-auto">
           {/* Restaurants Header */}
-          <div className="flex items-center justify-between mb-4 md:mb-12">
+          <div className="flex justify-center mb-4 md:mb-12">
             <h2 className="text-white font-el-messiri text-3xl md:text-5xl font-bold tracking-tight">
               Рестораны
             </h2>
-            <button className="bg-mariko-primary rounded-full p-2 md:p-4 hover:scale-105 transition-transform">
-              <Search className="w-6 h-6 md:w-10 md:h-10 text-white" />
-            </button>
           </div>
 
           {/* Restaurant List */}
