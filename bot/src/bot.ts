@@ -29,10 +29,8 @@ console.log(`🔑 Bot token: ${maskToken(BOT_TOKEN)}`);
 // Создаем экземпляр бота
 const bot = new Bot(BOT_TOKEN);
 
-// Интерфейс для контекста с типизацией
-interface BotContext extends Context {
-  // Дополнительные поля при необходимости
-}
+// Используем стандартный Context из Grammy
+type BotContext = Context;
 
 // Команда /start - приветствие и запуск Mini App
 bot.command("start", async (ctx: BotContext) => {
