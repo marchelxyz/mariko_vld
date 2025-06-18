@@ -5,12 +5,14 @@ import { Header } from "@/components/Header";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { botApi, telegramWebApp } from "@/lib/botApi";
 import { useCityContext } from "@/contexts/CityContext";
+import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const Booking = () => {
   const navigate = useNavigate();
   const { selectedCity } = useCityContext();
+  const { profile, loading: profileLoading } = useProfile();
 
   const currentRestaurant = selectedCity.restaurants[0];
   const defaultRestaurantName = currentRestaurant
@@ -18,7 +20,7 @@ const Booking = () => {
     : "Нижний Новгород, Рождественская, 39";
 
   const [formData, setFormData] = useState({
-    name: "Валентина Владимировна", // Подтягивается из профиля
+    name: "", // Будет заполнено из профиля
     phone: "", // Только цифры номера без кода
     guests: "2",
     date: "",
@@ -40,41 +42,34 @@ const Booking = () => {
   }, [selectedCity]);
 
   useEffect(() => {
-    // Загружаем данные пользователя из Telegram/профиля
-    const loadUserData = async () => {
-      try {
-        const telegramUser = telegramWebApp.getUserData();
-        if (telegramUser) {
-          const profile = await botApi.getUserProfile(
-            telegramUser.id.toString(),
-          );
-          
-          // Разделяем код страны и номер телефона
-          let phoneNumber = profile.phone;
-          let countryCode = "+7";
-          
-          if (phoneNumber && phoneNumber.startsWith("+")) {
-            const spaceIndex = phoneNumber.indexOf(" ");
-            if (spaceIndex > 0) {
-              countryCode = phoneNumber.substring(0, spaceIndex);
-              phoneNumber = phoneNumber.substring(spaceIndex + 1);
-            }
-          }
-          
-          setSelectedCountryCode(countryCode);
-          setFormData((prev) => ({
-            ...prev,
-            name: profile.name,
-            phone: phoneNumber || "",
-          }));
+    // Загружаем данные из профиля когда они загрузились
+    if (!profileLoading && profile) {
+      // Разделяем код страны и номер телефона
+      let phoneNumber = profile.phone || "";
+      let countryCode = "+7";
+      
+      if (phoneNumber && phoneNumber.startsWith("+")) {
+        const spaceIndex = phoneNumber.indexOf(" ");
+        if (spaceIndex > 0) {
+          countryCode = phoneNumber.substring(0, spaceIndex);
+          phoneNumber = phoneNumber.substring(spaceIndex + 1);
         }
-      } catch (error) {
-        console.error("Ошибка загрузки данных пользователя:", error);
       }
-    };
-
-    loadUserData();
-  }, []);
+      
+      console.log('🔄 Загружаем данные профиля в форму бронирования:');
+      console.log('Имя:', profile.name);
+      console.log('Телефон:', profile.phone);
+      console.log('Код страны:', countryCode);
+      console.log('Номер:', phoneNumber);
+      
+      setSelectedCountryCode(countryCode);
+      setFormData((prev) => ({
+        ...prev,
+        name: profile.name || "",
+        phone: phoneNumber,
+      }));
+    }
+  }, [profile, profileLoading]);
 
   // Показываем рестораны выбранного города
   const restaurants = selectedCity.restaurants.map(
@@ -210,13 +205,7 @@ const Booking = () => {
 
     try {
       // Получаем дату рождения из профиля (скрытое поле для АЙКО)
-      const telegramUser = telegramWebApp.getUserData();
-      let birthDate = "24.05.2023"; // По умолчанию
-
-      if (telegramUser) {
-        const profile = await botApi.getUserProfile(telegramUser.id.toString());
-        birthDate = profile.birthDate;
-      }
+      const birthDate = profile.birthDate || "01.01.2000";
 
       // Отправляем бронирование
       const result = await botApi.submitBooking({
@@ -279,7 +268,7 @@ const Booking = () => {
           {/* Name */}
           <div className="bg-mariko-secondary rounded-[90px] px-6 py-4">
             <label className="block text-white font-el-messiri text-lg font-semibold mb-2 pl-6">
-              Фамилия и Имя
+              ФИО
             </label>
             <div className="relative ml-6 mr-8">
               <input
@@ -288,6 +277,7 @@ const Booking = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
+                placeholder={profileLoading ? "Загружаем данные..." : "Введите ваше имя"}
                 className="w-full bg-white/5 text-white placeholder-white/50 border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10"
                 required
               />
@@ -327,7 +317,7 @@ const Booking = () => {
                   type="tel"
                   value={formData.phone}
                   onChange={handlePhoneChange}
-                  placeholder={getPhonePlaceholder()}
+                  placeholder={profileLoading ? "Загружаем номер..." : getPhonePlaceholder()}
                   className="w-full bg-white/5 text-white placeholder-white/50 border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10"
                   required
                 />
