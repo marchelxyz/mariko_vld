@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MapPin, ChevronDown, ArrowDown } from "lucide-react";
+import { MapPin, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface City {
@@ -315,13 +315,45 @@ export const CitySelectorSimple = ({
 
   return (
     <div className={cn("relative", className)}>
-      {/* Надпись "Выбери город" в фирменном стиле */}
-      <div className="text-center mb-3">
-        <div className="inline-flex flex-col items-center gap-2 bg-mariko-secondary/40 backdrop-blur-sm rounded-[20px] px-6 py-3 border border-mariko-text-light/20 shadow-lg">
-          <span className="text-mariko-text-light font-el-messiri text-sm md:text-lg font-semibold tracking-wide">
-            Выбери город
-          </span>
-          <ArrowDown className="w-4 h-4 md:w-5 md:h-5 text-mariko-text-secondary animate-pulse" />
+      {/* Надпись "Выбери город" с изгибающейся стрелочкой */}
+      <div className="relative text-center mb-3">
+        <span className="text-mariko-text-light font-el-messiri text-sm md:text-lg font-semibold tracking-wide">
+          Выбери город
+        </span>
+        {/* Изгибающаяся стрелочка */}
+        <div className="absolute top-full left-1/2 transform -translate-x-1/2 translate-y-1">
+          <svg 
+            width="60" 
+            height="30" 
+            viewBox="0 0 60 30" 
+            className="text-mariko-text-secondary"
+          >
+            <defs>
+              <marker
+                id="arrowhead"
+                markerWidth="10"
+                markerHeight="7"
+                refX="9"
+                refY="3.5"
+                orient="auto"
+              >
+                <polygon
+                  points="0 0, 10 3.5, 0 7"
+                  fill="currentColor"
+                  className="animate-pulse"
+                />
+              </marker>
+            </defs>
+            <path
+              d="M 5 5 Q 30 10, 55 25"
+              stroke="currentColor"
+              strokeWidth="2"
+              fill="none"
+              markerEnd="url(#arrowhead)"
+              className="animate-pulse"
+              strokeDasharray="3,2"
+            />
+          </svg>
         </div>
       </div>
       
