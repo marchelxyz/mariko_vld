@@ -419,7 +419,7 @@ export const botApi = {
 export const telegramWebApp = {
   // Проверка, что приложение запущено в Telegram
   isInTelegram(): boolean {
-    return (
+    return !!(
       typeof window !== "undefined" && window.Telegram && window.Telegram.WebApp
     );
   },
@@ -471,6 +471,7 @@ declare global {
             language_code: string;
           };
         };
+        ready: () => void;
         close: () => void;
         sendData: (data: string) => void;
         MainButton: {
