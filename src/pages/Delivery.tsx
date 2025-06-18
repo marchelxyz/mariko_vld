@@ -99,14 +99,14 @@ const Delivery = () => {
       </div>
 
       {/* Delivery Truck Illustration - Positioned to touch footer */}
-      <div className="relative flex justify-start items-end overflow-hidden -mb-2">
+      <div className="relative flex justify-start items-end overflow-hidden -mb-8 md:-mb-10">
         <img
           src="https://cdn.builder.io/api/v1/image/assets/TEMP/7b483c106c0873fef56b5de8673db668ccbe0325?placeholderIfAbsent=true"
           alt="Грузовик доставки Марико"
           className="w-auto h-auto max-w-sm md:max-w-lg"
           style={{
             objectFit: "contain",
-            transform: "translateX(-10%) scale(1.0) md:scale(1.2)",
+            transform: "translateX(-25%) scale(1.0) md:scale(1.2)",
           }}
         />
       </div>
