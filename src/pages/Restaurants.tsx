@@ -160,11 +160,42 @@ const Restaurants = () => {
     const cityUrlSlug = getCityUrlSlug(city);
     const cityMapId = getCityMapId(city);
 
+    // Попробуем получить примерные координаты для некоторых новых городов
+    const getApproximateCoordinates = (restaurantId: string, address: string) => {
+      const coordMap: { [key: string]: string } = {
+        "zhukovsky-myasishcheva": "38.10658,55.60065",
+        "odintsovo-mozhayskoe": "37.22472,55.68028", 
+        "lesnoy-shkolnaya": "37.39472,55.88028",
+        "neftekamsk-parkovaya": "56.09250,56.09250", // примерные координаты Нефтекамска
+        "magnitogorsk-zavenyagina": "59.04667,53.41861", // примерные координаты Магнитогорска
+        "balakhna-sovetskaya": "43.59417,56.50722", // примерные координаты Балахны
+        "kstovo-lenina": "44.19917,56.14611", // примерные координаты Кстово
+        "novorossiysk-sovetov": "37.77056,44.72389", // примерные координаты Новороссийска
+        // Для остальных используем центры городов
+      };
+      return coordMap[restaurantId] || null;
+    };
+
+    const coordinates = getApproximateCoordinates(restaurantId, address);
+
+    if (coordinates) {
+      // Если есть координаты, используем их для более точного поиска парковок
+      return {
+        yandexMapsUrl: `https://yandex.ru/maps/${cityMapId}/?text=${encodedAddress}`,
+        gisUrl: `https://2gis.ru/${cityUrlSlug}/search/${encodedAddress}`,
+        yandexParkingUrl: `https://yandex.ru/maps/${cityMapId}/?ll=${coordinates}&z=16&text=parking&pt=${coordinates}%2Cpm2rdm`,
+        gisParkingUrl: `https://2gis.ru/${cityUrlSlug}/search/parking?queryState=center%2F${coordinates}%2Fzoom%2F16`,
+        yandexReviewUrl: `https://yandex.ru/maps/${cityMapId}/?text=${encodedAddress}`,
+        gisReviewUrl: `https://2gis.ru/${cityUrlSlug}/search/${encodedAddress}`,
+      };
+    }
+
+    // Fallback без координат - используем поиск по тексту
     return {
       yandexMapsUrl: `https://yandex.ru/maps/${cityMapId}/?text=${encodedAddress}`,
       gisUrl: `https://2gis.ru/${cityUrlSlug}/search/${encodedAddress}`,
-      yandexParkingUrl: `https://yandex.ru/maps/${cityMapId}/?text=${encodedAddressOnly}%20parking`,
-      gisParkingUrl: `https://2gis.ru/${cityUrlSlug}/search/parking/poi/${encodedAddressOnly}`,
+      yandexParkingUrl: `https://yandex.ru/maps/${cityMapId}/?text=${encodedAddressOnly}%20парковка`,
+      gisParkingUrl: `https://2gis.ru/${cityUrlSlug}/search/parking%20${encodedAddressOnly}`,
       yandexReviewUrl: `https://yandex.ru/maps/${cityMapId}/?text=${encodedAddress}`,
       gisReviewUrl: `https://2gis.ru/${cityUrlSlug}/search/${encodedAddress}`,
     };
