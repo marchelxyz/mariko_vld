@@ -66,7 +66,7 @@ const Profile = () => {
           <ActionButton
             icon={<RubleIcon className="w-full h-full text-white" />}
             title={`Баланс: ${profile.bonusPoints || 0}`}
-            onClick={() => console.log("Баланс")}
+                          onClick={() => {/* Баланс - функционал в разработке */}}
           />
 
           <ActionButton

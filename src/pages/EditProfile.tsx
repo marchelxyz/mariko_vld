@@ -98,10 +98,10 @@ const EditProfile = () => {
       if (editingField === "phone") {
         // Объединяем код страны и номер
         updateData[editingField] = `${editCountryCode} ${editPhoneDigits}`;
-        console.log('💾 Сохраняем телефон:', updateData[editingField]);
+        // Сохраняем телефон
       } else {
         updateData[editingField] = editValue;
-        console.log('💾 Сохраняем поле', editingField + ':', editValue);
+        // Сохраняем поле
       }
       
       const success = await updateProfile(updateData);

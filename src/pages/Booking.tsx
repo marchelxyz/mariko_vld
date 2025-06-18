@@ -57,11 +57,7 @@ const Booking = () => {
         }
       }
       
-      console.log('🔄 Загружаем данные профиля в форму бронирования:');
-      console.log('Имя:', profile.name);
-      console.log('Телефон:', profile.phone);
-      console.log('Код страны:', countryCode);
-      console.log('Номер:', phoneNumber);
+          // Загружаем данные профиля в форму бронирования
       
       setSelectedCountryCode(countryCode);
       setFormData((prev) => ({

@@ -98,7 +98,7 @@ const Review = () => {
         text: sanitizedText,
       });
 
-      console.log("Отзыв сохранен:", result);
+      // Отзыв сохранен успешно
 
       // Имитация задержки обработки
       await new Promise(resolve => setTimeout(resolve, 2000));

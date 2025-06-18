@@ -21,8 +21,9 @@ const Delivery = () => {
       {
         icon: <Bike className="w-full h-full" />,
         title: "Самовывоз",
-        onClick: () =>
-          console.log("Самовывоз из:", selectedRestaurant?.address),
+        onClick: () => {
+          // Самовывоз из selectedRestaurant?.address
+        }
       },
     ];
 

@@ -68,7 +68,7 @@ export const useProfile = () => {
       // Обновляем локальное состояние
       setProfile(updatedProfile);
 
-      console.log('✅ Профиль успешно сохранён:', updates);
+      // Профиль успешно сохранён
       return true;
     } catch (err) {
       setError("Не удалось обновить профиль");
