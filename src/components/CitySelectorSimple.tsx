@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MapPin, ChevronDown } from "lucide-react";
+import { MapPin, ChevronDown, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface City {
@@ -315,11 +315,14 @@ export const CitySelectorSimple = ({
 
   return (
     <div className={cn("relative", className)}>
-      {/* Красивая надпись "Выбери город" */}
+      {/* Надпись "Выбери город" в фирменном стиле */}
       <div className="text-center mb-3">
-        <span className="inline-block bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 border border-white/20 text-white/90 font-el-messiri text-sm md:text-base font-medium tracking-wide shadow-lg">
-          Выбери город
-        </span>
+        <div className="inline-flex flex-col items-center gap-2 bg-mariko-secondary/40 backdrop-blur-sm rounded-[20px] px-6 py-3 border border-mariko-text-light/20 shadow-lg">
+          <span className="text-mariko-text-light font-el-messiri text-sm md:text-lg font-semibold tracking-wide">
+            Выбери город
+          </span>
+          <ArrowDown className="w-4 h-4 md:w-5 md:h-5 text-mariko-text-secondary animate-pulse" />
+        </div>
       </div>
       
       <button
