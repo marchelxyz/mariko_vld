@@ -317,52 +317,50 @@ export const CitySelector = ({
 
   return (
     <div className={cn("relative", className)}>
-      {/* Надпись "Выбери город" с точной стрелочкой */}
-      <div className="relative flex items-start justify-start gap-2 mb-4 ml-4">
-        <span className="text-mariko-text-light font-el-messiri text-sm md:text-lg font-semibold tracking-wide whitespace-nowrap">
-          Выбери город
-        </span>
-        {/* Точная стрелочка к значку */}
-        <div className="flex-shrink-0 mt-1">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="relative flex items-center gap-1 text-white font-el-messiri text-sm md:text-2xl font-semibold tracking-tight hover:bg-white/10 rounded-lg p-1 md:p-2 transition-colors"
+      >
+        {/* Надпись "Выбери город" привязанная к значку */}
+        <div className="absolute -top-4 md:-top-6 right-6 md:right-12 flex items-center gap-2">
+          <span className="text-mariko-text-light font-el-messiri text-xs md:text-sm font-semibold tracking-wide whitespace-nowrap">
+            Выбери город
+          </span>
+          {/* Стрелочка указывающая на значок */}
           <svg 
-            width="40" 
-            height="20" 
-            viewBox="0 0 40 20" 
+            width="20" 
+            height="15" 
+            viewBox="0 0 20 15" 
             className="text-mariko-text-secondary"
           >
             <defs>
               <marker
                 id="arrowhead-city"
-                markerWidth="7"
-                markerHeight="5"
-                refX="6"
-                refY="2.5"
+                markerWidth="6"
+                markerHeight="4"
+                refX="5"
+                refY="2"
                 orient="auto"
               >
                 <polygon
-                  points="0 0, 7 2.5, 0 5"
+                  points="0 0, 6 2, 0 4"
                   fill="currentColor"
                   className="animate-pulse"
                 />
               </marker>
             </defs>
             <path
-              d="M 5 6 Q 20 8, 35 14"
+              d="M 2 3 Q 10 6, 18 12"
               stroke="currentColor"
-              strokeWidth="2"
+              strokeWidth="1.5"
               fill="none"
               markerEnd="url(#arrowhead-city)"
               className="animate-pulse"
-              strokeDasharray="3,2"
+              strokeDasharray="2,1"
             />
           </svg>
         </div>
-      </div>
-      
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1 text-white font-el-messiri text-sm md:text-2xl font-semibold tracking-tight hover:bg-white/10 rounded-lg p-1 md:p-2 transition-colors"
-      >
+        
         <div className="text-right">
           {selectedCity?.name || "Выберите город"}
           {currentRestaurant && (
