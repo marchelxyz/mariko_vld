@@ -109,7 +109,7 @@ const Index = () => {
       </div>
 
       {/* Quote Section - Vertical text along the chef */}
-      <div className="mt-8 md:mt-12 relative z-10 px-3 md:px-6">
+      <div className="mt-4 md:mt-12 relative z-10 px-3 md:px-6">
         <div className="max-w-sm md:max-w-6xl mx-auto relative flex justify-end">
           {/* Vertical Column Quote positioned along the chef middle - extending beyond left edge */}
           <div className="absolute left-0 top-1/2 -translate-y-1/2 z-60">
@@ -117,7 +117,7 @@ const Index = () => {
             <div
               className="absolute inset-0 rounded-[60px] md:rounded-[90px]"
               style={{
-                width: "250px",
+                width: "200px",
                 transform: "translateX(-15%)",
                 backgroundImage:
                   "url('https://cdn.builder.io/api/v1/image/assets/TEMP/6adaa69b9b695b102edc1027007a2c3d466235b8?placeholderIfAbsent=true')",
@@ -127,9 +127,9 @@ const Index = () => {
             />
             {/* Text on top of background */}
             <div
-              className="relative z-10 text-mariko-secondary font-el-messiri text-2xl md:text-3xl lg:text-4xl font-bold leading-tight p-6 md:p-8"
+              className="relative z-10 text-mariko-secondary font-el-messiri text-lg md:text-3xl lg:text-4xl font-bold leading-tight p-3 md:p-8"
               style={{
-                width: "200px",
+                width: "160px",
                 transform: "translateX(-15%)",
               }}
             >
@@ -143,7 +143,7 @@ const Index = () => {
             <img
               src="https://cdn.builder.io/api/v1/image/assets/TEMP/7c2c5fe36795ccb3afae2b769acaa83ff859f88f?placeholderIfAbsent=true"
               alt="Шеф-повар"
-              className="w-auto h-auto max-w-xs lg:max-w-sm object-contain object-bottom"
+              className="w-auto h-auto max-w-48 lg:max-w-sm object-contain object-bottom"
               style={{
                 filter: "drop-shadow(0 0 20px rgba(0,0,0,0.1))",
                 transform: "scale(1.05) translateX(20%)",
@@ -154,20 +154,20 @@ const Index = () => {
       </div>
 
       {/* Footer */}
-      <footer className="bg-mariko-accent rounded-t-[90px] -mt-4 md:-mt-6 px-4 md:px-6 py-8 md:py-12 shadow-2xl relative z-40">
+      <footer className="bg-mariko-accent rounded-t-[90px] -mt-4 md:-mt-6 px-4 md:px-6 py-4 md:py-12 shadow-2xl relative z-40">
         <div className="max-w-6xl mx-auto">
           {/* Restaurants Header */}
-          <div className="flex items-center justify-between mb-8 md:mb-12">
-            <h2 className="text-white font-el-messiri text-4xl md:text-5xl font-bold tracking-tight">
+          <div className="flex items-center justify-between mb-4 md:mb-12">
+            <h2 className="text-white font-el-messiri text-3xl md:text-5xl font-bold tracking-tight">
               Рестораны
             </h2>
-            <button className="bg-mariko-primary rounded-full p-3 md:p-4 hover:scale-105 transition-transform">
-              <Search className="w-8 h-8 md:w-10 md:h-10 text-white" />
+            <button className="bg-mariko-primary rounded-full p-2 md:p-4 hover:scale-105 transition-transform">
+              <Search className="w-6 h-6 md:w-10 md:h-10 text-white" />
             </button>
           </div>
 
           {/* Restaurant List */}
-          <div className="space-y-6 md:space-y-8">
+          <div className="space-y-3 md:space-y-8">
             {selectedCity.restaurants.map((restaurant) => (
               <RestaurantCard
                 key={restaurant.id}
