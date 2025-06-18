@@ -31,10 +31,18 @@ export const useProfile = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string>("");
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     loadProfile();
   }, []);
+
+  // Перезагружаем профиль при изменении userId
+  useEffect(() => {
+    if (userId && isInitialized) {
+      loadProfile();
+    }
+  }, [userId, isInitialized]);
 
   const loadProfile = async () => {
     try {
@@ -44,14 +52,20 @@ export const useProfile = () => {
       // Получаем ID пользователя из Telegram
       const telegramUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
       const currentUserId = telegramUser?.id?.toString() || "demo_user";
-      setUserId(currentUserId);
+      
+      // Обновляем userId только если он изменился
+      if (currentUserId !== userId) {
+        setUserId(currentUserId);
+      }
 
       const userProfile = await botApi.getUserProfile(currentUserId);
       setProfile({ ...defaultProfile, ...userProfile });
+      setIsInitialized(true);
     } catch (err) {
       setError("Не удалось загрузить профиль");
       console.error("Ошибка загрузки профиля:", err);
       // В случае ошибки оставляем дефолтный профиль
+      setIsInitialized(true);
     } finally {
       setLoading(false);
     }
@@ -61,18 +75,37 @@ export const useProfile = () => {
     try {
       const updatedProfile = { ...profile, ...updates };
 
-      // ИСПРАВЛЕНО: Используем правильный userId вместо profile.id
+      // Используем правильный userId
       const currentUserId = userId || "demo_user";
-      await botApi.updateUserProfile(currentUserId, updatedProfile);
+      const success = await botApi.updateUserProfile(currentUserId, updatedProfile);
 
-      // Обновляем локальное состояние
-      setProfile(updatedProfile);
-
-      // Профиль успешно сохранён
-      return true;
+      if (success) {
+        // Обновляем локальное состояние только при успешном сохранении
+        setProfile(updatedProfile);
+        
+        // Дополнительно сохраняем в localStorage для надежности
+        localStorage.setItem(`profile_${currentUserId}`, JSON.stringify(updatedProfile));
+        
+        return true;
+      } else {
+        throw new Error("Failed to save profile");
+      }
     } catch (err) {
       setError("Не удалось обновить профиль");
       console.error("Ошибка обновления профиля:", err);
+      
+      // Попытка восстановить из localStorage
+      try {
+        const currentUserId = userId || "demo_user";
+        const savedProfile = localStorage.getItem(`profile_${currentUserId}`);
+        if (savedProfile) {
+          const parsedProfile = JSON.parse(savedProfile);
+          setProfile({ ...defaultProfile, ...parsedProfile });
+        }
+      } catch (restoreErr) {
+        console.error("Не удалось восстановить профиль:", restoreErr);
+      }
+      
       return false;
     }
   };
@@ -101,5 +134,6 @@ export const useProfile = () => {
     updateProfile,
     updatePhoto,
     reload: loadProfile,
+    isInitialized,
   };
 };

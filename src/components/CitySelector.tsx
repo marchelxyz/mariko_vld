@@ -372,7 +372,7 @@ export const CitySelector = ({
         </div>
         <div className="flex flex-col items-center">
           <MapPin className="w-6 h-6 md:w-16 md:h-16 text-white flex-shrink-0" />
-          <ChevronDown className="w-3 h-3 md:w-6 md:h-6 text-white flex-shrink-0" />
+          <ChevronDown className="w-4 h-4 md:w-6 md:h-6 text-white flex-shrink-0 mt-1" />
         </div>
       </button>
 

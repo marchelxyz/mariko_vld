@@ -201,7 +201,19 @@ class ProfileDatabase {
   // Получить профиль по ID
   getProfile(userId: string): UserProfile | null {
     const profiles = this.getAllProfiles();
-    return profiles.find((p) => p.id === userId) || null;
+    
+    // Сначала ищем по ID
+    let profile = profiles.find((p) => p.id === userId);
+    
+    // Если не найден и это не demo_user, ищем по telegramId
+    if (!profile && userId !== "demo_user") {
+      const telegramId = parseInt(userId);
+      if (!isNaN(telegramId)) {
+        profile = profiles.find((p) => p.telegramId === telegramId);
+      }
+    }
+    
+    return profile || null;
   }
 
   // Получить профиль по Telegram ID
@@ -247,10 +259,24 @@ class ProfileDatabase {
     updates: Partial<UserProfile>,
   ): UserProfile | null {
     const profiles = this.getAllProfiles();
-    const profileIndex = profiles.findIndex((p) => p.id === userId);
+    let profileIndex = profiles.findIndex((p) => p.id === userId);
 
+    // Если профиль не найден по ID, ищем по telegramId
+    if (profileIndex === -1 && userId !== "demo_user") {
+      const telegramId = parseInt(userId);
+      if (!isNaN(telegramId)) {
+        profileIndex = profiles.findIndex((p) => p.telegramId === telegramId);
+      }
+    }
+
+    // Если все еще не найден, создаем новый профиль
     if (profileIndex === -1) {
-      return null;
+      const newProfile = this.createProfile({
+        id: userId,
+        telegramId: userId !== "demo_user" ? parseInt(userId) : undefined,
+        ...updates,
+      });
+      return newProfile;
     }
 
     const updatedProfile = {
