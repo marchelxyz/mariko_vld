@@ -10,9 +10,21 @@ const WEBAPP_URL = process.env.WEBAPP_URL || "https://your-domain.com";
 const PORT = parseInt(process.env.PORT || "3000");
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
 
+// 🔒 БЕЗОПАСНОСТЬ: Функция для маскировки токена в логах
+const maskToken = (token?: string): string => {
+  if (!token) return "отсутствует";
+  if (token.length <= 10) return "***";
+  return `${token.slice(0, 8)}...${token.slice(-4)}`;
+};
+
 if (!BOT_TOKEN) {
-  throw new Error("BOT_TOKEN не найден в переменных окружения!");
+  console.error("❌ BOT_TOKEN не найден в переменных окружения!");
+  console.error("💡 Получите токен от @BotFather и добавьте в .env файл");
+  process.exit(1);
 }
+
+// 🔒 БЕЗОПАСНОСТЬ: Логируем маскированный токен
+console.log(`🔑 Bot token: ${maskToken(BOT_TOKEN)}`);
 
 // Создаем экземпляр бота
 const bot = new Bot(BOT_TOKEN);
@@ -169,54 +181,108 @@ bot.on("message", async (ctx: BotContext) => {
 
 // Обработка ошибок
 bot.catch((err) => {
-  console.error(`Ошибка бота:`, err);
+  // 🔒 БЕЗОПАСНОСТЬ: Не логируем полную ошибку которая может содержать чувствительные данные
+  console.error(`❌ Ошибка бота:`, err.message || 'Неизвестная ошибка');
+  
+  // В development режиме можем логировать больше деталей
+  if (process.env.NODE_ENV === 'development') {
+    console.error('Детали ошибки:', err);
+  }
 });
 
-// Функция запуска бота
-async function startBot() {
+// 🔧 ФУНКЦИЯ ДЛЯ NETLIFY FUNCTIONS
+export const handler = async (event: any, context: any) => {
   try {
-    console.log("🚀 Запуск бота Хачапури Марико...");
-    
-    if (WEBHOOK_URL) {
-      // Режим webhook для production
-      console.log("📡 Режим: Webhook");
-      console.log(`🔗 Webhook URL: ${WEBHOOK_URL}`);
-      
-      const app = express();
-      app.use(express.json());
-      
-      // Устанавливаем webhook
-      await bot.api.setWebhook(WEBHOOK_URL);
-      
-      // Маршрут для webhook
-      app.use(webhookCallback(bot, "express"));
-      
-      // Проверка здоровья сервера
-      app.get("/health", (req, res) => {
-        res.json({ status: "OK", timestamp: new Date().toISOString() });
-      });
-      
-      app.listen(PORT, () => {
-        console.log(`✅ Сервер запущен на порту ${PORT}`);
-        console.log(`🌐 Webhook доступен по адресу: ${WEBHOOK_URL}`);
-      });
-      
-    } else {
-      // Режим polling для разработки
-      console.log("🔄 Режим: Polling (разработка)");
-      await bot.start();
+    // Проверяем что это POST запрос с webhook данными
+    if (event.httpMethod !== "POST") {
+      return {
+        statusCode: 405,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Method not allowed" }),
+      };
     }
+
+    // Health check endpoint
+    if (event.path === "/health" || event.path === "/.netlify/functions/bot/health") {
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          status: "OK", 
+          timestamp: new Date().toISOString(),
+          bot: "Хачапури Марико Bot"
+        }),
+      };
+    }
+
+    // Обрабатываем webhook от Telegram
+    if (event.body) {
+      const update = JSON.parse(event.body);
+      
+      // Обрабатываем обновление через Grammy
+      await bot.handleUpdate(update);
+      
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ok: true }),
+      };
+    }
+
+    return {
+      statusCode: 400,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "No update data" }),
+    };
+
+  } catch (error: any) {
+    console.error("❌ Ошибка обработки webhook:", error.message);
     
-    console.log("✅ Бот успешно запущен!");
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "Internal server error" }),
+    };
+  }
+};
+
+// 🔧 ФУНКЦИЯ ИНИЦИАЛИЗАЦИИ WEBHOOK (для отдельного скрипта)
+export const setupWebhook = async () => {
+  if (!WEBHOOK_URL) {
+    console.log("📝 WEBHOOK_URL не установлен - webhook не настраивается");
+    return;
+  }
+
+  try {
+    console.log(`📡 Настройка webhook: ${WEBHOOK_URL}`);
+    console.log(`🔑 Bot token: ${maskToken(BOT_TOKEN)}`);
+    
+    await bot.api.setWebhook(WEBHOOK_URL);
+    console.log("✅ Webhook успешно установлен!");
+    
+  } catch (error: any) {
+    console.error("❌ Ошибка установки webhook:", error.message);
+    throw error;
+  }
+};
+
+// 🔧 ФУНКЦИЯ ДЛЯ ЛОКАЛЬНОЙ РАЗРАБОТКИ (polling)
+export const startPolling = async () => {
+  try {
+    console.log("🚀 Запуск бота в режиме polling...");
+    console.log(`🔑 Bot token: ${maskToken(BOT_TOKEN)}`);
     console.log(`🔗 Mini App URL: ${WEBAPP_URL}`);
     
-  } catch (error) {
-    console.error("❌ Ошибка запуска бота:", error);
+    await bot.start();
+    console.log("✅ Бот успешно запущен в polling режиме!");
+    
+  } catch (error: any) {
+    console.error("❌ Ошибка запуска бота:", error.message);
     process.exit(1);
   }
-}
+};
 
-// Обработка сигналов для graceful shutdown
+// Обработка сигналов для graceful shutdown (только для polling)
 process.once("SIGINT", () => {
   console.log("🛑 Получен сигнал SIGINT, завершение работы...");
   bot.stop();
@@ -227,5 +293,15 @@ process.once("SIGTERM", () => {
   bot.stop();
 });
 
-// Запускаем бота
-startBot(); 
+// 🔧 АВТОМАТИЧЕСКИЙ ЗАПУСК В ЗАВИСИМОСТИ ОТ ОКРУЖЕНИЯ
+if (require.main === module) {
+  // Если файл запущен напрямую
+  if (WEBHOOK_URL) {
+    // В production на Netlify webhook настраивается отдельно
+    console.log("📡 Режим: Netlify Functions");
+    console.log("💡 Webhook должен быть настроен через setupWebhook()");
+  } else {
+    // Локальная разработка
+    startPolling();
+  }
+} 

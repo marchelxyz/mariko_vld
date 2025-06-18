@@ -8,6 +8,7 @@ import { useCityContext } from "@/contexts/CityContext";
 import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { validateBookingForm, sanitizeText } from "@/lib/validation";
 
 const Booking = () => {
   const navigate = useNavigate();
@@ -204,20 +205,40 @@ const Booking = () => {
     setLoading(true);
 
     try {
+      // 🔒 БЕЗОПАСНОСТЬ: Валидируем данные формы
+      const validation = validateBookingForm({
+        name: formData.name,
+        phone: `${selectedCountryCode} ${formData.phone}`,
+        date: formData.date,
+        time: formData.time,
+        guests: parseInt(formData.guests),
+        comment: formData.comment,
+      });
+
+      if (!validation.isValid) {
+        const errorMessages = Object.values(validation.errors).join('\n');
+        alert(`Пожалуйста, исправьте ошибки:\n${errorMessages}`);
+        setLoading(false);
+        return;
+      }
+
       // Получаем дату рождения из профиля (скрытое поле для АЙКО)
       const birthDate = profile.birthDate || "01.01.2000";
 
-      // Отправляем бронирование
-      const result = await botApi.submitBooking({
-        name: formData.name,
+      // 🔒 БЕЗОПАСНОСТЬ: Санитизируем данные перед отправкой
+      const sanitizedData = {
+        name: sanitizeText(formData.name),
         phone: `${selectedCountryCode} ${formData.phone}`,
         guests: parseInt(formData.guests),
-        date: formData.date,
-        time: formData.time,
-        restaurant: formData.restaurant,
-        comment: formData.comment,
-        birthDate: birthDate, // Скрытое поле для АЙКО
-      });
+        date: sanitizeText(formData.date),
+        time: sanitizeText(formData.time),
+        restaurant: sanitizeText(formData.restaurant),
+        comment: sanitizeText(formData.comment || ""),
+        birthDate: sanitizeText(birthDate),
+      };
+
+      // Отправляем бронирование
+      const result = await botApi.submitBooking(sanitizedData);
 
       if (result.success) {
         alert(

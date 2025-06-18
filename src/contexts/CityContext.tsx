@@ -29,24 +29,38 @@ interface CityProviderProps {
 export const CityProvider = ({ children }: CityProviderProps) => {
   // Инициализируем с первым городом по умолчанию, чтобы избежать null
   const [selectedCity, setSelectedCityState] = useState<City>(cities[0]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Загружаем сохраненный город из localStorage при инициализации
+  // 🔧 ИСПРАВЛЕНИЕ: Загружаем сохраненный город из localStorage при инициализации
   useEffect(() => {
-    const savedCity = localStorage.getItem("selectedCity");
-    if (savedCity) {
+    let isMounted = true; // Защита от race condition
+    
+    const loadSavedCity = () => {
       try {
-        const cityData = JSON.parse(savedCity);
-        const city = cities.find((c) => c.id === cityData.id);
-        if (city) {
-          setSelectedCityState(city);
+        const savedCity = localStorage.getItem("selectedCity");
+        if (savedCity && isMounted) {
+          const cityData = JSON.parse(savedCity);
+          const city = cities.find((c) => c.id === cityData.id);
+          if (city && isMounted) {
+            setSelectedCityState(city);
+          }
         }
-        // Если город не найден, оставляем текущий (cities[0])
       } catch (error) {
         console.error("Ошибка при загрузке сохраненного города:", error);
         // Оставляем cities[0] как есть
+      } finally {
+        if (isMounted) {
+          setIsInitialized(true);
+        }
       }
-    }
-    // Если нет сохраненного города, оставляем cities[0]
+    };
+
+    loadSavedCity();
+
+    // Очистка при размонтировании
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const setSelectedCity = (city: City) => {

@@ -74,28 +74,83 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
     return null;
   }
 
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
-${colorConfig
-  .map(([key, itemConfig]) => {
-    const color =
-      itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
-      itemConfig.color;
-    return color ? `  --color-${key}: ${color};` : null;
-  })
-  .join("\n")}
-}
-`,
-          )
-          .join("\n"),
-      }}
-    />
-  );
+  // 🔒 БЕЗОПАСНОСТЬ: Валидируем и санитизируем CSS значения
+  const sanitizeColor = (color: string): string => {
+    // Удаляем потенциально опасные символы и ограничиваем допустимые форматы
+    const colorRegex = /^(#[0-9a-fA-F]{3,8}|rgb\([0-9\s,]+\)|rgba\([0-9\s,.]+\)|hsl\([0-9\s,%]+\)|hsla\([0-9\s,%.]+\)|[a-zA-Z]+)$/;
+    
+    if (!colorRegex.test(color.trim())) {
+      console.warn('Потенциально опасное CSS значение отклонено:', color);
+      return '#000000'; // Безопасное значение по умолчанию
+    }
+    
+    return color.trim();
+  };
+
+  const sanitizeKey = (key: string): string => {
+    // Только буквы, цифры, дефисы и подчеркивания
+    return key.replace(/[^a-zA-Z0-9_-]/g, '');
+  };
+
+  // Создаем CSS стили безопасно
+  const cssRules = Object.entries(THEMES)
+    .map(([theme, prefix]) => {
+      const colorRules = colorConfig
+        .map(([key, itemConfig]) => {
+          const color =
+            itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
+            itemConfig.color;
+          
+          if (!color) return null;
+          
+          const safeKey = sanitizeKey(key);
+          const safeColor = sanitizeColor(color);
+          
+          return `  --color-${safeKey}: ${safeColor};`;
+        })
+        .filter(Boolean)
+        .join('\n');
+
+      if (!colorRules) return null;
+
+      // Санитизируем селектор
+      const safeId = sanitizeKey(id);
+      const safePrefix = prefix.replace(/[^a-zA-Z0-9\s.:#[\]()_-]/g, '');
+      
+      return `${safePrefix} [data-chart=${safeId}] {\n${colorRules}\n}`;
+    })
+    .filter(Boolean)
+    .join('\n');
+
+  // 🔒 БЕЗОПАСНОСТЬ: Используем безопасный способ добавления стилей
+  React.useEffect(() => {
+    if (!cssRules) return;
+    
+    const styleId = `chart-style-${id}`;
+    
+    // Удаляем предыдущий стиль если есть
+    const existingStyle = document.getElementById(styleId);
+    if (existingStyle) {
+      existingStyle.remove();
+    }
+    
+    // Создаем новый элемент стиля
+    const styleElement = document.createElement('style');
+    styleElement.id = styleId;
+    styleElement.textContent = cssRules;
+    
+    document.head.appendChild(styleElement);
+    
+    // Очистка при размонтировании
+    return () => {
+      const element = document.getElementById(styleId);
+      if (element) {
+        element.remove();
+      }
+    };
+  }, [cssRules, id]);
+
+  return null; // Возвращаем null, так как стили добавляются через useEffect
 };
 
 const ChartTooltip = RechartsPrimitive.Tooltip;

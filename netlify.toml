@@ -1,0 +1,64 @@
+[build]
+  command = "npm run build"
+  functions = "bot/dist"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# Настройки для бота
+[[functions]]
+  path = "bot/src/bot.ts"
+  included_files = ["bot/**"]
+
+# Редиректы для Telegram webhook
+[[redirects]]
+  from = "/api/webhook"
+  to = "/.netlify/functions/bot"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/health"
+  to = "/.netlify/functions/bot"
+  status = 200
+  force = true
+
+# SPA редирект для React приложения
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  conditions = {Role = [""], Country = [""]}
+
+# Настройки безопасности
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+
+# CSP для дополнительной безопасности
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://telegram.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https:; frame-src https://telegram.org;"
+
+# Кэширование статических ресурсов
+[[headers]]
+  for = "/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000"
+
+[[headers]]
+  for = "*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000"
+
+[[headers]]
+  for = "*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000" 

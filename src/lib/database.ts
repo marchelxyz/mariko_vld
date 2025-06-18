@@ -722,8 +722,19 @@ class ProfileDatabase {
     }
   }
 
+  // 🔧 ИСПРАВЛЕНИЕ: Генерация уникального ID с лучшей энтропией
   private generateId(): string {
-    return `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substr(2, 9);
+    const counter = this.getAllProfiles().length;
+    return `user_${timestamp}_${counter}_${random}`;
+  }
+
+  // 🔧 ИСПРАВЛЕНИЕ: Безопасная генерация ID для анонимных пользователей
+  private generateAnonymousId(): string {
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substr(2, 9);
+    return `anonymous_${timestamp}_${random}`;
   }
 
   // Проверка размера localStorage

@@ -6,6 +6,7 @@ import { BottomNavigation } from "@/components/BottomNavigation";
 import { useCityContext } from "@/contexts/CityContext";
 import { botApi } from "@/lib/botApi";
 import { profileDB } from "@/lib/database";
+import { validateReviewForm, sanitizeText } from "@/lib/validation";
 
 const Review = () => {
   const navigate = useNavigate();
@@ -17,22 +18,31 @@ const Review = () => {
   const [errors, setErrors] = useState<{[key: string]: string}>({});
 
   const validateForm = () => {
+    // 🔒 БЕЗОПАСНОСТЬ: Используем защищенную валидацию
+    const selectedRestaurantId = localStorage.getItem('selectedRestaurantForReview');
+    const restaurant = selectedRestaurantId 
+      ? selectedCity.restaurants.find(r => r.id === selectedRestaurantId) || selectedCity.restaurants[0]
+      : selectedCity.restaurants[0];
+
+    const validation = validateReviewForm({
+      rating,
+      text: reviewText,
+      restaurantId: restaurant.id
+    });
+
+    // Преобразуем ошибки в нужный формат
     const newErrors: {[key: string]: string} = {};
-
-    if (rating === 0) {
-      newErrors.rating = "Поставьте оценку";
+    
+    if (validation.errors.rating) {
+      newErrors.rating = validation.errors.rating;
     }
-
-    if (!reviewText.trim()) {
-      newErrors.reviewText = "Напишите отзыв";
-    } else if (reviewText.trim().length < 10) {
-      newErrors.reviewText = "Отзыв должен содержать минимум 10 символов";
-    } else if (reviewText.length > 500) {
-      newErrors.reviewText = "Отзыв не должен превышать 500 символов";
+    
+    if (validation.errors.text) {
+      newErrors.reviewText = validation.errors.text;
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return validation.isValid;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,12 +55,27 @@ const Review = () => {
     setIsSubmitted(true);
 
     try {
-      // Получаем данные пользователя
-      const userProfile = profileDB.getAllProfiles()[0] || {
-        id: "anonymous_user",
-        name: "Гость", 
-        phone: "",
-      };
+      // 🔧 ИСПРАВЛЕНИЕ: Безопасное получение пользователя или создание анонимного
+      let userProfile = profileDB.getAllProfiles()[0];
+      
+      if (!userProfile) {
+        // Создаем временный анонимный профиль с уникальным ID
+        const anonymousId = `anonymous_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        userProfile = {
+          id: anonymousId,
+          name: "Гость",
+          phone: "",
+          birthDate: "",
+          gender: "Не указан",
+          photo: "",
+          bonusPoints: 0,
+          notificationsEnabled: true,
+          selectedRestaurant: "",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          lastLogin: new Date().toISOString(),
+        };
+      }
 
       // Получаем выбранный ресторан из localStorage или берем первый
       const selectedRestaurantId = localStorage.getItem('selectedRestaurantForReview');
@@ -58,16 +83,19 @@ const Review = () => {
         ? selectedCity.restaurants.find(r => r.id === selectedRestaurantId) || selectedCity.restaurants[0]
         : selectedCity.restaurants[0];
 
+      // 🔒 БЕЗОПАСНОСТЬ: Санитизируем данные перед отправкой
+      const sanitizedText = sanitizeText(reviewText);
+      
       // Сохраняем отзыв в базу данных
       const result = await botApi.createReview({
         userId: userProfile.id,
-        userName: userProfile.name,
-        userPhone: userProfile.phone,
+        userName: sanitizeText(userProfile.name || "Гость"),
+        userPhone: sanitizeText(userProfile.phone || ""),
         restaurantId: restaurant.id,
-        restaurantName: restaurant.name,
-        restaurantAddress: restaurant.address,
+        restaurantName: sanitizeText(restaurant.name),
+        restaurantAddress: sanitizeText(restaurant.address),
         rating,
-        text: reviewText,
+        text: sanitizedText,
       });
 
       console.log("Отзыв сохранен:", result);
