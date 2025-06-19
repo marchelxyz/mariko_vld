@@ -27,7 +27,6 @@ const Booking = () => {
     date: "",
     time: "",
     restaurant: defaultRestaurantName, // Подтягивается из выбранного города
-    comment: "",
   });
   const [selectedCountryCode, setSelectedCountryCode] = useState("+7");
   const [loading, setLoading] = useState(false);
@@ -208,7 +207,6 @@ const Booking = () => {
         date: formData.date,
         time: formData.time,
         guests: parseInt(formData.guests),
-        comment: formData.comment,
       });
 
       if (!validation.isValid) {
@@ -229,7 +227,6 @@ const Booking = () => {
         date: sanitizeText(formData.date),
         time: sanitizeText(formData.time),
         restaurant: sanitizeText(formData.restaurant),
-        comment: sanitizeText(formData.comment || ""),
         birthDate: sanitizeText(birthDate),
       };
 
@@ -250,7 +247,7 @@ const Booking = () => {
 
         navigate("/");
       } else {
-        alert("Ошибка ��ри отправ��е ��ронировани��. По��робуйте еще раз.");
+        alert("Ошибка при отправке бронирования. Попробуйте еще раз.");
       }
     } catch (error) {
       console.error("Ошибка бронирования:", error);
@@ -479,25 +476,6 @@ const Booking = () => {
                 </option>
               ))}
             </select>
-          </div>
-
-          {/* Comment */}
-          <div className="bg-mariko-secondary rounded-[90px] px-6 py-4">
-            <label className="block text-white font-el-messiri text-lg font-semibold mb-2 pl-6">
-              Комментарий (опционально)
-            </label>
-            <div className="relative ml-6 mr-8">
-              <textarea
-                value={formData.comment}
-                onChange={(e) =>
-                  setFormData({ ...formData, comment: e.target.value })
-                }
-                rows={3}
-                className="w-full bg-white/5 text-white placeholder-white/50 border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-xl resize-none transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10"
-                placeholder="Особые пожелания..."
-              />
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
-            </div>
           </div>
 
           {/* Submit Button */}

@@ -22,7 +22,6 @@ export interface BookingData {
   date: string;
   time: string;
   restaurant: string;
-  comment?: string;
   birthDate: string; // Скрытое поле для АЙКО
 }
 
