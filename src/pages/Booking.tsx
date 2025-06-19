@@ -280,7 +280,7 @@ const Booking = () => {
         {/* Booking Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Name */}
-          <div className="bg-mariko-secondary rounded-[90px] px-6 py-4">
+          <div className="bg-mariko-secondary rounded-3xl px-6 py-4">
             <label className="block text-white font-el-messiri text-lg font-semibold mb-2 pl-6">
               ФИО
             </label>
@@ -300,7 +300,7 @@ const Booking = () => {
           </div>
 
                     {/* Phone */}
-          <div className="bg-mariko-secondary rounded-[90px] px-6 py-4">
+          <div className="bg-mariko-secondary rounded-3xl px-6 py-4">
             <label className="block text-white font-el-messiri text-lg font-semibold mb-2 pl-6">
               Телефон
             </label>
@@ -341,7 +341,7 @@ const Booking = () => {
           </div>
 
           {/* Guests */}
-          <div className="bg-mariko-secondary rounded-[90px] px-6 py-4">
+          <div className="bg-mariko-secondary rounded-3xl px-6 py-4">
             <label className="flex items-center gap-2 text-white font-el-messiri text-lg font-semibold mb-2">
               <Users className="w-5 h-5" />
               Количество гостей
@@ -368,7 +368,7 @@ const Booking = () => {
 
           {/* Date */}
           {isEditingDate ? (
-            <div className="bg-mariko-secondary rounded-[90px] px-6 py-4">
+            <div className="bg-mariko-secondary rounded-3xl px-6 py-4">
               <label className="flex items-center gap-2 text-white font-el-messiri text-lg font-semibold mb-2 pl-6">
                 <Calendar className="w-5 h-5" />
                 Дата
@@ -403,7 +403,7 @@ const Booking = () => {
               </div>
             </div>
           ) : (
-            <div className="bg-mariko-secondary rounded-[90px] px-6 py-4">
+            <div className="bg-mariko-secondary rounded-3xl px-6 py-4">
               <label className="flex items-center gap-2 text-white font-el-messiri text-lg font-semibold mb-2 pl-6">
                 <Calendar className="w-5 h-5" />
                 Дата
@@ -424,7 +424,7 @@ const Booking = () => {
           )}
 
           {/* Time */}
-          <div className="bg-mariko-secondary rounded-[90px] px-6 py-4">
+          <div className="bg-mariko-secondary rounded-3xl px-6 py-4">
             <label className="flex items-center gap-2 text-white font-el-messiri text-lg font-semibold mb-2">
               <Clock className="w-5 h-5" />
               Время
@@ -453,7 +453,7 @@ const Booking = () => {
           </div>
 
           {/* Restaurant */}
-          <div className="bg-mariko-secondary rounded-[90px] px-6 py-4">
+          <div className="bg-mariko-secondary rounded-3xl px-6 py-4">
             <label className="flex items-center gap-2 text-white font-el-messiri text-lg font-semibold mb-2">
               <MapPin className="w-5 h-5" />
               Ресторан
@@ -482,7 +482,7 @@ const Booking = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-orange-400 to-orange-600 text-mariko-secondary font-el-messiri text-2xl font-bold py-6 rounded-[90px] hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            className="w-full bg-gradient-to-r from-orange-400 to-orange-600 text-mariko-secondary font-el-messiri text-2xl font-bold py-6 rounded-3xl hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
             {loading ? "Отправка..." : "Забронировать столик"}
           </button>
