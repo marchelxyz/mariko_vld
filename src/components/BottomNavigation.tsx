@@ -31,52 +31,46 @@ export const BottomNavigation = ({ currentPage }: BottomNavigationProps) => {
 
   return (
     <div className="bg-mariko-dark">
-      <div className="flex justify-around items-end relative">
-        {navItems.map((item) => {
-          const isActive = item.id === currentPage;
+      {/* Область с иконками - фон тени */}
+      <div className="bg-gradient-to-b from-red-900/80 to-red-800/70 shadow-lg backdrop-blur-sm">
+        <div className="flex justify-around items-end relative">
+          {navItems.map((item) => {
+            const isActive = item.id === currentPage;
 
-          return (
-            <button
-              key={item.id}
-              onClick={item.onClick}
-              className={cn(
-                "flex flex-col items-center py-4 px-6 transition-all duration-200",
-                isActive && "relative",
-              )}
-            >
-              {isActive && (
-                <div className="absolute -top-6 md:-top-8 left-1/2 transform -translate-x-1/2 bg-black/50 rounded-t-[20px] md:rounded-t-[40px] px-4 md:px-8 py-2 md:py-3 shadow-lg">
-                  <div className="flex flex-col items-center gap-1 md:gap-2">
-                    <img 
-                      src={item.iconPath} 
-                      alt={item.label}
-                      className="w-5 h-5 md:w-8 md:h-8 brightness-0 invert" 
-                    />
-                    <span className="text-white font-el-messiri text-xs md:text-sm font-semibold whitespace-nowrap">
-                      {item.label}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {!isActive && (
-                <>
-                  <img 
-                    src={item.iconPath} 
-                    alt={item.label}
-                    className="w-4 h-4 md:w-6 md:h-6 opacity-60 mb-1" 
-                  />
-                  <span className="text-mariko-text-secondary font-el-messiri text-xs font-medium">
-                    {item.label}
-                  </span>
-                </>
-              )}
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={item.id}
+                onClick={item.onClick}
+                className={cn(
+                  "flex flex-col items-center py-4 px-6 transition-all duration-200",
+                  isActive && "transform -translate-y-1"
+                )}
+              >
+                <img 
+                  src={item.iconPath} 
+                  alt={item.label}
+                  className={cn(
+                    "brightness-0 invert mb-1 transition-all duration-200",
+                    isActive 
+                      ? "w-6 h-6 md:w-9 md:h-9 drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]" 
+                      : "w-4 h-4 md:w-6 md:h-6 drop-shadow-[0_0_6px_rgba(255,255,255,0.7)]"
+                  )}
+                />
+                <span className={cn(
+                  "font-el-messiri text-xs font-medium transition-all duration-200",
+                  isActive 
+                    ? "text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.8)] font-semibold" 
+                    : "text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.5)]"
+                )}>
+                  {item.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Bottom Brand */}
+      {/* Темно-серый низ - не трогаем */}
       <div className="text-center py-2 md:py-4 border-t border-mariko-text-secondary/20">
         <span className="text-mariko-text-secondary font-normal text-sm md:text-base tracking-wide">
           @Mariko_Bot
