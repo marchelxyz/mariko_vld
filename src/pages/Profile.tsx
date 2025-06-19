@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { User, CreditCard, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { ActionButton } from "@/components/ActionButton";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { BarcodeModal } from "@/components/BarcodeModal";
-import { RubleIcon } from "@/components/RubleIcon";
 import { useProfile } from "@/hooks/useProfile";
 
 const Profile = () => {
@@ -64,19 +63,19 @@ const Profile = () => {
         {/* Profile Action Buttons */}
         <div className="mt-4 md:mt-8 space-y-3 md:space-y-6">
           <ActionButton
-            icon={<RubleIcon className="w-full h-full text-white" />}
+            icon={<img src="/images/action button/Ruble.png" alt="Balance" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
             title={`Баланс: ${profile.bonusPoints || 0}`}
                           onClick={() => {/* Баланс - функционал в разработке */}}
           />
 
           <ActionButton
-            icon={<CreditCard className="w-full h-full" />}
+            icon={<img src="/images/action button/Magnetic Card.png" alt="Bonus Card" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
             title="Бонус-карта"
             onClick={() => setIsBarcodeModalOpen(true)}
           />
 
           <ActionButton
-            icon={<User className="w-full h-full" />}
+            icon={<img src="/images/action button/Male User.png" alt="Profile" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
             title="Редактирование профиля"
             onClick={() => navigate("/edit-profile")}
           />

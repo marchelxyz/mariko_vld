@@ -1,4 +1,4 @@
-import { Calendar, Truck, Star, ChefHat } from "lucide-react";
+import { ChefHat } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { ActionButton } from "@/components/ActionButton";
@@ -37,19 +37,19 @@ const Index = () => {
         {/* Main Action Buttons */}
         <div className="mt-4 md:mt-8 space-y-3 md:space-y-6">
           <ActionButton
-            icon={<Calendar className="w-full h-full" />}
+            icon={<img src="/images/action button/Calendar.png" alt="Calendar" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
             title="Забронировать столик"
             onClick={() => navigate("/booking")}
           />
 
           <ActionButton
-            icon={<Truck className="w-full h-full" />}
+            icon={<img src="/images/action button/Van.png" alt="Delivery" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
             title="Доставка"
             onClick={() => navigate("/delivery")}
           />
 
           <ActionButton
-            icon={<Star className="w-full h-full" />}
+            icon={<img src="/images/action button/Star.png" alt="Review" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
             title="Оставить отзыв"
             onClick={() => {
               // Если в городе несколько ресторанов - идем на выбор ресторана
