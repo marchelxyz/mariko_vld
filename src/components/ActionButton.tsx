@@ -32,8 +32,13 @@ export const ActionButton = ({
         className,
       )}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-gray-600 to-gray-800 rounded-[45px_0_45px_45px] md:rounded-[90px_0_90px_90px] w-16 md:w-32 flex items-center justify-center">
-        <div className="w-8 h-8 md:w-16 md:h-16 text-white flex items-center justify-center">
+      <div className="absolute inset-0 w-16 md:w-32 flex items-center justify-center">
+        <img
+          src="/images/avatars/Rectangle 1322.png"
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="relative w-8 h-8 md:w-16 md:h-16 text-white flex items-center justify-center z-10">
           {icon}
         </div>
       </div>
