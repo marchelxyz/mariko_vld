@@ -5,6 +5,7 @@ interface MenuCardProps {
   imageUrl: string;
   onClick?: () => void;
   className?: string;
+  aspectRatio?: string;
 }
 
 export const MenuCard = ({
@@ -12,12 +13,14 @@ export const MenuCard = ({
   imageUrl,
   onClick,
   className,
+  aspectRatio = "aspect-[1.25]",
 }: MenuCardProps) => {
   return (
     <button
       onClick={onClick}
       className={cn(
-        "relative w-full aspect-[1.25] bg-mariko-secondary rounded-[45px] md:rounded-[90px] overflow-hidden transition-transform hover:scale-105 active:scale-95",
+        "relative w-full rounded-[8px] md:rounded-[16px] overflow-hidden transition-transform hover:scale-105 active:scale-95",
+        aspectRatio,
         className,
       )}
     >

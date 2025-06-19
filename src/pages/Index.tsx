@@ -68,14 +68,16 @@ const Index = () => {
         <div className="mt-4 md:mt-8 grid grid-cols-2 gap-3 md:gap-6">
           <MenuCard
             title="Меню"
-            imageUrl="/images/menu/menu-khachapuri.png"
+            imageUrl="/images/menu/menu.png"
+            aspectRatio="aspect-[2/1]"
             onClick={() =>
               window.open("https://telegra.ph/Menu-Mariko-01-01", "_blank")
             }
           />
           <MenuCard
             title="Бар"
-            imageUrl="/images/menu/menu-barbecue.png"
+            imageUrl="/images/menu/bar.png"
+            aspectRatio="aspect-[2/1]"
             onClick={() =>
               window.open("https://telegra.ph/Bar-Menu-Mariko-01-01", "_blank")
             }
@@ -86,7 +88,7 @@ const Index = () => {
         <div className="mt-3 md:mt-6 grid grid-cols-3 gap-2 md:gap-4">
           <MenuCard
             title="Вакансии"
-            imageUrl="/images/menu/menu-wine.png"
+            imageUrl="/images/menu/job.png"
             onClick={() =>
               window.open(
                 "https://hh.ru/search/vacancy?text=хачапури+марико",
@@ -96,14 +98,14 @@ const Index = () => {
           />
           <MenuCard
             title="Шеф-меню"
-            imageUrl="/images/menu/menu-dessert.png"
+            imageUrl="/images/menu/shef-menu.png"
             onClick={() =>
               window.open("https://telegra.ph/Chef-Menu-Mariko-01-01", "_blank")
             }
           />
           <MenuCard
             title="Акции"
-            imageUrl="/images/menu/menu-drinks.png"
+            imageUrl="/images/menu/promo.png"
             onClick={() => navigate("/promotions")}
           />
         </div>
