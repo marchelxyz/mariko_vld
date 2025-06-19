@@ -5,7 +5,6 @@ import { ActionButton } from "@/components/ActionButton";
 import { MenuCard } from "@/components/MenuCard";
 import { RestaurantCard } from "@/components/RestaurantCard";
 import { BottomNavigation } from "@/components/BottomNavigation";
-import { CitySelectorSimple } from "@/components/CitySelectorSimple";
 import { useCityContext } from "@/contexts/CityContext";
 
 const Index = () => {
@@ -15,24 +14,10 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col">
       {/* Header */}
-      <Header />
+      <Header showCitySelector={true} />
 
       {/* Main Content */}
       <div className="flex-1 px-3 md:px-6 max-w-sm md:max-w-6xl mx-auto w-full">
-        {/* Location Banner */}
-        <div className="mt-4 md:mt-8 flex items-center justify-between gap-2">
-          <div className="flex-1">
-            <img
-              src="/images/heroes/hero-image.svg"
-              alt="Хачапури логотип"
-              className="w-full h-auto max-w-32 md:max-w-md"
-            />
-          </div>
-          <CitySelectorSimple
-            selectedCity={selectedCity}
-            onCityChange={setSelectedCity}
-          />
-        </div>
 
         {/* Main Action Buttons */}
         <div className="mt-4 md:mt-8 space-y-3 md:space-y-6">
