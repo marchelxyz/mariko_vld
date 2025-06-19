@@ -482,7 +482,7 @@ const Booking = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-orange-400 to-orange-600 text-mariko-secondary font-el-messiri text-2xl font-bold py-6 rounded-3xl hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            className="w-full bg-[#DB7B28] text-mariko-secondary font-el-messiri text-2xl font-bold py-6 rounded-3xl hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
             {loading ? "Отправка..." : "Забронировать столик"}
           </button>
