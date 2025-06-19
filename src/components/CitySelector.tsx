@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MapPin, ChevronDown } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface City {
@@ -372,7 +372,6 @@ export const CitySelector = ({
         </div>
         <div className="flex flex-col items-center">
           <MapPin className="w-6 h-6 md:w-16 md:h-16 text-white flex-shrink-0" />
-          <ChevronDown className="w-6 h-6 md:w-8 md:h-8 text-white flex-shrink-0 mt-1" />
         </div>
       </button>
 
