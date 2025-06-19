@@ -1,4 +1,3 @@
-import { User, MapPin, Home } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -13,19 +12,19 @@ export const BottomNavigation = ({ currentPage }: BottomNavigationProps) => {
     {
       id: "profile",
       label: "Профиль",
-      icon: User,
+      iconPath: "/images/icons/Male User.png",
       onClick: () => navigate("/profile"),
     },
     {
       id: "franchise",
       label: "Франшиза",
-      icon: MapPin,
+      iconPath: "/images/icons/Franchise.png",
       onClick: () => navigate("/franchise"),
     },
     {
       id: "home",
       label: "Главная",
-      icon: Home,
+      iconPath: "/images/icons/House.png",
       onClick: () => navigate("/"),
     },
   ];
@@ -35,7 +34,6 @@ export const BottomNavigation = ({ currentPage }: BottomNavigationProps) => {
       <div className="flex justify-around items-end relative">
         {navItems.map((item) => {
           const isActive = item.id === currentPage;
-          const Icon = item.icon;
 
           return (
             <button
@@ -49,7 +47,11 @@ export const BottomNavigation = ({ currentPage }: BottomNavigationProps) => {
               {isActive && (
                 <div className="absolute -top-6 md:-top-8 left-1/2 transform -translate-x-1/2 bg-black/50 rounded-t-[20px] md:rounded-t-[40px] px-4 md:px-8 py-2 md:py-3 shadow-lg">
                   <div className="flex flex-col items-center gap-1 md:gap-2">
-                    <Icon className="w-5 h-5 md:w-8 md:h-8 text-white" />
+                    <img 
+                      src={item.iconPath} 
+                      alt={item.label}
+                      className="w-5 h-5 md:w-8 md:h-8 brightness-0 invert" 
+                    />
                     <span className="text-white font-el-messiri text-xs md:text-sm font-semibold whitespace-nowrap">
                       {item.label}
                     </span>
@@ -59,7 +61,11 @@ export const BottomNavigation = ({ currentPage }: BottomNavigationProps) => {
 
               {!isActive && (
                 <>
-                  <Icon className="w-4 h-4 md:w-6 md:h-6 text-mariko-text-secondary mb-1" />
+                  <img 
+                    src={item.iconPath} 
+                    alt={item.label}
+                    className="w-4 h-4 md:w-6 md:h-6 opacity-60 mb-1" 
+                  />
                   <span className="text-mariko-text-secondary font-el-messiri text-xs font-medium">
                     {item.label}
                   </span>
