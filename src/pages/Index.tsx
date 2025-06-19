@@ -110,6 +110,15 @@ const Index = () => {
           />
         </div>
 
+        {/* Franchise Action Button */}
+        <div className="mt-4 md:mt-8">
+          <ActionButton
+            icon={<img src="/images/action button/Dining Room.png" alt="Franchise" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
+            title="Франшиза ресторана"
+            onClick={() => window.open("https://vhachapuri.ru/franshiza", "_blank")}
+          />
+        </div>
+
 
       </div>
 
