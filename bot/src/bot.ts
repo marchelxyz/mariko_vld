@@ -1,14 +1,11 @@
-import { Bot, Context, InlineKeyboard, webhookCallback } from "grammy";
-import express from "express";
+import { Bot, Context, InlineKeyboard } from "grammy";
 import dotenv from "dotenv";
 
 // Загружаем переменные окружения
 dotenv.config();
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const WEBAPP_URL = process.env.WEBAPP_URL || "https://your-domain.com";
-const PORT = parseInt(process.env.PORT || "3000");
-const WEBHOOK_URL = process.env.WEBHOOK_URL;
+const WEBAPP_URL = process.env.WEBAPP_URL || "https://hachapurimariko.netlify.app";
 
 // 🔒 БЕЗОПАСНОСТЬ: Функция для маскировки токена в логах
 const maskToken = (token?: string): string => {
@@ -26,8 +23,11 @@ if (!BOT_TOKEN) {
 // 🔒 БЕЗОПАСНОСТЬ: Логируем маскированный токен
 console.log(`🔑 Bot token: ${maskToken(BOT_TOKEN)}`);
 
-// Создаем экземпляр бота
-const bot = new Bot(BOT_TOKEN);
+// Создаем экземпляр бота с настройками для polling
+const bot = new Bot(BOT_TOKEN, {
+  // Отключаем автоматическое удаление webhook
+  botInfo: undefined,
+});
 
 // Используем стандартный Context из Grammy
 type BotContext = Context;
@@ -179,7 +179,6 @@ bot.on("message", async (ctx: BotContext) => {
 
 // Обработка ошибок
 bot.catch((err) => {
-  // 🔒 БЕЗОПАСНОСТЬ: Не логируем полную ошибку которая может содержать чувствительные данные
   console.error(`❌ Ошибка бота:`, err.message || 'Неизвестная ошибка');
   
   // В development режиме можем логировать больше деталей
@@ -188,116 +187,44 @@ bot.catch((err) => {
   }
 });
 
-// 🔧 ФУНКЦИЯ ДЛЯ NETLIFY FUNCTIONS
-export const handler = async (event: any, context: any) => {
+// 🚀 ЗАПУСК БОТА С POLLING
+async function startBot() {
   try {
-    // Проверяем что это POST запрос с webhook данными
-    if (event.httpMethod !== "POST") {
-      return {
-        statusCode: 405,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ error: "Method not allowed" }),
-      };
-    }
-
-    // Health check endpoint
-    if (event.path === "/health" || event.path === "/.netlify/functions/bot/health") {
-      return {
-        statusCode: 200,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          status: "OK", 
-          timestamp: new Date().toISOString(),
-          bot: "Хачапури Марико Bot"
-        }),
-      };
-    }
-
-    // Обрабатываем webhook от Telegram
-    if (event.body) {
-      const update = JSON.parse(event.body);
-      
-      // Обрабатываем обновление через Grammy
-      await bot.handleUpdate(update);
-      
-      return {
-        statusCode: 200,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ok: true }),
-      };
-    }
-
-    return {
-      statusCode: 400,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "No update data" }),
-    };
-
-  } catch (error: any) {
-    console.error("❌ Ошибка обработки webhook:", error.message);
-    
-    return {
-      statusCode: 500,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "Internal server error" }),
-    };
-  }
-};
-
-// 🔧 ФУНКЦИЯ ИНИЦИАЛИЗАЦИИ WEBHOOK (для отдельного скрипта)
-export const setupWebhook = async () => {
-  if (!WEBHOOK_URL) {
-    console.log("📝 WEBHOOK_URL не установлен - webhook не настраивается");
-    return;
-  }
-
-  try {
-    console.log(`📡 Настройка webhook: ${WEBHOOK_URL}`);
-    console.log(`🔑 Bot token: ${maskToken(BOT_TOKEN)}`);
-    
-    await bot.api.setWebhook(WEBHOOK_URL);
-    console.log("✅ Webhook успешно установлен!");
-    
-  } catch (error: any) {
-    console.error("❌ Ошибка установки webhook:", error.message);
-    throw error;
-  }
-};
-
-// 🔧 ФУНКЦИЯ ДЛЯ ЛОКАЛЬНОЙ РАЗРАБОТКИ (polling)
-export const startPolling = async () => {
-  try {
-    console.log("🚀 Запуск бота в режиме polling...");
+    console.log("🚀 Запуск бота в polling режиме...");
     console.log(`🔑 Bot token: ${maskToken(BOT_TOKEN)}`);
     console.log(`🔗 Mini App URL: ${WEBAPP_URL}`);
     
-    await bot.start();
+    // Получаем информацию о боте для проверки токена
+    const me = await bot.api.getMe();
+    console.log(`✅ Подключен как: @${me.username} (${me.first_name})`);
+    
+    // Запускаем polling с Grammy
     console.log("✅ Бот успешно запущен в polling режиме!");
+    await bot.start();
     
   } catch (error: any) {
     console.error("❌ Ошибка запуска бота:", error.message);
     process.exit(1);
   }
-};
-
-// Обработка сигналов для graceful shutdown (только для polling)
-if (typeof process !== 'undefined') {
-  process.once("SIGINT", () => {
-    console.log("🛑 Получен сигнал SIGINT, завершение работы...");
-    bot.stop();
-  });
-
-  process.once("SIGTERM", () => {
-    console.log("🛑 Получен сигнал SIGTERM, завершение работы...");
-    bot.stop();
-  });
 }
 
-// 🔧 ЭКСПОРТ ДЛЯ РАЗЛИЧНЫХ ОКРУЖЕНИЙ
-// Для Netlify Functions используется именованный экспорт handler
-// Для локальной разработки можно использовать startPolling()
+// Обработка сигналов для graceful shutdown
+const gracefulShutdown = async (signal: string) => {
+  console.log(`🛑 Получен сигнал ${signal}, завершение работы...`);
+  try {
+    await bot.stop();
+    console.log("✅ Бот успешно остановлен");
+    process.exit(0);
+  } catch (error: any) {
+    console.error("❌ Ошибка при остановке бота:", error.message);
+    process.exit(1);
+  }
+};
 
-// Проверка запуска в локальном режиме через переменную окружения
-if (process.env.NODE_ENV === 'development' && process.env.RUN_POLLING === 'true') {
-  startPolling();
+process.once("SIGINT", () => gracefulShutdown("SIGINT"));
+process.once("SIGTERM", () => gracefulShutdown("SIGTERM"));
+
+// Автозапуск если включен polling режим
+if (process.env.RUN_POLLING === 'true') {
+  startBot();
 } 

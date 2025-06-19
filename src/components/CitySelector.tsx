@@ -328,35 +328,35 @@ export const CitySelector = ({
           </span>
           {/* Стрелочка указывающая на значок */}
           <svg 
-            width="20" 
-            height="15" 
-            viewBox="0 0 20 15" 
+            width="30" 
+            height="20" 
+            viewBox="0 0 30 20" 
             className="text-mariko-text-secondary"
           >
             <defs>
               <marker
                 id="arrowhead-city"
-                markerWidth="6"
-                markerHeight="4"
-                refX="5"
-                refY="2"
+                markerWidth="8"
+                markerHeight="6"
+                refX="7"
+                refY="3"
                 orient="auto"
               >
                 <polygon
-                  points="0 0, 6 2, 0 4"
+                  points="0 0, 8 3, 0 6"
                   fill="currentColor"
                   className="animate-pulse"
                 />
               </marker>
             </defs>
             <path
-              d="M 2 3 Q 10 6, 18 12"
+              d="M 3 4 Q 15 8, 25 16"
               stroke="currentColor"
-              strokeWidth="1.5"
+              strokeWidth="2"
               fill="none"
               markerEnd="url(#arrowhead-city)"
               className="animate-pulse"
-              strokeDasharray="2,1"
+              strokeDasharray="3,2"
             />
           </svg>
         </div>
@@ -372,7 +372,7 @@ export const CitySelector = ({
         </div>
         <div className="flex flex-col items-center">
           <MapPin className="w-6 h-6 md:w-16 md:h-16 text-white flex-shrink-0" />
-          <ChevronDown className="w-4 h-4 md:w-6 md:h-6 text-white flex-shrink-0 mt-1" />
+          <ChevronDown className="w-6 h-6 md:w-8 md:h-8 text-white flex-shrink-0 mt-1" />
         </div>
       </button>
 
