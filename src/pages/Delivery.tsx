@@ -1,4 +1,4 @@
-import { Car, Bike, CircleDot } from "lucide-react";
+import { CircleDot } from "lucide-react";
 import { Header } from "@/components/Header";
 import { ActionButton } from "@/components/ActionButton";
 import { BottomNavigation } from "@/components/BottomNavigation";
@@ -14,12 +14,12 @@ const Delivery = () => {
     // Базовые варианты доставки
     const baseOptions = [
       {
-        icon: <Car className="w-full h-full" />,
+        icon: <img src="/images/action button/Car.png" alt="Delivery" className="w-6 h-6 md:w-12 md:h-12 object-contain" />,
         title: "Доставка Марико",
         onClick: () => window.open("https://vhachapuri.ru/delivery", "_blank"),
       },
       {
-        icon: <Bike className="w-full h-full" />,
+        icon: <img src="/images/action button/Delivery Scooter.png" alt="Pickup" className="w-6 h-6 md:w-12 md:h-12 object-contain" />,
         title: "Самовывоз",
         onClick: () => {
           // Самовывоз из selectedRestaurant?.address
@@ -30,15 +30,7 @@ const Delivery = () => {
     // Всегда добавляем внешние сервисы доставки
     baseOptions.push(
       {
-        icon: (
-          <div className="w-full h-full flex items-center justify-center">
-            <img
-              src="/images/delivery/delivery-courier.svg"
-              alt="Яндекс Еда"
-              className="w-16 h-16 object-contain"
-            />
-          </div>
-        ),
+        icon: <img src="/images/action button/Vector.png" alt="Яндекс Еда" className="w-6 h-6 md:w-12 md:h-12 object-contain" />,
         title: "Яндекс Еда",
         onClick: () =>
           window.open(
@@ -47,15 +39,7 @@ const Delivery = () => {
           ),
       },
       {
-        icon: (
-          <div className="w-full h-full flex items-center justify-center">
-            <img
-              src="/images/delivery/delivery-car.svg"
-              alt="Delivery Club"
-              className="w-full h-full object-cover rounded-[90px_0_90px_90px]"
-            />
-          </div>
-        ),
+        icon: <img src="/images/action button/Logo.png" alt="Delivery Club" className="w-6 h-6 md:w-12 md:h-12 object-contain" />,
         title: "Delivery Club",
         onClick: () =>
           window.open(
