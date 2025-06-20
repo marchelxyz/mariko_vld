@@ -1,10 +1,12 @@
 [build]
-  command = "npm run build && cd bot && npm install && npm run build && cd ../netlify/functions && npm install"
+  command = "npm ci && npm run build && cd bot && npm install && npm run build && cd ../netlify/functions && npm install"
   functions = "netlify/functions"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "18"
+  CI = "true"
+  NODE_OPTIONS = "--max-old-space-size=4096"
 
 # 🤖 Функции для бота
 [functions]
