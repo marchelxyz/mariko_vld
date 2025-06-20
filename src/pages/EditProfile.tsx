@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { Camera, X, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { EditableField } from "@/components/EditableField";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
+import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +22,7 @@ interface ProfileData {
 }
 
 const EditProfile = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { profile, loading, updateProfile, updatePhoto } = useProfile();
@@ -315,8 +318,13 @@ const EditProfile = () => {
 
       {/* Main Content */}
       <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full pb-32 md:pb-40">
+        {/* Back Button */}
+        <div className="mt-10 mb-6">
+          <BackButton onClick={() => navigate("/profile")} />
+        </div>
+        
         {/* Profile Header with Photo Upload */}
-        <div className="mt-10 md:mt-12">
+        <div className="mt-0 md:mt-2">
           <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6">
             <ProfileAvatar 
               photo={profile.photo}

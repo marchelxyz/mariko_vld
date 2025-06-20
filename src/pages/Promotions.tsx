@@ -1,6 +1,7 @@
 import { Header } from "@/components/Header";
 import { PromotionCard } from "@/components/PromotionCard";
 import { BottomNavigation } from "@/components/BottomNavigation";
+import { BackButton } from "@/components/BackButton";
 
 const Promotions = () => {
   const promotions = [
@@ -35,8 +36,13 @@ const Promotions = () => {
 
       {/* Main Content */}
       <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full pb-8 md:pb-16">
+        {/* Back Button */}
+        <div className="mt-10 mb-6">
+          <BackButton />
+        </div>
+        
         {/* Promotions Grid */}
-        <div className="mt-6 md:mt-12 space-y-4 md:space-y-12">
+        <div className="mt-0 md:mt-2 space-y-4 md:space-y-12">
           {promotions.map((promo) => (
             <PromotionCard
               key={promo.id}
