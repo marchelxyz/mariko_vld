@@ -472,43 +472,42 @@ const EditProfile = () => {
         <div className="mt-12 md:mt-16 h-32 md:h-40"></div>
       </div>
 
-      {/* Character and Quote Section - positioned as on screenshot */}
+      {/* Character and Quote Section - прижимаем к краям экрана */}
       <div className="absolute bottom-16 left-0 right-0 z-10 pointer-events-none">
-        <div className="relative max-w-6xl mx-auto px-4">
-          {/* Quote with custom background - positioned left of warrior */}
-          <div className="absolute bottom-32 left-8 md:bottom-40 md:left-12">
-            <div 
-              className="relative overflow-hidden"
-              style={{
-                backgroundImage: "url('/images/backgrounds/quote-background.png')",
-                backgroundSize: "100% 100%",
-                backgroundRepeat: "no-repeat",
-                width: "320px",
-                height: "180px",
-                borderTopRightRadius: "20px",
-                borderBottomRightRadius: "20px"
-              }}
-            >
-              <div className="absolute inset-0 flex items-center justify-center px-8 py-6">
-                <p className="text-mariko-secondary font-el-messiri text-lg md:text-xl font-semibold leading-tight text-center">
-                  Ты всегда можешь изменить данные, {profile.gender === "Женский" ? "Дорогая" : "Дорогой"}!
-                </p>
-              </div>
+        {/* Quote with custom background - прижата к левому краю */}
+        <div className="absolute bottom-32 left-2 md:bottom-40 md:left-4">
+          <div 
+            className="relative overflow-hidden"
+            style={{
+              backgroundImage: "url('/images/backgrounds/quote-background.png')",
+              backgroundSize: "100% 100%",
+              backgroundRepeat: "no-repeat",
+              width: "260px",
+              height: "140px",
+              borderTopRightRadius: "15px",
+              borderBottomRightRadius: "15px"
+            }}
+          >
+            <div className="absolute inset-0 flex items-center justify-center px-6 py-4">
+              <p className="text-mariko-secondary font-el-messiri text-base md:text-lg font-semibold leading-tight text-center">
+                Ты всегда можешь изменить данные, {profile.gender === "Женский" ? "Дорогая" : "Дорогой"}!
+              </p>
             </div>
           </div>
-          
-          {/* Georgian Warrior - positioned right */}
-          <div className="absolute bottom-0 right-8 md:right-12">
-            <img
-              src="/images/characters/character-warrior.png"
-              alt="Грузинский воин"
-              className="w-auto h-auto max-w-56 md:max-w-72"
-              style={{
-                objectFit: "contain",
-                filter: "drop-shadow(13px -2px 28px rgba(0, 0, 0, 0.25))",
-              }}
-            />
-          </div>
+        </div>
+        
+        {/* Georgian Warrior - прижат к правому краю экрана */}
+        <div className="absolute bottom-0 right-0">
+          <img
+            src="/images/characters/character-warrior.png"
+            alt="Грузинский воин"
+            className="w-auto h-auto max-w-48 md:max-w-64"
+            style={{
+              objectFit: "contain",
+              filter: "drop-shadow(13px -2px 28px rgba(0, 0, 0, 0.25))",
+              transform: "translateX(10%)"
+            }}
+          />
         </div>
       </div>
 
