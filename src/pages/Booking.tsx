@@ -265,7 +265,7 @@ const Booking = () => {
       {/* Main Content */}
       <div className="flex-1 px-4 md:px-6 max-w-4xl mx-auto w-full">
         {/* Back Button and Title */}
-        <div className="mt-8 flex items-center gap-4 mb-8">
+        <div className="mt-10 flex items-center gap-4 mb-8">
           <button
             onClick={() => navigate("/")}
             className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"

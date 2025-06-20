@@ -60,7 +60,7 @@ const Delivery = () => {
       {/* Main Content */}
       <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full pb-64 md:pb-72">
         {/* Delivery Options */}
-        <div className="mt-8 md:mt-12 space-y-6 md:space-y-8">
+        <div className="mt-10 md:mt-12 space-y-6 md:space-y-8">
           {getDeliveryOptions().map((option, index) => (
             <ActionButton
               key={index}

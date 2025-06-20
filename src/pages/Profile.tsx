@@ -30,7 +30,7 @@ const Profile = () => {
       {/* Main Content */}
       <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full pb-80 md:pb-96">
         {/* Profile Header */}
-        <div className="mt-8 md:mt-12">
+        <div className="mt-10 md:mt-12">
           <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6">
             <ProfileAvatar 
               photo={profile.photo}
@@ -48,7 +48,7 @@ const Profile = () => {
         </div>
 
         {/* Profile Action Buttons */}
-        <div className="mt-4 md:mt-8 space-y-3 md:space-y-6">
+        <div className="mt-6 md:mt-8 space-y-3 md:space-y-6">
           <ActionButton
             icon={<img src="/images/action button/Ruble.png" alt="Balance" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
             title={`Баланс: ${profile.bonusPoints || 0}`}

@@ -12,7 +12,7 @@ export const Header = ({ showCitySelector = false }: HeaderProps) => {
 
   return (
     <div className="px-3 md:px-6 max-w-sm md:max-w-6xl mx-auto w-full">
-      <div className="mt-4 md:mt-8 flex items-center justify-between gap-2">
+      <div className="mt-8 md:mt-8 flex items-center justify-between gap-2">
         <div className="flex-1">
           <img
             src="/images/heroes/hero-image.svg"

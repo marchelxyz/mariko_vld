@@ -20,7 +20,7 @@ const Index = () => {
       <div className="flex-1 px-3 md:px-6 max-w-sm md:max-w-6xl mx-auto w-full">
 
         {/* Main Action Buttons */}
-        <div className="mt-4 md:mt-8 space-y-3 md:space-y-6">
+        <div className="mt-6 md:mt-8 space-y-3 md:space-y-6">
           <ActionButton
             icon={<img src="/images/action button/Calendar.png" alt="Calendar" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
             title="Забронировать столик"
@@ -50,7 +50,7 @@ const Index = () => {
         </div>
 
         {/* Menu Grid */}
-        <div className="mt-4 md:mt-8 grid grid-cols-2 gap-3 md:gap-6">
+        <div className="mt-6 md:mt-8 grid grid-cols-2 gap-3 md:gap-6">
           <MenuCard
             title="Меню"
             imageUrl="/images/menu/menu.png"
@@ -70,7 +70,7 @@ const Index = () => {
         </div>
 
         {/* Additional Menu Items */}
-        <div className="mt-3 md:mt-6 grid grid-cols-3 gap-2 md:gap-4">
+        <div className="mt-4 md:mt-6 grid grid-cols-3 gap-2 md:gap-4">
           <MenuCard
             title="Вакансии"
             imageUrl="/images/menu/job.png"
@@ -96,7 +96,7 @@ const Index = () => {
         </div>
 
         {/* Franchise Action Button */}
-        <div className="mt-4 md:mt-8">
+        <div className="mt-6 md:mt-8">
           <ActionButton
             icon={<img src="/images/action button/Dining Room.png" alt="Franchise" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
             title="Франшиза ресторана"
