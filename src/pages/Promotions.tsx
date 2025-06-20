@@ -35,17 +35,6 @@ const Promotions = () => {
 
       {/* Main Content */}
       <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full">
-        {/* Logo */}
-        <div className="mt-8 md:mt-12">
-          <div className="flex justify-center">
-            <img
-              src="/images/characters/promo-character.svg"
-              alt="Хачапури логотип"
-              className="w-full h-auto max-w-md"
-            />
-          </div>
-        </div>
-
         {/* Promotions Grid */}
         <div className="mt-6 md:mt-12 space-y-4 md:space-y-12">
           {promotions.map((promo) => (
