@@ -8,7 +8,7 @@ const Promotions = () => {
       id: 1,
       imageUrl:
         "/images/promotions/promo-birthday.png",
-      title: "Безлимит винограда",
+      title: "Безлимит виноградного",
       description: "При заказе от 1500₽ на гостя по вторникам",
     },
     {
