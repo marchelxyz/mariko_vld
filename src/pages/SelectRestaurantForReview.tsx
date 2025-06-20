@@ -23,17 +23,6 @@ const SelectRestaurantForReview = () => {
 
       {/* Main Content */}
       <div className="flex-1 px-4 md:px-6 max-w-4xl mx-auto w-full">
-        {/* Logo */}
-        <div className="mt-8 md:mt-12">
-          <div className="flex justify-center">
-            <img
-              src="/images/logos/logo-main.svg"
-              alt="Хачапури логотип"
-              className="w-full h-auto max-w-md"
-            />
-          </div>
-        </div>
-
         {/* Back Button and Title */}
         <div className="mt-8 flex items-center gap-4 mb-8">
           <button
@@ -91,7 +80,7 @@ const SelectRestaurantForReview = () => {
         </div>
 
         {/* Info Text */}
-        <div className="mt-8 bg-mariko-secondary/50 rounded-[30px] p-4">
+        <div className="mt-8 mb-8 bg-mariko-secondary/50 rounded-[30px] p-4">
           <p className="text-white/70 font-el-messiri text-sm text-center">
             💡 Ваш отзыв поможет нам улучшить качество обслуживания в выбранном ресторане
           </p>
