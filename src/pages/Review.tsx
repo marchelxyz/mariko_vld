@@ -348,9 +348,9 @@ const Review = () => {
         </div>
 
         {!isSubmitted ? (
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6 mb-6">
             {/* Rating */}
-            <div className="bg-mariko-secondary rounded-[90px] px-6 py-6">
+            <div className="bg-mariko-secondary rounded-[30px] px-6 py-6">
               <label className="block text-white font-el-messiri text-lg font-semibold mb-4 pl-6">
                 Оцените наш ресторан *
               </label>
@@ -372,7 +372,7 @@ const Review = () => {
                       className={`w-8 h-8 ${
                         star <= rating
                           ? "text-yellow-400 fill-yellow-400"
-                          : "text-gray-400"
+                          : "text-[#DB7B28]"
                       }`}
                     />
                   </button>
@@ -395,7 +395,7 @@ const Review = () => {
             </div>
 
             {/* Review Text */}
-            <div className="bg-mariko-secondary rounded-[90px] px-6 py-4">
+            <div className="bg-mariko-secondary rounded-[30px] px-6 py-4">
               <label className="flex items-center gap-2 text-white font-el-messiri text-lg font-semibold mb-2 pl-6">
                 <MessageCircle className="w-5 h-5" />
                 Ваш отзыв *
@@ -430,7 +430,7 @@ const Review = () => {
             <button
               type="submit"
               disabled={rating === 0 || !reviewText.trim() || reviewText.length > 500}
-              className="w-full bg-mariko-primary border-2 border-white rounded-[90px] px-8 py-4 text-white font-el-messiri text-2xl font-bold tracking-tight hover:bg-white hover:text-mariko-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-[#DB7B28] text-mariko-secondary font-el-messiri text-2xl font-bold py-6 rounded-3xl hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
               Отправить отзыв
             </button>
