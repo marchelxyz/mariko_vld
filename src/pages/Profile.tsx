@@ -6,6 +6,7 @@ import { ActionButton } from "@/components/ActionButton";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { BarcodeModal } from "@/components/BarcodeModal";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
+import { BackButton } from "@/components/BackButton";
 import { useProfile } from "@/hooks/useProfile";
 
 const Profile = () => {
@@ -29,8 +30,13 @@ const Profile = () => {
 
       {/* Main Content */}
       <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full pb-80 md:pb-96">
+        {/* Back Button */}
+        <div className="mt-10 mb-6">
+          <BackButton />
+        </div>
+        
         {/* Profile Header */}
-        <div className="mt-10 md:mt-12">
+        <div className="mt-0 md:mt-2">
           <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6">
             <ProfileAvatar 
               photo={profile.photo}

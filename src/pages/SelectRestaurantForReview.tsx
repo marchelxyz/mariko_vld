@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { ArrowLeft, MapPin, Star } from "lucide-react";
+import { MapPin, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { BottomNavigation } from "@/components/BottomNavigation";
+import { PageHeader } from "@/components/PageHeader";
 import { useCityContext } from "@/contexts/CityContext";
 
 const SelectRestaurantForReview = () => {
@@ -23,18 +24,11 @@ const SelectRestaurantForReview = () => {
 
       {/* Main Content */}
       <div className="flex-1 px-4 md:px-6 max-w-4xl mx-auto w-full">
-        {/* Back Button and Title */}
-        <div className="mt-10 flex items-center gap-4 mb-6">
-          <button
-            onClick={() => navigate("/")}
-            className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </button>
-          <h1 className="text-white font-el-messiri text-3xl md:text-4xl font-bold">
-            Выберите ресторан
-          </h1>
-        </div>
+        {/* Page Header */}
+        <PageHeader 
+          title="Выберите ресторан"
+          onBackClick={() => navigate("/")}
+        />
 
         {/* Subtitle */}
         <div className="mb-6">
