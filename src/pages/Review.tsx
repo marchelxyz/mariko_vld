@@ -321,9 +321,14 @@ const Review = () => {
         <div className="mt-10 flex items-center gap-4 mb-8">
           <button
             onClick={() => {
-              // Очищаем выбранный ресторан при возврате
-              localStorage.removeItem('selectedRestaurantForReview');
-              navigate("/");
+              // Если в городе несколько ресторанов, возвращаемся к выбору ресторана
+              if (selectedCity.restaurants.length > 1) {
+                navigate("/select-restaurant-review");
+              } else {
+                // Если ресторан один, возвращаемся на главную страницу
+                localStorage.removeItem('selectedRestaurantForReview');
+                navigate("/");
+              }
             }}
             className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
           >
