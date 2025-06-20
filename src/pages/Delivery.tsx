@@ -72,7 +72,7 @@ const Delivery = () => {
         </div>
       </div>
 
-      {/* Delivery Truck Illustration - Позиционируем так, чтобы колеса заходили на 1/6 под блок с иконками навигации */}
+      {/* Delivery Truck Illustration - Грузовик выезжает из левого края экрана на 20% */}
       <div className="absolute left-0 right-0 z-10 pointer-events-none" style={{ bottom: '70px' }}>
         <div className="relative flex justify-start items-end overflow-hidden">
           <img
@@ -81,8 +81,8 @@ const Delivery = () => {
             className="w-auto h-auto max-w-sm md:max-w-lg"
             style={{
               objectFit: "contain",
-              // Учитываем пустые места вокруг машины - колеса заходят на 1/6 под блок с иконками, смещаем влево на 25%
-              transform: "translateX(-45%) translateY(-3%) scale(0.9) md:translateX(-40%) md:translateY(-2%) md:scale(1.1)",
+              // Грузовик выходит за левый край экрана на 20%, учитывая пустое пространство вокруг изображения
+              transform: "translateX(-60%) translateY(-3%) scale(0.9) md:translateX(-55%) md:translateY(-2%) md:scale(1.1)",
             }}
           />
         </div>
