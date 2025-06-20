@@ -53,12 +53,12 @@ const Delivery = () => {
   };
 
   return (
-    <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col">
+    <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col relative">
       {/* Header */}
       <Header />
 
       {/* Main Content */}
-      <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full">
+      <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full pb-64 md:pb-72">
         {/* Delivery Options */}
         <div className="mt-8 md:mt-12 space-y-6 md:space-y-8">
           {getDeliveryOptions().map((option, index) => (
@@ -72,21 +72,26 @@ const Delivery = () => {
         </div>
       </div>
 
-      {/* Delivery Truck Illustration - Positioned to touch footer */}
-      <div className="relative flex justify-start items-end overflow-hidden -mb-8 md:-mb-10">
-        <img
-          src="/images/delivery/delivery-restaurant.png"
-          alt="Грузовик доставки Марико"
-          className="w-auto h-auto max-w-sm md:max-w-lg"
-          style={{
-            objectFit: "contain",
-            transform: "translateX(-40%) scale(1.0) md:scale(1.2)",
-          }}
-        />
+      {/* Delivery Truck Illustration - Позиционируем так, чтобы колеса заходили на 1/6 под блок с иконками навигации */}
+      <div className="absolute left-0 right-0 z-10 pointer-events-none" style={{ bottom: '70px' }}>
+        <div className="relative flex justify-start items-end overflow-hidden">
+          <img
+            src="/images/delivery/delivery-restaurant.png"
+            alt="Грузовик доставки Марико"
+            className="w-auto h-auto max-w-sm md:max-w-lg"
+            style={{
+              objectFit: "contain",
+              // Учитываем пустые места вокруг машины - колеса заходят на 1/6 под блок с иконками
+              transform: "translateX(-20%) translateY(-3%) scale(0.9) md:translateX(-15%) md:translateY(-2%) md:scale(1.1)",
+            }}
+          />
+        </div>
       </div>
 
-      {/* Bottom Navigation */}
-      <BottomNavigation currentPage="home" />
+      {/* Bottom Navigation - увеличиваем z-index чтобы он был поверх машины */}
+      <div className="relative z-20">
+        <BottomNavigation currentPage="home" />
+      </div>
     </div>
   );
 };
