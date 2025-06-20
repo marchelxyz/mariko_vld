@@ -22,12 +22,12 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col">
+    <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col relative">
       {/* Header */}
       <Header />
 
       {/* Main Content */}
-      <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full">
+      <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full pb-80 md:pb-96">
         {/* Profile Header */}
         <div className="mt-8 md:mt-12">
           <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6">
@@ -69,22 +69,26 @@ const Profile = () => {
             onClick={() => navigate("/edit-profile")}
           />
         </div>
-
-        {/* Decorative Georgian Pottery Image */}
-        <div className="mt-6 md:mt-24 flex justify-end">
-          <img
-            src="/images/characters/character-bonus.png"
-            alt="Грузинские кувшины"
-            className="w-full h-auto max-w-xs md:max-w-4xl"
-            style={{
-              transform: "translateX(10%)",
-            }}
-          />
-        </div>
       </div>
 
-      {/* Bottom Navigation */}
-      <BottomNavigation currentPage="profile" />
+      {/* Decorative Georgian Pottery Image - Позиционируем так, чтобы кувшины были прикрыты обоими нижними блоками */}
+      <div className="absolute bottom-0 right-0 z-10 pointer-events-none">
+        <img
+          src="/images/characters/character-bonus.png"
+          alt="Грузинские кувшины"
+          className="w-auto h-auto max-w-xs md:max-w-lg"
+          style={{
+            objectFit: "contain",
+            // Позиционируем так, чтобы кувшины заходили под оба нижних блока навигации
+            transform: "translateX(5%) translateY(20%) scale(0.8) md:translateX(0%) md:translateY(15%) md:scale(1.0)",
+          }}
+        />
+      </div>
+
+      {/* Bottom Navigation - увеличиваем z-index чтобы он был поверх кувшинов */}
+      <div className="relative z-20">
+        <BottomNavigation currentPage="profile" />
+      </div>
 
       {/* Barcode Modal */}
       <BarcodeModal
