@@ -52,8 +52,8 @@ export const BottomNavigation = ({ currentPage }: BottomNavigationProps) => {
                   className={cn(
                     "brightness-0 invert mb-1 transition-all duration-200",
                     isActive 
-                      ? "w-6 h-6 md:w-9 md:h-9 drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]" 
-                      : "w-4 h-4 md:w-6 md:h-6 drop-shadow-[0_0_6px_rgba(255,255,255,0.7)]"
+                      ? "w-8 h-8 md:w-11 md:h-11 drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]" 
+                      : "w-6 h-6 md:w-8 md:h-8 drop-shadow-[0_0_6px_rgba(255,255,255,0.7)]"
                   )}
                 />
                 <span className={cn(
