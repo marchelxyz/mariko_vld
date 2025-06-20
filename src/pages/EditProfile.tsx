@@ -484,13 +484,13 @@ const EditProfile = () => {
               backgroundImage: "url('/images/backgrounds/quote-background.png')",
               backgroundSize: "100% 100%",
               backgroundRepeat: "no-repeat",
-              width: "280px",
-              height: "140px",
+              width: "220px",
+              height: "150px",
               borderTopRightRadius: "15px",
               borderBottomRightRadius: "15px"
             }}
           >
-            <div className="absolute inset-0 flex items-center justify-center px-8 py-4">
+            <div className="absolute inset-0 flex items-center justify-center px-6 py-4">
               <p className="text-mariko-secondary font-el-messiri text-base md:text-lg font-semibold leading-tight text-center">
                 Ты всегда можешь изменить данные, {profile.gender === "Женский" ? "Дорогая" : "Дорогой"}!
               </p>
