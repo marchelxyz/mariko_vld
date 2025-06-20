@@ -24,7 +24,7 @@ const SelectRestaurantForReview = () => {
       {/* Main Content */}
       <div className="flex-1 px-4 md:px-6 max-w-4xl mx-auto w-full">
         {/* Back Button and Title */}
-        <div className="mt-10 flex items-center gap-4 mb-8">
+        <div className="mt-10 flex items-center gap-4 mb-6">
           <button
             onClick={() => navigate("/")}
             className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
@@ -37,8 +37,8 @@ const SelectRestaurantForReview = () => {
         </div>
 
         {/* Subtitle */}
-        <div className="mb-8">
-          <p className="text-white/80 font-el-messiri text-lg text-center">
+        <div className="mb-6">
+          <p className="text-white/75 font-el-messiri text-base text-center leading-tight">
             В городе {selectedCity.name} несколько ресторанов.<br />
             Выберите тот, о котором хотите оставить отзыв:
           </p>
