@@ -1,7 +1,7 @@
 import { Header } from "@/components/Header";
 import { PromotionCard } from "@/components/PromotionCard";
 import { BottomNavigation } from "@/components/BottomNavigation";
-import { BackButton } from "@/components/BackButton";
+import { PageHeader } from "@/components/PageHeader";
 
 const Promotions = () => {
   const promotions = [
@@ -36,10 +36,8 @@ const Promotions = () => {
 
       {/* Main Content */}
       <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full pb-8 md:pb-16">
-        {/* Back Button */}
-        <div className="mt-10 mb-6">
-          <BackButton />
-        </div>
+        {/* Page Header */}
+        <PageHeader title="Акции" />
         
         {/* Promotions Grid */}
         <div className="mt-0 md:mt-2 space-y-4 md:space-y-12">

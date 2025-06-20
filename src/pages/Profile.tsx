@@ -6,7 +6,7 @@ import { ActionButton } from "@/components/ActionButton";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { BarcodeModal } from "@/components/BarcodeModal";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
-import { BackButton } from "@/components/BackButton";
+import { PageHeader } from "@/components/PageHeader";
 import { useProfile } from "@/hooks/useProfile";
 
 const Profile = () => {
@@ -30,10 +30,8 @@ const Profile = () => {
 
       {/* Main Content */}
       <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full pb-80 md:pb-96">
-        {/* Back Button */}
-        <div className="mt-10 mb-6">
-          <BackButton />
-        </div>
+        {/* Page Header */}
+        <PageHeader title="Профиль" />
         
         {/* Profile Header */}
         <div className="mt-0 md:mt-2">
