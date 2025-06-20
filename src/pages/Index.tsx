@@ -108,7 +108,7 @@ const Index = () => {
       </div>
 
       {/* Quote Section - Vertical text along the chef */}
-      <div className="mt-4 md:mt-12 relative z-10 px-3 md:px-6">
+      <div className="-mt-16 md:-mt-20 relative z-10 px-3 md:px-6">
         <div className="max-w-sm md:max-w-6xl mx-auto relative flex justify-end">
           {/* Vertical Column Quote positioned at the left edge - extending beyond left edge */}
           <div className="absolute left-0 top-1/2 -translate-y-1/2 z-60">
