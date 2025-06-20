@@ -34,7 +34,7 @@ const Promotions = () => {
       <Header />
 
       {/* Main Content */}
-      <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full">
+      <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full pb-8 md:pb-16">
         {/* Promotions Grid */}
         <div className="mt-6 md:mt-12 space-y-4 md:space-y-12">
           {promotions.map((promo) => (
