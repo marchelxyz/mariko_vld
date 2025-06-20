@@ -5,6 +5,7 @@ import { Header } from "@/components/Header";
 import { ActionButton } from "@/components/ActionButton";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { BarcodeModal } from "@/components/BarcodeModal";
+import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { useProfile } from "@/hooks/useProfile";
 
 const Profile = () => {
@@ -31,13 +32,10 @@ const Profile = () => {
         {/* Profile Header */}
         <div className="mt-8 md:mt-12">
           <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6">
-            <div className="w-20 h-20 md:w-28 md:h-28 rounded-full overflow-hidden flex-shrink-0">
-              <img
-                src={profile.photo}
-                alt="Фото профиля"
-                className="w-full h-full object-cover"
-              />
-            </div>
+            <ProfileAvatar 
+              photo={profile.photo}
+              size="medium"
+            />
             <div className="flex-1">
               <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold tracking-tight">
                 {getGreeting()}

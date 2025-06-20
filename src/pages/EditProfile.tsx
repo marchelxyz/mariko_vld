@@ -3,6 +3,7 @@ import { Camera, X, Loader2 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { EditableField } from "@/components/EditableField";
 import { BottomNavigation } from "@/components/BottomNavigation";
+import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -317,26 +318,19 @@ const EditProfile = () => {
         {/* Profile Header with Photo Upload */}
         <div className="mt-8 md:mt-12">
           <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6">
-            <div className="relative w-20 h-20 md:w-28 md:h-28 rounded-full overflow-hidden flex-shrink-0 group">
-              <img
-                src={profile.photo}
-                alt="Фото профиля"
-                className="w-full h-full object-cover transition-all group-hover:brightness-75"
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <Camera className="w-6 h-6 md:w-8 md:h-8 text-white" />
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoUpload}
-                className="hidden"
-              />
-            </div>
+            <ProfileAvatar 
+              photo={profile.photo}
+              size="medium"
+              showCameraIcon={true}
+              onPhotoClick={() => fileInputRef.current?.click()}
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              className="hidden"
+            />
             <div className="flex-1">
               <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold tracking-tight">
                 {getGreeting()}

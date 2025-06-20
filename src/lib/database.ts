@@ -233,8 +233,7 @@ class ProfileDatabase {
       phone: "",
       birthDate: "",
       gender: "Не указан",
-      photo:
-        "/images/avatars/avatar-default.svg",
+      photo: "",
       bonusPoints: 0,
       notificationsEnabled: true,
       selectedRestaurant: "Нижний Новгород, Рождественская, 39",
