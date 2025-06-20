@@ -13,6 +13,11 @@ export const EditableField = ({
   onEdit,
   className,
 }: EditableFieldProps) => {
+  // Показываем label если значение пустое, иначе показываем значение
+  const displayText = value && value.trim() ? value : label;
+  // Определяем, является ли отображаемый текст плейсхолдером
+  const isPlaceholder = !value || !value.trim();
+
   return (
     <div
       className={cn(
@@ -20,14 +25,16 @@ export const EditableField = ({
         className,
       )}
     >
-      {label && (
-        <div className="text-white/70 font-el-messiri text-sm md:text-base font-medium mb-2">
-          {label}
-        </div>
-      )}
       <div className="flex items-center justify-between">
-        <span className="flex-1 text-white font-el-messiri text-lg md:text-xl font-semibold tracking-tight">
-          {value}
+        <span 
+          className={cn(
+            "flex-1 font-el-messiri text-lg md:text-xl font-semibold tracking-tight",
+            isPlaceholder 
+              ? "text-white/60" // Более тусклый цвет для плейсхолдера
+              : "text-white" // Яркий белый для заполненных значений
+          )}
+        >
+          {displayText}
         </span>
         <button
           onClick={onEdit}
@@ -37,7 +44,7 @@ export const EditableField = ({
           <img 
             src="/images/icons/Pencil.png" 
             alt="Редактировать"
-            className="w-5 h-5 md:w-6 md:h-6 opacity-80 hover:opacity-100 transition-opacity"
+            className="w-5 h-5 md:w-6 md:h-6 opacity-90 hover:opacity-100 transition-opacity"
           />
         </button>
       </div>

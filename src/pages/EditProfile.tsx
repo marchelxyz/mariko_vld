@@ -179,11 +179,7 @@ const EditProfile = () => {
     }
   };
 
-  const handleNotificationToggle = async (checked: boolean) => {
-    await updateProfile({
-      notificationsEnabled: !checked,
-    });
-  };
+
 
   const formatDateInput = (value: string) => {
     // Убираем все символы кроме цифр
@@ -357,7 +353,7 @@ const EditProfile = () => {
           {renderField("name", "ФИО", profile.name)}
           {renderField(
             "birthDate",
-            "Дата рождения (дд.мм.гггг)",
+            "Дата рождения",
             profile.birthDate,
             "text",
           )}
@@ -470,22 +466,6 @@ const EditProfile = () => {
               onEdit={() => handleEdit("phone")}
             />
           )}
-
-          {/* Notification Settings */}
-          <div className="bg-mariko-secondary/80 backdrop-blur-sm rounded-[90px] px-6 md:px-8 py-4 md:py-6">
-            <label className="flex items-center justify-between text-white font-el-messiri text-xl md:text-2xl font-semibold tracking-tight">
-              <span>Отключить уведомления</span>
-              <input
-                type="checkbox"
-                checked={!profile.notificationsEnabled}
-                className="w-6 h-6 rounded border-2 border-white bg-transparent checked:bg-white checked:border-white"
-                onChange={(e) => handleNotificationToggle(e.target.checked)}
-              />
-            </label>
-            <p className="text-white/70 font-el-messiri text-sm mt-2">
-              Отключает чат-рассылку от бота
-            </p>
-          </div>
         </div>
 
         {/* Bottom Character Section */}
