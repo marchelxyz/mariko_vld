@@ -1,4 +1,3 @@
-import { Edit } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface EditableFieldProps {
@@ -35,7 +34,11 @@ export const EditableField = ({
           className="ml-4 p-2 hover:bg-white/10 rounded-full transition-colors"
           aria-label="Редактировать"
         >
-          <Edit className="w-5 h-5 md:w-6 md:h-6 text-white" />
+          <img 
+            src="/images/icons/Pencil.png" 
+            alt="Редактировать"
+            className="w-5 h-5 md:w-6 md:h-6 opacity-80 hover:opacity-100 transition-opacity"
+          />
         </button>
       </div>
     </div>
