@@ -257,40 +257,52 @@ class ProfileDatabase {
     userId: string,
     updates: Partial<UserProfile>,
   ): UserProfile | null {
-    const profiles = this.getAllProfiles();
-    let profileIndex = profiles.findIndex((p) => p.id === userId);
+    try {
+      const profiles = this.getAllProfiles();
+      let profileIndex = profiles.findIndex((p) => p.id === userId);
 
-    // Если профиль не найден по ID, ищем по telegramId
-    if (profileIndex === -1 && userId !== "demo_user") {
-      const telegramId = parseInt(userId);
-      if (!isNaN(telegramId)) {
-        profileIndex = profiles.findIndex((p) => p.telegramId === telegramId);
+      // Если профиль не найден по ID, ищем по telegramId
+      if (profileIndex === -1 && userId !== "demo_user") {
+        const telegramId = parseInt(userId);
+        if (!isNaN(telegramId)) {
+          profileIndex = profiles.findIndex((p) => p.telegramId === telegramId);
+        }
       }
-    }
 
-    // Если все еще не найден, создаем новый профиль
-    if (profileIndex === -1) {
-      const newProfile = this.createProfile({
-        id: userId,
-        telegramId: userId !== "demo_user" ? parseInt(userId) : undefined,
+      // Если все еще не найден, создаем новый профиль
+      if (profileIndex === -1) {
+        const newProfile = this.createProfile({
+          id: userId,
+          telegramId: userId !== "demo_user" ? parseInt(userId) : undefined,
+          ...updates,
+        });
+        return newProfile;
+      }
+
+      const updatedProfile = {
+        ...profiles[profileIndex],
         ...updates,
-      });
-      return newProfile;
+        updatedAt: new Date().toISOString(),
+      };
+
+      profiles[profileIndex] = updatedProfile;
+      
+      // Пытаемся сохранить профили
+      const saveSuccess = this.saveProfilesSafely(profiles);
+      
+      if (!saveSuccess) {
+        console.error("Не удалось сохранить обновленный профиль");
+        return null;
+      }
+
+      // Логируем активность
+      this.logActivity(userId, "profile_updated", { updates });
+
+      return updatedProfile;
+    } catch (error) {
+      console.error("Ошибка обновления профиля:", error);
+      return null;
     }
-
-    const updatedProfile = {
-      ...profiles[profileIndex],
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
-
-    profiles[profileIndex] = updatedProfile;
-    this.saveProfiles(profiles);
-
-    // Логируем активность
-    this.logActivity(userId, "profile_updated", { updates });
-
-    return updatedProfile;
   }
 
   // Удалить профиль
@@ -669,6 +681,77 @@ class ProfileDatabase {
         } catch (e) {
           console.error("Не удалось очистить localStorage");
         }
+      }
+    }
+  }
+
+  // Безопасное сохранение профилей с возвратом статуса
+  private saveProfilesSafely(profiles: UserProfile[]): boolean {
+    try {
+      const dataString = JSON.stringify(profiles);
+
+      // Проверяем размер данных (примерно)
+      if (dataString.length > 4.5 * 1024 * 1024) {
+        // 4.5MB лимит
+        console.warn("Данные профилей слишком большие, очищаем старые записи");
+
+        // Сортируем по дате последнего входа и оставляем только 100 последних
+        const sortedProfiles = profiles
+          .sort(
+            (a, b) =>
+              new Date(b.lastLogin).getTime() - new Date(a.lastLogin).getTime(),
+          )
+          .slice(0, 100);
+
+        localStorage.setItem(this.storageKey, JSON.stringify(sortedProfiles));
+        return true;
+      } else {
+        localStorage.setItem(this.storageKey, dataString);
+        return true;
+      }
+    } catch (error) {
+      console.error("Ошибка сохранения профилей:", error);
+
+      // Fallback: попробуем сохранить только самые важные данные
+      try {
+        const essentialProfiles = profiles
+          .sort(
+            (a, b) =>
+              new Date(b.lastLogin).getTime() - new Date(a.lastLogin).getTime(),
+          )
+          .slice(0, 50)
+          .map((profile) => ({
+            id: profile.id,
+            telegramId: profile.telegramId,
+            name: profile.name,
+            phone: profile.phone,
+            birthDate: profile.birthDate,
+            gender: profile.gender,
+            photo: profile.photo.includes("TEMP") ? "" : profile.photo, // Убираем большие изображения
+            bonusPoints: profile.bonusPoints,
+            notificationsEnabled: profile.notificationsEnabled,
+            selectedRestaurant: profile.selectedRestaurant,
+            createdAt: profile.createdAt,
+            updatedAt: profile.updatedAt,
+            lastLogin: profile.lastLogin,
+          }));
+
+        localStorage.setItem(
+          this.storageKey,
+          JSON.stringify(essentialProfiles),
+        );
+        console.log("Сохранены только ключевые данные профилей");
+        return true; // Даже при fallback считаем сохранение успешным
+      } catch (fallbackError) {
+        console.error("Критическая ошибка сохранения:", fallbackError);
+        // Очищаем localStorage если совсем не получается
+        try {
+          localStorage.removeItem(this.storageKey);
+          localStorage.removeItem(this.activityKey);
+        } catch (e) {
+          console.error("Не удалось очистить localStorage");
+        }
+        return false; // Возвращаем false только если совсем ничего не получилось
       }
     }
   }

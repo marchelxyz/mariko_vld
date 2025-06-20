@@ -72,6 +72,7 @@ export const useProfile = () => {
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
     try {
+      setError(null); // Очищаем предыдущие ошибки
       const updatedProfile = { ...profile, ...updates };
 
       // Используем правильный userId
@@ -83,23 +84,32 @@ export const useProfile = () => {
         setProfile(updatedProfile);
         
         // Дополнительно сохраняем в localStorage для надежности
-        localStorage.setItem(`profile_${currentUserId}`, JSON.stringify(updatedProfile));
+        try {
+          localStorage.setItem(`profile_${currentUserId}`, JSON.stringify(updatedProfile));
+        } catch (storageErr) {
+          console.warn("Не удалось сохранить в localStorage:", storageErr);
+          // Не считаем это критической ошибкой
+        }
         
         return true;
       } else {
-        throw new Error("Failed to save profile");
+        // Более точная обработка неудачного сохранения
+        setError("Не удалось сохранить изменения");
+        console.error("API вернуло false для обновления профиля");
+        return false;
       }
     } catch (err) {
       setError("Не удалось обновить профиль");
       console.error("Ошибка обновления профиля:", err);
       
-      // Попытка восстановить из localStorage
+      // Попытка восстановить из localStorage только в случае серьезной ошибки
       try {
         const currentUserId = userId || "demo_user";
         const savedProfile = localStorage.getItem(`profile_${currentUserId}`);
         if (savedProfile) {
           const parsedProfile = JSON.parse(savedProfile);
           setProfile({ ...defaultProfile, ...parsedProfile });
+          console.log("Профиль восстановлен из localStorage");
         }
       } catch (restoreErr) {
         console.error("Не удалось восстановить профиль:", restoreErr);
