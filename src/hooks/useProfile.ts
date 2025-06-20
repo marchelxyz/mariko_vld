@@ -19,8 +19,7 @@ const defaultProfile: UserProfile = {
   phone: "+7 (000) 000-00-00",
   birthDate: "01.01.2000",
   gender: "Не указан",
-  photo:
-    "/images/avatars/avatar-default.svg",
+  photo: "",
   bonusPoints: 0,
   notificationsEnabled: true,
   selectedRestaurant: "Нижний Новгород, Рождественская, 39",
