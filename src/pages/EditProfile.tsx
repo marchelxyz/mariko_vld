@@ -308,12 +308,12 @@ const EditProfile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col">
+    <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col relative">
       {/* Header */}
       <Header />
 
       {/* Main Content */}
-      <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full">
+      <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full pb-32 md:pb-40">
         {/* Profile Header with Photo Upload */}
         <div className="mt-8 md:mt-12">
           <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6">
@@ -468,29 +468,54 @@ const EditProfile = () => {
           )}
         </div>
 
-        {/* Bottom Character Section */}
-        <div className="mt-12 md:mt-16 flex items-end justify-between">
-          <div className="bg-orange-300 rounded-[40px] px-6 md:px-8 py-4 md:py-6 max-w-xs">
-            <p className="text-mariko-secondary font-el-messiri text-lg md:text-xl font-semibold leading-tight">
-              Ты всегда можешь изменить данные, {profile.gender === "Женский" ? "Дорогая" : "Дорогой"}!
-            </p>
+        {/* Bottom spacing for character */}
+        <div className="mt-12 md:mt-16 h-32 md:h-40"></div>
+      </div>
+
+      {/* Character and Quote Section - positioned as on screenshot */}
+      <div className="absolute bottom-16 left-0 right-0 z-10 pointer-events-none">
+        <div className="relative max-w-6xl mx-auto px-4">
+          {/* Quote with custom background - positioned left of warrior */}
+          <div className="absolute bottom-32 left-8 md:bottom-40 md:left-12">
+            <div 
+              className="relative overflow-hidden"
+              style={{
+                backgroundImage: "url('/images/backgrounds/quote-background.png')",
+                backgroundSize: "100% 100%",
+                backgroundRepeat: "no-repeat",
+                width: "320px",
+                height: "180px",
+                borderTopRightRadius: "20px",
+                borderBottomRightRadius: "20px"
+              }}
+            >
+              <div className="absolute inset-0 flex items-center justify-center px-8 py-6">
+                <p className="text-mariko-secondary font-el-messiri text-lg md:text-xl font-semibold leading-tight text-center">
+                  Ты всегда можешь изменить данные, {profile.gender === "Женский" ? "Дорогая" : "Дорогой"}!
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="flex-shrink-0 ml-4">
+          
+          {/* Georgian Warrior - positioned right */}
+          <div className="absolute bottom-0 right-8 md:right-12">
             <img
               src="/images/characters/character-warrior.png"
               alt="Грузинский воин"
-              className="w-auto h-auto max-w-48 md:max-w-56"
+              className="w-auto h-auto max-w-56 md:max-w-72"
               style={{
-                filter: "drop-shadow(13px -2px 28px rgba(0, 0, 0, 0.25))",
                 objectFit: "contain",
+                filter: "drop-shadow(13px -2px 28px rgba(0, 0, 0, 0.25))",
               }}
             />
           </div>
         </div>
       </div>
 
-      {/* Bottom Navigation */}
-      <BottomNavigation currentPage="profile" />
+      {/* Bottom Navigation - увеличиваем z-index чтобы он был поверх воина */}
+      <div className="relative z-20">
+        <BottomNavigation currentPage="profile" />
+      </div>
     </div>
   );
 };
