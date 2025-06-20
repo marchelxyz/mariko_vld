@@ -408,20 +408,16 @@ const EditProfile = () => {
           {/* Phone field with country code */}
           {editingField === "phone" ? (
             <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-4 md:py-6">
-              <Label className="text-white font-el-messiri text-lg font-semibold mb-3 block">
+              <Label className="text-white font-el-messiri text-lg font-semibold mb-2 pl-6 block">
                 Телефон
               </Label>
-              <div className="flex gap-3">
-                <div className="flex items-center flex-1 bg-white/5 rounded-xl p-3 border-b-2 bg-gradient-to-r from-white/20 via-white/40 to-white/20 transition-all duration-300 focus-within:shadow-lg">
+              <div className="flex gap-3 ml-6 mr-8">
+                {/* Country Code Selector */}
+                <div className="relative">
                   <select
                     value={editCountryCode}
                     onChange={(e) => setEditCountryCode(e.target.value)}
-                    className="bg-transparent text-white border-0 outline-none font-el-messiri text-xl p-0 w-16 appearance-none cursor-pointer"
-                    style={{
-                      backgroundImage: "none",
-                      WebkitAppearance: "none",
-                      MozAppearance: "none",
-                    }}
+                    className="bg-white/5 text-white border-none outline-none rounded-xl px-3 py-3 font-el-messiri text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10 min-w-[100px] h-[54px]"
                   >
                     <option value="+7" className="bg-mariko-secondary text-white">+7</option>
                     <option value="+375" className="bg-mariko-secondary text-white">+375</option>
@@ -435,16 +431,22 @@ const EditProfile = () => {
                     <option value="+993" className="bg-mariko-secondary text-white">+993</option>
                     <option value="+998" className="bg-mariko-secondary text-white">+998</option>
                   </select>
-                  <div className="w-px h-6 bg-white/30 mx-2"></div>
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
+                </div>
+                
+                {/* Phone Number Input */}
+                <div className="relative flex-1">
                   <input
                     type="tel"
                     value={editPhoneDigits}
                     onChange={handlePhoneChange}
                     placeholder={getPhonePlaceholder()}
-                    className="flex-1 bg-transparent text-white placeholder-white/60 border-0 outline-none font-el-messiri text-xl h-[54px]"
+                    className="w-full bg-white/5 text-white placeholder-white/50 border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10"
                     autoFocus
                   />
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
                 </div>
+                
                 <Button
                   onClick={handleSave}
                   className="bg-green-600 hover:bg-green-700 text-white px-6"
