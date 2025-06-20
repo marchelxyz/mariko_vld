@@ -81,8 +81,8 @@ const Delivery = () => {
             className="w-auto h-auto max-w-sm md:max-w-lg"
             style={{
               objectFit: "contain",
-              // Учитываем пустые места вокруг машины - колеса заходят на 1/6 под блок с иконками
-              transform: "translateX(-20%) translateY(-3%) scale(0.9) md:translateX(-15%) md:translateY(-2%) md:scale(1.1)",
+              // Учитываем пустые места вокруг машины - колеса заходят на 1/6 под блок с иконками, смещаем влево на 25%
+              transform: "translateX(-45%) translateY(-3%) scale(0.9) md:translateX(-40%) md:translateY(-2%) md:scale(1.1)",
             }}
           />
         </div>
