@@ -92,7 +92,7 @@ export const botApi = {
           phone: "",
           birthDate: "",
           gender: "Не указан",
-          bonusPoints: 100, // Бонус за регистрацию
+          bonusPoints: 0, // Изначально баланс 0
         });
 
         // Логируем первый вход (без больших данных)
@@ -258,7 +258,7 @@ export const botApi = {
     // В реальной интеграции будет запрос к системе лояльности
     return {
       cardNumber: "640509 040147",
-      bonusPoints: 1987,
+      bonusPoints: 0,
       barcode: "640509040147", // Для генерации QR/штрих-кода
     };
   },
