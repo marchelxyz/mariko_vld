@@ -108,10 +108,10 @@ const Index = () => {
       </div>
 
       {/* Quote Section - Vertical text along the chef */}
-      <div className="-mt-16 md:-mt-20 relative z-10 px-3 md:px-6">
+      <div className="-mt-16 md:-mt-20 relative z-60 px-3 md:px-6">
         <div className="max-w-sm md:max-w-6xl mx-auto relative flex justify-end">
           {/* Vertical Column Quote positioned at the left edge - extending beyond left edge */}
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 z-70" style={{ transform: "translateY(-50%) translateY(10px)" }}>
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 z-50" style={{ transform: "translateY(-50%) translateY(10px)" }}>
             {/* Background extending beyond left edge - еще больше уменьшенные размеры */}
             <div
               className="absolute inset-0 rounded-[60px] md:rounded-[90px] w-96 h-52 md:w-96 md:h-56 lg:w-[420px] lg:h-60 xl:w-[480px] xl:h-64"
@@ -125,7 +125,7 @@ const Index = () => {
             />
             {/* Text on top of background - еще больше уменьшенные размеры для текста */}
             <div
-              className="relative z-80 text-mariko-secondary font-el-messiri text-xl md:text-2xl lg:text-2xl xl:text-3xl font-bold leading-tight p-3 md:p-4 lg:p-6 xl:p-8 w-88 h-52 md:w-88 md:h-56 lg:w-96 lg:h-60 xl:w-[420px] xl:h-64"
+              className="relative z-60 text-mariko-secondary font-el-messiri text-xl md:text-2xl lg:text-2xl xl:text-3xl font-bold leading-tight p-3 md:p-4 lg:p-6 xl:p-8 w-88 h-52 md:w-88 md:h-56 lg:w-96 lg:h-60 xl:w-[420px] xl:h-64"
               style={{
                 transform: "translateX(-10%)",
                 display: "flex",
@@ -140,7 +140,7 @@ const Index = () => {
           </div>
 
           {/* Chef image aligned to the right edge */}
-          <div className="flex-shrink-0 flex items-end justify-end relative z-50">
+          <div className="flex-shrink-0 flex items-end justify-end relative z-30">
             <img
               src="/images/characters/character-chef.png"
               alt="Шеф-повар"
