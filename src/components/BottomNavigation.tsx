@@ -68,9 +68,9 @@ export const BottomNavigation = ({ currentPage }: BottomNavigationProps) => {
   ];
 
   return (
-    <div className="bg-mariko-dark">
-      {/* Область с иконками - фон тени */}
-      <div className="bg-gradient-to-b from-red-900/80 to-red-800/70 shadow-lg backdrop-blur-sm">
+    <>
+      {/* БЛОК 1: Прозрачные кнопки навигации с затемненным blur эффектом */}
+      <div className="backdrop-blur-lg backdrop-saturate-150 bg-black/60 rounded-t-3xl">
         <div className="flex justify-around items-end relative min-h-[4rem]">
           {navItems.map((item) => {
             const isActive = item.id === currentPage;
@@ -129,12 +129,14 @@ export const BottomNavigation = ({ currentPage }: BottomNavigationProps) => {
         </div>
       </div>
 
-      {/* Полупрозрачный низ с blur эффектом */}
-      <div className="text-center py-2 md:py-4 border-t border-white/20 bg-black/40 backdrop-blur-lg backdrop-saturate-150">
-        <span className="text-white/80 font-normal text-sm md:text-base tracking-wide drop-shadow-sm">
-          @Mariko_Bot
-        </span>
+      {/* БЛОК 2: Серый футер с названием бота */}
+      <div className="bg-mariko-dark">
+        <div className="text-center py-2 md:py-4 border-t border-mariko-text-secondary/20">
+          <span className="text-mariko-text-secondary font-normal text-sm md:text-base tracking-wide">
+            @Mariko_Bot
+          </span>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
