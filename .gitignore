@@ -23,3 +23,14 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Удалённые папки (для предотвращения повторного добавления)
+docs/
+dev-tools/
+netlify/
+
+# Файлы для других платформ
+netlify.toml
+_redirects
+deploy.sh
+.dockerignore
