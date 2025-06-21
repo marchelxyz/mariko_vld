@@ -111,10 +111,10 @@ const Index = () => {
       <div className="-mt-16 md:-mt-20 relative z-10 px-3 md:px-6">
         <div className="max-w-sm md:max-w-6xl mx-auto relative flex justify-end">
           {/* Vertical Column Quote positioned at the left edge - extending beyond left edge */}
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 z-60">
-            {/* Background extending beyond left edge - адаптивные размеры */}
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 z-60" style={{ transform: "translateY(-50%) translateY(10px)" }}>
+            {/* Background extending beyond left edge - увеличенные размеры */}
             <div
-              className="absolute inset-0 rounded-[60px] md:rounded-[90px] w-80 h-70 md:w-80 md:h-70 lg:w-96 lg:h-80 xl:w-[420px] xl:h-[320px]"
+              className="absolute inset-0 rounded-[60px] md:rounded-[90px] w-96 h-80 md:w-96 md:h-80 lg:w-[420px] lg:h-96 xl:w-[480px] xl:h-[380px]"
               style={{
                 transform: "translateX(-25%)",
                 backgroundImage:
@@ -123,9 +123,9 @@ const Index = () => {
                 backgroundPosition: "center",
               }}
             />
-            {/* Text on top of background - адаптивные размеры для больших экранов */}
+            {/* Text on top of background - увеличенные размеры для текста */}
             <div
-              className="relative z-10 text-mariko-secondary font-el-messiri text-2xl md:text-3xl lg:text-3xl xl:text-4xl font-bold leading-tight p-4 md:p-6 lg:p-8 xl:p-10 w-72 h-70 md:w-72 md:h-70 lg:w-88 lg:h-80 xl:w-96 xl:h-[320px]"
+              className="relative z-10 text-mariko-secondary font-el-messiri text-2xl md:text-3xl lg:text-3xl xl:text-4xl font-bold leading-tight p-4 md:p-6 lg:p-8 xl:p-12 w-88 h-80 md:w-88 md:h-80 lg:w-96 lg:h-96 xl:w-[420px] xl:h-[380px]"
               style={{
                 transform: "translateX(-10%)",
                 display: "flex",
