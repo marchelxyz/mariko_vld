@@ -158,7 +158,7 @@ const Index = () => {
       </div>
 
       {/* Footer */}
-      <footer className="bg-mariko-accent rounded-t-[45px] -mt-4 md:-mt-6 px-4 md:px-6 py-4 md:py-12 shadow-2xl relative z-40">
+      <footer className="bg-mariko-accent rounded-t-[45px] -mt-4 md:-mt-6 px-4 md:px-6 py-4 md:py-12 pb-8 -mb-4 shadow-2xl relative z-30">
         <div className="max-w-6xl mx-auto">
           {/* Restaurants Header */}
           <div className="flex justify-center mb-4 md:mb-12">

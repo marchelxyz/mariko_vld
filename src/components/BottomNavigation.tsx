@@ -68,7 +68,7 @@ export const BottomNavigation = ({ currentPage }: BottomNavigationProps) => {
   ];
 
   return (
-    <>
+    <div className="relative z-50">
       {/* БЛОК 1: Прозрачные кнопки навигации с затемненным blur эффектом */}
       <div className="backdrop-blur-lg backdrop-saturate-150 bg-black/60 rounded-t-3xl">
         <div className="flex justify-around items-end relative min-h-[4rem]">
@@ -137,6 +137,6 @@ export const BottomNavigation = ({ currentPage }: BottomNavigationProps) => {
           </span>
         </div>
       </div>
-    </>
+    </div>
   );
 };
