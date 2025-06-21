@@ -271,8 +271,8 @@ const EditProfile = () => {
   ) => {
     if (editingField === key) {
       return (
-        <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-4 md:py-6">
-          <Label className="text-white font-el-messiri text-lg font-semibold mb-3 block">
+        <div className="bg-mariko-secondary rounded-[90px] px-5 md:px-7 py-3 md:py-4">
+          <Label className="text-white font-el-messiri text-base md:text-lg font-semibold mb-2 block">
             {label}
           </Label>
           <div className="flex gap-3">
@@ -280,7 +280,7 @@ const EditProfile = () => {
               type={type}
               value={editValue}
               onChange={(e) => handleInputChange(e, key)}
-              className="flex-1 bg-white/10 border-white/20 text-white placeholder-white/60 font-el-messiri text-lg"
+              className="flex-1 bg-white/10 border-white/20 text-white placeholder-white/60 font-el-messiri text-base md:text-lg h-10 md:h-11"
               placeholder={key === "birthDate" ? "дд.мм.гггг" : ""}
               maxLength={key === "birthDate" ? 10 : undefined}
               autoFocus
@@ -360,15 +360,15 @@ const EditProfile = () => {
 
           {/* Gender Selection */}
           {editingField === "gender" ? (
-            <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-4 md:py-6">
-              <Label className="text-white font-el-messiri text-lg font-semibold mb-3 block">
+            <div className="bg-mariko-secondary rounded-[90px] px-5 md:px-7 py-3 md:py-4">
+              <Label className="text-white font-el-messiri text-base md:text-lg font-semibold mb-2 block">
                 Пол
               </Label>
               <div className="flex gap-3">
                 <select
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
-                  className="flex-1 bg-white/10 border border-white/20 text-white font-el-messiri text-lg rounded-lg px-3 py-2"
+                  className="flex-1 bg-white/10 border border-white/20 text-white font-el-messiri text-base md:text-lg rounded-lg px-3 py-2 h-10 md:h-11"
                 >
                   <option
                     value="Женский"
@@ -407,17 +407,17 @@ const EditProfile = () => {
 
           {/* Phone field with country code */}
           {editingField === "phone" ? (
-            <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-4 md:py-6">
-              <Label className="text-white font-el-messiri text-lg font-semibold mb-2 pl-6 block">
+            <div className="bg-mariko-secondary rounded-[90px] px-5 md:px-7 py-3 md:py-4">
+              <Label className="text-white font-el-messiri text-base md:text-lg font-semibold mb-2 pl-5 block">
                 Телефон
               </Label>
-              <div className="flex gap-3 ml-6 mr-8">
+              <div className="flex gap-3 ml-5 mr-7">
                 {/* Country Code Selector */}
                 <div className="relative">
                   <select
                     value={editCountryCode}
                     onChange={(e) => setEditCountryCode(e.target.value)}
-                    className="bg-white/5 text-white border-none outline-none rounded-xl px-3 py-3 font-el-messiri text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10 min-w-[100px] h-[54px]"
+                    className="bg-white/5 text-white border-none outline-none rounded-xl px-3 py-2 font-el-messiri text-lg md:text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10 min-w-[90px] h-10 md:h-11"
                   >
                     <option value="+7" className="bg-mariko-secondary text-white">+7</option>
                     <option value="+375" className="bg-mariko-secondary text-white">+375</option>
@@ -441,7 +441,7 @@ const EditProfile = () => {
                     value={editPhoneDigits}
                     onChange={handlePhoneChange}
                     placeholder={getPhonePlaceholder()}
-                    className="w-full bg-white/5 text-white placeholder-white/50 border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10"
+                    className="w-full bg-white/5 text-white placeholder-white/50 border-none outline-none rounded-xl px-4 py-2 font-el-messiri text-lg md:text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10 h-10 md:h-11"
                     autoFocus
                   />
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
