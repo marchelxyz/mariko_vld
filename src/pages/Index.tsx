@@ -22,19 +22,19 @@ const Index = () => {
         {/* Main Action Buttons */}
         <div className="mt-6 md:mt-8 space-y-3 md:space-y-6">
           <ActionButton
-            icon={<img src="/images/action button/Calendar.png" alt="Calendar" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
+            icon={<img src="/images/action button/Calendar.png" alt="Calendar" loading="lazy" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
             title="Забронировать столик"
             onClick={() => navigate("/booking")}
           />
 
           <ActionButton
-            icon={<img src="/images/action button/Van.png" alt="Delivery" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
+            icon={<img src="/images/action button/Van.png" alt="Delivery" loading="lazy" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
             title="Доставка"
             onClick={() => navigate("/delivery")}
           />
 
           <ActionButton
-            icon={<img src="/images/action button/Star.png" alt="Review" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
+            icon={<img src="/images/action button/Star.png" alt="Review" loading="lazy" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
             title="Оставить отзыв"
             onClick={() => {
               // Если в городе несколько ресторанов - идем на выбор ресторана
@@ -55,6 +55,7 @@ const Index = () => {
             title="Меню"
             imageUrl="/images/menu/menu.png"
             aspectRatio="aspect-[2/1]"
+            loading="lazy"
             onClick={() =>
               window.open("https://telegra.ph/Menu-Mariko-01-01", "_blank")
             }
@@ -63,6 +64,7 @@ const Index = () => {
             title="Бар"
             imageUrl="/images/menu/bar.png"
             aspectRatio="aspect-[2/1]"
+            loading="lazy"
             onClick={() =>
               window.open("https://telegra.ph/Bar-Menu-Mariko-01-01", "_blank")
             }
@@ -74,6 +76,7 @@ const Index = () => {
           <MenuCard
             title="Вакансии"
             imageUrl="/images/menu/job.png"
+            loading="lazy"
             onClick={() =>
               window.open(
                 "https://hh.ru/search/vacancy?text=хачапури+марико",
@@ -84,6 +87,7 @@ const Index = () => {
           <MenuCard
             title="Шеф-меню"
             imageUrl="/images/menu/shef-menu.png"
+            loading="lazy"
             onClick={() =>
               window.open("https://telegra.ph/Chef-Menu-Mariko-01-01", "_blank")
             }
@@ -91,6 +95,7 @@ const Index = () => {
           <MenuCard
             title="Акции"
             imageUrl="/images/menu/promo.png"
+            loading="lazy"
             onClick={() => navigate("/promotions")}
           />
         </div>
@@ -98,7 +103,7 @@ const Index = () => {
         {/* Franchise Action Button */}
         <div className="mt-6 md:mt-8">
           <ActionButton
-            icon={<img src="/images/action button/Dining Room.png" alt="Franchise" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
+            icon={<img src="/images/action button/Dining Room.png" alt="Franchise" loading="lazy" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
             title="Франшиза ресторана"
             onClick={() => window.open("https://vhachapuri.ru/franshiza", "_blank")}
           />
@@ -143,6 +148,7 @@ const Index = () => {
             <img
               src="/images/characters/character-chef.png"
               alt="Шеф-повар"
+              loading="lazy"
               className="w-auto h-auto max-w-48 lg:max-w-sm object-contain object-bottom"
               style={{
                 filter: "drop-shadow(0 0 20px rgba(0,0,0,0.1))",

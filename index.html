@@ -24,12 +24,21 @@
     <meta name="twitter:description" content="Лучший грузинский ресторан. Заказывайте хачапури, хинкали и другие блюда грузинской кухни онлайн." />
     <meta name="twitter:image" content="/images/logos/khachapuri-mariko-logo.svg" />
     
+    <!-- Critical resource preloads -->
+    <link rel="preload" href="/images/heroes/hero-image.svg" as="image" />
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@400;500;600;700&display=swap" as="style" />
+    
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    
+    <!-- DNS prefetch for external resources -->
+    <link rel="dns-prefetch" href="https://telegram.org" />
+    <link rel="dns-prefetch" href="https://telegra.ph" />
+    <link rel="dns-prefetch" href="https://vhachapuri.ru" />
     
     <!-- Single Page Apps for GitHub Pages -->
     <script type="text/javascript">
@@ -46,12 +55,34 @@
     </script>
     
     <style>
-      /* Telegram WebApp specific styles */
+      /* Critical CSS for better performance */
       body {
         margin: 0;
         padding: 0;
         overscroll-behavior: none;
         -webkit-overflow-scrolling: touch;
+        font-family: 'El Messiri', serif;
+        background-color: #1a1a1a;
+      }
+
+      /* Loading spinner for better UX */
+      .loading-spinner {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 40px;
+        height: 40px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #d97706;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        z-index: 9999;
+      }
+
+      @keyframes spin {
+        0% { transform: translate(-50%, -50%) rotate(0deg); }
+        100% { transform: translate(-50%, -50%) rotate(360deg); }
       }
 
       /* Prevent zoom on iOS */
@@ -72,14 +103,33 @@
         height: 100%;
         overflow-x: hidden;
       }
+
+      /* Image optimization */
+      img {
+        max-width: 100%;
+        height: auto;
+      }
     </style>
   </head>
 
   <body>
+    <!-- Loading spinner -->
+    <div id="loading-spinner" class="loading-spinner"></div>
+    
     <div id="root"></div>
 
     <!-- Telegram WebApp API -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Remove loading spinner when app loads -->
+    <script>
+      window.addEventListener('load', function() {
+        const spinner = document.getElementById('loading-spinner');
+        if (spinner) {
+          spinner.style.display = 'none';
+        }
+      });
+    </script>
   </body>
 </html>

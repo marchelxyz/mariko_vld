@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { OptimizedImage } from "./OptimizedImage";
 
 interface ActionButtonProps {
   icon: ReactNode;
@@ -33,9 +34,10 @@ export const ActionButton = ({
       )}
     >
       <div className="absolute inset-0 w-16 md:w-32 flex items-center justify-start pl-2 md:pl-4">
-        <img
+        <OptimizedImage
           src="/images/avatars/Rectangle 1322.png"
           alt=""
+          loading="lazy"
           className="absolute inset-0 w-full h-full object-cover"
         />
         <div className="relative w-10 h-10 md:w-20 md:h-20 text-white flex items-center justify-center z-10">
