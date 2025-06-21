@@ -49,6 +49,7 @@ export const BottomNavigation = ({ currentPage }: BottomNavigationProps) => {
                 <img 
                   src={item.iconPath} 
                   alt={item.label}
+                  loading="eager"
                   className={cn(
                     "brightness-0 invert mb-1 transition-all duration-200",
                     isActive 

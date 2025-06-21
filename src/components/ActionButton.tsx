@@ -37,7 +37,7 @@ export const ActionButton = ({
         <OptimizedImage
           src="/images/avatars/Rectangle 1322.png"
           alt=""
-          loading="lazy"
+          loading="eager"
           className="absolute inset-0 w-full h-full object-cover"
         />
         <div className="relative w-10 h-10 md:w-20 md:h-20 text-white flex items-center justify-center z-10">

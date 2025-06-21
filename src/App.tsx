@@ -7,12 +7,16 @@ import { CityProvider } from "@/contexts/CityContext";
 
 // Lazy load pages for better code splitting
 const Index = lazy(() => import("./pages/Index"));
+const Profile = lazy(() => import("./pages/Profile"));
+const EditProfile = lazy(() => import("./pages/EditProfile"));
+const Franchise = lazy(() => import("./pages/Franchise"));
 const Restaurants = lazy(() => import("./pages/Restaurants"));
 const Booking = lazy(() => import("./pages/Booking"));
 const Delivery = lazy(() => import("./pages/Delivery"));
 const Promotions = lazy(() => import("./pages/Promotions"));
 const Review = lazy(() => import("./pages/Review"));
 const SelectRestaurantForReview = lazy(() => import("./pages/SelectRestaurantForReview"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Create a query client
 const queryClient = new QueryClient({
@@ -41,12 +45,18 @@ function App() {
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<Index />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/edit-profile" element={<EditProfile />} />
+                <Route path="/franchise" element={<Franchise />} />
                 <Route path="/restaurants/:id" element={<Restaurants />} />
+                <Route path="/restaurants" element={<Restaurants />} />
                 <Route path="/booking" element={<Booking />} />
                 <Route path="/delivery" element={<Delivery />} />
                 <Route path="/promotions" element={<Promotions />} />
                 <Route path="/review" element={<Review />} />
                 <Route path="/select-restaurant-review" element={<SelectRestaurantForReview />} />
+                {/* Catch-all route for 404 */}
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
           </BrowserRouter>
