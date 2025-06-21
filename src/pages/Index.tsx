@@ -108,13 +108,13 @@ const Index = () => {
       </div>
 
       {/* Quote Section - Vertical text along the chef */}
-      <div className="-mt-16 md:-mt-20 relative z-60 px-3 md:px-6">
+      <div className="-mt-12 md:-mt-16 relative z-60 px-3 md:px-6">
         <div className="max-w-sm md:max-w-6xl mx-auto relative flex justify-end">
           {/* Vertical Column Quote positioned at the left edge - extending beyond left edge */}
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 z-50" style={{ transform: "translateY(-50%) translateY(10px)" }}>
-            {/* Background extending beyond left edge - не заходит на девушку */}
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 z-50">
+            {/* Background extending beyond left edge - симметрично размещен */}
             <div
-              className="absolute inset-0 rounded-[60px] md:rounded-[90px] w-72 h-60 md:w-80 md:h-64 lg:w-88 lg:h-68 xl:w-96 xl:h-76"
+              className="absolute inset-0 rounded-[60px] md:rounded-[90px] w-72 h-56 md:w-80 md:h-60 lg:w-88 lg:h-64 xl:w-96 xl:h-72"
               style={{
                 transform: "translateX(-30%)",
                 backgroundImage:
@@ -123,9 +123,9 @@ const Index = () => {
                 backgroundPosition: "center",
               }}
             />
-            {/* Text perfectly fitted within background */}
+            {/* Text perfectly fitted within background bounds */}
             <div
-              className="relative z-60 text-mariko-secondary font-el-messiri text-lg md:text-xl lg:text-xl xl:text-2xl font-bold leading-snug px-3 py-2 md:px-4 md:py-3 lg:px-5 lg:py-4 xl:px-6 xl:py-5 w-72 h-60 md:w-80 md:h-64 lg:w-88 lg:h-68 xl:w-96 xl:h-76"
+              className="relative z-60 text-mariko-secondary font-el-messiri text-sm md:text-sm lg:text-base xl:text-lg font-bold leading-tight px-4 py-3 md:px-5 md:py-4 lg:px-6 lg:py-5 xl:px-7 xl:py-6 w-72 h-56 md:w-80 md:h-60 lg:w-88 lg:h-64 xl:w-96 xl:h-72"
               style={{
                 transform: "translateX(-15%)",
                 display: "flex",
