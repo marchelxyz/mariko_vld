@@ -2,7 +2,7 @@ import { CircleDot } from "lucide-react";
 import { Header } from "@/components/Header";
 import { ActionButton } from "@/components/ActionButton";
 import { BottomNavigation } from "@/components/BottomNavigation";
-import { BackButton } from "@/components/BackButton";
+import { PageHeader } from "@/components/PageHeader";
 import { useCityContext } from "@/contexts/CityContext";
 
 const Delivery = () => {
@@ -60,9 +60,9 @@ const Delivery = () => {
 
       {/* Main Content */}
       <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full pb-64 md:pb-72">
-        {/* Back Button */}
+        {/* Page Header */}
         <div className="mt-10 mb-6">
-          <BackButton />
+          <PageHeader title="Доставка" />
         </div>
         
         {/* Delivery Options */}
