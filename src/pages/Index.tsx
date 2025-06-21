@@ -111,7 +111,7 @@ const Index = () => {
       </div>
 
       {/* Quote Section - Vertical text along the chef */}
-      <div className="-mt-12 md:-mt-16 relative z-60 px-3 md:px-6">
+      <div className="-mt-12 md:-mt-16 relative z-60 px-3 md:px-6 pointer-events-none">
         <div className="max-w-sm md:max-w-6xl mx-auto relative flex justify-end">
           {/* Vertical Column Quote positioned at the left edge - extending beyond left edge */}
           <div className="absolute left-0 top-1/2 -translate-y-1/2 z-50">
@@ -147,7 +147,7 @@ const Index = () => {
               src="/images/characters/character-chef.png"
               alt="Шеф-повар"
               loading="lazy"
-              className="w-auto h-auto max-w-48 lg:max-w-sm object-contain object-bottom"
+              className="w-auto h-auto max-w-48 lg:max-w-sm object-contain object-bottom pointer-events-none"
               style={{
                 filter: "drop-shadow(0 0 20px rgba(0,0,0,0.1))",
                 transform: "scale(1.05) translateX(20%)",
