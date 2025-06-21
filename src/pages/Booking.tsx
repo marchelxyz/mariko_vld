@@ -27,6 +27,7 @@ const Booking = () => {
     date: "",
     time: "",
     restaurant: defaultRestaurantName, // Подтягивается из выбранного города
+    comment: "", // Комментарий пользователя
   });
   const [selectedCountryCode, setSelectedCountryCode] = useState("+7");
   const [loading, setLoading] = useState(false);
@@ -207,6 +208,7 @@ const Booking = () => {
         date: formData.date,
         time: formData.time,
         guests: parseInt(formData.guests),
+        comment: formData.comment,
       });
 
       if (!validation.isValid) {
@@ -228,6 +230,7 @@ const Booking = () => {
         time: sanitizeText(formData.time),
         restaurant: sanitizeText(formData.restaurant),
         birthDate: sanitizeText(birthDate),
+        comment: formData.comment ? sanitizeText(formData.comment) : undefined,
       };
 
       // Отправляем бронирование
@@ -476,6 +479,31 @@ const Booking = () => {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Comment */}
+          <div className="bg-mariko-secondary rounded-3xl px-6 py-4">
+            <label className="block text-white font-el-messiri text-lg font-semibold mb-2 pl-6">
+              Комментарий
+            </label>
+            <div className="relative ml-6 mr-8">
+              <textarea
+                value={formData.comment}
+                onChange={(e) =>
+                  setFormData({ ...formData, comment: e.target.value })
+                }
+                placeholder="Генацвале, устраиваете Супру? Расскажите о вашем празднике - мы накроем стол, достойный самого Тамада!"
+                className="w-full bg-white/5 text-white placeholder-white/50 border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-lg transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10 resize-none min-h-[100px]"
+                maxLength={500}
+                rows={4}
+              />
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
+              <div className="text-right mt-1 mr-2">
+                <span className="text-white/50 font-el-messiri text-sm">
+                  {formData.comment.length}/500
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Submit Button */}

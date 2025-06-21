@@ -200,6 +200,7 @@ export const validateBookingForm = (data: {
   date: string;
   time: string;
   guests: number;
+  comment?: string;
 }): { isValid: boolean; errors: Record<string, string> } => {
   const errors: Record<string, string> = {};
   
@@ -229,6 +230,11 @@ export const validateBookingForm = (data: {
   // Валидируем количество гостей
   if (!data.guests || !Number.isInteger(data.guests) || data.guests < 1 || data.guests > 20) {
     errors.guests = 'Количество гостей должно быть от 1 до 20';
+  }
+  
+  // Валидируем комментарий (опционально)
+  if (data.comment && data.comment.length > 500) {
+    errors.comment = 'Комментарий не может превышать 500 символов';
   }
   
   return {

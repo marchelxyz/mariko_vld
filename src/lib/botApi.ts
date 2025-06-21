@@ -23,6 +23,7 @@ export interface BookingData {
   time: string;
   restaurant: string;
   birthDate: string; // Скрытое поле для АЙКО
+  comment?: string; // Комментарий пользователя
 }
 
 export interface ReviewData {
