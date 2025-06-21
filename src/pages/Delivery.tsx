@@ -54,7 +54,7 @@ const Delivery = () => {
   };
 
   return (
-    <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col relative">
+    <div className="min-h-screen bg-mariko-primary flex flex-col relative">
       {/* Header */}
       <Header />
 
@@ -78,8 +78,8 @@ const Delivery = () => {
         </div>
       </div>
 
-      {/* Delivery Truck Illustration - Грузовик выезжает на 80%, скрыто 20% */}
-      <div className="absolute left-0 z-10 pointer-events-none" style={{ bottom: '70px' }}>
+      {/* Delivery Truck Illustration - Грузовик: идеальное позиционирование */}
+      <div className="absolute z-10 pointer-events-none" style={{ bottom: '80px', left: '-7%' }}>
         <div className="relative flex justify-start items-end">
           <img
             src="/images/delivery/delivery-restaurant.png"
@@ -87,8 +87,8 @@ const Delivery = () => {
             className="w-auto h-auto max-w-sm md:max-w-lg"
             style={{
               objectFit: "contain",
-              // Грузовик виден на 80%, скрыто 20% за левым краем экрана
-              transform: "translateX(-20%) translateY(-3%) scale(0.9) md:translateX(-20%) md:translateY(-2%) md:scale(1.1)",
+              // Дополнительные трансформации для масштаба и позиции
+              transform: "translateY(-3%) scale(0.9) md:translateY(-2%) md:scale(1.1)",
             }}
           />
         </div>
