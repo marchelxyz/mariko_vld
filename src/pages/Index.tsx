@@ -112,11 +112,11 @@ const Index = () => {
         <div className="max-w-sm md:max-w-6xl mx-auto relative flex justify-end">
           {/* Vertical Column Quote positioned at the left edge - extending beyond left edge */}
           <div className="absolute left-0 top-1/2 -translate-y-1/2 z-50" style={{ transform: "translateY(-50%) translateY(10px)" }}>
-            {/* Background closer to chef - подогнанные размеры */}
+            {/* Background extending beyond left edge - не заходит на девушку */}
             <div
-              className="absolute inset-0 rounded-[60px] md:rounded-[90px] w-80 h-56 md:w-80 md:h-60 lg:w-96 lg:h-64 xl:w-[420px] xl:h-72"
+              className="absolute inset-0 rounded-[60px] md:rounded-[90px] w-72 h-60 md:w-80 md:h-64 lg:w-88 lg:h-68 xl:w-96 xl:h-76"
               style={{
-                transform: "translateX(-5%)",
+                transform: "translateX(-30%)",
                 backgroundImage:
                   "url('/images/backgrounds/quote-background.png')",
                 backgroundSize: "cover",
@@ -125,9 +125,9 @@ const Index = () => {
             />
             {/* Text perfectly fitted within background */}
             <div
-              className="relative z-60 text-mariko-secondary font-el-messiri text-lg md:text-xl lg:text-xl xl:text-2xl font-bold leading-snug px-4 py-3 md:px-5 md:py-4 lg:px-6 lg:py-5 xl:px-8 xl:py-6 w-80 h-56 md:w-80 md:h-60 lg:w-96 lg:h-64 xl:w-[420px] xl:h-72"
+              className="relative z-60 text-mariko-secondary font-el-messiri text-lg md:text-xl lg:text-xl xl:text-2xl font-bold leading-snug px-3 py-2 md:px-4 md:py-3 lg:px-5 lg:py-4 xl:px-6 xl:py-5 w-72 h-60 md:w-80 md:h-64 lg:w-88 lg:h-68 xl:w-96 xl:h-76"
               style={{
-                transform: "translateX(0%)",
+                transform: "translateX(-15%)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
