@@ -125,7 +125,7 @@ const Index = () => {
             />
             {/* Text perfectly fitted within background bounds */}
             <div
-              className="relative z-60 text-mariko-secondary font-el-messiri text-sm md:text-sm lg:text-base xl:text-lg font-bold leading-tight px-4 py-3 md:px-5 md:py-4 lg:px-6 lg:py-5 xl:px-7 xl:py-6 w-72 h-56 md:w-80 md:h-60 lg:w-88 lg:h-64 xl:w-96 xl:h-72"
+              className="relative z-60 text-mariko-secondary font-el-messiri text-base md:text-base lg:text-lg xl:text-xl font-bold leading-none px-4 py-3 md:px-5 md:py-4 lg:px-6 lg:py-5 xl:px-7 xl:py-6 w-72 h-56 md:w-80 md:h-60 lg:w-88 lg:h-64 xl:w-96 xl:h-72"
               style={{
                 transform: "translateX(-15%)",
                 display: "flex",
@@ -134,8 +134,7 @@ const Index = () => {
                 textAlign: "center",
               }}
             >
-              «Если хачапури пекут счастливые люди, это означает, что данное
-              блюдо делает людей счастливыми»
+              «Если хачапури пекут<br/>счастливые люди, это<br/>означает, что данное<br/>блюдо делает людей<br/>счастливыми»
             </div>
           </div>
 
