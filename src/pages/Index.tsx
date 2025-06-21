@@ -112,12 +112,10 @@ const Index = () => {
         <div className="max-w-sm md:max-w-6xl mx-auto relative flex justify-end">
           {/* Vertical Column Quote positioned at the left edge - extending beyond left edge */}
           <div className="absolute left-0 top-1/2 -translate-y-1/2 z-60">
-            {/* Background extending beyond left edge */}
+            {/* Background extending beyond left edge - адаптивные размеры */}
             <div
-              className="absolute inset-0 rounded-[60px] md:rounded-[90px]"
+              className="absolute inset-0 rounded-[60px] md:rounded-[90px] w-80 h-70 md:w-80 md:h-70 lg:w-96 lg:h-80 xl:w-[420px] xl:h-[320px]"
               style={{
-                width: "320px",
-                height: "280px",
                 transform: "translateX(-25%)",
                 backgroundImage:
                   "url('/images/backgrounds/quote-background.png')",
@@ -125,12 +123,10 @@ const Index = () => {
                 backgroundPosition: "center",
               }}
             />
-            {/* Text on top of background */}
+            {/* Text on top of background - адаптивные размеры для больших экранов */}
             <div
-              className="relative z-10 text-mariko-secondary font-el-messiri text-2xl md:text-3xl lg:text-4xl font-bold leading-tight p-4 md:p-8"
+              className="relative z-10 text-mariko-secondary font-el-messiri text-2xl md:text-3xl lg:text-3xl xl:text-4xl font-bold leading-tight p-4 md:p-6 lg:p-8 xl:p-10 w-72 h-70 md:w-72 md:h-70 lg:w-88 lg:h-80 xl:w-96 xl:h-[320px]"
               style={{
-                width: "280px",
-                height: "280px",
                 transform: "translateX(-10%)",
                 display: "flex",
                 alignItems: "center",
