@@ -19,6 +19,7 @@ interface CitySelectorSimpleProps {
   selectedCity: City | null;
   onCityChange: (city: City) => void;
   className?: string;
+  openDirection?: 'up' | 'down';
 }
 
 const cities: City[] = [
@@ -310,6 +311,7 @@ export const CitySelectorSimple = ({
   selectedCity,
   onCityChange,
   className,
+  openDirection = 'down',
 }: CitySelectorSimpleProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -368,7 +370,12 @@ export const CitySelectorSimple = ({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 bg-mariko-secondary rounded-lg shadow-lg z-50 min-w-64 max-h-80 overflow-y-auto">
+        <div className={cn(
+          "absolute bg-mariko-secondary rounded-lg shadow-lg z-[9999] min-w-64 max-h-80 overflow-y-auto",
+          openDirection === 'up' 
+            ? "top-0 right-full mr-2" 
+            : "top-full mt-2 right-0"
+        )}>
           <div className="p-2">
             {cities.map((city) => (
               <button
@@ -397,7 +404,7 @@ export const CitySelectorSimple = ({
 
       {/* Overlay для закрытия выпадающего меню */}
       {isOpen && (
-        <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+        <div className="fixed inset-0 z-[9998]" onClick={() => setIsOpen(false)} />
       )}
     </div>
   );
