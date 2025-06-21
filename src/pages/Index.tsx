@@ -5,6 +5,7 @@ import { ActionButton } from "@/components/ActionButton";
 import { MenuCard } from "@/components/MenuCard";
 import { RestaurantCard } from "@/components/RestaurantCard";
 import { BottomNavigation } from "@/components/BottomNavigation";
+import { CitySelectorSimple } from "@/components/CitySelectorSimple";
 import { useCityContext } from "@/contexts/CityContext";
 
 const Index = () => {
@@ -160,11 +161,17 @@ const Index = () => {
       {/* Footer */}
       <footer className="bg-mariko-accent rounded-t-[45px] -mt-4 md:-mt-6 px-4 md:px-6 py-4 md:py-12 pb-8 -mb-4 shadow-2xl relative z-30">
         <div className="max-w-6xl mx-auto">
-          {/* Restaurants Header */}
-          <div className="flex justify-center mb-4 md:mb-12">
+          {/* Restaurants Header with City Selector */}
+          <div className="flex justify-between items-center mb-4 md:mb-12">
             <h2 className="text-white font-el-messiri text-3xl md:text-5xl font-bold tracking-tight">
               Рестораны
             </h2>
+            <CitySelectorSimple
+              selectedCity={selectedCity}
+              onCityChange={setSelectedCity}
+              className="flex-shrink-0"
+              openDirection="up"
+            />
           </div>
 
           {/* Restaurant List */}
