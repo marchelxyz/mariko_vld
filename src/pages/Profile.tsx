@@ -14,14 +14,7 @@ const Profile = () => {
   const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
   const { profile, loading } = useProfile();
 
-  // Функция для генерации приветствия в зависимости от пола
-  const getGreeting = () => {
-    if (profile.gender === "Женский") {
-      return "Гостья наша Дорогая!";
-    }
-    // По умолчанию мужской род (включая "Не указан" и пустые значения)
-    return "Гость наш Дорогой!";
-  };
+
 
   return (
     <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col relative">
@@ -42,7 +35,7 @@ const Profile = () => {
             />
             <div className="flex-1">
               <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold tracking-tight">
-                {getGreeting()}
+                Генацвале!
               </h2>
               <p className="text-white/80 font-el-messiri text-lg mt-1">
                 {profile.name}
