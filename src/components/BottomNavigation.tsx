@@ -57,7 +57,7 @@ export const BottomNavigation = ({ currentPage }: BottomNavigationProps) => {
       id: "franchise",
       label: "Франшиза",
       iconPath: "/images/icons/Franchise.png",
-      onClick: () => navigate("/franchise"),
+      onClick: () => window.open("https://vhachapuri.ru/franshiza", "_blank"),
     },
     {
       id: "home",
