@@ -70,7 +70,7 @@ const Booking = () => {
       setSelectedCountryCode(countryCode);
       setFormData((prev) => ({
         ...prev,
-        name: profile.name || "",
+        name: "", // Всегда оставляем поле ФИО пустым
         phone: phoneNumber,
       }));
     }
@@ -111,7 +111,19 @@ const Booking = () => {
     
     // Форматируем как дд.мм.гггг
     if (numbers.length >= 8) {
-      return `${numbers.slice(0, 2)}.${numbers.slice(2, 4)}.${numbers.slice(4, 8)}`;
+      const year = numbers.slice(4, 8);
+      const currentYear = new Date().getFullYear();
+      
+      // Проверяем год при вводе
+      if (year.length === 4) {
+        const yearNum = parseInt(year);
+        if (yearNum < currentYear || yearNum > currentYear + 1) {
+          // Возвращаем только дату без неправильного года
+          return `${numbers.slice(0, 2)}.${numbers.slice(2, 4)}.${currentYear}`;
+        }
+      }
+      
+      return `${numbers.slice(0, 2)}.${numbers.slice(2, 4)}.${year}`;
     } else if (numbers.length >= 4) {
       return `${numbers.slice(0, 2)}.${numbers.slice(2, 4)}.${numbers.slice(4)}`;
     } else if (numbers.length >= 2) {
@@ -307,18 +319,20 @@ const Booking = () => {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Name */}
           <div className="bg-mariko-secondary rounded-3xl px-6 py-4">
-            <label className="block text-white font-el-messiri text-lg font-semibold mb-2 pl-6">
-              ФИО
-            </label>
             <div className="relative ml-6 mr-8">
+              {/* Placeholder как label */}
+              {!formData.name && (
+                <div className="absolute left-4 top-3 text-white/50 font-el-messiri text-xl pointer-events-none transition-opacity duration-200">
+                  ФИО
+                </div>
+              )}
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                placeholder={profileLoading ? "Загружаем данные..." : "Введите ваше имя"}
-                className="w-full bg-white/5 text-white placeholder-white/50 border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10"
+                className="w-full bg-white/5 text-white border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10"
                 required
               />
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
@@ -436,7 +450,15 @@ const Booking = () => {
               </label>
               <div className="flex items-center justify-between ml-6">
                 <span className="text-white font-el-messiri text-xl">
-                  {formData.date || "18.06.2025"}
+                  {formData.date || (() => {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    return tomorrow.toLocaleDateString('ru-RU', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric'
+                    });
+                  })()}
                 </span>
                 <Button
                   onClick={handleDateEdit}

@@ -88,7 +88,7 @@ export const botApi = {
           telegramId: telegramId || undefined,
           name: telegramUser?.first_name
             ? `${telegramUser.first_name} ${telegramUser.last_name || ""}`.trim()
-            : "Новый пользователь",
+            : "",
           phone: "",
           birthDate: "",
           gender: "Не указан"
