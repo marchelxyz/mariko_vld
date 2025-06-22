@@ -70,20 +70,28 @@ const Index = () => {
           />
         </div>
 
-        {/* Franchise Action Button */}
+        {/* Franchise CTA Button */}
         <div className="mt-6 md:mt-8">
-          <ActionButton
-            icon={<img src="/images/action button/Dining Room.png" alt="Franchise" loading="lazy" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
-            title="Франшиза ресторана"
+          <button
             onClick={() => window.open("https://vhachapuri.ru/franshiza", "_blank")}
-          />
+            className="w-full bg-red-600 hover:bg-red-700 rounded-[45px] md:rounded-[90px] flex items-center justify-center text-white font-el-messiri text-xl md:text-4xl font-bold tracking-tight transition-colors duration-200 min-h-[240px] md:min-h-[360px]"
+          >
+            <div className="text-center">
+              <div className="text-xl md:text-4xl font-bold mb-1 md:mb-2">
+                🔥 Хочешь такой же ресторан? 🔥
+              </div>
+              <div className="text-sm md:text-lg font-semibold">
+                Стань частью успешной франшизы!
+              </div>
+            </div>
+          </button>
         </div>
 
 
       </div>
 
       {/* Quote Section - Vertical text along the chef */}
-      <div className="-mt-12 md:-mt-16 relative z-60 px-3 md:px-6 pointer-events-none">
+      <div className="mt-8 md:mt-12 relative z-60 px-3 md:px-6 pointer-events-none">
         <div className="max-w-sm md:max-w-6xl mx-auto relative flex justify-end">
           {/* Vertical Column Quote positioned at the left edge - extending beyond left edge */}
           <div className="absolute left-0 top-1/2 -translate-y-1/2 z-50">
