@@ -9,6 +9,8 @@ import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { validateBookingForm, sanitizeText } from "@/lib/validation";
+import { initEmailService } from "@/lib/emailService";
+import { BookingNotification, useNotification } from "@/components/BookingNotification";
 
 const Booking = () => {
   const navigate = useNavigate();
@@ -33,8 +35,14 @@ const Booking = () => {
   const [loading, setLoading] = useState(false);
   const [isEditingDate, setIsEditingDate] = useState(false);
   const [editDateValue, setEditDateValue] = useState("");
+  
+  // Хук для уведомлений
+  const { notification, showSuccess, showError, showLoading, hideNotification } = useNotification();
 
   useEffect(() => {
+    // Инициализируем email сервис при загрузке компонента
+    initEmailService();
+    
     // Обновляем ресторан при смене города
     if (selectedCity && selectedCity.restaurants.length > 0) {
       const newRestaurant = `${selectedCity.restaurants[0].city}, ${selectedCity.restaurants[0].address}`;
@@ -199,6 +207,9 @@ const Booking = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    
+    // Показываем уведомление о начале отправки
+    showLoading("Отправляем заявку на бронирование...");
 
     try {
       // 🔒 БЕЗОПАСНОСТЬ: Валидируем данные формы
@@ -213,7 +224,7 @@ const Booking = () => {
 
       if (!validation.isValid) {
         const errorMessages = Object.values(validation.errors).join('\n');
-        alert(`Пожалуйста, исправьте ошибки:\n${errorMessages}`);
+        showError(`Пожалуйста, исправьте ошибки:\n${errorMessages}`);
         setLoading(false);
         return;
       }
@@ -237,8 +248,8 @@ const Booking = () => {
       const result = await botApi.submitBooking(sanitizedData);
 
       if (result.success) {
-        alert(
-          `Ваша заявка на бронирование №${result.bookingId} отправлена! Мы свяжемся с вами в ближайшее время.`,
+        showSuccess(
+          `Ваша заявка на бронирование №${result.bookingId} отправлена на почту ресторана! Мы свяжемся с вами в ближайшее время.`
         );
 
         // Отправляем данные обратно в бот
@@ -248,13 +259,17 @@ const Booking = () => {
           data: formData,
         });
 
-        navigate("/");
+        // Переходим на главную страницу через небольшую задержку
+        setTimeout(() => {
+          navigate("/");
+        }, 2000);
       } else {
-        alert("Ошибка при отправке бронирования. Попробуйте еще раз.");
+        const errorMessage = result.error || "Ошибка при отправке бронирования. Попробуйте еще раз.";
+        showError(errorMessage);
       }
     } catch (error) {
       console.error("Ошибка бронирования:", error);
-      alert("Ошибка при отправке бронирования. Попробуйте еще раз.");
+      showError("Ошибка при отправке бронирования. Попробуйте еще раз.");
     } finally {
       setLoading(false);
     }
@@ -264,6 +279,14 @@ const Booking = () => {
     <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col">
       {/* Header */}
       <Header />
+      
+      {/* Уведомления */}
+      <BookingNotification
+        type={notification.type}
+        message={notification.message}
+        show={notification.show}
+        onClose={hideNotification}
+      />
 
       {/* Main Content */}
       <div className="flex-1 px-4 md:px-6 max-w-4xl mx-auto w-full">

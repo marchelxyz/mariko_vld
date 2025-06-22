@@ -1,0 +1,84 @@
+import emailjs from '@emailjs/browser';
+
+/**
+ * Интерфейс для данных бронирования для отправки email
+ */
+export interface BookingEmailData {
+  name: string;
+  phone: string;
+  guests: number;
+  date: string;
+  time: string;
+  restaurant: string;
+  comment?: string;
+}
+
+/**
+ * Конфигурация EmailJS
+ * Использует переменные окружения или реальные значения
+ */
+const EMAIL_CONFIG = {
+  serviceId: import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_ih6l18j',
+  templateId: import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'template_bp5xfpa', 
+  publicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'vjZnlDWh75MlJ7Mt6',
+  recipientEmail: import.meta.env.VITE_RESTAURANT_EMAIL || 'eletskiy27@gmail.com'
+};
+
+/**
+ * Инициализация EmailJS
+ */
+export function initEmailService(): void {
+  emailjs.init(EMAIL_CONFIG.publicKey);
+}
+
+/**
+ * Отправка email с данными бронирования
+ */
+export async function sendBookingEmail(bookingData: BookingEmailData): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Подготавливаем данные для шаблона
+    const bookingId = `BK${Date.now()}`;
+    const templateParams = {
+      name: bookingData.name,
+      email: EMAIL_CONFIG.recipientEmail,
+      title: `Новое бронирование столика №${bookingId}`,
+      message: `
+📋 ДЕТАЛИ БРОНИРОВАНИЯ:
+
+• ID брони: ${bookingId}
+• Клиент: ${bookingData.name}
+• Телефон: ${bookingData.phone}
+• Дата: ${bookingData.date}
+• Время: ${bookingData.time}
+• Количество гостей: ${bookingData.guests}
+• Ресторан: ${bookingData.restaurant}
+
+💬 Комментарий клиента:
+${bookingData.comment || 'Комментарий не указан'}
+
+---
+Пожалуйста, свяжитесь с клиентом для подтверждения брони.
+      `.trim()
+    };
+
+    // Отправляем email
+    const response = await emailjs.send(
+      EMAIL_CONFIG.serviceId,
+      EMAIL_CONFIG.templateId,
+      templateParams
+    );
+    
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('Ошибка отправки email:', error);
+    
+    return {
+      success: false,
+      error: 'Не удалось отправить заявку на email. Попробуйте еще раз.'
+    };
+  }
+}
+
+ 

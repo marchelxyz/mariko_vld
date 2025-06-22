@@ -160,18 +160,54 @@ export const botApi = {
   // Отправка бронирования
   async submitBooking(
     booking: BookingData,
-  ): Promise<{ success: boolean; bookingId?: string }> {
-    // Отправка бронирования в АЙКО
+  ): Promise<{ success: boolean; bookingId?: string; error?: string }> {
+    try {
+      // Генерируем ID бронирования
+      const bookingId = `BK${Date.now()}`;
 
-    // В реальной интеграции:
-    // 1. Отправляем данные в АЙКО систему
-    // 2. Получаем подтверждение
-    // 3. Отправляем уведомление пользователю в Telegram
+      // Импортируем email сервис динамически
+      const { sendBookingEmail } = await import('./emailService');
 
-    return {
-      success: true,
-      bookingId: `BK${Date.now()}`,
-    };
+      // Подготавливаем данные для отправки email
+      const emailData = {
+        name: booking.name,
+        phone: booking.phone,
+        guests: booking.guests,
+        date: booking.date,
+        time: booking.time,
+        restaurant: booking.restaurant,
+        comment: booking.comment
+      };
+
+      // Отправляем email с данными бронирования
+      const emailResult = await sendBookingEmail(emailData);
+
+      if (!emailResult.success) {
+        console.error('Ошибка отправки email:', emailResult.error);
+        return {
+          success: false,
+          error: 'Не удалось отправить заявку на бронирование. Попробуйте еще раз.'
+        };
+      }
+
+      // В реальной интеграции:
+      // 1. Отправляем данные в АЙКО систему
+      // 2. Получаем подтверждение
+      // 3. Отправляем уведомление пользователю в Telegram
+
+      console.log('Бронирование успешно отправлено:', bookingId);
+
+      return {
+        success: true,
+        bookingId,
+      };
+    } catch (error) {
+      console.error('Ошибка обработки бронирования:', error);
+      return {
+        success: false,
+        error: 'Произошла ошибка при обработке заявки. Попробуйте еще раз.'
+      };
+    }
   },
 
   // Анализ отзыва с помощью ИИ
