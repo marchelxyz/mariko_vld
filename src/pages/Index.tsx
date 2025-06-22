@@ -50,52 +50,23 @@ const Index = () => {
           />
         </div>
 
-        {/* Menu Grid */}
+        {/* Menu and Additional Services */}
         <div className="mt-6 md:mt-8 grid grid-cols-2 gap-3 md:gap-6">
           <MenuCard
             title="Меню"
             imageUrl="/images/menu/menu.png"
-            aspectRatio="aspect-[2/1]"
-            onClick={() =>
-              window.open("https://telegra.ph/Menu-Mariko-01-01", "_blank")
-            }
+            onClick={() => navigate("/menu")}
           />
-          <MenuCard
-            title="Бар"
-            imageUrl="/images/menu/bar.png"
-            aspectRatio="aspect-[2/1]"
-            onClick={() =>
-              window.open("https://telegra.ph/Bar-Menu-Mariko-01-01", "_blank")
-            }
-          />
-        </div>
-
-        {/* Additional Menu Items */}
-        <div className="mt-4 md:mt-6 grid grid-cols-3 gap-2 md:gap-4">
           <MenuCard
             title="Вакансии"
-            imageUrl="/images/menu/job.png"
-            loading="lazy"
+            backgroundColor="#DB7B28"
+            className="rounded-[40px] md:rounded-[80px]"
             onClick={() =>
               window.open(
                 "https://hh.ru/search/vacancy?text=хачапури+марико",
                 "_blank",
               )
             }
-          />
-          <MenuCard
-            title="Шеф-меню"
-            imageUrl="/images/menu/shef-menu.png"
-            loading="lazy"
-            onClick={() =>
-              window.open("https://telegra.ph/Chef-Menu-Mariko-01-01", "_blank")
-            }
-          />
-          <MenuCard
-            title="Акции"
-            imageUrl="/images/menu/promo.png"
-            loading="lazy"
-            onClick={() => navigate("/promotions")}
           />
         </div>
 
