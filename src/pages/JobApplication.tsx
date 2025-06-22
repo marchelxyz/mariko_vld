@@ -28,7 +28,7 @@ const jobApplicationSchema = z.object({
   restaurant: z.string().min(1, "Выберите ресторан"),
   age: z.number().min(16, "Минимальный возраст 16 лет").max(80, "Максимальный возраст 80 лет"),
   position: z.string().min(1, "Выберите должность"),
-  experience: z.string().min(1, "Укажите опыт работы"),
+  experience: z.string().optional(),
   phone: z.string().min(10, "Введите корректный номер телефона"),
   email: z.string().email("Введите корректный email"),
 });
@@ -112,13 +112,10 @@ function JobApplication() {
 
       if (result.success) {
         setSubmissionStatus({ isSubmitting: false, isSuccess: false, error: null });
-        toast.success("Заявка успешно отправлена! Мы рассмотрим вашу заявку и свяжемся с вами в ближайшее время.");
         reset();
         
-        // Переходим на главную страницу через небольшую задержку
-        setTimeout(() => {
-          navigate("/");
-        }, 2000);
+        // Сразу переходим на главную страницу с параметром успеха
+        navigate("/?jobApplicationSent=true");
       } else {
         setSubmissionStatus({
           isSubmitting: false,
@@ -266,7 +263,7 @@ function JobApplication() {
           {/* Опыт работы */}
           <div className="space-y-2">
             <Label htmlFor="experience" className="text-white font-el-messiri text-lg font-semibold">
-              Опыт работы *
+              Опыт работы
             </Label>
             <Textarea
               id="experience"

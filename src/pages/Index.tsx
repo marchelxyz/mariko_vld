@@ -1,5 +1,6 @@
 import { ChefHat } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect } from "react";
 import { Header } from "@/components/Header";
 import { ActionButton } from "@/components/ActionButton";
 import { MenuCard } from "@/components/MenuCard";
@@ -7,10 +8,28 @@ import { RestaurantCard } from "@/components/RestaurantCard";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { CitySelectorSimple } from "@/components/CitySelectorSimple";
 import { useCityContext } from "@/contexts/CityContext";
+import { toast } from "sonner";
 
 const Index = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { selectedCity, setSelectedCity } = useCityContext();
+
+  useEffect(() => {
+    // Проверяем, пришли ли мы сюда после успешной отправки заявки на вакансию
+    if (searchParams.get('jobApplicationSent') === 'true') {
+      // Добавляем небольшую задержку, чтобы страница полностью загрузилась
+      setTimeout(() => {
+        toast.success("Заявка успешно отправлена! Мы рассмотрим вашу заявку и свяжемся с вами в ближайшее время.", {
+          duration: 3000,
+        });
+      }, 100);
+      
+      // Убираем параметр из URL, чтобы уведомление не показывалось повторно
+      searchParams.delete('jobApplicationSent');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   return (
     <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col">
