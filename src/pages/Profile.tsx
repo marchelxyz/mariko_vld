@@ -33,7 +33,7 @@ const Profile = () => {
             />
             <div className="flex-1">
               <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold tracking-tight">
-                Генацвале!
+                Сердечно встречаем тебя, генацвале!
               </h2>
               <p className="text-white/80 font-el-messiri text-lg mt-1">
                 {profile.name}
