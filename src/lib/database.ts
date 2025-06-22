@@ -228,7 +228,7 @@ class ProfileDatabase {
 
     const newProfile: UserProfile = {
       id: this.generateId(),
-      name: "Новый пользователь",
+      name: "",
       phone: "",
       birthDate: "",
       gender: "Не указан",

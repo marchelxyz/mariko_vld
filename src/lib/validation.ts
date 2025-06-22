@@ -125,10 +125,21 @@ export const validateDate = (date: string): { isValid: boolean; error?: string }
     return { isValid: false, error: 'Указанная дата не существует' };
   }
   
-  // Проверяем разумные границы
+  // Проверяем что год только текущий или следующий
   const currentYear = new Date().getFullYear();
-  if (year < 1900 || year > currentYear + 1) {
-    return { isValid: false, error: 'Год должен быть от 1900 до текущего года' };
+  if (year < currentYear || year > currentYear + 1) {
+    return { isValid: false, error: `Год должен быть ${currentYear} или ${currentYear + 1}` };
+  }
+  
+  // Проверяем что дата не в прошлом (только для текущего года)
+  if (year === currentYear) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Обнуляем время для корректного сравнения
+    const inputDate = new Date(year, month - 1, day);
+    
+    if (inputDate < today) {
+      return { isValid: false, error: 'Нельзя забронировать столик на прошедшую дату' };
+    }
   }
   
   return { isValid: true };
