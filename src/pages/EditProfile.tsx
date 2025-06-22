@@ -46,14 +46,7 @@ const EditProfile = () => {
     "+998": { length: 9, format: "(XX) XXX-XX-XX" }, // Узбекистан
   };
 
-  // Функция для генерации приветствия в зависимости от пола
-  const getGreeting = () => {
-    if (profile.gender === "Женский") {
-      return "Гостья наша Дорогая!";
-    }
-    // По умолчанию мужской род (включая "Не указан" и пустые значения)
-    return "Гость наш Дорогой!";
-  };
+
 
   const handleEdit = (field: string) => {
     setEditingField(field);
@@ -339,7 +332,7 @@ const EditProfile = () => {
             />
             <div className="flex-1">
               <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold tracking-tight">
-                {getGreeting()}
+                Генацвале!
               </h2>
               <p className="text-white/70 font-el-messiri text-sm md:text-base mt-1">
                 Нажмите на фото для изменения
@@ -492,7 +485,7 @@ const EditProfile = () => {
           >
             <div className="absolute inset-0 flex items-center justify-center px-6 py-4">
               <p className="text-mariko-secondary font-el-messiri text-base md:text-lg font-semibold leading-tight text-center">
-                Ты всегда можешь изменить данные, {profile.gender === "Женский" ? "Дорогая" : "Дорогой"}!
+                Ты всегда можешь изменить данные, Генацвале!
               </p>
             </div>
           </div>

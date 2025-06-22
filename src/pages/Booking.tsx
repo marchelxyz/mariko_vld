@@ -492,7 +492,7 @@ const Booking = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, comment: e.target.value })
                 }
-                placeholder="Генацвале, устраиваете Супру? Расскажите о вашем празднике - мы накроем стол, достойный самого Тамада!"
+                placeholder="Генацвале, устраиваете супру? Расскажите о вашем празднике - мы накроем стол, достойный самого Тамада!"
                 className="w-full bg-white/5 text-white placeholder-white/50 border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-lg transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10 resize-none min-h-[100px]"
                 maxLength={500}
                 rows={4}
