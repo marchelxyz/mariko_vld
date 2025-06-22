@@ -14,6 +14,20 @@ export interface BookingEmailData {
 }
 
 /**
+ * Интерфейс для данных заявки на вакансию для отправки email
+ */
+export interface JobApplicationEmailData {
+  name: string;
+  desiredCity: string;
+  restaurant: string;
+  age: number;
+  position: string;
+  experience: string;
+  phone: string;
+  email: string;
+}
+
+/**
  * Конфигурация EmailJS
  * Использует переменные окружения или реальные значения
  */
@@ -73,6 +87,57 @@ ${bookingData.comment || 'Комментарий не указан'}
     };
   } catch (error) {
     console.error('Ошибка отправки email:', error);
+    
+    return {
+      success: false,
+      error: 'Не удалось отправить заявку на email. Попробуйте еще раз.'
+    };
+  }
+}
+
+/**
+ * Отправка email с заявкой на вакансию
+ */
+export async function sendJobApplicationEmail(jobData: JobApplicationEmailData): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Подготавливаем данные для шаблона
+    const applicationId = `JA${Date.now()}`;
+    const templateParams = {
+      name: jobData.name,
+      email: EMAIL_CONFIG.recipientEmail,
+      title: `Новая заявка на вакансию №${applicationId}`,
+      message: `
+💼 ЗАЯВКА НА ВАКАНСИЮ:
+
+• ID заявки: ${applicationId}
+• Кандидат: ${jobData.name}
+• Желаемый город работы: ${jobData.desiredCity}
+• Адрес ресторана: ${jobData.restaurant}
+• Возраст: ${jobData.age} лет
+• Желаемая должность: ${jobData.position}
+• Телефон: ${jobData.phone}
+• Email: ${jobData.email}
+
+📝 Опыт работы:
+${jobData.experience}
+
+---
+Пожалуйста, свяжитесь с кандидатом для собеседования.
+      `.trim()
+    };
+
+    // Отправляем email
+    const response = await emailjs.send(
+      EMAIL_CONFIG.serviceId,
+      EMAIL_CONFIG.templateId,
+      templateParams
+    );
+    
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('Ошибка отправки заявки на вакансию:', error);
     
     return {
       success: false,

@@ -61,12 +61,7 @@ const Index = () => {
             title="Вакансии"
             backgroundColor="#DB7B28"
             className="rounded-[40px] md:rounded-[80px]"
-            onClick={() =>
-              window.open(
-                "https://hh.ru/search/vacancy?text=хачапури+марико",
-                "_blank",
-              )
-            }
+            onClick={() => navigate("/job-application")}
           />
         </div>
 

@@ -17,6 +17,7 @@ const Promotions = lazy(() => import("./pages/Promotions"));
 const Review = lazy(() => import("./pages/Review"));
 const SelectRestaurantForReview = lazy(() => import("./pages/SelectRestaurantForReview"));
 const MenuSelection = lazy(() => import("./pages/MenuSelection"));
+const JobApplication = lazy(() => import("./pages/JobApplication"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Create a query client
@@ -57,6 +58,7 @@ function App() {
                 <Route path="/review" element={<Review />} />
                 <Route path="/select-restaurant-review" element={<SelectRestaurantForReview />} />
                 <Route path="/menu" element={<MenuSelection />} />
+                <Route path="/job-application" element={<JobApplication />} />
                 {/* Catch-all route for 404 */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
