@@ -68,7 +68,7 @@ const Review = () => {
           birthDate: "",
           gender: "Не указан",
           photo: "",
-          bonusPoints: 0,
+
           notificationsEnabled: true,
           selectedRestaurant: "",
           createdAt: new Date().toISOString(),

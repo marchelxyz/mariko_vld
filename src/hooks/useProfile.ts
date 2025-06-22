@@ -8,7 +8,6 @@ export interface UserProfile {
   birthDate: string;
   gender: string;
   photo: string;
-  bonusPoints: number;
   notificationsEnabled: boolean;
   selectedRestaurant: string;
 }
@@ -20,7 +19,6 @@ const defaultProfile: UserProfile = {
   birthDate: "01.01.2000",
   gender: "Не указан",
   photo: "",
-  bonusPoints: 0,
   notificationsEnabled: true,
   selectedRestaurant: "Нижний Новгород, Рождественская, 39",
 };

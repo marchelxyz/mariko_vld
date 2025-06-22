@@ -10,7 +10,6 @@ export interface UserProfile {
   birthDate: string;
   gender: string;
   photo: string;
-  bonusPoints: number;
   notificationsEnabled: boolean;
   selectedRestaurant: string;
 }
@@ -92,8 +91,7 @@ export const botApi = {
             : "Новый пользователь",
           phone: "",
           birthDate: "",
-          gender: "Не указан",
-          bonusPoints: 0, // Изначально баланс 0
+          gender: "Не указан"
         });
 
         // Логируем первый вход (без больших данных)
@@ -106,14 +104,13 @@ export const botApi = {
       // Конвертируем в нужный формат
       return {
         id: profile.id,
-        name: profile.name,
-        phone: profile.phone,
-        birthDate: profile.birthDate,
-        gender: profile.gender,
-        photo: profile.photo,
-        bonusPoints: profile.bonusPoints,
-        notificationsEnabled: profile.notificationsEnabled,
-        selectedRestaurant: profile.selectedRestaurant,
+              name: profile.name,
+      phone: profile.phone,
+      birthDate: profile.birthDate,
+      gender: profile.gender,
+      photo: profile.photo,
+      notificationsEnabled: profile.notificationsEnabled,
+      selectedRestaurant: profile.selectedRestaurant,
       };
     } catch (error) {
       console.error("Ошибка получения профиля:", error);
@@ -126,7 +123,6 @@ export const botApi = {
         birthDate: "",
         gender: "Не указан",
         photo: "",
-        bonusPoints: 0,
         notificationsEnabled: true,
         selectedRestaurant: "Нижний Новгород, Рождественская, 39",
       };
@@ -250,19 +246,7 @@ export const botApi = {
     return true;
   },
 
-  // Получение бонусной карты
-  async getBonusCard(telegramUserId: string): Promise<{
-    cardNumber: string;
-    bonusPoints: number;
-    barcode: string;
-  }> {
-    // В реальной интеграции будет запрос к системе лояльности
-    return {
-      cardNumber: "640509 040147",
-      bonusPoints: 0,
-      barcode: "640509040147", // Для генерации QR/штрих-кода
-    };
-  },
+
 
   // Получение списка ресторанов по городу
   async getRestaurantsByCity(city?: string): Promise<any[]> {

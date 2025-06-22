@@ -9,7 +9,6 @@ export interface UserProfile {
   birthDate: string;
   gender: string;
   photo: string;
-  bonusPoints: number;
   notificationsEnabled: boolean;
   selectedRestaurant: string;
   createdAt: string;
@@ -234,7 +233,7 @@ class ProfileDatabase {
       birthDate: "",
       gender: "Не указан",
       photo: "",
-      bonusPoints: 0,
+
       notificationsEnabled: true,
       selectedRestaurant: "Нижний Новгород, Рождественская, 39",
       createdAt: now,
@@ -336,7 +335,7 @@ class ProfileDatabase {
       totalUsers: profiles.length,
       activeThisWeek: profiles.filter((p) => new Date(p.lastLogin) > weekAgo)
         .length,
-      totalBonusPoints: profiles.reduce((sum, p) => sum + p.bonusPoints, 0),
+
       genderDistribution: {
         male: profiles.filter((p) => p.gender === "Мужской").length,
         female: profiles.filter((p) => p.gender === "Женский").length,
@@ -659,7 +658,6 @@ class ProfileDatabase {
             birthDate: profile.birthDate,
             gender: profile.gender,
             photo: profile.photo.includes("TEMP") ? "" : profile.photo, // Убираем большие изображения
-            bonusPoints: profile.bonusPoints,
             notificationsEnabled: profile.notificationsEnabled,
             selectedRestaurant: profile.selectedRestaurant,
             createdAt: profile.createdAt,
@@ -728,7 +726,6 @@ class ProfileDatabase {
             birthDate: profile.birthDate,
             gender: profile.gender,
             photo: profile.photo.includes("TEMP") ? "" : profile.photo, // Убираем большие изображения
-            bonusPoints: profile.bonusPoints,
             notificationsEnabled: profile.notificationsEnabled,
             selectedRestaurant: profile.selectedRestaurant,
             createdAt: profile.createdAt,
@@ -813,7 +810,12 @@ class ProfileDatabase {
         )
         .slice(0, 20)
         .map((profile) => ({
-          ...profile,
+          id: profile.id,
+          telegramId: profile.telegramId,
+          name: profile.name,
+          phone: profile.phone,
+          birthDate: profile.birthDate,
+          gender: profile.gender,
           photo: profile.photo.includes("TEMP") ? "" : profile.photo, // Убираем тяжелые изображения
         }));
 
@@ -953,7 +955,7 @@ export const sqlSchemas = {
       birth_date VARCHAR(10),
       gender VARCHAR(20),
       photo TEXT,
-      bonus_points INTEGER DEFAULT 0,
+
       notifications_enabled BOOLEAN DEFAULT true,
       selected_restaurant VARCHAR(255),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

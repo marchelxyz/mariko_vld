@@ -4,14 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { ActionButton } from "@/components/ActionButton";
 import { BottomNavigation } from "@/components/BottomNavigation";
-import { BarcodeModal } from "@/components/BarcodeModal";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { PageHeader } from "@/components/PageHeader";
 import { useProfile } from "@/hooks/useProfile";
 
 const Profile = () => {
   const navigate = useNavigate();
-  const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
   const { profile, loading } = useProfile();
 
 
@@ -47,18 +45,6 @@ const Profile = () => {
         {/* Profile Action Buttons */}
         <div className="mt-6 md:mt-8 space-y-3 md:space-y-6">
           <ActionButton
-            icon={<img src="/images/action button/Ruble.png" alt="Balance" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
-            title={`Баланс: ${profile.bonusPoints || 0}`}
-                          onClick={() => {/* Баланс - функционал в разработке */}}
-          />
-
-          <ActionButton
-            icon={<img src="/images/action button/Magnetic Card.png" alt="Bonus Card" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
-            title="Бонус-карта"
-            onClick={() => setIsBarcodeModalOpen(true)}
-          />
-
-          <ActionButton
             icon={<img src="/images/action button/Male User.png" alt="Profile" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
             title="Редактирование профиля"
             onClick={() => navigate("/edit-profile")}
@@ -84,13 +70,6 @@ const Profile = () => {
       <div className="relative z-20">
         <BottomNavigation currentPage="profile" />
       </div>
-
-      {/* Barcode Modal */}
-      <BarcodeModal
-        isOpen={isBarcodeModalOpen}
-        onClose={() => setIsBarcodeModalOpen(false)}
-        cardNumber="640509 040147"
-      />
     </div>
   );
 };
