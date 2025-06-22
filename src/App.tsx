@@ -7,19 +7,19 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { CityProvider } from "@/contexts/CityContext";
 
 // Lazy load pages for better code splitting
-const Index = lazy(() => import("./pages/Index"));
-const Profile = lazy(() => import("./pages/Profile"));
-const EditProfile = lazy(() => import("./pages/EditProfile"));
+const Index = lazy(() => import("./features/home"));
+const Profile = lazy(() => import("./features/profile"));
+const EditProfile = lazy(() => import("./features/profile/edit"));
 
-const Restaurants = lazy(() => import("./pages/Restaurants"));
-const Booking = lazy(() => import("./pages/Booking"));
-const Delivery = lazy(() => import("./pages/Delivery"));
-const Promotions = lazy(() => import("./pages/Promotions"));
-const Review = lazy(() => import("./pages/Review"));
-const SelectRestaurantForReview = lazy(() => import("./pages/SelectRestaurantForReview"));
-const MenuSelection = lazy(() => import("./pages/MenuSelection"));
-const JobApplication = lazy(() => import("./pages/JobApplication"));
-const NotFound = lazy(() => import("./pages/NotFound"));
+const Restaurants = lazy(() => import("./features/restaurants"));
+const Booking = lazy(() => import("./features/booking"));
+const Delivery = lazy(() => import("./features/delivery"));
+const Promotions = lazy(() => import("./features/promotions"));
+const Review = lazy(() => import("./features/review"));
+const SelectRestaurantForReview = lazy(() => import("./features/review/selectRestaurant"));
+const MenuSelection = lazy(() => import("./features/menu"));
+const JobApplication = lazy(() => import("./features/jobApplication"));
+const NotFound = lazy(() => import("./features/notFound"));
 
 // Create a query client
 const queryClient = new QueryClient({
