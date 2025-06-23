@@ -22,7 +22,7 @@ interface Restaurant {
 
 const Restaurants = () => {
   const navigate = useNavigate();
-  const { restaurantId } = useParams();
+  const { id: restaurantId } = useParams();
   const [searchQuery, setSearchQuery] = useState("");
   const { selectedCity, setSelectedCity } = useCityContext();
 

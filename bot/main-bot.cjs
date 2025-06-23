@@ -2,8 +2,8 @@ const TelegramBot = require('node-telegram-bot-api');
 require('dotenv').config();
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
-// Используем актуальный URL от Cloudflare tunnel
-const WEBAPP_URL = "https://cams-direct-santa-jesus.trycloudflare.com";
+// Используем URL из переменных окружения с fallback
+const WEBAPP_URL = process.env.WEBAPP_URL || "https://ineedaglokk.ru";
 
 // 🔒 БЕЗОПАСНОСТЬ: Функция для маскировки токена в логах
 const maskToken = (token) => {
