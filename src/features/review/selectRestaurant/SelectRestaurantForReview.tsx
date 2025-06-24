@@ -3,7 +3,7 @@ import { MapPin, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
-import { PageHeader } from "@/components/PageHeader";
+import { PageHeader } from "@widgets/pageHeader";
 import { useCityContext } from "@/contexts/CityContext";
 
 const SelectRestaurantForReview = () => {

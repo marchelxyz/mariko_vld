@@ -6,7 +6,7 @@ import { ActionButton } from "@/components/ActionButton";
 import { MenuCard } from "@/components/MenuCard";
 import { RestaurantCard } from "@entities/restaurant";
 import { BottomNavigation } from "@widgets/bottomNavigation";
-import { CitySelectorSimple } from "@/components/CitySelectorSimple";
+import { CitySelectorSimple } from "@widgets/header";
 import { useCityContext } from "@/contexts/CityContext";
 import { toast } from "sonner";
 

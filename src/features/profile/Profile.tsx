@@ -5,7 +5,7 @@ import { Header } from "@widgets/header";
 import { ActionButton } from "@/components/ActionButton";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { ProfileAvatar, useProfile } from "@entities/user";
-import { PageHeader } from "@/components/PageHeader";
+import { PageHeader } from "@widgets/pageHeader";
 
 const Profile = () => {
   const navigate = useNavigate();

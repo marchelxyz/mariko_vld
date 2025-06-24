@@ -5,7 +5,7 @@ import { Header } from "@widgets/header";
 import { EditableField } from "@/components/EditableField";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { ProfileAvatar } from "@entities/user";
-import { PageHeader } from "@/components/PageHeader";
+import { PageHeader } from "@widgets/pageHeader";
 import { Button, Input, Label } from "@shared/ui";
 import { useToast } from "@/hooks/use-toast";
 import { useProfile } from "@entities/user";

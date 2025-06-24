@@ -1,7 +1,7 @@
 import { Header } from "@widgets/header";
 import { PromotionCard } from "@/components/PromotionCard";
 import { BottomNavigation } from "@widgets/bottomNavigation";
-import { PageHeader } from "@/components/PageHeader";
+import { PageHeader } from "@widgets/pageHeader";
 
 const Promotions = () => {
   const promotions = [

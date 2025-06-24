@@ -5,7 +5,7 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-import { cities, type City } from "@/components/CitySelector";
+import { cities, type City } from "@/shared/data/cities";
 
 interface CityContextType {
   selectedCity: City;

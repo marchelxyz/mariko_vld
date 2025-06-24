@@ -7,11 +7,11 @@ import { useNavigate } from "react-router-dom";
 
 import { initEmailService, sendJobApplicationEmail, type JobApplicationEmailData } from "@/lib/emailService";
 import { useCityContext } from "@/contexts/CityContext";
-import { cities } from "@/components/CitySelector";
+import { cities } from "@/shared/data/cities";
 
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
-import { PageHeader } from "@/components/PageHeader";
+import { PageHeader } from "@widgets/pageHeader";
 import {
   Button,
   Input,

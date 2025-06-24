@@ -3,9 +3,10 @@ import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
-import { PageHeader } from "@/components/PageHeader";
+import { PageHeader } from "@widgets/pageHeader";
 import { MenuCard } from "@/components/MenuCard";
-import { CitySelector, cities, type City, type Restaurant } from "@/components/CitySelector";
+import { CitySelector } from "@/components/CitySelector";
+import { cities, type City, type Restaurant } from "@/shared/data/cities";
 import { useCityContext } from "@/contexts/CityContext";
 
 interface MenuOption {

@@ -2,7 +2,7 @@ import { CircleDot } from "lucide-react";
 import { Header } from "@widgets/header";
 import { ActionButton } from "@/components/ActionButton";
 import { BottomNavigation } from "@widgets/bottomNavigation";
-import { PageHeader } from "@/components/PageHeader";
+import { PageHeader } from "@widgets/pageHeader";
 import { useCityContext } from "@/contexts/CityContext";
 
 const Delivery = () => {
