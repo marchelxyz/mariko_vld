@@ -28,15 +28,27 @@ export interface JobApplicationEmailData {
 }
 
 /**
- * Конфигурация EmailJS
- * Использует переменные окружения или реальные значения
+ * Конфигурация EmailJS из переменных окружения.
+ * Если хотя бы одна из переменных не определена — бросаем ошибку на раннем этапе,
+ * чтобы не допустить выхода приложения с «пустыми» ключами.
  */
-const EMAIL_CONFIG = {
-  serviceId: import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_ih6l18j',
-  templateId: import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'template_bp5xfpa', 
-  publicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'vjZnlDWh75MlJ7Mt6',
-  recipientEmail: import.meta.env.VITE_RESTAURANT_EMAIL || 'eletskiy27@gmail.com'
-};
+const EMAIL_CONFIG = (() => {
+  const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+  const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+  const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+  const recipientEmail = import.meta.env.VITE_RESTAURANT_EMAIL;
+
+  if (!serviceId || !templateId || !publicKey || !recipientEmail) {
+    throw new Error('[Email] Отсутствуют обязательные переменные окружения для EmailJS. Проверьте файл .env');
+  }
+
+  return {
+    serviceId,
+    templateId,
+    publicKey,
+    recipientEmail
+  } as const;
+})();
 
 /**
  * Инициализация EmailJS

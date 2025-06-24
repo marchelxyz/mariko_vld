@@ -22,8 +22,30 @@ npm run build
 echo "🚀 2. Деплоим фронтенд на сервер..."
 rsync -avz --delete dist/ $SERVER:$WEB_DIR/
 
-# 3. ПОДГОТОВКА БОТА
-echo "🤖 3. Подготавливаем бота с постоянным доменом..."
+# 3. ОЧИСТКА КЕША CLOUDFLARE
+if [[ -n "$CLOUDFLARE_API_TOKEN" && -n "$CLOUDFLARE_ZONE_ID" ]]; then
+  echo "🧹 3. Очищаем кеш Cloudflare..."
+  # По умолчанию очищаем index.html и манифест статики. При необходимости можно расширить список.
+  purge_payload=$(cat <<EOF
+{
+  "files": [
+    "$DOMAIN/index.html",
+    "$DOMAIN"
+  ]
+}
+EOF
+)
+  curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/purge_cache" \
+       -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+       -H "Content-Type: application/json" \
+       --data "$purge_payload" | grep -q '"success":true' && \
+       echo "✅ Кеш Cloudflare очищен" || echo "⚠️  Не удалось очистить кеш Cloudflare" 
+else
+  echo "⚠️  CLOUDFLARE_API_TOKEN или CLOUDFLARE_ZONE_ID не заданы. Пропускаем очистку кеша Cloudflare."
+fi
+
+# 4. ПОДГОТОВКА БОТА
+echo "🤖 4. Подготавливаем бота с постоянным доменом..."
 
 # Создаем .env файл для бота с постоянным URL
 cat > bot/.env << EOF
@@ -34,8 +56,8 @@ EOF
 
 echo "✅ Конфигурация бота создана с URL: $DOMAIN"
 
-# 4. ДЕПЛОЙ БОТА
-echo "🚀 4. Деплоим бота на сервер..."
+# 5. ДЕПЛОЙ БОТА
+echo "🚀 5. Деплоим бота на сервер..."
 
 # Останавливаем бот
 ssh $SERVER "pm2 stop hachapuri-bot 2>/dev/null || true"
@@ -49,16 +71,16 @@ scp bot/main-bot.cjs bot/package.json bot/.env $SERVER:$BOT_DIR/
 # Обновляем зависимости
 ssh $SERVER "cd $BOT_DIR && npm install"
 
-# 5. ЗАПУСК БОТА
-echo "▶️  5. Запускаем бота..."
+# 6. ЗАПУСК БОТА
+echo "▶️  6. Запускаем бота..."
 ssh $SERVER "cd $BOT_DIR && pm2 start main-bot.cjs --name hachapuri-bot || pm2 restart hachapuri-bot"
 
-# 6. НАСТРОЙКА АВТОЗАПУСКА
-echo "⚙️  6. Настраиваем автозапуск..."
+# 7. НАСТРОЙКА АВТОЗАПУСКА
+echo "⚙️  7. Настраиваем автозапуск..."
 ssh $SERVER "pm2 save && pm2 startup systemd -u root --hp /root 2>/dev/null || true"
 
-# 7. ПРОВЕРКА СТАТУСА
-echo "✅ 7. Проверяем статус..."
+# 8. ПРОВЕРКА СТАТУСА
+echo "✅ 8. Проверяем статус..."
 echo ""
 echo "📊 Статус PM2:"
 ssh $SERVER "pm2 list"
@@ -67,7 +89,7 @@ echo "🌐 URL приложения: $DOMAIN"
 echo "🤖 Бот: @HachapuriMarico_BOT"
 echo ""
 
-# 8. ПОКАЗ ЛОГОВ
+# 9. ПОКАЗ ЛОГОВ
 echo "📋 Логи бота (последние 5 строк):"
 ssh $SERVER "pm2 logs hachapuri-bot --lines 5 --nostream 2>/dev/null || echo 'Логи пока недоступны'"
 
