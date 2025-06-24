@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
-import { telegramWebApp } from "@/lib/botApi";
+import { telegramWebApp } from "@/services/botApi";
 
 interface Props {
   children: ReactNode;

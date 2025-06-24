@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { Camera, X, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Header } from "@/components/Header";
+import { Header } from "@widgets/header";
 import { EditableField } from "@/components/EditableField";
-import { BottomNavigation } from "@/components/BottomNavigation";
+import { BottomNavigation } from "@widgets/bottomNavigation";
 import { ProfileAvatar } from "@entities/user";
 import { PageHeader } from "@/components/PageHeader";
 import { Button, Input, Label } from "@shared/ui";

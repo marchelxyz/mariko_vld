@@ -16,6 +16,8 @@ export default defineConfig(({ mode }) => ({
       "@shared/ui": path.resolve(__dirname, "./src/shared/ui/ui"),
       "@shared": path.resolve(__dirname, "./src/shared"),
       "@entities": path.resolve(__dirname, "./src/entities"),
+      "@widgets": path.resolve(__dirname, "./src/widgets"),
+      "@features": path.resolve(__dirname, "./src/features"),
       "@radix-ui/react-dialog": "@radix-ui/react-dialog",
       "lucide-react": "lucide-react",
     },

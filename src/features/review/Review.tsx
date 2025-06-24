@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Star, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Header } from "@/components/Header";
-import { BottomNavigation } from "@/components/BottomNavigation";
+import { Header } from "@widgets/header";
+import { BottomNavigation } from "@widgets/bottomNavigation";
 import { useCityContext } from "@/contexts/CityContext";
-import { botApi } from "@/lib/botApi";
+import { botApi } from "@/services/botApi";
 import { profileDB } from "@/lib/database";
 import { validateReviewForm, sanitizeText } from "@/lib/validation";
 

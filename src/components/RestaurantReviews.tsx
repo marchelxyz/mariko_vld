@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Star, MessageCircle, User } from "lucide-react";
-import { botApi } from "@/lib/botApi";
+import { botApi } from "@/services/botApi";
 import { Review } from "@/lib/database";
 
 interface RestaurantReviewsProps {

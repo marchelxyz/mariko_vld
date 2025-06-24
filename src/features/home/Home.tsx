@@ -1,11 +1,11 @@
 import { ChefHat } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
-import { Header } from "@/components/Header";
+import { Header } from "@widgets/header";
 import { ActionButton } from "@/components/ActionButton";
 import { MenuCard } from "@/components/MenuCard";
 import { RestaurantCard } from "@entities/restaurant";
-import { BottomNavigation } from "@/components/BottomNavigation";
+import { BottomNavigation } from "@widgets/bottomNavigation";
 import { CitySelectorSimple } from "@/components/CitySelectorSimple";
 import { useCityContext } from "@/contexts/CityContext";
 import { toast } from "sonner";

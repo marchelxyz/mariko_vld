@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, MapPin, Calendar, Clock, Users, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Header } from "@/components/Header";
-import { BottomNavigation } from "@/components/BottomNavigation";
-import { botApi, telegramWebApp } from "@/lib/botApi";
+import { Header } from "@widgets/header";
+import { BottomNavigation } from "@widgets/bottomNavigation";
+import { botApi, telegramWebApp } from "@/services/botApi";
 import { useCityContext } from "@/contexts/CityContext";
 import { useProfile } from "@entities/user";
 import { Button, Input } from "@shared/ui";

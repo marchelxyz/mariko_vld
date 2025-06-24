@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Header } from "@/components/Header";
-import { BottomNavigation } from "@/components/BottomNavigation";
+import { Header } from "@widgets/header";
+import { BottomNavigation } from "@widgets/bottomNavigation";
 import { PageHeader } from "@/components/PageHeader";
 import { MenuCard } from "@/components/MenuCard";
 import { CitySelector, cities, type City, type Restaurant } from "@/components/CitySelector";

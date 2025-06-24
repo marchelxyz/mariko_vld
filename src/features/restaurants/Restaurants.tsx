@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, MapPin, Car, Star, Search } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Header } from "@/components/Header";
-import { BottomNavigation } from "@/components/BottomNavigation";
+import { Header } from "@widgets/header";
+import { BottomNavigation } from "@widgets/bottomNavigation";
 import { CitySelector, cities } from "@/components/CitySelector";
 import { useCityContext } from "@/contexts/CityContext";
 import { RestaurantReviews } from "@entities/restaurant";

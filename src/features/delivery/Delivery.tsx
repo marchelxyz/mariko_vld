@@ -1,7 +1,7 @@
 import { CircleDot } from "lucide-react";
-import { Header } from "@/components/Header";
+import { Header } from "@widgets/header";
 import { ActionButton } from "@/components/ActionButton";
-import { BottomNavigation } from "@/components/BottomNavigation";
+import { BottomNavigation } from "@widgets/bottomNavigation";
 import { PageHeader } from "@/components/PageHeader";
 import { useCityContext } from "@/contexts/CityContext";
 

@@ -9,8 +9,8 @@ import { initEmailService, sendJobApplicationEmail, type JobApplicationEmailData
 import { useCityContext } from "@/contexts/CityContext";
 import { cities } from "@/components/CitySelector";
 
-import { Header } from "@/components/Header";
-import { BottomNavigation } from "@/components/BottomNavigation";
+import { Header } from "@widgets/header";
+import { BottomNavigation } from "@widgets/bottomNavigation";
 import { PageHeader } from "@/components/PageHeader";
 import {
   Button,

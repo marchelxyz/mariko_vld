@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { botApi } from "@/lib/botApi";
+import { botApi } from "@/services/botApi";
 
 export interface UserProfile {
   id: string;
