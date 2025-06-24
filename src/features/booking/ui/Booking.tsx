@@ -10,6 +10,7 @@ import { Button, Input } from "@shared/ui";
 import { validateBookingForm, sanitizeText } from "@/lib/validation";
 import { initEmailService } from "@/lib/emailService";
 import { BookingNotification, useNotification } from "@/components/BookingNotification";
+import { formatDateInput, formatPhoneDigits, countryPhoneFormats } from "../model/helpers";
 
 const Booking = () => {
   const navigate = useNavigate();
@@ -104,33 +105,6 @@ const Booking = () => {
     "22:00",
   ];
 
-  const formatDateInput = (value: string) => {
-    // Убираем все нецифровые символы
-    const numbers = value.replace(/\D/g, "");
-    
-    // Форматируем как дд.мм.гггг
-    if (numbers.length >= 8) {
-      const year = numbers.slice(4, 8);
-      const currentYear = new Date().getFullYear();
-      
-      // Проверяем год при вводе
-      if (year.length === 4) {
-        const yearNum = parseInt(year);
-        if (yearNum < currentYear || yearNum > currentYear + 1) {
-          // Возвращаем только дату без неправильного года
-          return `${numbers.slice(0, 2)}.${numbers.slice(2, 4)}.${currentYear}`;
-        }
-      }
-      
-      return `${numbers.slice(0, 2)}.${numbers.slice(2, 4)}.${year}`;
-    } else if (numbers.length >= 4) {
-      return `${numbers.slice(0, 2)}.${numbers.slice(2, 4)}.${numbers.slice(4)}`;
-    } else if (numbers.length >= 2) {
-      return `${numbers.slice(0, 2)}.${numbers.slice(2)}`;
-    }
-    return numbers;
-  };
-
   const handleDateEdit = () => {
     setIsEditingDate(true);
     setEditDateValue(formData.date);
@@ -149,60 +123,6 @@ const Booking = () => {
   const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatDateInput(e.target.value);
     setEditDateValue(formatted);
-  };
-
-  const countryPhoneFormats = {
-    "+7": { length: 10, format: "(XXX) XXX-XX-XX" }, // Россия/Казахстан
-    "+375": { length: 9, format: "(XX) XXX-XX-XX" }, // Беларусь
-    "+380": { length: 9, format: "(XX) XXX-XX-XX" }, // Украина
-    "+994": { length: 9, format: "(XX) XXX-XX-XX" }, // Азербайджан
-    "+374": { length: 8, format: "(XX) XXX-XXX" }, // Армения
-    "+995": { length: 9, format: "(XX) XXX-XX-XX" }, // Грузия
-    "+996": { length: 9, format: "(XXX) XX-XX-XX" }, // Кыргызстан
-    "+373": { length: 8, format: "(XX) XXX-XXX" }, // Молдова
-    "+992": { length: 9, format: "(XX) XXX-XX-XX" }, // Таджикистан
-    "+993": { length: 8, format: "(XX) XXX-XXX" }, // Туркменистан
-    "+998": { length: 9, format: "(XX) XXX-XX-XX" }, // Узбекистан
-  };
-
-  const formatPhoneDigits = (digits: string, countryCode: string) => {
-    // Убираем все нецифровые символы
-    const cleanDigits = digits.replace(/\D/g, "");
-    
-    // Получаем формат для выбранной страны
-    const phoneFormat = countryPhoneFormats[countryCode];
-    if (!phoneFormat) return cleanDigits;
-    
-    // Ограничиваем длину
-    const limitedDigits = cleanDigits.slice(0, phoneFormat.length);
-    
-    // Форматируем в зависимости от кода страны
-    if (countryCode === "+7") {
-      // Россия/Казахстан: (XXX) XXX-XX-XX
-      if (limitedDigits.length <= 3) return `(${limitedDigits}`;
-      if (limitedDigits.length <= 6) return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3)}`;
-      if (limitedDigits.length <= 8) return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3, 6)}-${limitedDigits.slice(6)}`;
-      return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3, 6)}-${limitedDigits.slice(6, 8)}-${limitedDigits.slice(8)}`;
-    } else if (["+375", "+380", "+994", "+995", "+992", "+998"].includes(countryCode)) {
-      // Формат: (XX) XXX-XX-XX
-      if (limitedDigits.length <= 2) return `(${limitedDigits}`;
-      if (limitedDigits.length <= 5) return `(${limitedDigits.slice(0, 2)}) ${limitedDigits.slice(2)}`;
-      if (limitedDigits.length <= 7) return `(${limitedDigits.slice(0, 2)}) ${limitedDigits.slice(2, 5)}-${limitedDigits.slice(5)}`;
-      return `(${limitedDigits.slice(0, 2)}) ${limitedDigits.slice(2, 5)}-${limitedDigits.slice(5, 7)}-${limitedDigits.slice(7)}`;
-    } else if (["+374", "+373", "+993"].includes(countryCode)) {
-      // Формат: (XX) XXX-XXX
-      if (limitedDigits.length <= 2) return `(${limitedDigits}`;
-      if (limitedDigits.length <= 5) return `(${limitedDigits.slice(0, 2)}) ${limitedDigits.slice(2)}`;
-      return `(${limitedDigits.slice(0, 2)}) ${limitedDigits.slice(2, 5)}-${limitedDigits.slice(5)}`;
-    } else if (countryCode === "+996") {
-      // Кыргызстан: (XXX) XX-XX-XX
-      if (limitedDigits.length <= 3) return `(${limitedDigits}`;
-      if (limitedDigits.length <= 5) return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3)}`;
-      if (limitedDigits.length <= 7) return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3, 5)}-${limitedDigits.slice(5)}`;
-      return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3, 5)}-${limitedDigits.slice(5, 7)}-${limitedDigits.slice(7)}`;
-    }
-    
-    return limitedDigits;
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
