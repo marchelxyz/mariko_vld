@@ -3,7 +3,7 @@ import { TooltipProvider } from "@shared/ui/tooltip";
 import { Toaster } from "@shared/ui/toaster";
 import { Toaster as SonnerToaster } from "@shared/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HashRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { CityProvider } from "@/contexts/CityContext";
 
 // Lazy load pages for better code splitting
@@ -44,7 +44,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <CityProvider>
-          <HashRouter>
+          <BrowserRouter>
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<Index />} />
@@ -64,7 +64,7 @@ function App() {
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
-          </HashRouter>
+          </BrowserRouter>
           <Toaster />
           <SonnerToaster />
         </CityProvider>
