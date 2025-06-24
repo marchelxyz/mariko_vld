@@ -13,6 +13,10 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@shared/ui": path.resolve(__dirname, "./src/shared/ui/ui"),
+      "@shared": path.resolve(__dirname, "./src/shared"),
+      "@radix-ui/react-dialog": "@radix-ui/react-dialog",
+      "lucide-react": "lucide-react",
     },
   },
   build: {

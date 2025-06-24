@@ -6,9 +6,7 @@ import { EditableField } from "@/components/EditableField";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { PageHeader } from "@/components/PageHeader";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button, Input, Label } from "@shared/ui";
 import { useToast } from "@/hooks/use-toast";
 import { useProfile } from "@/hooks/useProfile";
 

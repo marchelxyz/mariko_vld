@@ -1,7 +1,7 @@
 import { Suspense, lazy } from "react";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as SonnerToaster } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@shared/ui/tooltip";
+import { Toaster } from "@shared/ui/toaster";
+import { Toaster as SonnerToaster } from "@shared/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import { CityProvider } from "@/contexts/CityContext";

@@ -23,7 +23,15 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@app/*": ["./src/app/*"],
+      "@pages/*": ["./src/pages/*"],
+      "@widgets/*": ["./src/widgets/*"],
+      "@entities/*": ["./src/entities/*"],
+      "@features/*": ["./src/features/*"],
+      "@shared/ui": ["./src/shared/ui/ui/index.ts"],
+      "@shared/ui/*": ["./src/shared/ui/ui/*"],
+      "@shared/*": ["./src/shared/*"]
     }
   },
   "include": ["src"]
