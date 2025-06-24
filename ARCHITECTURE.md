@@ -31,7 +31,7 @@ import { Button } from "@shared/ui";
 
 ```
 features/booking/
-  ├─ model/   # zustand / redux slices, react-query hooks
+  ├─ model/   # zustand store, tanstack/react-query hooks
   ├─ api/     # запросы к backend
   ├─ ui/      # dumb-компоненты фичи
   └─ index.ts # публичные экспортируемые элементы

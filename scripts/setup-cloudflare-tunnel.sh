@@ -51,7 +51,7 @@ ssh $SERVER "cloudflared tunnel login"
 # Создаем туннель
 echo ""
 echo "🔧 Создаем именованный туннель '$TUNNEL_NAME'..."
-TUNNEL_ID=$(ssh $SERVER "cloudflared tunnel create $TUNNEL_NAME 2>/dev/null | grep -o '[a-f0-9-]\{36\}' || cloudflared tunnel list | grep '$TUNNEL_NAME' | awk '{print \$1}'")
+TUNNEL_ID=$(ssh $SERVER "cloudflared tunnel create $TUNNEL_NAME 2>/dev/null | grep -o '[a-f0-9-]\{36\}' || cloudflared tunnel list | grep '$TUNNEL_NAME' | awk '{print \$1}')
 
 if [ -z "$TUNNEL_ID" ]; then
     echo "❌ Не удалось создать или найти туннель"
