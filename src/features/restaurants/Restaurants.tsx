@@ -3,7 +3,7 @@ import { ArrowLeft, MapPin, Car, Star, Search } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
-import { CitySelector } from "@/components/CitySelector";
+import { CitySelector } from "@shared/ui";
 import { cities } from "@/shared/data/cities";
 import { useCityContext } from "@/contexts/CityContext";
 import { RestaurantReviews } from "@entities/restaurant";

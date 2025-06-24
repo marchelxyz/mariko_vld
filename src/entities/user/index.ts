@@ -9,5 +9,5 @@ export type { UserProfile, UserActivity } from "@/services/database";
 export { useProfile } from "./model/useProfile";
 
 // UI-компоненты, относящиеся к сущности пользователя
-export { ProfileAvatar } from "@/components/ProfileAvatar";
-export { EditableField } from "@/components/EditableField"; 
+export { ProfileAvatar } from "./ui/ProfileAvatar";
+export { EditableField } from "@shared/ui"; 

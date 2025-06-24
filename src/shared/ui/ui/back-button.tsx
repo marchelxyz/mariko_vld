@@ -13,7 +13,6 @@ export const BackButton = ({ onClick, className = "" }: BackButtonProps) => {
     if (onClick) {
       onClick();
     } else {
-      // По умолчанию возвращаемся на главную страницу
       navigate("/");
     }
   };

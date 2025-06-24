@@ -3,13 +3,13 @@ import { ArrowLeft, MapPin, Calendar, Clock, Users, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
-import { botApi, telegramWebApp } from "@/services/botApi";
+import { botApi, telegramWebApp } from "@shared/api";
 import { useCityContext } from "@/contexts/CityContext";
 import { useProfile } from "@entities/user";
 import { Button, Input } from "@shared/ui";
 import { validateBookingForm, sanitizeText } from "@/lib/validation";
 import { initEmailService } from "@/lib/emailService";
-import { BookingNotification, useNotification } from "@/components/BookingNotification";
+import { BookingNotification, useNotification } from "@shared/ui";
 import { formatDateInput, formatPhoneDigits, countryPhoneFormats } from "../model/helpers";
 
 const Booking = () => {

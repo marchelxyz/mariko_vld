@@ -34,7 +34,7 @@ export const MenuCard = ({
     >
       {/* Background color or image */}
       {backgroundColor ? (
-        <div 
+        <div
           className="absolute inset-0 w-full h-full"
           style={{ backgroundColor }}
         />
@@ -47,17 +47,17 @@ export const MenuCard = ({
             loading={loading}
             className={cn(
               "absolute inset-0 w-full h-full object-cover transition-opacity duration-300",
-              imageLoaded ? "opacity-100" : "opacity-0"
+              imageLoaded ? "opacity-100" : "opacity-0",
             )}
             onLoad={() => setImageLoaded(true)}
             onError={() => setImageError(true)}
           />
-          
+
           {/* Loading placeholder */}
           {!imageLoaded && !imageError && (
             <div className="absolute inset-0 bg-gradient-to-br from-amber-600/20 to-orange-600/20 animate-pulse" />
           )}
-          
+
           {/* Error fallback */}
           {imageError && (
             <div className="absolute inset-0 bg-gradient-to-br from-amber-600/30 to-orange-600/30 flex items-center justify-center">
@@ -68,7 +68,7 @@ export const MenuCard = ({
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-amber-600/20 to-orange-600/20" />
       )}
-      
+
       <div className="absolute bottom-2 md:bottom-4 left-2 right-2 text-center">
         <h3 className="text-white font-el-messiri text-sm md:text-3xl font-bold tracking-tight drop-shadow-lg">
           {title}
@@ -76,4 +76,4 @@ export const MenuCard = ({
       </div>
     </button>
   );
-};
+}; 

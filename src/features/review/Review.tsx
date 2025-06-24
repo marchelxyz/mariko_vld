@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { useCityContext } from "@/contexts/CityContext";
-import { botApi } from "@/services/botApi";
+import { botApi } from "@shared/api";
 import { profileDB } from "@/lib/database";
 import { validateReviewForm, sanitizeText } from "@/lib/validation";
 

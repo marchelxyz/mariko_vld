@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Camera, X, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@widgets/header";
-import { EditableField } from "@/components/EditableField";
+import { EditableField } from "@shared/ui";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { ProfileAvatar } from "@entities/user";
 import { PageHeader } from "@widgets/pageHeader";

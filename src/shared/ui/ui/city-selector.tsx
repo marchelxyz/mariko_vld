@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-import { cities } from "@/shared/data/cities";
-import type { City, Restaurant } from "@/shared/data/cities";
+import { cities, type City } from "@/shared/data/cities";
 
 interface CitySelectorProps {
   selectedCity: City | null;
@@ -26,32 +24,21 @@ export const CitySelector = ({
         onClick={() => setIsOpen(!isOpen)}
         className="relative flex items-center gap-1 text-white font-el-messiri text-sm md:text-2xl font-semibold tracking-tight hover:bg-white/10 rounded-lg p-1 md:p-2 transition-colors"
       >
-        {/* Надпись "Выбери город" привязанная к значку */}
+        {/* Надпись "Выбери город" */}
         <div className="absolute -top-4 md:-top-6 right-6 md:right-12 flex items-center gap-2">
           <span className="text-mariko-text-light font-el-messiri text-xs md:text-sm font-semibold tracking-wide whitespace-nowrap">
             Выбери город
           </span>
-          {/* Стрелочка указывающая на значок */}
-          <svg 
-            width="30" 
-            height="20" 
-            viewBox="0 0 30 20" 
+          {/* Стрелка */}
+          <svg
+            width="30"
+            height="20"
+            viewBox="0 0 30 20"
             className="text-mariko-text-secondary"
           >
             <defs>
-              <marker
-                id="arrowhead-city"
-                markerWidth="8"
-                markerHeight="6"
-                refX="7"
-                refY="3"
-                orient="auto"
-              >
-                <polygon
-                  points="0 0, 8 3, 0 6"
-                  fill="currentColor"
-                  className="animate-pulse"
-                />
+              <marker id="arrowhead-city" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                <polygon points="0 0, 8 3, 0 6" fill="currentColor" className="animate-pulse" />
               </marker>
             </defs>
             <path
@@ -65,7 +52,7 @@ export const CitySelector = ({
             />
           </svg>
         </div>
-        
+
         <div className="text-right">
           {selectedCity?.name || "Выберите город"}
           {currentRestaurant && (
@@ -75,9 +62,7 @@ export const CitySelector = ({
             </>
           )}
         </div>
-        <div className="flex flex-col items-center">
-          <MapPin className="w-6 h-6 md:w-16 md:h-16 text-white flex-shrink-0" />
-        </div>
+        <MapPin className="w-6 h-6 md:w-16 md:h-16 text-white flex-shrink-0" />
       </button>
 
       {isOpen && (
@@ -99,8 +84,7 @@ export const CitySelector = ({
               >
                 <div className="font-semibold text-lg">{city.name}</div>
                 <div className="text-sm text-white/80">
-                  {city.restaurants.length} ресторан
-                  {city.restaurants.length > 1 ? "а" : ""}
+                  {city.restaurants.length} ресторан{city.restaurants.length > 1 ? "а" : ""}
                 </div>
               </button>
             ))}
@@ -108,10 +92,8 @@ export const CitySelector = ({
         </div>
       )}
 
-      {/* Overlay для закрытия выпадающего меню */}
-      {isOpen && (
-        <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-      )}
+      {/* Overlay */}
+      {isOpen && <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />}
     </div>
   );
-};
+}; 

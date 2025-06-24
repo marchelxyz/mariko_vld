@@ -33,7 +33,7 @@ export const OptimizedImage = ({
             observer.disconnect();
           }
         },
-        { rootMargin: "50px" }
+        { rootMargin: "50px" },
       );
 
       observer.observe(imgRef.current);
@@ -51,7 +51,7 @@ export const OptimizedImage = ({
         <div
           className={cn(
             "absolute inset-0 bg-gradient-to-br from-amber-600/10 to-orange-600/10",
-            placeholder || "animate-pulse"
+            placeholder || "animate-pulse",
           )}
         />
       )}
@@ -64,7 +64,7 @@ export const OptimizedImage = ({
           loading={loading}
           className={cn(
             "transition-opacity duration-300 w-full h-full object-cover",
-            imageLoaded ? "opacity-100" : "opacity-0"
+            imageLoaded ? "opacity-100" : "opacity-0",
           )}
           onLoad={handleLoad}
           onError={handleError}

@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { OptimizedImage } from "./OptimizedImage";
+import { OptimizedImage } from "./optimized-image";
 
 interface ActionButtonProps {
   icon: ReactNode;
@@ -51,4 +51,4 @@ export const ActionButton = ({
       </div>
     </button>
   );
-};
+}; 

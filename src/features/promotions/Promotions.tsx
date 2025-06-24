@@ -1,5 +1,5 @@
 import { Header } from "@widgets/header";
-import { PromotionCard } from "@/components/PromotionCard";
+import { PromotionCard } from "@shared/ui";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { PageHeader } from "@widgets/pageHeader";
 
