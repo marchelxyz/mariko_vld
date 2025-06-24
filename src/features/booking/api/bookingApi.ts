@@ -1,4 +1,4 @@
-import { botApi } from "@/services/botApi";
+import { bookingApi } from "@shared/api";
 import { initEmailService, sendJobApplicationEmail } from "@/lib/emailService";
 
 export interface BookingPayload {
@@ -16,7 +16,7 @@ export interface BookingPayload {
  */
 export const createBooking = async (payload: BookingPayload): Promise<boolean> => {
   try {
-    const tgResult = await botApi.submitBooking({
+    const tgResult = await bookingApi.submitBooking({
       ...payload,
       guests: parseInt(payload.guests, 10) || 1,
       birthDate: "", // не запрашиваем дату рождения при бронировании

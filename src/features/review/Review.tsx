@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { useCityContext } from "@/contexts/CityContext";
-import { botApi } from "@shared/api";
+import { reviewsApi } from "@shared/api";
 import { profileDB } from "@/lib/database";
 import { validateReviewForm, sanitizeText } from "@/lib/validation";
 
@@ -87,7 +87,7 @@ const Review = () => {
       const sanitizedText = sanitizeText(reviewText);
       
       // Сохраняем отзыв в базу данных
-      const result = await botApi.createReview({
+      const result = await reviewsApi.createReview({
         userId: userProfile.id,
         userName: sanitizeText(userProfile.name || "Гость"),
         userPhone: sanitizeText(userProfile.phone || ""),

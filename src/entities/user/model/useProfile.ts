@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { botApi } from "@/services/botApi";
+import { profileApi } from "@shared/api";
 
 export interface UserProfile {
   id: string;
@@ -55,7 +55,7 @@ export const useProfile = () => {
         setUserId(currentUserId);
       }
 
-      const userProfile = await botApi.getUserProfile(currentUserId);
+      const userProfile = await profileApi.getUserProfile(currentUserId);
       setProfile({ ...defaultProfile, ...userProfile });
       setIsInitialized(true);
     } catch (err) {
@@ -75,7 +75,7 @@ export const useProfile = () => {
 
       // Используем правильный userId
       const currentUserId = userId || "demo_user";
-      const success = await botApi.updateUserProfile(currentUserId, updatedProfile);
+      const success = await profileApi.updateUserProfile(currentUserId, updatedProfile);
 
       if (success) {
         // Обновляем локальное состояние только при успешном сохранении

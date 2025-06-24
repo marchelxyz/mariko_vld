@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Star, MessageCircle, User } from "lucide-react";
-import { botApi } from "@shared/api";
+import { reviewsApi } from "@shared/api";
 import { Review } from "@/lib/database";
 
 interface RestaurantReviewsProps {
@@ -24,8 +24,8 @@ export const RestaurantReviews = ({ restaurantId }: RestaurantReviewsProps) => {
       try {
         setLoading(true);
         const [reviewsData, statsData] = await Promise.all([
-          botApi.getRestaurantReviews(restaurantId),
-          botApi.getReviewsStats(restaurantId),
+          reviewsApi.getRestaurantReviews(restaurantId),
+          reviewsApi.getReviewsStats(restaurantId),
         ]);
         setReviews(reviewsData);
         setStats(statsData);

@@ -1,0 +1,1 @@
+export { botApi, telegramWebApp } from "@/services/botApi"; 

@@ -3,7 +3,7 @@ import { ArrowLeft, MapPin, Calendar, Clock, Users, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
-import { botApi, telegramWebApp } from "@shared/api";
+import { bookingApi, telegramWebApp } from "@shared/api";
 import { useCityContext } from "@/contexts/CityContext";
 import { useProfile } from "@entities/user";
 import { Button, Input } from "@shared/ui";
@@ -176,7 +176,7 @@ const Booking = () => {
       };
 
       // Отправляем бронирование
-      const result = await botApi.submitBooking(sanitizedData);
+      const result = await bookingApi.submitBooking(sanitizedData);
 
       if (result.success) {
         showSuccess(
