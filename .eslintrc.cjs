@@ -3,13 +3,12 @@ module.exports = {
   parser: "@typescript-eslint/parser",
   plugins: [
     "@typescript-eslint",
-    "feature-sliced",
     "import"
   ],
   extends: [
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended",
-    "plugin:feature-sliced/recommended",
+    "@feature-sliced",
     "plugin:import/typescript"
   ],
   env: {
