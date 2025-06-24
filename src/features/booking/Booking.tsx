@@ -5,7 +5,7 @@ import { Header } from "@/components/Header";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { botApi, telegramWebApp } from "@/lib/botApi";
 import { useCityContext } from "@/contexts/CityContext";
-import { useProfile } from "@/hooks/useProfile";
+import { useProfile } from "@entities/user";
 import { Button, Input } from "@shared/ui";
 import { validateBookingForm, sanitizeText } from "@/lib/validation";
 import { initEmailService } from "@/lib/emailService";

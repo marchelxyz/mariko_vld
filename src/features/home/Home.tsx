@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { Header } from "@/components/Header";
 import { ActionButton } from "@/components/ActionButton";
 import { MenuCard } from "@/components/MenuCard";
-import { RestaurantCard } from "@/components/RestaurantCard";
+import { RestaurantCard } from "@entities/restaurant";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { CitySelectorSimple } from "@/components/CitySelectorSimple";
 import { useCityContext } from "@/contexts/CityContext";
