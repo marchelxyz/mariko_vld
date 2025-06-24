@@ -34,3 +34,5 @@ netlify.toml
 _redirects
 deploy.sh
 .dockerignore
+
+bot/.env
