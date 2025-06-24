@@ -4,9 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { ActionButton } from "@/components/ActionButton";
 import { BottomNavigation } from "@/components/BottomNavigation";
-import { ProfileAvatar } from "@/components/ProfileAvatar";
+import { ProfileAvatar, useProfile } from "@entities/user";
 import { PageHeader } from "@/components/PageHeader";
-import { useProfile } from "@/hooks/useProfile";
 
 const Profile = () => {
   const navigate = useNavigate();

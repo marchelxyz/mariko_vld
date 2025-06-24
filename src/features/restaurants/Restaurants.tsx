@@ -5,7 +5,7 @@ import { Header } from "@/components/Header";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { CitySelector, cities } from "@/components/CitySelector";
 import { useCityContext } from "@/contexts/CityContext";
-import RestaurantReviews from "@/components/RestaurantReviews";
+import { RestaurantReviews } from "@entities/restaurant";
 
 interface Restaurant {
   id: string;

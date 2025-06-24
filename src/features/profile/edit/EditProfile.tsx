@@ -4,11 +4,11 @@ import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { EditableField } from "@/components/EditableField";
 import { BottomNavigation } from "@/components/BottomNavigation";
-import { ProfileAvatar } from "@/components/ProfileAvatar";
+import { ProfileAvatar } from "@entities/user";
 import { PageHeader } from "@/components/PageHeader";
 import { Button, Input, Label } from "@shared/ui";
 import { useToast } from "@/hooks/use-toast";
-import { useProfile } from "@/hooks/useProfile";
+import { useProfile } from "@entities/user";
 
 interface ProfileData {
   name: string;
