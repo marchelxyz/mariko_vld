@@ -4,9 +4,14 @@ import { cn } from "@/lib/utils";
 
 interface BottomNavigationProps {
   currentPage: "home" | "profile" | "franchise";
+  /**
+   * Дополнительные CSS-классы для кастомизации внешнего вида навигации.
+   * Например, можно передать `mt-4`, чтобы добавить отступ сверху.
+   */
+  className?: string;
 }
 
-export const BottomNavigation = ({ currentPage }: BottomNavigationProps) => {
+export const BottomNavigation = ({ currentPage, className }: BottomNavigationProps) => {
   const navigate = useNavigate();
   const [iconsLoaded, setIconsLoaded] = useState(false);
 
@@ -68,7 +73,7 @@ export const BottomNavigation = ({ currentPage }: BottomNavigationProps) => {
   ];
 
   return (
-    <div className="relative z-50">
+    <div className={cn("relative z-50", className)}>
       {/* БЛОК 1: Прозрачные кнопки навигации с затемненным blur эффектом */}
       <div className="backdrop-blur-lg backdrop-saturate-150 bg-black/60 rounded-t-3xl">
         <div className="flex justify-around items-end relative min-h-[4rem]">

@@ -342,7 +342,7 @@ function JobApplication() {
         </form>
       </div>
 
-      <BottomNavigation currentPage="home" />
+      <BottomNavigation currentPage="home" className="mt-6" />
     </div>
   );
 }

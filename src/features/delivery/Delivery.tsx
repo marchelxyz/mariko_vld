@@ -44,7 +44,7 @@ const Delivery = () => {
           />
         ),
         title: "Доставка Марико",
-        onClick: () => window.open("https://vhachapuri.ru/delivery", "_blank"),
+        onClick: () => window.open("https://marikodostavka.ru", "_blank"),
       });
     }
 

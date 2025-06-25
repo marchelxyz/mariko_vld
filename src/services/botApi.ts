@@ -2,6 +2,7 @@
 // Эти функции будут интегрированы с бэкендом бота
 
 import { profileDB, type UserProfile as DBUserProfile, type Review } from "./database";
+import { sendBookingEmail } from "./emailService";
 
 export interface UserProfile {
   id: string;
@@ -164,9 +165,6 @@ export const botApi = {
     try {
       // Генерируем ID бронирования
       const bookingId = `BK${Date.now()}`;
-
-      // Импортируем email сервис динамически
-      const { sendBookingEmail } = await import('./emailService');
 
       // Подготавливаем данные для отправки email
       const emailData = {
