@@ -11,27 +11,68 @@ const Delivery = () => {
   // Используем первый ресторан из выбранного города
   const selectedRestaurant = selectedCity.restaurants[0];
 
+  /**
+   * Генерирует список доступных способов доставки.
+   * Кнопка «Доставка Марико» отображается только для городов,
+   * где доступен собственный сервис доставки.
+   */
   const getDeliveryOptions = () => {
-    // Базовые варианты доставки
-    const baseOptions = [
-      {
-        icon: <img src="/images/action button/Car.png" alt="Delivery" className="w-6 h-6 md:w-12 md:h-12 object-contain" />,
-        title: "Доставка Марико",
-        onClick: () => window.open("https://vhachapuri.ru/delivery", "_blank"),
-      },
-      {
-        icon: <img src="/images/action button/Delivery Scooter.png" alt="Pickup" className="w-6 h-6 md:w-12 md:h-12 object-contain" />,
-        title: "Самовывоз",
-        onClick: () => {
-          // Самовывоз из selectedRestaurant?.address
-        }
-      },
+    // Города, в которых работает «Доставка Марико» (id из shared/data/cities.ts)
+    const marikoDeliveryCityIds = [
+      "kazan",
+      "nizhny-novgorod",
+      "balakhna",
+      "saint-petersburg",
+      "kemerovo",
+      "odintsovo",
     ];
 
-    // Всегда добавляем внешние сервисы доставки
-    baseOptions.push(
+    const options = [] as {
+      icon: JSX.Element;
+      title: string;
+      onClick: () => void;
+    }[];
+
+    // 1. Собственная доставка Марико (условная)
+    if (marikoDeliveryCityIds.includes(selectedCity.id)) {
+      options.push({
+        icon: (
+          <img
+            src="/images/action button/Car.png"
+            alt="Delivery"
+            className="w-6 h-6 md:w-12 md:h-12 object-contain"
+          />
+        ),
+        title: "Доставка Марико",
+        onClick: () => window.open("https://vhachapuri.ru/delivery", "_blank"),
+      });
+    }
+
+    // 2. Самовывоз – доступен всегда
+    options.push({
+      icon: (
+        <img
+          src="/images/action button/Delivery Scooter.png"
+          alt="Pickup"
+          className="w-6 h-6 md:w-12 md:h-12 object-contain"
+        />
+      ),
+      title: "Самовывоз",
+      onClick: () => {
+        // Самовывоз из selectedRestaurant?.address
+      },
+    });
+
+    // 3. Внешние сервисы доставки – доступны всегда
+    options.push(
       {
-        icon: <img src="/images/action button/Vector.png" alt="Яндекс Еда" className="w-6 h-6 md:w-12 md:h-12 object-contain" />,
+        icon: (
+          <img
+            src="/images/action button/Vector.png"
+            alt="Яндекс Еда"
+            className="w-6 h-6 md:w-12 md:h-12 object-contain"
+          />
+        ),
         title: "Яндекс Еда",
         onClick: () =>
           window.open(
@@ -40,7 +81,13 @@ const Delivery = () => {
           ),
       },
       {
-        icon: <img src="/images/action button/Logo.png" alt="Delivery Club" className="w-6 h-6 md:w-12 md:h-12 object-contain" />,
+        icon: (
+          <img
+            src="/images/action button/Logo.png"
+            alt="Delivery Club"
+            className="w-6 h-6 md:w-12 md:h-12 object-contain"
+          />
+        ),
         title: "Delivery Club",
         onClick: () =>
           window.open(
@@ -50,7 +97,7 @@ const Delivery = () => {
       },
     );
 
-    return baseOptions;
+    return options;
   };
 
   return (
