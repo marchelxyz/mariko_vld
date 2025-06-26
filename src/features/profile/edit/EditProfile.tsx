@@ -1,11 +1,9 @@
-import { useState, useRef, useEffect } from "react";
-import { Camera, X, Loader2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useState, useRef } from "react";
+import { X } from "lucide-react";
 import { Header } from "@widgets/header";
 import { EditableField } from "@shared/ui";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { ProfileAvatar } from "@entities/user";
-import { PageHeader } from "@widgets/pageHeader";
 import { Button, Input, Label } from "@shared/ui";
 import { useToast } from "@/hooks/use-toast";
 import { useProfile } from "@entities/user";
@@ -20,7 +18,6 @@ interface ProfileData {
 }
 
 const EditProfile = () => {
-  const navigate = useNavigate();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { profile, loading, updateProfile, updatePhoto } = useProfile();
@@ -303,19 +300,15 @@ const EditProfile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col relative">
-      {/* Header */}
-      <Header />
+    <div className="min-h-screen overflow-hidden flex flex-col bg-white relative">
+      {/* TOP SECTION: красный фон + шапка и приветствие */}
+      <div className="bg-mariko-primary pb-6 md:pb-8 rounded-b-[24px] md:rounded-b-[32px]">
+        <Header />
 
-      {/* Main Content */}
-      <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full pb-32 md:pb-40">
-        {/* Page Header */}
-        <PageHeader title="Профиль" onBackClick={() => navigate("/profile")} />
-        
-        {/* Profile Header with Photo Upload */}
-        <div className="mt-0 md:mt-2">
+        {/* Greeting */}
+        <div className="px-4 md:px-6 max-w-6xl mx-auto mt-4">
           <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6">
-            <ProfileAvatar 
+            <ProfileAvatar
               photo={profile.photo}
               size="medium"
               showCameraIcon={true}
@@ -338,175 +331,180 @@ const EditProfile = () => {
             </div>
           </div>
         </div>
-
-        {/* Editable Fields */}
-        <div className="mt-10 md:mt-12 space-y-4 md:space-y-6">
-          {renderField("name", "ФИО", profile.name)}
-          {renderField(
-            "birthDate",
-            "Дата рождения",
-            profile.birthDate,
-            "text",
-          )}
-
-          {/* Gender Selection */}
-          {editingField === "gender" ? (
-            <div className="bg-mariko-secondary rounded-[90px] px-5 md:px-7 py-3 md:py-4">
-              <Label className="text-white font-el-messiri text-base md:text-lg font-semibold mb-2 block">
-                Пол
-              </Label>
-              <div className="flex gap-3">
-                <select
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  className="flex-1 bg-white/10 border border-white/20 text-white font-el-messiri text-base md:text-lg rounded-lg px-3 py-2 h-10 md:h-11"
-                >
-                  <option
-                    value="Женский"
-                    className="bg-mariko-secondary text-white"
-                  >
-                    Женский
-                  </option>
-                  <option
-                    value="Мужской"
-                    className="bg-mariko-secondary text-white"
-                  >
-                    Мужской
-                  </option>
-                </select>
-                <Button
-                  onClick={handleSave}
-                  className="bg-green-600 hover:bg-green-700 text-white px-6"
-                >
-                  ✓
-                </Button>
-                <Button
-                  onClick={handleCancel}
-                  className="bg-red-600 hover:bg-red-700 text-white border-0 px-6"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <EditableField
-              label="Пол"
-              value={profile.gender}
-              onEdit={() => handleEdit("gender")}
-            />
-          )}
-
-          {/* Phone field with country code */}
-          {editingField === "phone" ? (
-            <div className="bg-mariko-secondary rounded-[90px] px-5 md:px-7 py-3 md:py-4">
-              <Label className="text-white font-el-messiri text-base md:text-lg font-semibold mb-2 pl-5 block">
-                Телефон
-              </Label>
-              <div className="flex gap-3 ml-5 mr-7">
-                {/* Country Code Selector */}
-                <div className="relative">
-                  <select
-                    value={editCountryCode}
-                    onChange={(e) => setEditCountryCode(e.target.value)}
-                    className="bg-white/5 text-white border-none outline-none rounded-xl px-3 py-2 font-el-messiri text-lg md:text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10 min-w-[90px] h-10 md:h-11"
-                  >
-                    <option value="+7" className="bg-mariko-secondary text-white">+7</option>
-                    <option value="+375" className="bg-mariko-secondary text-white">+375</option>
-                    <option value="+380" className="bg-mariko-secondary text-white">+380</option>
-                    <option value="+994" className="bg-mariko-secondary text-white">+994</option>
-                    <option value="+374" className="bg-mariko-secondary text-white">+374</option>
-                    <option value="+995" className="bg-mariko-secondary text-white">+995</option>
-                    <option value="+996" className="bg-mariko-secondary text-white">+996</option>
-                    <option value="+373" className="bg-mariko-secondary text-white">+373</option>
-                    <option value="+992" className="bg-mariko-secondary text-white">+992</option>
-                    <option value="+993" className="bg-mariko-secondary text-white">+993</option>
-                    <option value="+998" className="bg-mariko-secondary text-white">+998</option>
-                  </select>
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
-                </div>
-                
-                {/* Phone Number Input */}
-                <div className="relative flex-1">
-                  <input
-                    type="tel"
-                    value={editPhoneDigits}
-                    onChange={handlePhoneChange}
-                    placeholder={getPhonePlaceholder()}
-                    className="w-full bg-white/5 text-white placeholder-white/50 border-none outline-none rounded-xl px-4 py-2 font-el-messiri text-lg md:text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10 h-10 md:h-11"
-                    autoFocus
-                  />
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
-                </div>
-                
-                <Button
-                  onClick={handleSave}
-                  className="bg-green-600 hover:bg-green-700 text-white px-6"
-                >
-                  ✓
-                </Button>
-                <Button
-                  onClick={handleCancel}
-                  className="bg-red-600 hover:bg-red-700 text-white border-0 px-6"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <EditableField
-              label="Телефон"
-              value={profile.phone}
-              onEdit={() => handleEdit("phone")}
-            />
-          )}
-        </div>
-
-        {/* Bottom spacing for character */}
-        <div className="mt-12 md:mt-16 h-32 md:h-40"></div>
       </div>
 
-      {/* Character and Quote Section - прижимаем к краям экрана */}
-      <div className="absolute bottom-16 left-0 right-0 z-10 pointer-events-none">
-        {/* Quote with custom background - вытекает из левого края экрана */}
-        <div className="absolute bottom-32 md:bottom-40" style={{ left: "-10px" }}>
-          <div 
-            className="relative overflow-hidden"
-            style={{
-              backgroundImage: "url('/images/backgrounds/quote-background.png')",
-              backgroundSize: "100% 100%",
-              backgroundRepeat: "no-repeat",
-              width: "220px",
-              height: "150px",
-              borderTopRightRadius: "15px",
-              borderBottomRightRadius: "15px"
-            }}
-          >
-            <div className="absolute inset-0 flex items-center justify-center px-6 py-4">
-              <p className="text-mariko-secondary font-el-messiri text-base md:text-lg font-semibold leading-tight text-center">
-                Ты всегда можешь изменить данные, Генацвале!
-              </p>
+      {/* MAIN SECTION: белый фон с редактируемыми полями */}
+      <div className="flex-1 bg-white relative">
+        <div className="px-4 md:px-6 max-w-6xl mx-auto w-full pb-32 md:pb-40">
+          {/* Editable Fields */}
+          <div className="mt-10 md:mt-12 space-y-4 md:space-y-6">
+            {renderField("name", "ФИО", profile.name)}
+            {renderField(
+              "birthDate",
+              "Дата рождения",
+              profile.birthDate,
+              "text",
+            )}
+
+            {/* Gender Selection */}
+            {editingField === "gender" ? (
+              <div className="bg-mariko-secondary rounded-[90px] px-5 md:px-7 py-3 md:py-4">
+                <Label className="text-white font-el-messiri text-base md:text-lg font-semibold mb-2 block">
+                  Пол
+                </Label>
+                <div className="flex gap-3">
+                  <select
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    className="flex-1 bg-white/10 border border-white/20 text-white font-el-messiri text-base md:text-lg rounded-lg px-3 py-2 h-10 md:h-11"
+                  >
+                    <option
+                      value="Женский"
+                      className="bg-mariko-secondary text-white"
+                    >
+                      Женский
+                    </option>
+                    <option
+                      value="Мужской"
+                      className="bg-mariko-secondary text-white"
+                    >
+                      Мужской
+                    </option>
+                  </select>
+                  <Button
+                    onClick={handleSave}
+                    className="bg-green-600 hover:bg-green-700 text-white px-6"
+                  >
+                    ✓
+                  </Button>
+                  <Button
+                    onClick={handleCancel}
+                    className="bg-red-600 hover:bg-red-700 text-white border-0 px-6"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <EditableField
+                label="Пол"
+                value={profile.gender}
+                onEdit={() => handleEdit("gender")}
+              />
+            )}
+
+            {/* Phone field with country code */}
+            {editingField === "phone" ? (
+              <div className="bg-mariko-secondary rounded-[90px] px-5 md:px-7 py-3 md:py-4">
+                <Label className="text-white font-el-messiri text-base md:text-lg font-semibold mb-2 pl-5 block">
+                  Телефон
+                </Label>
+                <div className="flex gap-3 ml-5 mr-7">
+                  {/* Country Code Selector */}
+                  <div className="relative">
+                    <select
+                      value={editCountryCode}
+                      onChange={(e) => setEditCountryCode(e.target.value)}
+                      className="bg-white/5 text-white border-none outline-none rounded-xl px-3 py-2 font-el-messiri text-lg md:text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10 min-w-[90px] h-10 md:h-11"
+                    >
+                      <option value="+7" className="bg-mariko-secondary text-white">+7</option>
+                      <option value="+375" className="bg-mariko-secondary text-white">+375</option>
+                      <option value="+380" className="bg-mariko-secondary text-white">+380</option>
+                      <option value="+994" className="bg-mariko-secondary text-white">+994</option>
+                      <option value="+374" className="bg-mariko-secondary text-white">+374</option>
+                      <option value="+995" className="bg-mariko-secondary text-white">+995</option>
+                      <option value="+996" className="bg-mariko-secondary text-white">+996</option>
+                      <option value="+373" className="bg-mariko-secondary text-white">+373</option>
+                      <option value="+992" className="bg-mariko-secondary text-white">+992</option>
+                      <option value="+993" className="bg-mariko-secondary text-white">+993</option>
+                      <option value="+998" className="bg-mariko-secondary text-white">+998</option>
+                    </select>
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
+                  </div>
+                  
+                  {/* Phone Number Input */}
+                  <div className="relative flex-1">
+                    <input
+                      type="tel"
+                      value={editPhoneDigits}
+                      onChange={handlePhoneChange}
+                      placeholder={getPhonePlaceholder()}
+                      className="w-full bg-white/5 text-white placeholder-white/50 border-none outline-none rounded-xl px-4 py-2 font-el-messiri text-lg md:text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10 h-10 md:h-11"
+                      autoFocus
+                    />
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
+                  </div>
+                  
+                  <Button
+                    onClick={handleSave}
+                    className="bg-green-600 hover:bg-green-700 text-white px-6"
+                  >
+                    ✓
+                  </Button>
+                  <Button
+                    onClick={handleCancel}
+                    className="bg-red-600 hover:bg-red-700 text-white border-0 px-6"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <EditableField
+                label="Телефон"
+                value={profile.phone}
+                onEdit={() => handleEdit("phone")}
+              />
+            )}
+          </div>
+
+          {/* Bottom spacing for character */}
+          <div className="mt-12 md:mt-16 h-32 md:h-40"></div>
+        </div>
+
+        {/* Character and Quote Section - прижимаем к краям экрана */}
+        <div className="absolute bottom-16 left-0 right-0 z-10 pointer-events-none">
+          {/* Quote with custom background - вытекает из левого края экрана */}
+          <div className="absolute bottom-32 md:bottom-40" style={{ left: "-10px" }}>
+            <div 
+              className="relative overflow-hidden"
+              style={{
+                backgroundImage: "url('/images/backgrounds/quote-background.png')",
+                backgroundSize: "100% 100%",
+                backgroundRepeat: "no-repeat",
+                width: "220px",
+                height: "150px",
+                borderTopRightRadius: "15px",
+                borderBottomRightRadius: "15px"
+              }}
+            >
+              <div className="absolute inset-0 flex items-center justify-center px-6 py-4">
+                <p className="text-mariko-secondary font-el-messiri text-base md:text-lg font-semibold leading-tight text-center">
+                  Ты всегда можешь изменить данные, Генацвале!
+                </p>
+              </div>
             </div>
           </div>
+          
+          {/* Georgian Warrior - прижат к правому краю экрана */}
+          <div className="absolute bottom-0 right-0">
+            <img
+              src="/images/characters/character-warrior.png"
+              alt="Грузинский воин"
+              className="w-auto h-auto max-w-48 md:max-w-64"
+              style={{
+                objectFit: "contain",
+                filter: "drop-shadow(13px -2px 28px rgba(0, 0, 0, 0.25))",
+                transform: "translateX(10%)"
+              }}
+            />
+          </div>
         </div>
-        
-        {/* Georgian Warrior - прижат к правому краю экрана */}
-        <div className="absolute bottom-0 right-0">
-          <img
-            src="/images/characters/character-warrior.png"
-            alt="Грузинский воин"
-            className="w-auto h-auto max-w-48 md:max-w-64"
-            style={{
-              objectFit: "contain",
-              filter: "drop-shadow(13px -2px 28px rgba(0, 0, 0, 0.25))",
-              transform: "translateX(10%)"
-            }}
-          />
-        </div>
-      </div>
 
-      {/* Bottom Navigation - увеличиваем z-index чтобы он был поверх воина */}
-      <div className="relative z-20">
-        <BottomNavigation currentPage="profile" />
+        {/* Bottom Navigation - увеличиваем z-index чтобы он был поверх воина */}
+        <div className="relative z-20">
+          <BottomNavigation currentPage="profile" />
+        </div>
       </div>
     </div>
   );
