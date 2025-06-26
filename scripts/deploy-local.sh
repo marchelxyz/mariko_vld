@@ -18,7 +18,6 @@ IFS=$'\n\t'
 SERVER_HOST="root@ineedaglokk.ru"
 WEB_ROOT="/var/www/html"
 BOT_NAME="hachapuri-bot"
-BUILD_CMD="npm run build"
 # ======================================================================
 
 log() { printf "\033[1;32m[deploy] %s\033[0m\n" "$*"; }
@@ -27,8 +26,8 @@ err() { printf "\033[1;31m[deploy] %s\033[0m\n" "$*" >&2; }
 log "🚀 Начало локального деплоя"
 
 # 1. Локальная сборка проекта
-log "→ $BUILD_CMD"
-$BUILD_CMD
+log "→ npm run build"
+npm run build
 
 # 2. Загрузка файлов на сервер
 log "→ rsync dist → $SERVER_HOST:$WEB_ROOT"

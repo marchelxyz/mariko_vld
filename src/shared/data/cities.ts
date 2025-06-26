@@ -161,6 +161,12 @@ export const cities: City[] = [
         address: "Советская, 64",
         city: "Новосибирск",
       },
+      {
+        id: "novosibirsk-sovetov",
+        name: "Хачапури Марико",
+        address: "Советов, 51",
+        city: "Новосибирск",
+      },
     ],
   },
   {
@@ -292,6 +298,42 @@ export const cities: City[] = [
         name: "Хачапури Марико",
         address: "м-рн Авангард, 3, строение 76а",
         city: "Атырау",
+      },
+    ],
+  },
+  {
+    id: "volgograd",
+    name: "Волгоград", 
+    restaurants: [
+      {
+        id: "volgograd-raboche-krestyanskaya",
+        name: "Хачапури Марико",
+        address: "Рабоче-Крестьянская, 10",
+        city: "Волгоград",
+      },
+    ],
+  },
+  {
+    id: "bugulma",
+    name: "Бугульма",
+    restaurants: [
+      {
+        id: "bugulma-tukhachevskogo",
+        name: "Хачапури Марико",
+        address: "Тухачевского, 3в (скоро)",
+        city: "Бугульма",
+      },
+    ],
+  },
+  {
+    id: "ufa",
+    name: "Уфа",
+    restaurants: [
+      {
+        id: "ufa-bikbaya",
+        name: "Хачапури Марико", 
+        address: "Баязита Бикбая, 26",
+        city: "Уфа",
       },
     ],
   },

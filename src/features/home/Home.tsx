@@ -8,25 +8,7 @@ import { BottomNavigation } from "@widgets/bottomNavigation";
 import { CitySelectorSimple } from "@widgets/header";
 import { useCityContext } from "@/contexts/CityContext";
 import { toast } from "sonner";
-
-// Маппинг городов к внешним ссылкам для отзывов
-const CITY_REVIEW_LINKS: Record<string, string> = {
-  "Астана": "https://vhachapuri.ru/otziv_astana",
-  "Атырау": "https://vhachapuri.ru/otziv_atiray",
-  "Лесной Городок": "https://vhachapuri.ru/otziv_lesnoy",
-  "Жуковский": "https://vhachapuri.ru/otziv_zhykovskiy",
-  "Кстово": "https://vhachapuri.ru/otziv_kstovo",
-  "Магнитогорск": "https://vhachapuri.ru/otziv_mgntgrsk",
-  "Новороссийск": "https://vhachapuri.ru/feedback-nvrsk",
-  "Пенза": "https://vhachapuri.ru/otziv_penza",
-  "Кемерово": "https://vhachapuri.ru/otziv_kemerovo",
-  "Новосибирск": "https://vhachapuri.ru/otziv_novosib",
-  "Нефтекамск": "https://vhachapuri.ru/otziv_neftakamsk",
-  "Калуга": "https://vhachapuri.ru/otziv_kalyga",
-  "Томск": "https://vhachapuri.ru/otziv_tomsk",
-  "Смоленск": "https://vhachapuri.ru/otziv_smolensk",
-  "Уфа": "https://vhachapuri.ru/otziv-ufa"
-};
+import { RESTAURANT_REVIEW_LINKS } from "@/shared/data/reviewLinks";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -50,23 +32,25 @@ const Index = () => {
   }, [searchParams, setSearchParams]);
 
   const handleReviewClick = () => {
-    // Проверяем, есть ли для этого города внешняя ссылка
-    const externalReviewLink = CITY_REVIEW_LINKS[selectedCity.name];
-    
-    if (externalReviewLink) {
-      // Открываем внешнюю ссылку в новой вкладке
-      window.open(externalReviewLink, "_blank");
+    // Если в городе только один ресторан, проверяем есть ли для него внешняя ссылка
+    if (selectedCity.restaurants.length === 1) {
+      const restaurant = selectedCity.restaurants[0];
+      const externalReviewLink = RESTAURANT_REVIEW_LINKS[restaurant.id];
+      
+      if (externalReviewLink) {
+        // Открываем внешнюю ссылку в новой вкладке
+        window.open(externalReviewLink, "_blank");
+        return;
+      }
+      
+      // Если нет внешней ссылки, используем форму отзыва в приложении
+      localStorage.setItem('selectedRestaurantForReview', restaurant.id);
+      navigate("/review");
       return;
     }
 
-    // Для городов без внешних ссылок используем старую логику
-    if (selectedCity.restaurants.length > 1) {
-      navigate("/select-restaurant-review");
-    } else {
-      // Если ресторан один - сразу на отзыв
-      localStorage.setItem('selectedRestaurantForReview', selectedCity.restaurants[0].id);
-      navigate("/review");
-    }
+    // Если в городе несколько ресторанов, переходим к выбору ресторана
+    navigate("/select-restaurant-review");
   };
 
   return (
