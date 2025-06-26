@@ -1,5 +1,5 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Header } from "@widgets/header";
 import { MenuCard, QuickActionButton, Carousel, CarouselContent, CarouselItem, PromotionCard } from "@shared/ui";
 import { BottomNavigation } from "@widgets/bottomNavigation";
@@ -11,6 +11,7 @@ const Index = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { selectedRestaurant } = useCityContext();
+  const [activePromo, setActivePromo] = useState<typeof promotions[number] | null>(null);
 
   useEffect(() => {
     // Проверяем, пришли ли мы сюда после успешной отправки заявки на вакансию
@@ -100,6 +101,10 @@ const Index = () => {
 
   const promotions = selectedRestaurant.city === "Жуковский" ? zhukovskyPromotions : genericPromotions;
 
+  const handlePromoClick = (promo: typeof promotions[number]) => {
+    setActivePromo(promo);
+  };
+
   return (
     <div className="min-h-screen overflow-hidden flex flex-col bg-white">
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
@@ -149,7 +154,7 @@ const Index = () => {
                       title={promo.title}
                       description={promo.description}
                       className="rounded-[16px] h-36 md:h-48"
-                      onClick={() => navigate("/promotions")}
+                      onClick={() => handlePromoClick(promo)}
                     />
                   </CarouselItem>
                 ))}
@@ -225,6 +230,29 @@ const Index = () => {
         <div className="absolute bottom-0 left-0 right-0 z-50">
           <BottomNavigation currentPage="home" />
         </div>
+
+        {activePromo && (
+          <div
+            className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 backdrop-blur-sm" 
+            onClick={() => setActivePromo(null)}
+          >
+            <div className="flex flex-col gap-4 items-center max-w-[90vw] p-4 md:p-6" onClick={(e)=>e.stopPropagation()}>
+              <img
+                src={activePromo.imageUrl}
+                alt={activePromo.title}
+                className="max-h-[70vh] md:max-h-[80vh] w-auto rounded-[20px] shadow-lg"
+              />
+              <h3 className="font-el-messiri text-2xl md:text-3xl font-bold mb-1 text-white drop-shadow-lg text-center">
+                {activePromo.title}
+              </h3>
+              {activePromo.description && (
+                <p className="text-lg leading-snug text-white/90 drop-shadow-lg text-center max-w-md mx-auto">
+                  {activePromo.description}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
