@@ -42,6 +42,64 @@ const Index = () => {
     navigate("/review");
   };
 
+  // Базовые акции, показываем по умолчанию
+  const genericPromotions = [
+    {
+      id: 1,
+      imageUrl: "/images/promotions/promo-tuesday.png",
+      title: "Безлимит виноградного",
+      description: "При заказе от 1500₽ на гостя по вторникам",
+    },
+    {
+      id: 2,
+      imageUrl: "/images/promotions/promo-cashback.png",
+      title: "Вай, со своим отмечай!",
+      description: "Принесите свои горячительные напитки на свою закуску у Марико! Билеты со своими закусками от 2500₽ на гостя",
+    },
+    {
+      id: 3,
+      imageUrl: "/images/promotions/promo-delivery.png",
+      title: "Накормим 300 гостей",
+      description: "Совершенно бесплатно",
+    },
+  ];
+
+  // Акции для Жуковского (id города zhukovsky)
+  const zhukovskyPromotions = [
+    {
+      id: "zh1",
+      imageUrl: "/images/promotions/zhukovsky/promo-discount.png",
+      title: "Комплимент",
+      description: "За бронь столика от 6 человек",
+    },
+    {
+      id: "zh2",
+      imageUrl: "/images/promotions/zhukovsky/promo-women.png",
+      title: "Скидка до 40%",
+      description: "Каждый понедельник женским компаниям",
+    },
+    {
+      id: "zh3",
+      imageUrl: "/images/promotions/zhukovsky/promo-birthday.png",
+      title: "Скидка 30% именинникам",
+      description: "Вторник — четверг",
+    },
+    {
+      id: "zh4",
+      imageUrl: "/images/promotions/zhukovsky/promo-takeaway.png",
+      title: "15% на самовывоз",
+      description: "При заказе по телефону или в зале",
+    },
+    {
+      id: "zh5",
+      imageUrl: "/images/promotions/zhukovsky/promo-hinkal.png",
+      title: "Хинкали по 25₽",
+      description: "Пн-чт 15:00-18:00",
+    },
+  ];
+
+  const promotions = selectedRestaurant.city === "Жуковский" ? zhukovskyPromotions : genericPromotions;
+
   return (
     <div className="min-h-screen overflow-hidden flex flex-col bg-white">
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
@@ -84,26 +142,7 @@ const Index = () => {
           <div className="mt-6 md:mt-8">
             <Carousel opts={{ align: "start", loop: true, containScroll: 'trimSnaps', skipSnaps: false }} className="w-full">
               <CarouselContent>
-                {[
-                  {
-                    id: 1,
-                    imageUrl: "/images/promotions/promo-birthday.png",
-                    title: "Безлимит виноградного",
-                    description: "При заказе от 1500₽ на гостя по вторникам",
-                  },
-                  {
-                    id: 2,
-                    imageUrl: "/images/promotions/promo-cashback.png",
-                    title: "Вай, со своим отмечай!",
-                    description: "Принесите свои горячительные напитки на свою закуску у Марико! Билеты со своими закусками от 2500₽ на гостя",
-                  },
-                  {
-                    id: 3,
-                    imageUrl: "/images/promotions/promo-delivery.png",
-                    title: "Накормим 300 гостей",
-                    description: "Совершенно бесплатно",
-                  },
-                ].map((promo) => (
+                {promotions.map((promo) => (
                   <CarouselItem key={promo.id} className="basis-[80%] md:basis-[45%] pr-3">
                     <PromotionCard
                       imageUrl={promo.imageUrl}
