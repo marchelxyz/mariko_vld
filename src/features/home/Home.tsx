@@ -9,6 +9,25 @@ import { CitySelectorSimple } from "@widgets/header";
 import { useCityContext } from "@/contexts/CityContext";
 import { toast } from "sonner";
 
+// Маппинг городов к внешним ссылкам для отзывов
+const CITY_REVIEW_LINKS: Record<string, string> = {
+  "Астана": "https://vhachapuri.ru/otziv_astana",
+  "Атырау": "https://vhachapuri.ru/otziv_atiray",
+  "Лесной Городок": "https://vhachapuri.ru/otziv_lesnoy",
+  "Жуковский": "https://vhachapuri.ru/otziv_zhykovskiy",
+  "Кстово": "https://vhachapuri.ru/otziv_kstovo",
+  "Магнитогорск": "https://vhachapuri.ru/otziv_mgntgrsk",
+  "Новороссийск": "https://vhachapuri.ru/feedback-nvrsk",
+  "Пенза": "https://vhachapuri.ru/otziv_penza",
+  "Кемерово": "https://vhachapuri.ru/otziv_kemerovo",
+  "Новосибирск": "https://vhachapuri.ru/otziv_novosib",
+  "Нефтекамск": "https://vhachapuri.ru/otziv_neftakamsk",
+  "Калуга": "https://vhachapuri.ru/otziv_kalyga",
+  "Томск": "https://vhachapuri.ru/otziv_tomsk",
+  "Смоленск": "https://vhachapuri.ru/otziv_smolensk",
+  "Уфа": "https://vhachapuri.ru/otziv-ufa"
+};
+
 const Index = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -29,6 +48,26 @@ const Index = () => {
       setSearchParams(searchParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
+
+  const handleReviewClick = () => {
+    // Проверяем, есть ли для этого города внешняя ссылка
+    const externalReviewLink = CITY_REVIEW_LINKS[selectedCity.name];
+    
+    if (externalReviewLink) {
+      // Открываем внешнюю ссылку в новой вкладке
+      window.open(externalReviewLink, "_blank");
+      return;
+    }
+
+    // Для городов без внешних ссылок используем старую логику
+    if (selectedCity.restaurants.length > 1) {
+      navigate("/select-restaurant-review");
+    } else {
+      // Если ресторан один - сразу на отзыв
+      localStorage.setItem('selectedRestaurantForReview', selectedCity.restaurants[0].id);
+      navigate("/review");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col">
@@ -55,16 +94,7 @@ const Index = () => {
           <ActionButton
             icon={<img src="/images/action button/Star.png" alt="Review" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
             title="Оставить отзыв"
-            onClick={() => {
-              // Если в городе несколько ресторанов - идем на выбор ресторана
-              if (selectedCity.restaurants.length > 1) {
-                navigate("/select-restaurant-review");
-              } else {
-                // Если ресторан один - сразу на отзыв
-                localStorage.setItem('selectedRestaurantForReview', selectedCity.restaurants[0].id);
-                navigate("/review");
-              }
-            }}
+            onClick={handleReviewClick}
           />
         </div>
 
