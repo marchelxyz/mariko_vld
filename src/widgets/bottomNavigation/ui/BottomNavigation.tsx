@@ -53,10 +53,10 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
 
   const navItems = [
     {
-      id: "profile",
-      label: "Профиль",
-      iconPath: "/images/icons/Male User.png",
-      onClick: () => navigate("/profile"),
+      id: "home",
+      label: "Главная",
+      iconPath: "/images/icons/House.png",
+      onClick: () => navigate("/"),
     },
     {
       id: "franchise",
@@ -65,10 +65,10 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
       onClick: () => window.open("https://vhachapuri.ru/franshiza", "_blank"),
     },
     {
-      id: "home",
-      label: "Главная",
-      iconPath: "/images/icons/House.png",
-      onClick: () => navigate("/"),
+      id: "profile",
+      label: "Профиль",
+      iconPath: "/images/icons/Male User.png",
+      onClick: () => navigate("/profile"),
     },
   ];
 
