@@ -5,57 +5,92 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-import { cities, type City } from "@/shared/data/cities";
+import { cities, type City, type Restaurant } from "@/shared/data/cities";
 
-interface CityContextType {
-  selectedCity: City;
-  setSelectedCity: (city: City) => void;
+// Создаем плоский список всех ресторанов для удобного поиска
+const getAllRestaurants = (): Restaurant[] => {
+  const allRestaurants: Restaurant[] = [];
+  cities.forEach(city => {
+    city.restaurants.forEach(restaurant => {
+      allRestaurants.push(restaurant);
+    });
+  });
+  return allRestaurants;
+};
+
+const allRestaurants = getAllRestaurants();
+
+interface RestaurantContextType {
+  selectedRestaurant: Restaurant;
+  setSelectedRestaurant: (restaurant: Restaurant) => void;
+  // Добавляем функцию для получения города выбранного ресторана
+  getSelectedCity: () => City;
 }
 
-const CityContext = createContext<CityContextType | undefined>(undefined);
+const RestaurantContext = createContext<RestaurantContextType | undefined>(undefined);
 
-export const useCityContext = () => {
-  const context = useContext(CityContext);
+// Обновляем хук для работы с ресторанами
+export const useRestaurantContext = () => {
+  const context = useContext(RestaurantContext);
   if (context === undefined) {
-    throw new Error("useCityContext must be used within a CityProvider");
+    throw new Error("useRestaurantContext must be used within a RestaurantProvider");
   }
   return context;
 };
 
-interface CityProviderProps {
+// Сохраняем обратную совместимость с useCityContext
+export const useCityContext = () => {
+  const context = useRestaurantContext();
+  return {
+    selectedCity: context.getSelectedCity(),
+    setSelectedCity: (city: City) => {
+      // При установке города выбираем первый ресторан
+      if (city.restaurants.length > 0) {
+        context.setSelectedRestaurant(city.restaurants[0]);
+      }
+    },
+    selectedRestaurant: context.selectedRestaurant,
+    setSelectedRestaurant: context.setSelectedRestaurant,
+  };
+};
+
+interface RestaurantProviderProps {
   children: ReactNode;
 }
 
-export const CityProvider = ({ children }: CityProviderProps) => {
-  // Инициализируем с первым городом по умолчанию, чтобы избежать null
-  const [selectedCity, setSelectedCityState] = useState<City>(cities[0]);
-  const [isInitialized, setIsInitialized] = useState(false);
+export const RestaurantProvider = ({ children }: RestaurantProviderProps) => {
+  // Инициализируем с первым рестораном по умолчанию
+  const [selectedRestaurant, setSelectedRestaurantState] = useState<Restaurant>(allRestaurants[0]);
 
-  // 🔧 ИСПРАВЛЕНИЕ: Загружаем сохраненный город из localStorage при инициализации
+  // Функция для получения города выбранного ресторана
+  const getSelectedCity = (): City => {
+    const city = cities.find(city => 
+      city.restaurants.some(restaurant => restaurant.id === selectedRestaurant.id)
+    );
+    return city || cities[0];
+  };
+
+  // 🔧 ИСПРАВЛЕНИЕ: Загружаем сохраненный ресторан из localStorage при инициализации
   useEffect(() => {
     let isMounted = true; // Защита от race condition
     
-    const loadSavedCity = () => {
+    const loadSavedRestaurant = () => {
       try {
-        const savedCity = localStorage.getItem("selectedCity");
-        if (savedCity && isMounted) {
-          const cityData = JSON.parse(savedCity);
-          const city = cities.find((c) => c.id === cityData.id);
-          if (city && isMounted) {
-            setSelectedCityState(city);
+        const savedRestaurant = localStorage.getItem("selectedRestaurant");
+        if (savedRestaurant && isMounted) {
+          const restaurantData = JSON.parse(savedRestaurant);
+          const restaurant = allRestaurants.find((r) => r.id === restaurantData.id);
+          if (restaurant && isMounted) {
+            setSelectedRestaurantState(restaurant);
           }
         }
       } catch (error) {
-        console.error("Ошибка при загрузке сохраненного города:", error);
-        // Оставляем cities[0] как есть
-      } finally {
-        if (isMounted) {
-          setIsInitialized(true);
-        }
+        console.error("Ошибка при загрузке сохраненного ресторана:", error);
+        // Оставляем allRestaurants[0] как есть
       }
     };
 
-    loadSavedCity();
+    loadSavedRestaurant();
 
     // Очистка при размонтировании
     return () => {
@@ -63,17 +98,24 @@ export const CityProvider = ({ children }: CityProviderProps) => {
     };
   }, []);
 
-  const setSelectedCity = (city: City) => {
-    setSelectedCityState(city);
+  const setSelectedRestaurant = (restaurant: Restaurant) => {
+    setSelectedRestaurantState(restaurant);
     localStorage.setItem(
-      "selectedCity",
-      JSON.stringify({ id: city.id, name: city.name }),
+      "selectedRestaurant",
+      JSON.stringify({ id: restaurant.id, name: restaurant.name, address: restaurant.address, city: restaurant.city }),
     );
   };
 
   return (
-    <CityContext.Provider value={{ selectedCity, setSelectedCity }}>
+    <RestaurantContext.Provider value={{ 
+      selectedRestaurant, 
+      setSelectedRestaurant, 
+      getSelectedCity 
+    }}>
       {children}
-    </CityContext.Provider>
+    </RestaurantContext.Provider>
   );
 };
+
+// Обратная совместимость
+export const CityProvider = RestaurantProvider;

@@ -1,12 +1,8 @@
-import { useState } from "react";
-import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { PageHeader } from "@widgets/pageHeader";
 import { MenuCard } from "@shared/ui";
-import { CitySelector } from "@shared/ui";
-import { cities, type City, type Restaurant } from "@/shared/data/cities";
 import { useCityContext } from "@/contexts/CityContext";
 
 interface MenuOption {
@@ -97,26 +93,7 @@ function hasPromotions(restaurantId: string): boolean {
 
 const MenuSelection = () => {
   const navigate = useNavigate();
-  const { selectedCity, setSelectedCity } = useCityContext();
-  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
-  const [step, setStep] = useState<"city" | "restaurant" | "menu">("city");
-
-  function handleCitySelect(city: City): void {
-    setSelectedCity(city);
-    if (city.restaurants.length === 1) {
-      // Если ресторан один - сразу к меню
-      setSelectedRestaurant(city.restaurants[0]);
-      setStep("menu");
-    } else {
-      // Если ресторанов несколько - к выбору ресторана
-      setStep("restaurant");
-    }
-  }
-
-  function handleRestaurantSelect(restaurant: Restaurant): void {
-    setSelectedRestaurant(restaurant);
-    setStep("menu");
-  }
+  const { selectedRestaurant } = useCityContext();
 
   function handleMenuOptionClick(option: MenuOption): void {
     if (option.url.startsWith("http")) {
@@ -126,96 +103,32 @@ const MenuSelection = () => {
     }
   }
 
-  function handleBack(): void {
-    if (step === "menu") {
-      if (selectedCity.restaurants.length > 1) {
-        setStep("restaurant");
-        setSelectedRestaurant(null);
-      } else {
-        setStep("city");
-        setSelectedRestaurant(null);
-      }
-    } else if (step === "restaurant") {
-      setStep("city");
-    } else {
-      navigate("/");
-    }
-  }
-
-  const availableMenuOptions = selectedRestaurant 
-    ? getAvailableMenuOptions(selectedRestaurant.id)
-    : [];
+  const availableMenuOptions = getAvailableMenuOptions(selectedRestaurant.id);
 
   return (
-    <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col">
-      {/* Header */}
-      <Header />
+    <div className="min-h-screen overflow-hidden flex flex-col bg-white">
+      {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
+      <div className="bg-mariko-primary pb-6 md:pb-8 rounded-b-[24px] md:rounded-b-[32px]">
+        <Header />
+      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 px-4 md:px-6 max-w-4xl mx-auto w-full">
-        {/* Page Header */}
-        <PageHeader 
-          title="Меню"
-          onBackClick={handleBack}
-        />
-
-        {/* Step: Выбор города */}
-        {step === "city" && (
-          <div className="mt-6">
-            <h2 className="text-white font-el-messiri text-xl md:text-2xl font-bold mb-4 text-center">
-              Выберите город
-            </h2>
-            <div className="space-y-3">
-              {cities.map((city) => (
-                <button
-                  key={city.id}
-                  onClick={() => handleCitySelect(city)}
-                  className="w-full bg-mariko-secondary rounded-[45px] px-6 py-4 text-left transition-transform hover:scale-105 active:scale-95"
-                >
-                  <div className="text-white font-el-messiri text-lg md:text-xl font-bold">
-                    {city.name}
-                  </div>
-                  <div className="text-white/80 font-el-messiri text-sm md:text-base">
-                    {city.restaurants.length} ресторан{city.restaurants.length > 1 ? "а" : ""}
-                  </div>
-                </button>
-              ))}
-            </div>
+      {/* СРЕДНЯЯ СЕКЦИЯ: Main Content с белым фоном, расширенная до низа */}
+      <div className="flex-1 bg-white relative">
+        <div className="px-4 md:px-6 max-w-4xl mx-auto w-full">
+          {/* Page Header */}
+          <div className="mt-6 md:mt-8">
+            <PageHeader 
+              title="Меню"
+              onBackClick={() => navigate("/")}
+            />
           </div>
-        )}
 
-        {/* Step: Выбор ресторана */}
-        {step === "restaurant" && (
-          <div className="mt-6">
-            <h2 className="text-white font-el-messiri text-xl md:text-2xl font-bold mb-4 text-center">
-              Выберите ресторан
-            </h2>
-            <div className="space-y-3">
-              {selectedCity.restaurants.map((restaurant) => (
-                <button
-                  key={restaurant.id}
-                  onClick={() => handleRestaurantSelect(restaurant)}
-                  className="w-full bg-mariko-secondary rounded-[45px] px-6 py-4 text-left transition-transform hover:scale-105 active:scale-95"
-                >
-                  <div className="text-white font-el-messiri text-lg md:text-xl font-bold">
-                    {restaurant.name}
-                  </div>
-                  <div className="text-white/80 font-el-messiri text-sm md:text-base">
-                    {restaurant.address}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Step: Выбор типа меню */}
-        {step === "menu" && selectedRestaurant && (
-          <div className="mt-6">
-            <h2 className="text-white font-el-messiri text-xl md:text-2xl font-bold mb-2 text-center">
+          {/* Menu for selected restaurant */}
+          <div className="mt-6 pb-24 md:pb-32">
+            <h2 className="text-mariko-primary font-el-messiri text-xl md:text-2xl font-bold mb-2 text-center">
               {selectedRestaurant.name}
             </h2>
-            <p className="text-white/80 font-el-messiri text-base md:text-lg mb-6 text-center">
+            <p className="text-mariko-primary/80 font-el-messiri text-base md:text-lg mb-6 text-center">
               {selectedRestaurant.address}
             </p>
             
@@ -241,11 +154,13 @@ const MenuSelection = () => {
               </p>
             </div>
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* Bottom Navigation */}
-      <BottomNavigation currentPage="home" className="mt-6" />
+        {/* НАВИГАЦИЯ: позиционирована поверх белого фона */}
+        <div className="absolute bottom-0 left-0 right-0 z-50">
+          <BottomNavigation currentPage="home" />
+        </div>
+      </div>
     </div>
   );
 };

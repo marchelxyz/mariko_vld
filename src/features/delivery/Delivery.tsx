@@ -6,10 +6,7 @@ import { PageHeader } from "@widgets/pageHeader";
 import { useCityContext } from "@/contexts/CityContext";
 
 const Delivery = () => {
-  const { selectedCity } = useCityContext();
-
-  // Используем первый ресторан из выбранного города
-  const selectedRestaurant = selectedCity.restaurants[0];
+  const { selectedCity, selectedRestaurant } = useCityContext();
 
   /**
    * Генерирует список доступных способов доставки.
@@ -59,7 +56,8 @@ const Delivery = () => {
       ),
       title: "Самовывоз",
       onClick: () => {
-        // Самовывоз из selectedRestaurant?.address
+        // Самовывоз из selectedRestaurant.address
+        console.log(`Самовывоз из: ${selectedRestaurant.address}`);
       },
     });
 
@@ -101,49 +99,56 @@ const Delivery = () => {
   };
 
   return (
-    <div className="min-h-screen bg-mariko-primary flex flex-col relative">
-      {/* Header */}
-      <Header />
+    <div className="min-h-screen overflow-hidden flex flex-col bg-white">
+      {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
+      <div className="bg-mariko-primary pb-6 md:pb-8 rounded-b-[24px] md:rounded-b-[32px]">
+        <Header />
+      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full pb-64 md:pb-72">
-        {/* Page Header */}
-        <div className="mt-10 mb-6">
-          <PageHeader title="Доставка" />
+      {/* СРЕДНЯЯ СЕКЦИЯ: Main Content с белым фоном, расширенная до низа */}
+      <div className="flex-1 bg-white relative">
+        <div className="px-4 md:px-6 max-w-6xl mx-auto w-full">
+          {/* Page Header */}
+          <div className="mt-6 md:mt-8 mb-6">
+            <PageHeader title="Доставка" />
+            <p className="text-mariko-primary/70 font-el-messiri text-lg mt-2 text-center">
+              {selectedRestaurant.name} • {selectedRestaurant.address}
+            </p>
+          </div>
+          
+          {/* Delivery Options */}
+          <div className="mt-6 md:mt-8 space-y-6 md:space-y-8 pb-24 md:pb-32">
+            {getDeliveryOptions().map((option, index) => (
+              <ActionButton
+                key={index}
+                icon={option.icon}
+                title={option.title}
+                onClick={option.onClick}
+              />
+            ))}
+          </div>
         </div>
-        
-        {/* Delivery Options */}
-        <div className="mt-0 md:mt-2 space-y-6 md:space-y-8">
-          {getDeliveryOptions().map((option, index) => (
-            <ActionButton
-              key={index}
-              icon={option.icon}
-              title={option.title}
-              onClick={option.onClick}
+
+        {/* Delivery Truck Illustration - Грузовик: идеальное позиционирование */}
+        <div className="absolute z-10 pointer-events-none" style={{ bottom: '80px', left: '-7%' }}>
+          <div className="relative flex justify-start items-end">
+            <img
+              src="/images/delivery/delivery-restaurant.png"
+              alt="Грузовик доставки Марико"
+              className="w-auto h-auto max-w-sm md:max-w-lg"
+              style={{
+                objectFit: "contain",
+                // Дополнительные трансформации для масштаба и позиции
+                transform: "translateY(-3%) scale(0.9) md:translateY(-2%) md:scale(1.1)",
+              }}
             />
-          ))}
+          </div>
         </div>
-      </div>
 
-      {/* Delivery Truck Illustration - Грузовик: идеальное позиционирование */}
-      <div className="absolute z-10 pointer-events-none" style={{ bottom: '80px', left: '-7%' }}>
-        <div className="relative flex justify-start items-end">
-          <img
-            src="/images/delivery/delivery-restaurant.png"
-            alt="Грузовик доставки Марико"
-            className="w-auto h-auto max-w-sm md:max-w-lg"
-            style={{
-              objectFit: "contain",
-              // Дополнительные трансформации для масштаба и позиции
-              transform: "translateY(-3%) scale(0.9) md:translateY(-2%) md:scale(1.1)",
-            }}
-          />
+        {/* НАВИГАЦИЯ: позиционирована поверх белого фона */}
+        <div className="absolute bottom-0 left-0 right-0 z-50">
+          <BottomNavigation currentPage="home" />
         </div>
-      </div>
-
-      {/* Bottom Navigation - увеличиваем z-index чтобы он был поверх машины */}
-      <div className="relative z-20">
-        <BottomNavigation currentPage="home" />
       </div>
     </div>
   );

@@ -144,205 +144,225 @@ function JobApplication() {
   const onSubmit = handleSubmit(submitJobApplication);
 
   return (
-    <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col">
-      <Header />
-      
-      <div className="flex-1 px-4 md:px-6 max-w-2xl mx-auto w-full">
-        <PageHeader 
-          title="Подать заявку на вакансию"
-          onBackClick={() => navigate("/")}
-        />
-
-        <form onSubmit={onSubmit} className="mt-6 space-y-6">
-          {/* Имя */}
-          <div className="space-y-2">
-            <Label htmlFor="name" className="text-white font-el-messiri text-lg font-semibold">
-              Имя *
-            </Label>
-            <Input
-              id="name"
-              type="text"
-              {...register("name")}
-              className="bg-mariko-secondary border-none text-white placeholder:text-white/60 rounded-lg h-12"
-              placeholder="Введите ваше имя"
-            />
-            {errors.name && (
-              <p className="text-red-400 text-sm font-el-messiri">{errors.name.message}</p>
-            )}
-          </div>
-
-          {/* Желаемый город работы */}
-          <div className="space-y-2">
-            <Label htmlFor="desiredCity" className="text-white font-el-messiri text-lg font-semibold">
-              Желаемый город работы *
-            </Label>
-            <Select 
-              value={selectedCityForJob}
-              onValueChange={(value) => {
-                setValue("desiredCity", value);
-                handleCityChange(value);
-              }}
-            >
-              <SelectTrigger className="bg-mariko-secondary border-none text-white h-12 rounded-lg">
-                <SelectValue placeholder="Выберите город" />
-              </SelectTrigger>
-              <SelectContent>
-                {cities.map((city) => (
-                  <SelectItem key={city.id} value={city.name}>
-                    {city.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.desiredCity && (
-              <p className="text-red-400 text-sm font-el-messiri">{errors.desiredCity.message}</p>
-            )}
-          </div>
-
-          {/* Адрес ресторана */}
-          <div className="space-y-2">
-            <Label htmlFor="restaurant" className="text-white font-el-messiri text-lg font-semibold">
-              Адрес ресторана *
-            </Label>
-            <Select onValueChange={(value) => setValue("restaurant", value)}>
-              <SelectTrigger className="bg-mariko-secondary border-none text-white h-12 rounded-lg">
-                <SelectValue placeholder="Выберите ресторан" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableRestaurants.map((restaurant) => (
-                  <SelectItem key={restaurant.id} value={restaurant.address}>
-                    {restaurant.address}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.restaurant && (
-              <p className="text-red-400 text-sm font-el-messiri">{errors.restaurant.message}</p>
-            )}
-          </div>
-
-          {/* Возраст */}
-          <div className="space-y-2">
-            <Label htmlFor="age" className="text-white font-el-messiri text-lg font-semibold">
-              Возраст *
-            </Label>
-            <Input
-              id="age"
-              type="number"
-              {...register("age", { valueAsNumber: true })}
-              className="bg-mariko-secondary border-none text-white placeholder:text-white/60 rounded-lg h-12"
-              placeholder="Введите ваш возраст"
-              min="16"
-              max="80"
-            />
-            {errors.age && (
-              <p className="text-red-400 text-sm font-el-messiri">{errors.age.message}</p>
-            )}
-          </div>
-
-          {/* Должность */}
-          <div className="space-y-2">
-            <Label htmlFor="position" className="text-white font-el-messiri text-lg font-semibold">
-              Должность *
-            </Label>
-            <Select onValueChange={(value) => setValue("position", value)}>
-              <SelectTrigger className="bg-mariko-secondary border-none text-white h-12 rounded-lg">
-                <SelectValue placeholder="Выберите должность" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="waiter">Официант</SelectItem>
-                <SelectItem value="cook">Повар</SelectItem>
-                <SelectItem value="barista">Бариста</SelectItem>
-                <SelectItem value="administrator">Администратор</SelectItem>
-                <SelectItem value="manager">Менеджер</SelectItem>
-                <SelectItem value="cleaner">Уборщик</SelectItem>
-                <SelectItem value="other">Другая должность</SelectItem>
-              </SelectContent>
-            </Select>
-            {errors.position && (
-              <p className="text-red-400 text-sm font-el-messiri">{errors.position.message}</p>
-            )}
-          </div>
-
-          {/* Опыт работы */}
-          <div className="space-y-2">
-            <Label htmlFor="experience" className="text-white font-el-messiri text-lg font-semibold">
-              Опыт работы
-            </Label>
-            <Textarea
-              id="experience"
-              {...register("experience")}
-              className="bg-mariko-secondary border-none text-white placeholder:text-white/60 rounded-lg min-h-[100px] resize-none"
-              placeholder="Расскажите о вашем опыте работы"
-            />
-            {errors.experience && (
-              <p className="text-red-400 text-sm font-el-messiri">{errors.experience.message}</p>
-            )}
-          </div>
-
-          {/* Телефон */}
-          <div className="space-y-2">
-            <Label htmlFor="phone" className="text-white font-el-messiri text-lg font-semibold">
-              Телефон *
-            </Label>
-            <Input
-              id="phone"
-              type="tel"
-              {...register("phone")}
-              className="bg-mariko-secondary border-none text-white placeholder:text-white/60 rounded-lg h-12"
-              placeholder="+7 (999) 123-45-67"
-            />
-            {errors.phone && (
-              <p className="text-red-400 text-sm font-el-messiri">{errors.phone.message}</p>
-            )}
-          </div>
-
-          {/* Email */}
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-white font-el-messiri text-lg font-semibold">
-              Email *
-            </Label>
-            <Input
-              id="email"
-              type="email"
-              {...register("email")}
-              className="bg-mariko-secondary border-none text-white placeholder:text-white/60 rounded-lg h-12"
-              placeholder="example@email.com"
-            />
-            {errors.email && (
-              <p className="text-red-400 text-sm font-el-messiri">{errors.email.message}</p>
-            )}
-          </div>
-
-          {/* Кнопка отправки */}
-          <div className="pt-4">
-            <Button
-              type="submit"
-              disabled={submissionStatus.isSubmitting}
-              className="w-full bg-orange-600 hover:bg-orange-700 text-white font-el-messiri text-lg font-bold h-14 rounded-lg transition-colors duration-200"
-            >
-              {submissionStatus.isSubmitting ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Отправляем заявку...
-                </div>
-              ) : (
-                "Отправить заявку"
-              )}
-            </Button>
-          </div>
-
-          {/* Ошибка отправки */}
-          {submissionStatus.error && (
-            <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-4 flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-              <p className="text-red-400 font-el-messiri">{submissionStatus.error}</p>
-            </div>
-          )}
-        </form>
+    <div className="min-h-screen overflow-hidden flex flex-col bg-white">
+      {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
+      <div className="bg-mariko-primary pb-6 md:pb-8 rounded-b-[24px] md:rounded-b-[32px]">
+        <Header />
       </div>
 
-      <BottomNavigation currentPage="home" className="mt-6" />
+      {/* СРЕДНЯЯ СЕКЦИЯ: Main Content с белым фоном, расширенная до низа */}
+      <div className="flex-1 bg-white relative">
+        <div className="px-4 md:px-6 max-w-4xl mx-auto w-full">
+          {/* Back Button and Title */}
+          <div className="mt-6 md:mt-8 flex items-center gap-4 mb-8">
+            <button
+              onClick={() => navigate("/")}
+              className="p-2 text-mariko-primary hover:bg-mariko-primary/10 rounded-full transition-colors"
+            >
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+            <h1 className="text-mariko-primary font-el-messiri text-3xl md:text-4xl font-bold">
+              Работа у нас
+            </h1>
+          </div>
+
+          {/* Job Application Form */}
+          <div className="pb-24 md:pb-32">
+            <form onSubmit={onSubmit} className="mt-6 space-y-6">
+              {/* Имя */}
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-white font-el-messiri text-lg font-semibold">
+                  Имя *
+                </Label>
+                <Input
+                  id="name"
+                  type="text"
+                  {...register("name")}
+                  className="bg-mariko-secondary border-none text-white placeholder:text-white/60 rounded-lg h-12"
+                  placeholder="Введите ваше имя"
+                />
+                {errors.name && (
+                  <p className="text-red-400 text-sm font-el-messiri">{errors.name.message}</p>
+                )}
+              </div>
+
+              {/* Желаемый город работы */}
+              <div className="space-y-2">
+                <Label htmlFor="desiredCity" className="text-white font-el-messiri text-lg font-semibold">
+                  Желаемый город работы *
+                </Label>
+                <Select 
+                  value={selectedCityForJob}
+                  onValueChange={(value) => {
+                    setValue("desiredCity", value);
+                    handleCityChange(value);
+                  }}
+                >
+                  <SelectTrigger className="bg-mariko-secondary border-none text-white h-12 rounded-lg">
+                    <SelectValue placeholder="Выберите город" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cities.map((city) => (
+                      <SelectItem key={city.id} value={city.name}>
+                        {city.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.desiredCity && (
+                  <p className="text-red-400 text-sm font-el-messiri">{errors.desiredCity.message}</p>
+                )}
+              </div>
+
+              {/* Адрес ресторана */}
+              <div className="space-y-2">
+                <Label htmlFor="restaurant" className="text-white font-el-messiri text-lg font-semibold">
+                  Адрес ресторана *
+                </Label>
+                <Select onValueChange={(value) => setValue("restaurant", value)}>
+                  <SelectTrigger className="bg-mariko-secondary border-none text-white h-12 rounded-lg">
+                    <SelectValue placeholder="Выберите ресторан" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableRestaurants.map((restaurant) => (
+                      <SelectItem key={restaurant.id} value={restaurant.address}>
+                        {restaurant.address}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.restaurant && (
+                  <p className="text-red-400 text-sm font-el-messiri">{errors.restaurant.message}</p>
+                )}
+              </div>
+
+              {/* Возраст */}
+              <div className="space-y-2">
+                <Label htmlFor="age" className="text-white font-el-messiri text-lg font-semibold">
+                  Возраст *
+                </Label>
+                <Input
+                  id="age"
+                  type="number"
+                  {...register("age", { valueAsNumber: true })}
+                  className="bg-mariko-secondary border-none text-white placeholder:text-white/60 rounded-lg h-12"
+                  placeholder="Введите ваш возраст"
+                  min="16"
+                  max="80"
+                />
+                {errors.age && (
+                  <p className="text-red-400 text-sm font-el-messiri">{errors.age.message}</p>
+                )}
+              </div>
+
+              {/* Должность */}
+              <div className="space-y-2">
+                <Label htmlFor="position" className="text-white font-el-messiri text-lg font-semibold">
+                  Должность *
+                </Label>
+                <Select onValueChange={(value) => setValue("position", value)}>
+                  <SelectTrigger className="bg-mariko-secondary border-none text-white h-12 rounded-lg">
+                    <SelectValue placeholder="Выберите должность" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="waiter">Официант</SelectItem>
+                    <SelectItem value="cook">Повар</SelectItem>
+                    <SelectItem value="barista">Бариста</SelectItem>
+                    <SelectItem value="administrator">Администратор</SelectItem>
+                    <SelectItem value="manager">Менеджер</SelectItem>
+                    <SelectItem value="cleaner">Уборщик</SelectItem>
+                    <SelectItem value="other">Другая должность</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.position && (
+                  <p className="text-red-400 text-sm font-el-messiri">{errors.position.message}</p>
+                )}
+              </div>
+
+              {/* Опыт работы */}
+              <div className="space-y-2">
+                <Label htmlFor="experience" className="text-white font-el-messiri text-lg font-semibold">
+                  Опыт работы
+                </Label>
+                <Textarea
+                  id="experience"
+                  {...register("experience")}
+                  className="bg-mariko-secondary border-none text-white placeholder:text-white/60 rounded-lg min-h-[100px] resize-none"
+                  placeholder="Расскажите о вашем опыте работы"
+                />
+                {errors.experience && (
+                  <p className="text-red-400 text-sm font-el-messiri">{errors.experience.message}</p>
+                )}
+              </div>
+
+              {/* Телефон */}
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="text-white font-el-messiri text-lg font-semibold">
+                  Телефон *
+                </Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  {...register("phone")}
+                  className="bg-mariko-secondary border-none text-white placeholder:text-white/60 rounded-lg h-12"
+                  placeholder="+7 (999) 123-45-67"
+                />
+                {errors.phone && (
+                  <p className="text-red-400 text-sm font-el-messiri">{errors.phone.message}</p>
+                )}
+              </div>
+
+              {/* Email */}
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-white font-el-messiri text-lg font-semibold">
+                  Email *
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  {...register("email")}
+                  className="bg-mariko-secondary border-none text-white placeholder:text-white/60 rounded-lg h-12"
+                  placeholder="example@email.com"
+                />
+                {errors.email && (
+                  <p className="text-red-400 text-sm font-el-messiri">{errors.email.message}</p>
+                )}
+              </div>
+
+              {/* Кнопка отправки */}
+              <div className="pt-4">
+                <Button
+                  type="submit"
+                  disabled={submissionStatus.isSubmitting}
+                  className="w-full bg-orange-600 hover:bg-orange-700 text-white font-el-messiri text-lg font-bold h-14 rounded-lg transition-colors duration-200"
+                >
+                  {submissionStatus.isSubmitting ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Отправляем заявку...
+                    </div>
+                  ) : (
+                    "Отправить заявку"
+                  )}
+                </Button>
+              </div>
+
+              {/* Ошибка отправки */}
+              {submissionStatus.error && (
+                <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-4 flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                  <p className="text-red-400 font-el-messiri">{submissionStatus.error}</p>
+                </div>
+              )}
+            </form>
+          </div>
+        </div>
+
+        {/* НАВИГАЦИЯ: позиционирована поверх белого фона */}
+        <div className="absolute bottom-0 left-0 right-0 z-50">
+          <BottomNavigation currentPage="home" />
+        </div>
+      </div>
     </div>
   );
 }

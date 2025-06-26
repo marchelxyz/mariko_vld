@@ -4,27 +4,22 @@ import { cn } from "@/lib/utils";
 import { cities, type City, type Restaurant } from "@/shared/data/cities";
 
 interface AddressCitySelectorProps {
-  selectedCity: City | null;
-  onCityChange: (city: City) => void;
+  selectedRestaurant: Restaurant;
+  onRestaurantChange: (restaurant: Restaurant) => void;
   className?: string;
 }
 
 /**
- * Селектор города с адресом в стиле плашки
- * Показывает "Адрес ресторана" и текущий город с адресом
+ * Селектор ресторана с адресом в стиле плашки
+ * Показывает "Адрес ресторана" и текущий ресторан
  * В выпадающем списке показывает все рестораны всех городов в формате "Город, Адрес"
  */
 export const AddressCitySelector = ({
-  selectedCity,
-  onCityChange,
+  selectedRestaurant,
+  onRestaurantChange,
   className,
 }: AddressCitySelectorProps) => {
   const [isOpen, setIsOpen] = useState(false);
-
-  if (!selectedCity) return null;
-
-  // Используем первый ресторан из выбранного города
-  const currentRestaurant = selectedCity.restaurants[0];
 
   // Создаем список всех ресторанов из всех городов
   const allRestaurants: Array<{ restaurant: Restaurant; city: City }> = [];
@@ -34,9 +29,8 @@ export const AddressCitySelector = ({
     });
   });
 
-  const handleRestaurantSelect = (restaurant: Restaurant, city: City) => {
-    // Устанавливаем выбранный город
-    onCityChange(city);
+  const handleRestaurantSelect = (restaurant: Restaurant) => {
+    onRestaurantChange(restaurant);
     setIsOpen(false);
   };
 
@@ -53,7 +47,7 @@ export const AddressCitySelector = ({
               Адрес ресторана
             </div>
             <div className="text-sm font-semibold leading-tight">
-              {selectedCity.name}, {currentRestaurant?.address || ""}
+              {selectedRestaurant.city}, {selectedRestaurant.address}
             </div>
           </div>
           <ChevronDown
@@ -71,10 +65,10 @@ export const AddressCitySelector = ({
             {allRestaurants.map(({ restaurant, city }, index) => (
               <button
                 key={`${city.id}-${restaurant.id}`}
-                onClick={() => handleRestaurantSelect(restaurant, city)}
+                onClick={() => handleRestaurantSelect(restaurant)}
                 className={cn(
                   "w-full text-left p-3 rounded-[15px] font-el-messiri transition-colors",
-                  selectedCity.id === city.id && currentRestaurant?.id === restaurant.id
+                  selectedRestaurant.id === restaurant.id
                     ? "bg-mariko-primary text-white"
                     : "text-white hover:bg-mariko-primary/50",
                 )}

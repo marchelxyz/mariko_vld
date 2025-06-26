@@ -4,7 +4,7 @@ import { Toaster } from "@shared/ui/toaster";
 import { Toaster as SonnerToaster } from "@shared/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { CityProvider } from "@/contexts/CityContext";
+import { RestaurantProvider } from "@/contexts/CityContext";
 
 // Lazy load pages for better code splitting
 const Index = lazy(() => import("./pages/home"));
@@ -43,7 +43,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <CityProvider>
+        <RestaurantProvider>
           <BrowserRouter>
             <Suspense fallback={<PageLoader />}>
               <Routes>
@@ -67,7 +67,7 @@ function App() {
           </BrowserRouter>
           <Toaster />
           <SonnerToaster />
-        </CityProvider>
+        </RestaurantProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
