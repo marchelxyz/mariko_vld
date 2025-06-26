@@ -224,7 +224,10 @@ const Restaurants = () => {
       Нефтекамск: "neftekamsk",
       Пенза: "penza",
       Астана: "astana",
-      Атырау: "atyrau"
+      Атырау: "atyrau",
+      Волгоград: "volgograd",
+      Бугульма: "bugulma",
+      Уфа: "ufa"
     };
     return cityMap[cityName] || "nizhnynovgorod";
   }
@@ -250,7 +253,10 @@ const Restaurants = () => {
       Нефтекамск: "172/neftekamsk",
       Пенза: "56/penza",
       Астана: "162/nur-sultan",
-      Атырау: "164/atyrau"
+      Атырау: "164/atyrau",
+      Волгоград: "38/volgograd",
+      Бугульма: "97/bugulma",
+      Уфа: "172/ufa"
     };
     return cityMap[cityName] || "47/nizhny-novgorod";
   }

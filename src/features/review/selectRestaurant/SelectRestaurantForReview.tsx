@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { MapPin, Star } from "lucide-react";
+import { MapPin, Star, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { PageHeader } from "@widgets/pageHeader";
 import { useCityContext } from "@/contexts/CityContext";
+import { RESTAURANT_REVIEW_LINKS } from "@/shared/data/reviewLinks";
 
 const SelectRestaurantForReview = () => {
   const navigate = useNavigate();
@@ -12,7 +13,16 @@ const SelectRestaurantForReview = () => {
   const [selectedRestaurant, setSelectedRestaurant] = useState<string | null>(null);
 
   const handleRestaurantSelect = (restaurantId: string) => {
-    // Сохраняем выбранный ресторан в localStorage для передачи на страницу отзыва
+    // Проверяем, есть ли внешняя ссылка для этого ресторана
+    const externalReviewLink = RESTAURANT_REVIEW_LINKS[restaurantId];
+    
+    if (externalReviewLink) {
+      // Открываем внешнюю ссылку в новой вкладке
+      window.open(externalReviewLink, "_blank");
+      return;
+    }
+
+    // Если нет внешней ссылки, сохраняем выбранный ресторан и переходим к форме отзыва
     localStorage.setItem('selectedRestaurantForReview', restaurantId);
     navigate("/review");
   };
@@ -40,37 +50,50 @@ const SelectRestaurantForReview = () => {
 
         {/* Restaurant List */}
         <div className="space-y-4">
-          {selectedCity.restaurants.map((restaurant) => (
-            <button
-              key={restaurant.id}
-              onClick={() => handleRestaurantSelect(restaurant.id)}
-              className={`w-full bg-mariko-secondary rounded-[45px] p-6 transition-all duration-200 hover:scale-105 hover:bg-white/15 ${
-                selectedRestaurant === restaurant.id ? 'ring-2 ring-yellow-400' : ''
-              }`}
-              onMouseEnter={() => setSelectedRestaurant(restaurant.id)}
-              onMouseLeave={() => setSelectedRestaurant(null)}
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
-                  <MapPin className="w-6 h-6 text-white" />
-                </div>
-                
-                <div className="flex-1 text-left">
-                  <h3 className="text-white font-el-messiri text-xl font-bold mb-1">
-                    {restaurant.name}
-                  </h3>
-                  <p className="text-white/80 font-el-messiri text-lg">
-                    {restaurant.address}
-                  </p>
-                </div>
+          {selectedCity.restaurants.map((restaurant) => {
+            const hasExternalLink = RESTAURANT_REVIEW_LINKS[restaurant.id];
+            
+            return (
+              <button
+                key={restaurant.id}
+                onClick={() => handleRestaurantSelect(restaurant.id)}
+                className={`w-full bg-mariko-secondary rounded-[45px] p-6 transition-all duration-200 hover:scale-105 hover:bg-white/15 ${
+                  selectedRestaurant === restaurant.id ? 'ring-2 ring-yellow-400' : ''
+                }`}
+                onMouseEnter={() => setSelectedRestaurant(restaurant.id)}
+                onMouseLeave={() => setSelectedRestaurant(null)}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
+                    <MapPin className="w-6 h-6 text-white" />
+                  </div>
+                  
+                  <div className="flex-1 text-left">
+                    <h3 className="text-white font-el-messiri text-xl font-bold mb-1">
+                      {restaurant.name}
+                    </h3>
+                    <p className="text-white/80 font-el-messiri text-lg">
+                      {restaurant.address}
+                    </p>
+                  </div>
 
-                <div className="flex items-center gap-2 text-white/60">
-                  <Star className="w-5 h-5" />
-                  <span className="font-el-messiri text-sm">Оставить отзыв</span>
+                  <div className="flex items-center gap-2 text-white/60">
+                    {hasExternalLink ? (
+                      <>
+                        <ExternalLink className="w-5 h-5" />
+                        <span className="font-el-messiri text-sm">Внешняя ссылка</span>
+                      </>
+                    ) : (
+                      <>
+                        <Star className="w-5 h-5" />
+                        <span className="font-el-messiri text-sm">Оставить отзыв</span>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
 
         {/* Info Text */}
