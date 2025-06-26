@@ -1,8 +1,7 @@
-import { ChefHat } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 import { Header } from "@widgets/header";
-import { ActionButton, MenuCard, QuickActionButton } from "@shared/ui";
+import { MenuCard, QuickActionButton, Carousel, CarouselContent, CarouselItem, PromotionCard } from "@shared/ui";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { useCityContext } from "@/contexts/CityContext";
 import { toast } from "sonner";
@@ -79,6 +78,44 @@ const Index = () => {
               title="Франшиза"
               onClick={() => window.open("https://vhachapuri.ru/franshiza", "_blank")}
             />
+          </div>
+
+          {/* Promotions Carousel */}
+          <div className="mt-6 md:mt-8">
+            <Carousel opts={{ align: "start", loop: true, containScroll: 'trimSnaps', skipSnaps: false }} className="w-full">
+              <CarouselContent>
+                {[
+                  {
+                    id: 1,
+                    imageUrl: "/images/promotions/promo-birthday.png",
+                    title: "Безлимит виноградного",
+                    description: "При заказе от 1500₽ на гостя по вторникам",
+                  },
+                  {
+                    id: 2,
+                    imageUrl: "/images/promotions/promo-cashback.png",
+                    title: "Вай, со своим отмечай!",
+                    description: "Принесите свои горячительные напитки на свою закуску у Марико! Билеты со своими закусками от 2500₽ на гостя",
+                  },
+                  {
+                    id: 3,
+                    imageUrl: "/images/promotions/promo-delivery.png",
+                    title: "Накормим 300 гостей",
+                    description: "Совершенно бесплатно",
+                  },
+                ].map((promo) => (
+                  <CarouselItem key={promo.id} className="basis-[80%] md:basis-[45%] pr-3">
+                    <PromotionCard
+                      imageUrl={promo.imageUrl}
+                      title={promo.title}
+                      description={promo.description}
+                      className="rounded-[16px] h-36 md:h-48"
+                      onClick={() => navigate("/promotions")}
+                    />
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+            </Carousel>
           </div>
 
           {/* Menu and Additional Services */}

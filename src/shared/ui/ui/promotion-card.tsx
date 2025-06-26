@@ -26,19 +26,19 @@ export const PromotionCard = ({
       <img
         src={imageUrl}
         alt={title || "Акция"}
-        className="w-full h-auto object-cover"
+        className="w-full h-full object-cover"
       />
 
       {(title || description) && (
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end">
-          <div className="p-6 md:p-8 text-left w-full">
+          <div className="p-3 md:p-4 text-left w-full">
             {title && (
-              <h3 className="text-white font-el-messiri text-2xl md:text-3xl font-bold tracking-tight mb-2">
+              <h3 className="text-white font-el-messiri text-lg md:text-2xl font-bold tracking-tight mb-1 md:mb-2 leading-snug">
                 {title}
               </h3>
             )}
             {description && (
-              <p className="text-white font-el-messiri text-lg md:text-xl font-medium">
+              <p className="hidden md:block text-white font-el-messiri text-sm md:text-base font-medium leading-snug line-clamp-2">
                 {description}
               </p>
             )}
