@@ -30,31 +30,39 @@ const Promotions = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col">
-      {/* Header */}
-      <Header />
-
-      {/* Main Content */}
-      <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full pb-8 md:pb-16">
-        {/* Page Header */}
-        <PageHeader title="Акции" />
-        
-        {/* Promotions Grid */}
-        <div className="mt-0 md:mt-2 space-y-4 md:space-y-12">
-          {promotions.map((promo) => (
-            <PromotionCard
-              key={promo.id}
-              imageUrl={promo.imageUrl}
-              title={promo.title}
-              description={promo.description}
-                              onClick={() => {/* Акция: ${promo.title} */}}
-            />
-          ))}
-        </div>
+    <div className="min-h-screen overflow-hidden flex flex-col bg-white">
+      {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
+      <div className="bg-mariko-primary pb-6 md:pb-8 rounded-b-[24px] md:rounded-b-[32px]">
+        <Header />
       </div>
 
-      {/* Bottom Navigation */}
-      <BottomNavigation currentPage="home" />
+      {/* СРЕДНЯЯ СЕКЦИЯ: Main Content с белым фоном, расширенная до низа */}
+      <div className="flex-1 bg-white relative">
+        <div className="px-4 md:px-6 max-w-6xl mx-auto w-full">
+          {/* Page Header */}
+          <div className="mt-6 md:mt-8">
+            <PageHeader title="Акции" />
+          </div>
+          
+          {/* Promotions Grid */}
+          <div className="mt-6 md:mt-8 space-y-4 md:space-y-12 pb-24 md:pb-32">
+            {promotions.map((promo) => (
+              <PromotionCard
+                key={promo.id}
+                imageUrl={promo.imageUrl}
+                title={promo.title}
+                description={promo.description}
+                onClick={() => {/* Акция: ${promo.title} */}}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* НАВИГАЦИЯ: позиционирована поверх белого фона */}
+        <div className="absolute bottom-0 left-0 right-0 z-50">
+          <BottomNavigation currentPage="home" />
+        </div>
+      </div>
     </div>
   );
 };

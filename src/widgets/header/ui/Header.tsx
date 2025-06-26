@@ -8,7 +8,7 @@ interface HeaderProps {
 export const Header = ({ 
   showCitySelector = false 
 }: HeaderProps) => {
-  const { selectedCity, setSelectedCity } = useCityContext();
+  const { selectedRestaurant, setSelectedRestaurant } = useCityContext();
 
   return (
     <div className="px-3 md:px-6 max-w-sm md:max-w-6xl mx-auto w-full">
@@ -21,12 +21,12 @@ export const Header = ({
         />
       </div>
 
-      {/* Селектор города с адресом под логотипом */}
+      {/* Селектор ресторана с адресом под логотипом */}
       {showCitySelector && (
         <div className="mt-4">
           <AddressCitySelector
-            selectedCity={selectedCity}
-            onCityChange={setSelectedCity}
+            selectedRestaurant={selectedRestaurant}
+            onRestaurantChange={setSelectedRestaurant}
           />
         </div>
       )}

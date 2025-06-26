@@ -273,187 +273,206 @@ const Review = () => {
 
   if (showExternalReviews) {
     return (
-      <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col">
-        <Header />
-        <div className="flex-1 px-4 md:px-6 max-w-4xl mx-auto w-full flex items-center justify-center">
-          <div className="bg-mariko-secondary rounded-[90px] p-8 text-center max-w-md">
-            <h2 className="text-white font-el-messiri text-2xl font-bold mb-6">
-              Спасибо за положительный отзыв!
-            </h2>
-            <p className="text-white font-el-messiri text-lg mb-8">
-              Поможете другим гостям - оставьте отзыв на картах:
-            </p>
-            <div className="space-y-4">
-              <button
-                onClick={() => handleExternalReview("yandex")}
-                className="w-full bg-yellow-500 text-black rounded-[90px] px-6 py-4 font-el-messiri text-xl font-bold hover:bg-yellow-400 transition-colors"
-              >
-                Яндекс Карты
-              </button>
-              <button
-                onClick={() => handleExternalReview("gis")}
-                className="w-full bg-green-500 text-white rounded-[90px] px-6 py-4 font-el-messiri text-xl font-bold hover:bg-green-400 transition-colors"
-              >
-                2ГИС
-              </button>
-              <button
-                onClick={() => navigate("/")}
-                className="w-full bg-gray-500 text-white rounded-[90px] px-6 py-4 font-el-messiri text-xl font-bold hover:bg-gray-400 transition-colors"
-              >
-                Позже
-              </button>
+      <div className="min-h-screen overflow-hidden flex flex-col bg-white">
+        {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
+        <div className="bg-mariko-primary pb-6 md:pb-8 rounded-b-[24px] md:rounded-b-[32px]">
+          <Header />
+        </div>
+        
+        {/* СРЕДНЯЯ СЕКЦИЯ: Main Content с белым фоном, расширенная до низа */}
+        <div className="flex-1 bg-white relative flex items-center justify-center">
+          <div className="px-4 md:px-6 max-w-md mx-auto">
+            <div className="bg-mariko-secondary rounded-[90px] p-8 text-center">
+              <h2 className="text-white font-el-messiri text-2xl font-bold mb-6">
+                Спасибо за положительный отзыв!
+              </h2>
+              <p className="text-white font-el-messiri text-lg mb-8">
+                Поможете другим гостям - оставьте отзыв на картах:
+              </p>
+              <div className="space-y-4">
+                <button
+                  onClick={() => handleExternalReview("yandex")}
+                  className="w-full bg-yellow-500 text-black rounded-[90px] px-6 py-4 font-el-messiri text-xl font-bold hover:bg-yellow-400 transition-colors"
+                >
+                  Яндекс Карты
+                </button>
+                <button
+                  onClick={() => handleExternalReview("gis")}
+                  className="w-full bg-green-500 text-white rounded-[90px] px-6 py-4 font-el-messiri text-xl font-bold hover:bg-green-400 transition-colors"
+                >
+                  2ГИС
+                </button>
+                <button
+                  onClick={() => navigate("/")}
+                  className="w-full bg-gray-500 text-white rounded-[90px] px-6 py-4 font-el-messiri text-xl font-bold hover:bg-gray-400 transition-colors"
+                >
+                  Позже
+                </button>
+              </div>
             </div>
           </div>
+          
+          {/* НАВИГАЦИЯ: позиционирована поверх белого фона */}
+          <div className="absolute bottom-0 left-0 right-0 z-50">
+            <BottomNavigation currentPage="home" />
+          </div>
         </div>
-        <BottomNavigation currentPage="home" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col">
-      {/* Header */}
-      <Header />
+    <div className="min-h-screen overflow-hidden flex flex-col bg-white">
+      {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
+      <div className="bg-mariko-primary pb-6 md:pb-8 rounded-b-[24px] md:rounded-b-[32px]">
+        <Header />
+      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 px-4 md:px-6 max-w-4xl mx-auto w-full">
-        {/* Back Button and Title */}
-        <div className="mt-10 flex items-center gap-4 mb-8">
-          <button
-            onClick={() => {
-              // Если в городе несколько ресторанов, возвращаемся к выбору ресторана
-              if (selectedCity.restaurants.length > 1) {
-                navigate("/select-restaurant-review");
-              } else {
-                // Если ресторан один, возвращаемся на главную страницу
-                localStorage.removeItem('selectedRestaurantForReview');
-                navigate("/");
-              }
-            }}
-            className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </button>
-          <div className="flex-1">
-            <h1 className="text-white font-el-messiri text-3xl md:text-4xl font-bold">
-              Оставить отзыв
-            </h1>
-            {(() => {
-              const selectedRestaurantId = localStorage.getItem('selectedRestaurantForReview');
-              const restaurant = selectedRestaurantId 
-                ? selectedCity.restaurants.find(r => r.id === selectedRestaurantId) || selectedCity.restaurants[0]
-                : selectedCity.restaurants[0];
-              return (
-                <p className="text-white/70 font-el-messiri text-lg mt-2">
-                  {restaurant.name} • {restaurant.address}
-                </p>
-              );
-            })()}
+      {/* СРЕДНЯЯ СЕКЦИЯ: Main Content с белым фоном, расширенная до низа */}
+      <div className="flex-1 bg-white relative">
+        <div className="px-4 md:px-6 max-w-4xl mx-auto w-full">
+          {/* Back Button and Title */}
+          <div className="mt-6 md:mt-8 flex items-center gap-4 mb-8">
+            <button
+              onClick={() => {
+                // Если в городе несколько ресторанов, возвращаемся к выбору ресторана
+                if (selectedCity.restaurants.length > 1) {
+                  navigate("/select-restaurant-review");
+                } else {
+                  // Если ресторан один, возвращаемся на главную страницу
+                  localStorage.removeItem('selectedRestaurantForReview');
+                  navigate("/");
+                }
+              }}
+              className="p-2 text-mariko-primary hover:bg-mariko-primary/10 rounded-full transition-colors"
+            >
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+            <div className="flex-1">
+              <h1 className="text-mariko-primary font-el-messiri text-3xl md:text-4xl font-bold">
+                Оставить отзыв
+              </h1>
+              {(() => {
+                const selectedRestaurantId = localStorage.getItem('selectedRestaurantForReview');
+                const restaurant = selectedRestaurantId 
+                  ? selectedCity.restaurants.find(r => r.id === selectedRestaurantId) || selectedCity.restaurants[0]
+                  : selectedCity.restaurants[0];
+                return (
+                  <p className="text-mariko-primary/70 font-el-messiri text-lg mt-2">
+                    {restaurant.name} • {restaurant.address}
+                  </p>
+                );
+              })()}
+            </div>
+          </div>
+
+          <div className="pb-24 md:pb-32">
+            {!isSubmitted ? (
+              <form onSubmit={handleSubmit} className="space-y-6 mb-6">
+                {/* Rating */}
+                <div className="bg-mariko-secondary rounded-[30px] px-6 py-6">
+                  <label className="block text-white font-el-messiri text-lg font-semibold mb-4 pl-6">
+                    Оцените наш ресторан *
+                  </label>
+                  <div className="flex justify-center gap-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => {
+                          setRating(star);
+                          // Очищаем ошибку при выборе рейтинга
+                          if (errors.rating) {
+                            setErrors(prev => ({ ...prev, rating: "" }));
+                          }
+                        }}
+                        className="p-1 transition-transform hover:scale-110"
+                      >
+                        <Star
+                          className={`w-8 h-8 ${
+                            star <= rating
+                              ? "text-yellow-400 fill-yellow-400"
+                              : "text-[#DB7B28]"
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-center text-white/80 font-el-messiri mt-2">
+                    {rating > 0 && (
+                      <>
+                        {rating === 1 && "Очень плохо"}
+                        {rating === 2 && "Плохо"}
+                        {rating === 3 && "Нормально"}
+                        {rating === 4 && "Хорошо"}
+                        {rating === 5 && "Отлично"}
+                      </>
+                    )}
+                  </p>
+                  {errors.rating && (
+                    <p className="text-red-300 text-sm mt-1 text-center">{errors.rating}</p>
+                  )}
+                </div>
+
+                {/* Review Text */}
+                <div className="bg-mariko-secondary rounded-[30px] px-6 py-4">
+                  <label className="flex items-center gap-2 text-white font-el-messiri text-lg font-semibold mb-2 pl-6">
+                    <MessageCircle className="w-5 h-5" />
+                    Ваш отзыв *
+                  </label>
+                  <textarea
+                    value={reviewText}
+                    onChange={(e) => {
+                      setReviewText(e.target.value);
+                      // Очищаем ошибку при вводе текста
+                      if (errors.reviewText && e.target.value.trim().length >= 10) {
+                        setErrors(prev => ({ ...prev, reviewText: "" }));
+                      }
+                    }}
+                    placeholder="Расскажите о вашем впечатлении..."
+                    className="w-full bg-transparent text-white placeholder-white/60 border-none outline-none font-el-messiri text-xl resize-none h-32"
+                    maxLength={500}
+                    required
+                  />
+                  <div className="flex justify-between items-center mt-2">
+                    {errors.reviewText && (
+                      <p className="text-red-300 text-sm">{errors.reviewText}</p>
+                    )}
+                    <p className={`text-sm ml-auto ${
+                      reviewText.length > 450 ? 'text-red-300' : 'text-white/60'
+                    }`}>
+                      {reviewText.length}/500
+                    </p>
+                  </div>
+                </div>
+
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  disabled={rating === 0 || !reviewText.trim() || reviewText.length > 500}
+                  className="w-full bg-[#DB7B28] text-mariko-secondary font-el-messiri text-2xl font-bold py-6 rounded-3xl hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                  Отправить отзыв
+                </button>
+              </form>
+            ) : (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-mariko-primary mx-auto mb-4"></div>
+                  <p className="text-mariko-primary font-el-messiri text-xl">
+                    Анализируем ваш отзыв...
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {!isSubmitted ? (
-          <form onSubmit={handleSubmit} className="space-y-6 mb-6">
-            {/* Rating */}
-            <div className="bg-mariko-secondary rounded-[30px] px-6 py-6">
-              <label className="block text-white font-el-messiri text-lg font-semibold mb-4 pl-6">
-                Оцените наш ресторан *
-              </label>
-              <div className="flex justify-center gap-2">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    onClick={() => {
-                      setRating(star);
-                      // Очищаем ошибку при выборе рейтинга
-                      if (errors.rating) {
-                        setErrors(prev => ({ ...prev, rating: "" }));
-                      }
-                    }}
-                    className="p-1 transition-transform hover:scale-110"
-                  >
-                    <Star
-                      className={`w-8 h-8 ${
-                        star <= rating
-                          ? "text-yellow-400 fill-yellow-400"
-                          : "text-[#DB7B28]"
-                      }`}
-                    />
-                  </button>
-                ))}
-              </div>
-              <p className="text-center text-white/80 font-el-messiri mt-2">
-                {rating > 0 && (
-                  <>
-                    {rating === 1 && "Очень плохо"}
-                    {rating === 2 && "Плохо"}
-                    {rating === 3 && "Нормально"}
-                    {rating === 4 && "Хорошо"}
-                    {rating === 5 && "Отлично"}
-                  </>
-                )}
-              </p>
-              {errors.rating && (
-                <p className="text-red-300 text-sm mt-1 text-center">{errors.rating}</p>
-              )}
-            </div>
-
-            {/* Review Text */}
-            <div className="bg-mariko-secondary rounded-[30px] px-6 py-4">
-              <label className="flex items-center gap-2 text-white font-el-messiri text-lg font-semibold mb-2 pl-6">
-                <MessageCircle className="w-5 h-5" />
-                Ваш отзыв *
-              </label>
-              <textarea
-                value={reviewText}
-                onChange={(e) => {
-                  setReviewText(e.target.value);
-                  // Очищаем ошибку при вводе текста
-                  if (errors.reviewText && e.target.value.trim().length >= 10) {
-                    setErrors(prev => ({ ...prev, reviewText: "" }));
-                  }
-                }}
-                placeholder="Расскажите о вашем впечатлении..."
-                className="w-full bg-transparent text-white placeholder-white/60 border-none outline-none font-el-messiri text-xl resize-none h-32"
-                maxLength={500}
-                required
-              />
-              <div className="flex justify-between items-center mt-2">
-                {errors.reviewText && (
-                  <p className="text-red-300 text-sm">{errors.reviewText}</p>
-                )}
-                <p className={`text-sm ml-auto ${
-                  reviewText.length > 450 ? 'text-red-300' : 'text-white/60'
-                }`}>
-                  {reviewText.length}/500
-                </p>
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={rating === 0 || !reviewText.trim() || reviewText.length > 500}
-              className="w-full bg-[#DB7B28] text-mariko-secondary font-el-messiri text-2xl font-bold py-6 rounded-3xl hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-            >
-              Отправить отзыв
-            </button>
-          </form>
-        ) : (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-              <p className="text-white font-el-messiri text-xl">
-                Анализируем ваш отзыв...
-              </p>
-            </div>
-          </div>
-        )}
+        {/* НАВИГАЦИЯ: позиционирована поверх белого фона */}
+        <div className="absolute bottom-0 left-0 right-0 z-50">
+          <BottomNavigation currentPage="home" />
+        </div>
       </div>
-
-      {/* Bottom Navigation */}
-      <BottomNavigation currentPage="home" />
     </div>
   );
 };
