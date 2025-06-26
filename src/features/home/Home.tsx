@@ -11,7 +11,7 @@ import { RESTAURANT_REVIEW_LINKS } from "@/shared/data/reviewLinks";
 const Index = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { selectedCity, selectedRestaurant } = useCityContext();
+  const { selectedRestaurant } = useCityContext();
 
   useEffect(() => {
     // Проверяем, пришли ли мы сюда после успешной отправки заявки на вакансию
@@ -30,24 +30,17 @@ const Index = () => {
   }, [searchParams, setSearchParams]);
 
   const handleReviewClick = () => {
-    // Если в городе только один ресторан, проверяем есть ли для него внешняя ссылка
-    if (selectedCity.restaurants.length === 1) {
-      const externalReviewLink = RESTAURANT_REVIEW_LINKS[selectedRestaurant.id];
-      
-      if (externalReviewLink) {
-        // Открываем внешнюю ссылку в новой вкладке
-        window.open(externalReviewLink, "_blank");
-        return;
-      }
-      
-      // Если нет внешней ссылки, используем форму отзыва в приложении
-      localStorage.setItem('selectedRestaurantForReview', selectedRestaurant.id);
-      navigate("/review");
+    const externalReviewLink = RESTAURANT_REVIEW_LINKS[selectedRestaurant.id];
+
+    if (externalReviewLink) {
+      // Открываем внешнюю ссылку в новой вкладке
+      window.open(externalReviewLink, "_blank");
       return;
     }
 
-    // Если в городе несколько ресторанов, переходим к выбору ресторана
-    navigate("/select-restaurant-review");
+    // Если внешней ссылки нет, используем внутреннюю форму отзыва
+    localStorage.setItem("selectedRestaurantForReview", selectedRestaurant.id);
+    navigate("/review");
   };
 
   return (
