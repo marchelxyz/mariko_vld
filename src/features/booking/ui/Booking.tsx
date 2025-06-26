@@ -234,7 +234,7 @@ const Booking = () => {
           </div>
 
           {/* Booking Form */}
-          <div className="pb-24 md:pb-32">
+          <div className="pb-40 md:pb-48">
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Name */}
               <div className="bg-mariko-secondary rounded-3xl px-6 py-4">
