@@ -132,12 +132,112 @@ const Restaurants = () => {
       
       // Томск
       "tomsk-batenkova": {
-        yandexMapsUrl: "https://yandex.ru/maps/75/tomsk/?text=%D0%9F%D0%B5%D1%80%D0%B5%D1%83%D0%BB%D0%BE%D0%BA%20%D0%91%D0%B0%D1%82%D0%B5%D0%BD%D1%8C%D0%BA%D0%BE%D0%B2%D0%B0%207%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=84.945000%2C56.485000&z=16",
-        gisUrl: "https://2gis.ru/tomsk/search/%D0%9F%D0%B5%D1%80%D0%B5%D1%83%D0%BB%D0%BE%D0%BA%20%D0%91%D0%B0%D1%82%D0%B5%D0%BD%D1%8C%D0%BA%D0%BE%D0%B2%D0%B0%207%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE",
+        yandexMapsUrl: "https://yandex.ru/maps/org/khachapuri_mariko/129468048509/?filter=alternate_vertical%3ARequestWindow&ll=84.953326%2C56.484392&mode=search&sctx=ZAAAAAgBEAAaKAoSCd%2FA5EaRVT5AETtzDwnf901AEhIJbr4R3bOugT8RXD6Skh6Ghj8iBgABAgMEBSgKOABA5a4HSAFqAnJ1nQHNzMw9oAEAqAEAvQGSKXiGwgEG%2FciWp%2BIDggIo0KXQsNGH0LDQv9GD0YDQuCDQnNCw0YDQuNC60L4g0YLQvtC80YHQuooCAJICAjY3mgIMZGVza3RvcC1tYXBzwgID4oK9&sll=84.953326%2C56.484392&source=serp_navig&sspn=1.105134%2C1.552253&text=Хачапури%20Марико%20томск&z=8.37",
+        gisUrl: "https://go.2gis.com/VXy0c",
         yandexParkingUrl: "https://yandex.ru/maps/75/tomsk/?ll=84.945000%2C56.485000&z=16&text=parking&pt=84.945000%2C56.485000%2Cpm2rdm",
         gisParkingUrl: "https://2gis.ru/tomsk/search/%D0%9F%D0%B5%D1%80%D0%B5%D1%83%D0%BB%D0%BE%D0%BA%20%D0%91%D0%B0%D1%82%D0%B5%D0%BD%D1%8C%D0%BA%D0%BE%D0%B2%D0%B0%207?queryState=center%2F84.945000%2C56.485000%2Fzoom%2F16%2Frubric%2F42",
-        yandexReviewUrl: "https://yandex.ru/maps/75/tomsk/?text=%D0%9F%D0%B5%D1%80%D0%B5%D1%83%D0%BB%D0%BE%D0%BA%20%D0%91%D0%B0%D1%82%D0%B5%D0%BD%D1%8C%D0%BA%D0%BE%D0%B2%D0%B0%207%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=84.945000%2C56.485000&z=16",
-        gisReviewUrl: "https://2gis.ru/tomsk/search/%D0%9F%D0%B5%D1%80%D0%B5%D1%83%D0%BB%D0%BE%D0%BA%20%D0%91%D0%B0%D1%82%D0%B5%D0%BD%D1%8C%D0%BA%D0%BE%D0%B2%D0%B0%207%20%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
+        yandexReviewUrl: "https://yandex.ru/maps/org/khachapuri_mariko/129468048509/?filter=alternate_vertical%3ARequestWindow&ll=84.953326%2C56.484392&mode=search&sctx=ZAAAAAgBEAAaKAoSCd%2FA5EaRVT5AETtzDwnf901AEhIJbr4R3bOugT8RXD6Skh6Ghj8iBgABAgMEBSgKOABA5a4HSAFqAnJ1nQHNzMw9oAEAqAEAvQGSKXiGwgEG%2FciWp%2BIDggIo0KXQsNGH0LDQv9GD0YDQuCDQnNCw0YDQuNC60L4g0YLQvtC80YHQuooCAJICAjY3mgIMZGVza3RvcC1tYXBzwgID4oK9&sll=84.953326%2C56.484392&source=serp_navig&sspn=1.105134%2C1.552253&text=Хачапури%20Марико%20томск&z=8.37&tab=reviews",
+        gisReviewUrl: "https://go.2gis.com/VXy0c"
+      },
+
+      // Астана
+      "astana-koshkarbaeva": {
+        yandexMapsUrl: "https://yandex.ru/maps/org/khachapuri_tetushki_mariko/11394395699/?ll=71.489575%2C51.127687&source=serp_navig&z=15.39",
+        gisUrl: "https://2gis.ru/astana/search/Хачапури%20Марико", // fallback
+        yandexParkingUrl: "https://yandex.ru/maps/162/nur-sultan/?ll=71.489575%2C51.127687&z=16&text=parking&pt=71.489575%2C51.127687%2Cpm2rdm",
+        gisParkingUrl: "https://2gis.ru/astana/search/parking%20Рахимжана%20Кошкарбаева%2027",
+        yandexReviewUrl: "https://yandex.ru/maps/org/khachapuri_tetushki_mariko/11394395699/?ll=71.489575%2C51.127687&source=serp_navig&z=15.39&tab=reviews",
+        gisReviewUrl: "https://2gis.ru/astana/search/Хачапури%20Марико"
+      },
+      
+      // Атырау
+      "atyrau-avangard": {
+        yandexMapsUrl: "https://yandex.ru/maps/org/khachapuri_tetushki_mariko/11394395699/?ll=71.489575%2C51.127687&source=serp_navig&z=15.39",
+        gisUrl: "https://2gis.ru/atyrau/search/Хачапури%20Марико", // fallback
+        yandexParkingUrl: "https://yandex.ru/maps/164/atyrau/?ll=51.881111%2C47.106944&z=16&text=parking",
+        gisParkingUrl: "https://2gis.ru/atyrau/search/parking%20Авангард%203",
+        yandexReviewUrl: "https://yandex.ru/maps/org/khachapuri_tetushki_mariko/11394395699/?ll=71.489575%2C51.127687&source=serp_navig&z=15.39&tab=reviews",
+        gisReviewUrl: "https://2gis.ru/atyrau/search/Хачапури%20Марико"
+      },
+      
+      // Балахна  
+      "balakhna-sovetskaya": {
+        yandexMapsUrl: "https://yandex.ru/maps/org/khachapuri_tetushki_mariko/224361855061/?display-text=Хачапури%20Марико&ll=43.611312%2C56.493506&mode=search&sll=71.489575%2C51.127687&source=serp_navig&sspn=0.008515%2C0.013601&text=Хачапури%20Марико%2C%20Нижегородская%20область%2C%20Балахнинский%20муниципальный%20округ&z=8.39",
+        gisUrl: "https://go.2gis.com/gTJLI",
+        yandexParkingUrl: "https://yandex.ru/maps/47/nizhny-novgorod/?ll=43.611312%2C56.493506&z=16&text=parking&pt=43.611312%2C56.493506%2Cpm2rdm",
+        gisParkingUrl: "https://2gis.ru/balakhna/search/parking%20Советская%20площадь%2016",
+        yandexReviewUrl: "https://yandex.ru/maps/org/khachapuri_tetushki_mariko/224361855061/?display-text=Хачапури%20Марико&ll=43.611312%2C56.493506&mode=search&sll=71.489575%2C51.127687&source=serp_navig&sspn=0.008515%2C0.013601&text=Хачапури%20Марико%2C%20Нижегородская%20область%2C%20Балахнинский%20муниципальный%20округ&z=8.39&tab=reviews",
+        gisReviewUrl: "https://go.2gis.com/gTJLI"
+      },
+      
+      // Жуковский
+      "zhukovsky-myasishcheva": {
+        yandexMapsUrl: "https://yandex.ru/maps/org/khachapuri_mariko/162175993367/?ll=38.106857%2C55.600705&mode=search&sctx=ZAAAAAgBEAAaKAoSCYDTu3g%2FzkVAEZwwYTQrP0xAEhIJ2J%2FE505w8T8ROSuiJvp8%2BD8iBgABAgMEBSgKOABA8lZIAWoCcnWdAc3MzD2gAQCoAQC9AZjE92LCAQaQlrOPgweCAi7QpdCw0YfQsNC%2F0YPRgNC4INCc0LDRgNC40LrQviDQsdGD0LPRg9C70YzQvNCwigIAkgIFMTExMjKaAgxkZXNrdG9wLW1hcHPCAgPigr0%3D&sll=38.106857%2C55.600705&source=serp_navig&sspn=0.008574%2C0.012323&text=Хачапури%20Марико%20бугульма&z=15.38",
+        gisUrl: "https://go.2gis.com/f1MiK",
+        yandexParkingUrl: "https://yandex.ru/maps/1/moscow/?ll=38.106857%2C55.600705&z=16&text=parking&pt=38.106857%2C55.600705%2Cpm2rdm",
+        gisParkingUrl: "https://2gis.ru/zhukovsky/search/parking%20Мясищева%201",
+        yandexReviewUrl: "https://yandex.ru/maps/org/khachapuri_mariko/162175993367/?ll=38.106857%2C55.600705&mode=search&sctx=ZAAAAAgBEAAaKAoSCYDTu3g%2FzkVAEZwwYTQrP0xAEhIJ2J%2FE505w8T8ROSuiJvp8%2BD8iBgABAgMEBSgKOABA8lZIAWoCcnWdAc3MzD2gAQCoAQC9AZjE92LCAQaQlrOPgweCAi7QpdCw0YfQsNC%2F0YPRgNC4INCc0LDRgNC40LrQviDQsdGD0LPRg9C70YzQvNCwigIAkgIFMTExMjKaAgxkZXNrdG9wLW1hcHPCAgPigr0%3D&sll=38.106857%2C55.600705&source=serp_navig&sspn=0.008574%2C0.012323&text=Хачапури%20Марико%20бугульма&z=15.38&tab=reviews",
+        gisReviewUrl: "https://go.2gis.com/f1MiK"
+      },
+      
+      // Калуга
+      "kaluga-kirova": {
+        yandexMapsUrl: "https://yandex.ru/maps/org/khachapuri_mariko/188357749188/?filter=alternate_vertical%3ARequestWindow&ll=36.266030%2C54.513705&mode=search&sctx=ZAAAAAgBEAAaKAoSCYDTu3g%2FzkVAEZwwYTQrP0xAEhIJ2J%2FE505w8T8ROSuiJvp8%2BD8iBgABAgMEBSgKOABAiJ0GSAFqAnJ1nQHNzMw9oAEAqAEAvQGYxPdiwgEG3e3T9LsDggIu0KXQsNGH0LDQv9GD0YDQuCDQnNCw0YDQuNC60L4g0LHRg9Cz0YPQu9GM0LzQsIoCAJICBTExMTIymgIMZGVza3RvcC1tYXBzwgID4oK92gIoChIJKzV7oBWOSEARA4ExgjjlS0ASEgkAcMTMPo%2BBPxEAUJv%2FVx2JP%2FACAQ%3D%3D&sll=36.266030%2C54.513705&source=serp_navig&sspn=0.008574%2C0.012664&text=Хачапури%20Марико%20бугульма&z=15.38",
+        gisUrl: "https://go.2gis.com/c2sZZ",
+        yandexParkingUrl: "https://yandex.ru/maps/6/kaluga/?ll=36.266030%2C54.513705&z=16&text=parking&pt=36.266030%2C54.513705%2Cpm2rdm",
+        gisParkingUrl: "https://2gis.ru/kaluga/search/parking%20Кирова%2039",
+        yandexReviewUrl: "https://yandex.ru/maps/org/khachapuri_mariko/188357749188/?filter=alternate_vertical%3ARequestWindow&ll=36.266030%2C54.513705&mode=search&sctx=ZAAAAAgBEAAaKAoSCYDTu3g%2FzkVAEZwwYTQrP0xAEhIJ2J%2FE505w8T8ROSuiJvp8%2BD8iBgABAgMEBSgKOABAiJ0GSAFqAnJ1nQHNzMw9oAEAqAEAvQGYxPdiwgEG3e3T9LsDggIu0KXQsNGH0LDQv9GD0YDQuCDQnNCw0YDQuNC60L4g0LHRg9Cz0YPQu9GM0LzQsIoCAJICBTExMTIymgIMZGVza3RvcC1tYXBzwgID4oK92gIoChIJKzV7oBWOSEARA4ExgjjlS0ASEgkAcMTMPo%2BBPxEAUJv%2FVx2JP%2FACAQ%3D%3D&sll=36.266030%2C54.513705&source=serp_navig&sspn=0.008574%2C0.012664&text=Хачапури%20Марико%20бугульма&z=15.38&tab=reviews",
+        gisReviewUrl: "https://go.2gis.com/c2sZZ"
+      },
+      
+      // Кстово
+      "kstovo-lenina": {
+        yandexMapsUrl: "https://yandex.ru/maps/org/khachapuri_mariko/39829671764/?ll=44.208887%2C56.151392&mode=search&sctx=ZAAAAAgBEAAaKAoSCUPjiSDOhVVAET51rFJ6rEtAEhIJj8L1KFyP8T8R44xhTtBm%2BT8iBgABAgMEBSgKOABAklhIAWoCcnWdAc3MzD2gAQCoAQC9AX%2BK083CAQbUnqKwlAGCAirQpdCw0YfQsNC%2F0YPRgNC4INCc0LDRgNC40LrQviDQutGB0YLQvtCy0L6KAgCSAgUyMDA0NJoCDGRlc2t0b3AtbWFwc8ICA%2BKCvQ%3D%3D&sll=44.208887%2C56.151392&source=serp_navig&sspn=0.017148%2C0.024297&text=%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE%20%D0%BA%D1%81%D1%82%D0%BE%D0%B2%D0%BE&z=14.38",
+        gisUrl: "https://go.2gis.com/R4kfB",
+        yandexParkingUrl: "https://yandex.ru/maps/47/nizhny-novgorod/?ll=44.208887%2C56.151392&z=16&text=parking&pt=44.208887%2C56.151392%2Cpm2rdm",
+        gisParkingUrl: "https://2gis.ru/kstovo/search/parking%20Ленина%205",
+        yandexReviewUrl: "https://yandex.ru/maps/org/khachapuri_mariko/39829671764/?ll=44.208887%2C56.151392&mode=search&sctx=ZAAAAAgBEAAaKAoSCUPjiSDOhVVAET51rFJ6rEtAEhIJj8L1KFyP8T8R44xhTtBm%2BT8iBgABAgMEBSgKOABAklhIAWoCcnWdAc3MzD2gAQCoAQC9AX%2BK083CAQbUnqKwlAGCAirQpdCw0YfQsNC%2F0YPRgNC4INCc0LDRgNC40LrQviDQutGB0YLQvtCy0L6KAgCSAgUyMDA0NJoCDGRlc2t0b3AtbWFwc8ICA%2BKCvQ%3D%3D&sll=44.208887%2C56.151392&source=serp_navig&sspn=0.017148%2C0.024297&text=%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE%20%D0%BA%D1%81%D1%82%D0%BE%D0%B2%D0%BE&z=14.38&tab=reviews",
+        gisReviewUrl: "https://go.2gis.com/R4kfB"
+      },
+      
+      // Лесной Городок
+      "lesnoy-shkolnaya": {
+        yandexMapsUrl: "https://yandex.ru/maps/org/khachapuri_mariko/5022367796/?display-text=%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=37.212296%2C55.633085&mode=search&sctx=ZAAAAAgBEAAaKAoSCZ%2FHKM%2B8GkZAESJwJNBgE0xAEhIJUWnEzD6PkT8RPEuQEVDhmD8iBgABAgMEBSgKOABAzJwBSAFqAnJ1nQHNzMw9oAEAqAEAvQFwfk6kwgEFtIDt2hKCAsIB0KXQsNGH0LDQv9GD0YDQuCDQnNCw0YDQuNC60L4sINCc0L7RgdC60L7QstGB0LrQsNGPINC%2B0LHQu9Cw0YHRgtGMLCDQntC00LjQvdGG0L7QstGB0LrQuNC5INCz0L7RgNC%2B0LTRgdC60L7QuSDQvtC60YDRg9CzLCDQv9C%2B0YHRkdC70L7QuiDQs9C%2B0YDQvtC00YHQutC%2B0LPQviDRgtC40L%2FQsCDQm9C10YHQvdC%2B0Lkg0JPQvtGA0L7QtNC%2B0LqKAgCSAgYxMTQ2NziaAgxkZXNrdG9wLW1hcHPCAgPigr0%3D&sll=37.212296%2C55.633085&source=serp_navig&sspn=0.008634%2C0.012398&text=%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE%2C%20%D0%9C%D0%BE%D1%81%D0%BA%D0%BE%D0%B2%D1%81%D0%BA%D0%B0%D1%8F%20%D0%BE%D0%B1%D0%BB%D0%B0%D1%81%D1%82%D1%8C%2C%20%D0%9E%D0%B4%D0%B8%D0%BD%D1%86%D0%BE%D0%B2%D1%81%D0%BA%D0%B8%D0%B9%20%D0%B3%D0%BE%D1%80%D0%BE%D0%B4%D1%81%D0%BA%D0%BE%D0%B9%20%D0%BE%D0%BA%D1%80%D1%83%D0%B3%2C%20%D0%BF%D0%BE%D1%81%D1%91%D0%BB%D0%BE%D0%BA%20%D0%B3%D0%BE%D1%80%D0%BE%D0%B4%D1%81%D0%BA%D0%BE%D0%B3%D0%BE%20%D1%82%D0%B8%D0%BF%D0%B0%20%D0%9B%D0%B5%D1%81%D0%BD%D0%BE%D0%B9%20%D0%93%D0%BE%D1%80%D0%BE%D0%B4%D0%BE%D0%BA&z=15.37",
+        gisUrl: "https://go.2gis.com/LicVu",
+        yandexParkingUrl: "https://yandex.ru/maps/1/moscow/?ll=37.212296%2C55.633085&z=16&text=parking&pt=37.212296%2C55.633085%2Cpm2rdm",
+        gisParkingUrl: "https://2gis.ru/lesnoy_gorodok/search/parking%20Школьная%201",
+        yandexReviewUrl: "https://yandex.ru/maps/org/khachapuri_mariko/5022367796/?display-text=%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE&ll=37.212296%2C55.633085&mode=search&sctx=ZAAAAAgBEAAaKAoSCZ%2FHKM%2B8GkZAESJwJNBgE0xAEhIJUWnEzD6PkT8RPEuQEVDhmD8iBgABAgMEBSgKOABAzJwBSAFqAnJ1nQHNzMw9oAEAqAEAvQFwfk6kwgEFtIDt2hKCAsIB0KXQsNGH0LDQv9GD0YDQuCDQnNCw0YDQuNC60L4sINCc0L7RgdC60L7QstGB0LrQsNGPINC%2B0LHQu9Cw0YHRgtGMLCDQntC00LjQvdGG0L7QstGB0LrQuNC5INCz0L7RgNC%2B0LTRgdC60L7QuSDQvtC60YDRg9CzLCDQv9C%2B0YHRkdC70L7QuiDQs9C%2B0YDQvtC00YHQutC%2B0LPQviDRgtC40L%2FQsCDQm9C10YHQvdC%2B0Lkg0JPQvtGA0L7QtNC%2B0LqKAgCSAgYxMTQ2NziaAgxkZXNrdG9wLW1hcHPCAgPigr0%3D&sll=37.212296%2C55.633085&source=serp_navig&sspn=0.008634%2C0.012398&text=%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE%2C%20%D0%9C%D0%BE%D1%81%D0%BA%D0%BE%D0%B2%D1%81%D0%BA%D0%B0%D1%8F%20%D0%BE%D0%B1%D0%BB%D0%B0%D1%81%D1%82%D1%8C%2C%20%D0%9E%D0%B4%D0%B8%D0%BD%D1%86%D0%BE%D0%B2%D1%81%D0%BA%D0%B8%D0%B9%20%D0%B3%D0%BE%D1%80%D0%BE%D0%B4%D1%81%D0%BA%D0%BE%D0%B9%20%D0%BE%D0%BA%D1%80%D1%83%D0%B3%2C%20%D0%BF%D0%BE%D1%81%D1%91%D0%BB%D0%BE%D0%BA%20%D0%B3%D0%BE%D1%80%D0%BE%D0%B4%D1%81%D0%BA%D0%BE%D0%B3%D0%BE%20%D1%82%D0%B8%D0%BF%D0%B0%20%D0%9B%D0%B5%D1%81%D0%BD%D0%BE%D0%B9%20%D0%93%D0%BE%D1%80%D0%BE%D0%B4%D0%BE%D0%BA&z=15.37&tab=reviews",
+        gisReviewUrl: "https://go.2gis.com/LicVu"
+      },
+      
+      // Магнитогорск
+      "magnitogorsk-zavenyagina": {
+        yandexMapsUrl: "https://yandex.ru/maps/org/khachapuri_mariko/44051781473/?ll=58.986816%2C53.380193&mode=search&sll=37.212296%2C55.633085&source=serp_navig&sspn=0.008634%2C0.012398&text=Хачапури%20Марико%20магнитогорск&z=8.37",
+        gisUrl: "https://go.2gis.com/jeQ8M",
+        yandexParkingUrl: "https://yandex.ru/maps/107/magnitogorsk/?ll=58.986816%2C53.380193&z=16&text=parking&pt=58.986816%2C53.380193%2Cpm2rdm",
+        gisParkingUrl: "https://2gis.ru/magnitogorsk/search/parking%20Завенягина%204б",
+        yandexReviewUrl: "https://yandex.ru/maps/org/khachapuri_mariko/44051781473/?ll=58.986816%2C53.380193&mode=search&sll=37.212296%2C55.633085&source=serp_navig&sspn=0.008634%2C0.012398&text=Хачапури%20Марико%20магнитогорск&z=8.37&tab=reviews",
+        gisReviewUrl: "https://go.2gis.com/jeQ8M"
+      },
+      
+      // Нефтекамск
+      "neftekamsk-parkovaya": {
+        yandexMapsUrl: "https://yandex.ru/maps/org/khachapuri_mariko/194059140701/?ll=54.243267%2C56.084625&mode=search&sctx=ZAAAAAgBEAAaKAoSCbOVl%2FxPfk1AEYWVCiqqsEpAEhIJoik7%2FaCu8T8R1y%2FYDdvW%2Bj8iBgABAgMEBSgKOABA51ZIAWoCcnWdAc3MzD2gAQCoAQC9AU%2BAjpTCAQbd%2FM320gWCAjLQpdCw0YfQsNC%2F0YPRgNC4INCc0LDRgNC40LrQviDQvdC10YTRgtC10LrQsNC80YHQuooCAJICBTExMTE0mgIMZGVza3RvcC1tYXBzwgID4oK9&sll=54.243267%2C56.084625&source=serp_navig&sspn=1.105134%2C1.568635&text=%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE%20%D0%BD%D0%B5%D1%84%D1%82%D0%B5%D0%BA%D0%B0%D0%BC%D1%81%D0%BA&z=8.37",
+        gisUrl: "https://go.2gis.com/2fCtO",
+        yandexParkingUrl: "https://yandex.ru/maps/172/neftekamsk/?ll=54.243267%2C56.084625&z=16&text=parking&pt=54.243267%2C56.084625%2Cpm2rdm",
+        gisParkingUrl: "https://2gis.ru/neftekamsk/search/parking%20Парковая%2012",
+        yandexReviewUrl: "https://yandex.ru/maps/org/khachapuri_mariko/194059140701/?ll=54.243267%2C56.084625&mode=search&sctx=ZAAAAAgBEAAaKAoSCbOVl%2FxPfk1AEYWVCiqqsEpAEhIJoik7%2FaCu8T8R1y%2FYDdvW%2Bj8iBgABAgMEBSgKOABA51ZIAWoCcnWdAc3MzD2gAQCoAQC9AU%2BAjpTCAQbd%2FM320gWCAjLQpdCw0YfQsNC%2F0YPRgNC4INCc0LDRgNC40LrQviDQvdC10YTRgtC10LrQsNC80YHQuooCAJICBTExMTE0mgIMZGVza3RvcC1tYXBzwgID4oK9&sll=54.243267%2C56.084625&source=serp_navig&sspn=1.105134%2C1.568635&text=%D0%A5%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8%20%D0%9C%D0%B0%D1%80%D0%B8%D0%BA%D0%BE%20%D0%BD%D0%B5%D1%84%D1%82%D0%B5%D0%BA%D0%B0%D0%BC%D1%81%D0%BA&z=8.37&tab=reviews",
+        gisReviewUrl: "https://go.2gis.com/2fCtO"
+      },
+      
+      // Новосибирск
+      "novosibirsk-sovetskaya": {
+        yandexMapsUrl: "https://yandex.ru/maps/org/khachapuri_mariko/106533398609/?ll=82.911165%2C55.048464&mode=search&sll=44.081481%2C56.246775&source=serp_navig&sspn=0.286027%2C0.404256&text=хачапури%20марико%20нововсибирск&z=8.32",
+        gisUrl: "https://go.2gis.com/3n2WD",
+        yandexParkingUrl: "https://yandex.ru/maps/65/novosibirsk/?ll=82.911165%2C55.048464&z=16&text=parking&pt=82.911165%2C55.048464%2Cpm2rdm",
+        gisParkingUrl: "https://2gis.ru/novosibirsk/search/parking%20Советская%2064",
+        yandexReviewUrl: "https://yandex.ru/maps/org/khachapuri_mariko/106533398609/?ll=82.911165%2C55.048464&mode=search&sll=44.081481%2C56.246775&source=serp_navig&sspn=0.286027%2C0.404256&text=хачапури%20марико%20нововсибирск&z=8.32&tab=reviews",
+        gisReviewUrl: "https://go.2gis.com/3n2WD"
       },
 
       // Для новых городов используем fallback логику с поиском по адресу
@@ -227,7 +327,8 @@ const Restaurants = () => {
       Атырау: "atyrau",
       Волгоград: "volgograd",
       Бугульма: "bugulma",
-      Уфа: "ufa"
+      Уфа: "ufa",
+      Саранск: "saransk"
     };
     return cityMap[cityName] || "nizhnynovgorod";
   }
@@ -256,7 +357,8 @@ const Restaurants = () => {
       Атырау: "164/atyrau",
       Волгоград: "38/volgograd",
       Бугульма: "97/bugulma",
-      Уфа: "172/ufa"
+      Уфа: "172/ufa",
+      Саранск: "10/saransk"
     };
     return cityMap[cityName] || "47/nizhny-novgorod";
   }

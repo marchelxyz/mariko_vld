@@ -337,4 +337,16 @@ export const cities: City[] = [
       },
     ],
   },
+  {
+    id: "saransk",
+    name: "Саранск",
+    restaurants: [
+      {
+        id: "saransk-kommunisticheskaya",
+        name: "Хачапури Марико",
+        address: "Коммунистическая, 59а (скоро)",
+        city: "Саранск",
+      },
+    ],
+  },
 ];
