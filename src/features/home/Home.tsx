@@ -2,7 +2,7 @@ import { ChefHat } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 import { Header } from "@widgets/header";
-import { ActionButton, MenuCard } from "@shared/ui";
+import { ActionButton, MenuCard, QuickActionButton } from "@shared/ui";
 import { RestaurantCard } from "@entities/restaurant";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { CitySelectorSimple } from "@widgets/header";
@@ -61,24 +61,30 @@ const Index = () => {
       {/* Main Content */}
       <div className="flex-1 px-3 md:px-6 max-w-sm md:max-w-6xl mx-auto w-full">
 
-        {/* Main Action Buttons */}
-        <div className="mt-6 md:mt-8 space-y-3 md:space-y-6">
-          <ActionButton
-            icon={<img src="/images/action button/Calendar.png" alt="Calendar" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
-            title="Забронировать столик"
+        {/* Quick Action Buttons Grid */}
+        <div className="mt-6 md:mt-8 grid grid-cols-4 gap-2 md:gap-3">
+          <QuickActionButton
+            icon={<img src="/images/action button/Calendar.png" alt="Calendar" className="w-5 h-5 md:w-6 md:h-6 object-contain" />}
+            title="Бронь столика"
             onClick={() => navigate("/booking")}
           />
 
-          <ActionButton
-            icon={<img src="/images/action button/Van.png" alt="Delivery" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
+          <QuickActionButton
+            icon={<img src="/images/action button/Van.png" alt="Delivery" className="w-5 h-5 md:w-6 md:h-6 object-contain" />}
             title="Доставка"
             onClick={() => navigate("/delivery")}
           />
 
-          <ActionButton
-            icon={<img src="/images/action button/Star.png" alt="Review" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
+          <QuickActionButton
+            icon={<img src="/images/action button/Star.png" alt="Review" className="w-5 h-5 md:w-6 md:h-6 object-contain" />}
             title="Оставить отзыв"
             onClick={handleReviewClick}
+          />
+
+          <QuickActionButton
+            icon={<img src="/images/action button/Ruble.png" alt="Franchise" className="w-5 h-5 md:w-6 md:h-6 object-contain" />}
+            title="Франшиза"
+            onClick={() => window.open("https://vhachapuri.ru/franshiza", "_blank")}
           />
         </div>
 
@@ -97,22 +103,7 @@ const Index = () => {
           />
         </div>
 
-        {/* Franchise CTA Button */}
-        <div className="mt-6 md:mt-8">
-          <button
-            onClick={() => window.open("https://vhachapuri.ru/franshiza", "_blank")}
-            className="w-full bg-red-600 hover:bg-red-700 rounded-[45px] md:rounded-[90px] flex items-center justify-center text-white font-el-messiri text-xl md:text-4xl font-bold tracking-tight transition-colors duration-200 min-h-[240px] md:min-h-[360px]"
-          >
-            <div className="text-center">
-              <div className="text-xl md:text-4xl font-bold mb-1 md:mb-2">
-                🔥 Хочешь такой же ресторан? 🔥
-              </div>
-              <div className="text-sm md:text-lg font-semibold">
-                Стань частью успешной франшизы!
-              </div>
-            </div>
-          </button>
-        </div>
+
 
 
       </div>

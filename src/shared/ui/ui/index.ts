@@ -55,4 +55,5 @@ export * from "./promotion-card";
 export * from "./optimized-image";
 export * from "./city-selector";
 export * from "./editable-field";
-export * from "./booking-notification"; 
+export * from "./booking-notification";
+export * from "./quick-action-button"; 
