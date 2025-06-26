@@ -188,7 +188,7 @@ const MenuSelection = () => {
         {step === "restaurant" && (
           <div className="mt-6">
             <h2 className="text-white font-el-messiri text-xl md:text-2xl font-bold mb-4 text-center">
-              Выберите ресторан в городе {selectedCity.name}
+              Выберите ресторан
             </h2>
             <div className="space-y-3">
               {selectedCity.restaurants.map((restaurant) => (

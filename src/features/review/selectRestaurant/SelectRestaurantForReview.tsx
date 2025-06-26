@@ -43,7 +43,7 @@ const SelectRestaurantForReview = () => {
         {/* Subtitle */}
         <div className="mb-6">
           <p className="text-white/75 font-el-messiri text-base text-center leading-tight">
-            В городе {selectedCity.name} несколько ресторанов.<br />
+            Несколько ресторанов доступно.<br />
             Выберите тот, о котором хотите оставить отзыв:
           </p>
         </div>

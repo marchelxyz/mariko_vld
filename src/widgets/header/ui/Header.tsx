@@ -1,33 +1,35 @@
-import { CityDisplay } from "./CityDisplay.tsx";
-import { CitySelectorSimple } from "./CitySelectorSimple.tsx";
+import { AddressCitySelector } from "./AddressCitySelector";
 import { useCityContext } from "@/contexts/CityContext";
 
 interface HeaderProps {
   showCitySelector?: boolean;
 }
 
-export const Header = ({ showCitySelector = false }: HeaderProps) => {
+export const Header = ({ 
+  showCitySelector = false 
+}: HeaderProps) => {
   const { selectedCity, setSelectedCity } = useCityContext();
 
   return (
     <div className="px-3 md:px-6 max-w-sm md:max-w-6xl mx-auto w-full">
-      <div className="mt-8 md:mt-8 flex items-center justify-between gap-2">
-        <div className="flex-1">
-          <img
-            src="/images/heroes/hero-image.svg"
-            alt="Хачапури логотип"
-            className="w-full h-auto max-w-32 md:max-w-md"
-          />
-        </div>
-        {showCitySelector ? (
-          <CitySelectorSimple
+      {/* Логотип по центру */}
+      <div className="mt-6 md:mt-8 flex justify-center">
+        <img
+          src="/images/heroes/hero-image.svg"
+          alt="Хачапури логотип"
+          className="h-auto max-w-32 md:max-w-md"
+        />
+      </div>
+
+      {/* Селектор города с адресом под логотипом */}
+      {showCitySelector && (
+        <div className="mt-4">
+          <AddressCitySelector
             selectedCity={selectedCity}
             onCityChange={setSelectedCity}
           />
-        ) : (
-          <CityDisplay selectedCity={selectedCity} />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }; 

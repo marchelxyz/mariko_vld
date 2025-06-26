@@ -3,9 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 import { Header } from "@widgets/header";
 import { ActionButton, MenuCard, QuickActionButton } from "@shared/ui";
-import { RestaurantCard } from "@entities/restaurant";
 import { BottomNavigation } from "@widgets/bottomNavigation";
-import { CitySelectorSimple } from "@widgets/header";
 import { useCityContext } from "@/contexts/CityContext";
 import { toast } from "sonner";
 import { RESTAURANT_REVIEW_LINKS } from "@/shared/data/reviewLinks";
@@ -155,35 +153,7 @@ const Index = () => {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="bg-mariko-accent rounded-t-[45px] -mt-4 md:-mt-6 px-4 md:px-6 py-4 md:py-12 pb-8 -mb-4 shadow-2xl relative z-30">
-        <div className="max-w-6xl mx-auto">
-          {/* Restaurants Header with City Selector */}
-          <div className="flex justify-between items-center mb-4 md:mb-12">
-            <h2 className="text-white font-el-messiri text-3xl md:text-5xl font-bold tracking-tight">
-              Рестораны
-            </h2>
-            <CitySelectorSimple
-              selectedCity={selectedCity}
-              onCityChange={setSelectedCity}
-              className="flex-shrink-0"
-              openDirection="up"
-            />
-          </div>
 
-          {/* Restaurant List */}
-          <div className="space-y-3 md:space-y-8">
-            {selectedCity.restaurants.map((restaurant) => (
-              <RestaurantCard
-                key={restaurant.id}
-                city={restaurant.city}
-                address={restaurant.address}
-                onClick={() => navigate(`/restaurants/${restaurant.id}`)}
-              />
-            ))}
-          </div>
-        </div>
-      </footer>
 
       {/* Bottom Navigation */}
       <BottomNavigation currentPage="home" />
