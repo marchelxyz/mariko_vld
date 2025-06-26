@@ -49,8 +49,13 @@ function createWebPImages() {
   const images = [
     'backgrounds/quote-background.png',
     'promotions/promo-delivery.png',
-    'promotions/promo-birthday.png',
+    'promotions/promo-tuesday.png',
     'promotions/promo-cashback.png',
+    'promotions/zhukovsky/compliment.png',
+    'promotions/zhukovsky/women-discount.png',
+    'promotions/zhukovsky/birthday.png',
+    'promotions/zhukovsky/takeaway.png',
+    'promotions/zhukovsky/khinkali.png',
     'characters/character-bonus.png',
     'characters/character-chef.png',
     'characters/character-warrior.png',
@@ -81,8 +86,13 @@ function resizeImages() {
   
   const largeImages = [
     'promotions/promo-delivery.png',
-    'promotions/promo-birthday.png',
+    'promotions/promo-tuesday.png',
     'promotions/promo-cashback.png',
+    'promotions/zhukovsky/compliment.png',
+    'promotions/zhukovsky/women-discount.png',
+    'promotions/zhukovsky/birthday.png',
+    'promotions/zhukovsky/takeaway.png',
+    'promotions/zhukovsky/khinkali.png',
     'characters/character-bonus.png',
     'delivery/delivery-restaurant.png'
   ];
