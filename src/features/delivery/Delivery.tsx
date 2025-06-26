@@ -61,7 +61,18 @@ const Delivery = () => {
       },
     });
 
-    // 3. Внешние сервисы доставки – доступны всегда
+    // ссылки по умолчанию
+    let yandexLink = "https://eda.yandex.ru/restaurant/khachapuri_mariko";
+    let dcLink = "https://deliveryclub.ru/restaurant/khachapuri_mariko";
+
+    // отдельные ссылки для Жуковского
+    if (selectedCity.id === "zhukovsky") {
+      yandexLink =
+        "https://eda.yandex.ru/restaurant/xachapuri_tyotushki_mariko_aoygs?utm_campaign=superapp_taxi_web&utm_medium=referral&utm_source=rst_shared_link";
+      dcLink =
+        "https://www.delivery-club.ru/srv/khachapuri_tjotushki_mariko_moskva";
+    }
+
     options.push(
       {
         icon: (
@@ -72,11 +83,7 @@ const Delivery = () => {
           />
         ),
         title: "Яндекс Еда",
-        onClick: () =>
-          window.open(
-            "https://eda.yandex.ru/restaurant/khachapuri_mariko",
-            "_blank",
-          ),
+        onClick: () => window.open(yandexLink, "_blank"),
       },
       {
         icon: (
@@ -87,11 +94,7 @@ const Delivery = () => {
           />
         ),
         title: "Delivery Club",
-        onClick: () =>
-          window.open(
-            "https://deliveryclub.ru/restaurant/khachapuri_mariko",
-            "_blank",
-          ),
+        onClick: () => window.open(dcLink, "_blank"),
       },
     );
 

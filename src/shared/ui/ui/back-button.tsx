@@ -7,7 +7,7 @@ interface BackButtonProps {
   variant?: "white" | "primary";
 }
 
-export const BackButton = ({ onClick, className = "", variant = "white" }: BackButtonProps) => {
+export const BackButton = ({ onClick, className = "", variant = "primary" }: BackButtonProps) => {
   const navigate = useNavigate();
 
   const handleClick = () => {

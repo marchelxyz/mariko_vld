@@ -15,7 +15,7 @@ export const PageHeader = ({
   onBackClick,
   showBackButton = true,
   className = "",
-  variant = "white",
+  variant = "primary",
 }: PageHeaderProps) => {
   const textClass = variant === "white" ? "text-white" : "text-mariko-primary";
   const subClass = variant === "white" ? "text-white/70" : "text-mariko-primary/70";
