@@ -6,6 +6,7 @@ interface PageHeaderProps {
   onBackClick?: () => void;
   showBackButton?: boolean;
   className?: string;
+  variant?: "white" | "primary";
 }
 
 export const PageHeader = ({
@@ -14,16 +15,20 @@ export const PageHeader = ({
   onBackClick,
   showBackButton = true,
   className = "",
+  variant = "white",
 }: PageHeaderProps) => {
+  const textClass = variant === "white" ? "text-white" : "text-mariko-primary";
+  const subClass = variant === "white" ? "text-white/70" : "text-mariko-primary/70";
+
   return (
     <div className={`mt-10 flex items-center gap-4 mb-6 ${className}`}>
-      {showBackButton && <BackButton onClick={onBackClick} />}
+      {showBackButton && <BackButton onClick={onBackClick} variant={variant} />}
       <div className="flex-1">
-        <h1 className="text-white font-el-messiri text-3xl md:text-4xl font-bold">
+        <h1 className={`${textClass} font-el-messiri text-3xl md:text-4xl font-bold`}>
           {title}
         </h1>
         {subtitle && (
-          <p className="text-white/70 font-el-messiri text-lg mt-2">{subtitle}</p>
+          <p className={`${subClass} font-el-messiri text-lg mt-2`}>{subtitle}</p>
         )}
       </div>
     </div>

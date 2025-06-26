@@ -4,9 +4,10 @@ import { useNavigate } from "react-router-dom";
 interface BackButtonProps {
   onClick?: () => void;
   className?: string;
+  variant?: "white" | "primary";
 }
 
-export const BackButton = ({ onClick, className = "" }: BackButtonProps) => {
+export const BackButton = ({ onClick, className = "", variant = "white" }: BackButtonProps) => {
   const navigate = useNavigate();
 
   const handleClick = () => {
@@ -21,9 +22,8 @@ export const BackButton = ({ onClick, className = "" }: BackButtonProps) => {
     <button
       onClick={handleClick}
       className={`
-        group p-3 text-white hover:bg-white/10 rounded-full 
-        transition-all duration-200 hover:scale-110 active:scale-95
-        flex items-center justify-center
+        group p-3 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 flex items-center justify-center
+        ${variant === "white" ? "text-white hover:bg-white/10" : "text-mariko-primary hover:bg-mariko-primary/10"}
         ${className}
       `}
       aria-label="Назад"

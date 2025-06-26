@@ -110,14 +110,14 @@ const Delivery = () => {
         <div className="px-4 md:px-6 max-w-6xl mx-auto w-full">
           {/* Page Header */}
           <div className="mt-6 md:mt-8 mb-6">
-            <PageHeader title="Доставка" />
+            <PageHeader title="Доставка" variant="primary" />
             <p className="text-mariko-primary/70 font-el-messiri text-lg mt-2 text-center">
               {selectedRestaurant.name} • {selectedRestaurant.address}
             </p>
           </div>
           
           {/* Delivery Options */}
-          <div className="mt-6 md:mt-8 space-y-6 md:space-y-8 pb-24 md:pb-32">
+          <div className="relative z-20 mt-6 md:mt-8 space-y-6 md:space-y-8 pb-[28rem] md:pb-[32rem]">
             {getDeliveryOptions().map((option, index) => (
               <ActionButton
                 key={index}

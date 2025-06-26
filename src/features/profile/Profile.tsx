@@ -45,7 +45,7 @@ const Profile = () => {
           </div>
 
           {/* Profile Action Buttons */}
-          <div className="mt-6 md:mt-8 space-y-3 md:space-y-6 pb-24 md:pb-32">
+          <div className="relative z-20 mt-6 md:mt-8 space-y-3 md:space-y-6 pb-[34rem] md:pb-[38rem]">
             <ActionButton
               icon={<img src="/images/action button/Male User.png" alt="Profile" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
               title="Редактирование профиля"
