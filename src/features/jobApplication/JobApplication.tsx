@@ -154,14 +154,14 @@ function JobApplication() {
   const onSubmit = handleSubmit(submitJobApplication);
 
   return (
-    <div className="min-h-screen overflow-hidden flex flex-col bg-white">
+    <div className="min-h-screen overflow-hidden flex flex-col bg-mariko-primary">
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
-      <div className="bg-mariko-primary pb-6 md:pb-8 rounded-b-[24px] md:rounded-b-[32px]">
+      <div className="bg-mariko-primary pb-6 md:pb-8">
         <Header />
       </div>
 
       {/* СРЕДНЯЯ СЕКЦИЯ: Main Content с белым фоном, расширенная до низа */}
-      <div className="flex-1 bg-white relative">
+      <div className="flex-1 bg-white relative rounded-t-[24px] md:rounded-t-[32px]">
         <div className="px-4 md:px-6 max-w-4xl mx-auto w-full">
           {/* Back Button and Title */}
           <div className="mt-6 md:mt-8 flex items-center gap-4 mb-8">

@@ -15,14 +15,14 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen overflow-hidden flex flex-col bg-white">
+    <div className="min-h-screen overflow-hidden flex flex-col bg-mariko-primary">
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
-      <div className="bg-mariko-primary pb-6 md:pb-8 rounded-b-[24px] md:rounded-b-[32px]">
+      <div className="bg-mariko-primary pb-6 md:pb-8">
         <Header />
       </div>
 
       {/* СРЕДНЯЯ СЕКЦИЯ: Main Content с белым фоном, расширенная до низа */}
-      <div className="flex-1 bg-white relative flex items-center justify-center">
+      <div className="flex-1 bg-white relative rounded-t-[24px] md:rounded-t-[32px] flex items-center justify-center">
         <div className="text-center px-4 md:px-6 max-w-md mx-auto">
           <h1 className="text-mariko-primary font-el-messiri text-6xl md:text-8xl font-bold mb-4">404</h1>
           <p className="text-mariko-primary/80 font-el-messiri text-xl md:text-2xl mb-8">
