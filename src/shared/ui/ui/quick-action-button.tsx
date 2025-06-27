@@ -28,14 +28,19 @@ export const QuickActionButton = ({
     <button
       onClick={handleClick}
       className={cn(
-        "bg-mariko-secondary rounded-[8px] md:rounded-[12px] flex flex-col items-center justify-center text-white font-el-messiri font-semibold transition-transform hover:scale-105 active:scale-95 shadow-md aspect-square p-1.5 md:p-2",
+        "flex flex-col items-center font-el-messiri font-semibold transition-transform hover:scale-105 active:scale-95 select-none",
         className,
       )}
     >
-      <div className="w-6 h-6 md:w-8 md:h-8 flex items-center justify-center mb-0.5 md:mb-1">
-        {icon}
+      <div
+        className="bg-gray-100 rounded-[8px] md:rounded-[12px] flex items-center justify-center shadow-md aspect-square w-full p-1.5 md:p-2"
+      >
+        <div className="w-6 h-6 md:w-8 md:h-8 flex items-center justify-center">
+          {icon}
+        </div>
       </div>
-      <div className="text-center leading-tight text-[9px] md:text-[10px]">
+
+      <div className="mt-1 text-center leading-tight text-[11px] md:text-[12px] text-black">
         {title}
       </div>
     </button>
