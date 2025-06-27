@@ -99,3 +99,15 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  /* Скрытие полосы прокрутки */
+  .scrollbar-hide {
+    /* Firefox */
+    scrollbar-width: none;
+    /* Safari and Chrome */
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+}

@@ -48,6 +48,7 @@ const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { selectedRestaurant } = useCityContext();
   const [activePromo, setActivePromo] = useState<typeof promotions[number] | null>(null);
+  const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
   const [promoCarouselApi, setPromoCarouselApi] = useState<CarouselApi | null>(null);
 
   // Плагин непрерывного авто-скролла Embla
@@ -149,6 +150,16 @@ const Index = () => {
     setActivePromo(promo);
   };
 
+  const handleDishClick = (dish: MenuItem) => {
+    // Если кликнули на то же блюдо, которое уже открыто - закрываем модальное окно
+    if (activeDish && activeDish.id === dish.id) {
+      setActiveDish(null);
+    } else {
+      // Иначе открываем модальное окно с новым блюдом
+      setActiveDish(dish);
+    }
+  };
+
   // Random recommended menu items
   const randomRecommended: MenuItem[] = (() => {
     const menu = getMenuByRestaurantId(selectedRestaurant.id);
@@ -157,6 +168,7 @@ const Index = () => {
     const recommended = allItems.filter((i) => i.isRecommended);
     if (recommended.length === 0) return [];
     const shuffled = recommended.sort(() => 0.5 - Math.random());
+    // Показываем 4 блюда на больших экранах, 2 на маленьких
     return shuffled.slice(0, 4);
   })();
 
@@ -248,16 +260,27 @@ const Index = () => {
 
             <div className="px-3 md:px-6 mb-16 md:mb-20">
               {/* Random recommended menu items grid */}
-              <div className="grid grid-cols-2 md:grid-cols-2 gap-2 md:gap-4 max-w-none">
+              {/* Компактная сетка 2x2 на мобильных, адаптивная на больших экранах */}
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
                 {randomRecommended.map((item) => (
-                  <MenuItemComponent
-                    key={item.id}
-                    item={item}
-                    onClick={() => {
-                      // при клике переходим в меню и прокручиваем при необходимости
-                      navigate(`/menu?highlight=${item.id}`);
-                    }}
-                  />
+                  <div key={item.id}>
+                    {/* Мобильный вариант для экранов < 768px */}
+                    <div className="block md:hidden">
+                      <MenuItemComponent
+                        item={item}
+                        variant="mobile"
+                        onClick={() => handleDishClick(item)}
+                      />
+                    </div>
+                    {/* Компактный вариант для экранов >= 768px */}
+                    <div className="hidden md:block">
+                      <MenuItemComponent
+                        item={item}
+                        variant="compact"
+                        onClick={() => handleDishClick(item)}
+                      />
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -335,6 +358,112 @@ const Index = () => {
                     {activePromo.description}
                   </p>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeDish && (
+          <div
+            className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 backdrop-blur-sm" 
+            onClick={() => setActiveDish(null)}
+          >
+            {/* Стеклянная рамка для блюда */}
+            <div 
+              className="relative flex flex-col gap-4 items-center max-w-[90vw] max-h-[90vh] p-6 md:p-8
+                bg-white/12 backdrop-blur-md
+                border border-white/25
+                rounded-[30px]
+                shadow-2xl
+                hover:bg-white/15 transition-all duration-300
+                overflow-y-auto" 
+              onClick={(e)=>e.stopPropagation()}
+            >
+              {/* Градиент для стеклянного эффекта */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-white/5 rounded-[30px] pointer-events-none" />
+              
+              {/* Блик сверху */}
+              <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-white/15 to-transparent rounded-t-[30px] pointer-events-none" />
+              
+              {/* Гвоздики в углах рамки */}
+              <div className="absolute top-3 left-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
+                bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
+                shadow-lg border border-gray-500/50
+                before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
+                before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
+              
+              <div className="absolute top-3 right-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
+                bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
+                shadow-lg border border-gray-500/50
+                before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
+                before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
+              
+              <div className="absolute bottom-3 left-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
+                bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
+                shadow-lg border border-gray-500/50
+                before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
+                before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
+              
+              <div className="absolute bottom-3 right-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
+                bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
+                shadow-lg border border-gray-500/50
+                before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
+                before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
+              
+              {/* Контент блюда */}
+              <div className="relative z-10 flex flex-col gap-4 items-center text-center">
+                {activeDish.imageUrl && (
+                  <img
+                    src={activeDish.imageUrl}
+                    alt={activeDish.name}
+                    className="max-h-[40vh] md:max-h-[50vh] w-auto rounded-[20px] shadow-lg"
+                  />
+                )}
+                
+                {/* Бейджи блюда */}
+                <div className="flex gap-2 flex-wrap justify-center">
+                  {activeDish.isRecommended && (
+                    <span className="bg-mariko-primary text-white px-3 py-1 rounded-full text-sm font-medium">
+                      👑 Рекомендуем
+                    </span>
+                  )}
+                  {activeDish.isNew && (
+                    <span className="bg-mariko-secondary text-white px-3 py-1 rounded-full text-sm font-medium">
+                      ✨ Новинка
+                    </span>
+                  )}
+                  {activeDish.isVegetarian && (
+                    <span className="bg-green-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                      🌱 Вегетарианское
+                    </span>
+                  )}
+                  {activeDish.isSpicy && (
+                    <span className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                      🌶️ Острое
+                    </span>
+                  )}
+                </div>
+                
+                <h3 className="font-el-messiri text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
+                  {activeDish.name}
+                </h3>
+                
+                {activeDish.description && (
+                  <p className="text-base md:text-lg leading-relaxed text-white/90 drop-shadow-lg max-w-md mx-auto">
+                    {activeDish.description}
+                  </p>
+                )}
+                
+                <div className="flex items-center gap-4 mt-2">
+                  <span className="font-el-messiri text-2xl md:text-3xl font-bold text-mariko-secondary drop-shadow-lg">
+                    {activeDish.price}₽
+                  </span>
+                  {activeDish.weight && (
+                    <span className="text-white/80 text-lg drop-shadow-lg">
+                      {activeDish.weight}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>

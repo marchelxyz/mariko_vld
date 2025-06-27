@@ -36,7 +36,11 @@ const jobApplicationSchema = z.object({
   age: z.number().min(16, "Минимальный возраст 16 лет").max(80, "Максимальный возраст 80 лет"),
   position: z.string().min(1, "Выберите должность"),
   experience: z.string().optional(),
-  phone: z.string().min(10, "Введите корректный номер телефона"),
+  phone: z
+    .string()
+    .refine((val) => val && val.replace(/\D/g, "").length === 11, {
+      message: "Номер телефона должен содержать 11 цифр",
+    }),
   email: z.string().email("Введите корректный email"),
 });
 

@@ -5,9 +5,10 @@ interface MenuItemProps {
   item: MenuItem;
   onClick?: (item: MenuItem) => void;
   onAdd?: (item: MenuItem) => void;
+  variant?: 'default' | 'compact' | 'mobile'; // добавляем мобильный вариант
 }
 
-export function MenuItemComponent({ item, onClick, onAdd: _onAdd }: MenuItemProps): JSX.Element {
+export function MenuItemComponent({ item, onClick, onAdd: _onAdd, variant = 'default' }: MenuItemProps): JSX.Element {
   // Временные иконки для блюд до загрузки фотографий
   const getDefaultIcon = (itemName: string): string => {
     const name = itemName.toLowerCase();
@@ -32,13 +33,23 @@ export function MenuItemComponent({ item, onClick, onAdd: _onAdd }: MenuItemProp
     return '🍽️'; // дефолтная иконка
   };
 
+  // Определяем классы в зависимости от варианта
+  const isCompact = variant === 'compact';
+  const isMobile = variant === 'mobile';
+  
   return (
     <div
-      className="bg-white rounded-[16px] overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer"
+      className={`bg-white rounded-[16px] overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer ${
+        isCompact || isMobile ? 'h-full' : ''
+      }`}
       onClick={() => onClick?.(item)}
     >
       {/* Фото/иконка блюда */}
-      <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center relative">
+      <div className={`${
+        isMobile ? 'aspect-[4/3]' : 
+        isCompact ? 'aspect-[3/2]' : 
+        'aspect-[4/3]'
+      } bg-gray-100 flex items-center justify-center relative`}>
         {item.imageUrl ? (
           <img
             src={item.imageUrl}
@@ -46,7 +57,11 @@ export function MenuItemComponent({ item, onClick, onAdd: _onAdd }: MenuItemProp
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="text-3xl md:text-4xl">
+          <div className={`${
+            isMobile ? 'text-lg md:text-2xl' :
+            isCompact ? 'text-2xl md:text-3xl' : 
+            'text-3xl md:text-4xl'
+          }`}>
             {getDefaultIcon(item.name)}
           </div>
         )}
@@ -54,12 +69,16 @@ export function MenuItemComponent({ item, onClick, onAdd: _onAdd }: MenuItemProp
         {/* Бейджи в углу */}
         <div className="absolute top-1 md:top-2 right-1 md:right-2 flex flex-col gap-1">
           {item.isNew && (
-            <Badge className="text-[10px] md:text-xs bg-mariko-secondary text-white px-1 md:px-2 py-0.5 md:py-1">
+            <Badge className={`bg-mariko-secondary text-white px-1 py-0.5 ${
+              isMobile ? 'text-[7px] md:text-[8px]' : 'text-[8px] md:text-[10px]'
+            }`}>
               ✨
             </Badge>
           )}
           {item.isRecommended && (
-            <Badge className="text-[10px] md:text-xs bg-mariko-primary text-white px-1 md:px-2 py-0.5 md:py-1">
+            <Badge className={`bg-mariko-primary text-white px-1 py-0.5 ${
+              isMobile ? 'text-[7px] md:text-[8px]' : 'text-[8px] md:text-[10px]'
+            }`}>
               👑
             </Badge>
           )}
@@ -67,14 +86,26 @@ export function MenuItemComponent({ item, onClick, onAdd: _onAdd }: MenuItemProp
       </div>
       
       {/* Информация о блюде */}
-      <div className="p-2 md:p-3">
+      <div className={`${
+        isMobile ? 'p-1.5 md:p-2' : 
+        isCompact ? 'p-2 md:p-3' : 
+        'p-2 md:p-3'
+      }`}>
         <div className="flex items-start justify-between mb-1 md:mb-2">
           <div className="flex-1 min-w-0">
-            <h3 className="font-el-messiri text-xs md:text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">
+            <h3 className={`font-el-messiri font-semibold text-gray-900 line-clamp-2 leading-tight ${
+              isMobile ? 'text-[10px] md:text-xs' :
+              isCompact ? 'text-[11px] md:text-sm' : 
+              'text-xs md:text-sm'
+            }`}>
               {item.name}
             </h3>
             {item.weight && (
-              <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">
+              <p className={`text-gray-500 mt-0.5 ${
+                isMobile ? 'text-[8px] md:text-[9px]' :
+                isCompact ? 'text-[9px] md:text-xs' : 
+                'text-[10px] md:text-xs'
+              }`}>
                 {item.weight}
               </p>
             )}
@@ -82,9 +113,13 @@ export function MenuItemComponent({ item, onClick, onAdd: _onAdd }: MenuItemProp
         </div>
         
         {/* Нижняя часть: цена и кнопка */}
-        <div className="flex items-center justify-between mt-2 md:mt-3">
+        <div className="flex items-center justify-between mt-1 md:mt-2">
           <div className="flex items-baseline gap-1">
-            <span className="font-el-messiri text-sm md:text-lg font-bold text-gray-900">
+            <span className={`font-el-messiri font-bold text-gray-900 ${
+              isMobile ? 'text-xs md:text-sm' :
+              isCompact ? 'text-sm md:text-base' : 
+              'text-sm md:text-lg'
+            }`}>
               {item.price}₽
             </span>
           </div>
@@ -92,12 +127,20 @@ export function MenuItemComponent({ item, onClick, onAdd: _onAdd }: MenuItemProp
         
         {/* Дополнительные маркеры */}
         {(item.isVegetarian || item.isSpicy) && (
-          <div className="flex items-center gap-1 mt-1 md:mt-2">
+          <div className="flex items-center gap-1 mt-1">
             {item.isVegetarian && (
-              <span className="text-[10px] md:text-xs text-green-600">🌱</span>
+              <span className={`text-green-600 ${
+                isMobile ? 'text-[8px] md:text-[9px]' :
+                isCompact ? 'text-[10px] md:text-xs' : 
+                'text-[10px] md:text-xs'
+              }`}>🌱</span>
             )}
             {item.isSpicy && (
-              <span className="text-[10px] md:text-xs text-red-600">🌶️</span>
+              <span className={`text-red-600 ${
+                isMobile ? 'text-[8px] md:text-[9px]' :
+                isCompact ? 'text-[10px] md:text-xs' : 
+                'text-[10px] md:text-xs'
+              }`}>🌶️</span>
             )}
           </div>
         )}
