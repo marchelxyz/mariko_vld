@@ -121,7 +121,11 @@ const Index = () => {
   return (
     <div className="min-h-screen overflow-hidden flex flex-col bg-white">
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
-      <div className="bg-mariko-primary pb-6 md:pb-8 rounded-b-[24px] md:rounded-b-[32px]">
+      <div className="bg-mariko-primary pb-6 md:pb-8 relative rounded-b-[24px] md:rounded-b-[32px]
+        after:content-[''] after:absolute after:bottom-0 after:left-0 after:right-0
+        after:h-[28px] md:after:h-[32px]
+        after:bg-gradient-to-t after:from-black/30 after:to-transparent after:pointer-events-none
+        after:rounded-b-[24px] md:after:rounded-b-[32px]">
         <Header showCitySelector={true} />
       </div>
 
