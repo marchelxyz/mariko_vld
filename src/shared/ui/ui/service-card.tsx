@@ -41,12 +41,12 @@ export const ServiceCard = ({
       type="button"
       onClick={onClick}
       className={cn(
-        "bg-white rounded-[16px] overflow-hidden shadow-sm shadow-inner border border-gray-100 hover:shadow-md transition-shadow cursor-pointer w-full flex flex-col",
+        "bg-white rounded-[16px] overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer w-full flex flex-col",
         className,
       )}
     >
       {/* Верхняя часть: изображение или цвет */}
-      <div className={cn("relative w-full", aspectRatio, "bg-gray-100 flex items-center justify-center")}> 
+      <div className={cn("relative w-full", aspectRatio, "bg-white flex items-center justify-center")}> 
         {backgroundColor && !imageUrl && (
           <div className="absolute inset-0" style={{ backgroundColor }} />
         )}
