@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { initEmailService, sendJobApplicationEmail, type JobApplicationEmailData } from "@/lib/emailService";
 import { useCityContext } from "@/contexts/CityContext";
 import { cities } from "@/shared/data/cities";
+import { usePhoneInput, getCleanPhoneNumber } from "@/shared/hooks/usePhoneInput";
 
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
@@ -61,6 +62,9 @@ function JobApplication() {
   const [selectedCityForJob, setSelectedCityForJob] = useState(selectedCity.name);
   const [availableRestaurants, setAvailableRestaurants] = useState(selectedCity.restaurants);
 
+  // Хук для форматирования телефона
+  const phoneInput = usePhoneInput();
+
   const {
     register,
     handleSubmit,
@@ -109,7 +113,7 @@ function JobApplication() {
         age: data.age,
         position: data.position,
         experience: data.experience,
-        phone: data.phone,
+        phone: getCleanPhoneNumber(phoneInput.value),
         email: data.email,
       };
 
@@ -279,16 +283,16 @@ function JobApplication() {
                 )}
               </div>
 
-              {/* Опыт работы */}
+              {/* Расскажи о себе */}
               <div className="space-y-2">
                 <Label htmlFor="experience" className="text-mariko-dark font-el-messiri text-lg font-semibold">
-                  Опыт работы
+                  Расскажи о себе
                 </Label>
                 <Textarea
                   id="experience"
                   {...register("experience")}
                   className="bg-mariko-field border-none text-mariko-dark placeholder:text-mariko-dark/60 rounded-lg min-h-[100px] resize-none"
-                  placeholder="Расскажите о вашем опыте работы"
+                  placeholder="Расскажи немного о себе: твои интересы, увлечения, что тебя мотивирует. Опыт работы приветствуется, но не обязателен — мы всему научим! ✨"
                 />
                 {errors.experience && (
                   <p className="text-red-400 text-sm font-el-messiri">{errors.experience.message}</p>
@@ -303,7 +307,8 @@ function JobApplication() {
                 <Input
                   id="phone"
                   type="tel"
-                  {...register("phone")}
+                  value={phoneInput.value}
+                  onChange={phoneInput.onChange}
                   className="bg-mariko-field border-none text-mariko-dark placeholder:text-mariko-dark/60 rounded-lg h-12"
                   placeholder="+7 (999) 123-45-67"
                 />

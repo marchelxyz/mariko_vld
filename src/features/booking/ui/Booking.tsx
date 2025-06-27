@@ -9,8 +9,9 @@ import { useProfile } from "@entities/user";
 import { validateBookingForm, sanitizeText } from "@/lib/validation";
 import { initEmailService } from "@/lib/emailService";
 import { BookingNotification, useNotification } from "@shared/ui";
-import { formatPhoneDigits, countryPhoneFormats } from "../model/helpers";
+import { Input, Label } from "@shared/ui";
 import DatePicker from "./DatePicker";
+import { usePhoneInput, getCleanPhoneNumber } from "@/shared/hooks/usePhoneInput";
 
 const Booking = () => {
   const navigate = useNavigate();
@@ -19,16 +20,17 @@ const Booking = () => {
 
   const defaultRestaurantName = `${selectedRestaurant.city}, ${selectedRestaurant.address}`;
 
+  // Хук для форматирования телефона - как в анкете вакансии
+  const phoneInput = usePhoneInput();
+
   const [formData, setFormData] = useState({
     name: "", // Будет заполнено из профиля
-    phone: "", // Только цифры номера без кода
     guests: "2",
     date: "", // Дата изначально не выбрана
     time: "",
     restaurant: defaultRestaurantName, // Подтягивается из выбранного ресторана
     comment: "", // Комментарий пользователя
   });
-  const [selectedCountryCode, setSelectedCountryCode] = useState("+7");
   const [loading, setLoading] = useState(false);
   const [isDatePickerOpen, setDatePickerOpen] = useState(false);
   
@@ -43,32 +45,6 @@ const Booking = () => {
     const newRestaurant = `${selectedRestaurant.city}, ${selectedRestaurant.address}`;
     setFormData((prev) => ({ ...prev, restaurant: newRestaurant }));
   }, [selectedRestaurant]);
-
-  useEffect(() => {
-    // Загружаем данные из профиля когда они загрузились
-    if (!profileLoading && profile) {
-      // Разделяем код страны и номер телефона
-      let phoneNumber = profile.phone || "";
-      let countryCode = "+7";
-      
-      if (phoneNumber && phoneNumber.startsWith("+")) {
-        const spaceIndex = phoneNumber.indexOf(" ");
-        if (spaceIndex > 0) {
-          countryCode = phoneNumber.substring(0, spaceIndex);
-          phoneNumber = phoneNumber.substring(spaceIndex + 1);
-        }
-      }
-      
-          // Загружаем данные профиля в форму бронирования
-      
-      setSelectedCountryCode(countryCode);
-      setFormData((prev) => ({
-        ...prev,
-        name: "", // Всегда оставляем поле ФИО пустым
-        phone: phoneNumber,
-      }));
-    }
-  }, [profile, profileLoading]);
 
   // Убираем переменную restaurants и timeSlots остается как есть
   const timeSlots = [
@@ -109,16 +85,6 @@ const Booking = () => {
     setDatePickerOpen(false);
   };
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhoneDigits(e.target.value, selectedCountryCode);
-    setFormData({ ...formData, phone: formatted });
-  };
-
-  const getPhonePlaceholder = () => {
-    const format = countryPhoneFormats[selectedCountryCode];
-    return format ? format.format : "(XXX) XXX-XX-XX";
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -130,7 +96,7 @@ const Booking = () => {
       // 🔒 БЕЗОПАСНОСТЬ: Валидируем данные формы
       const validation = validateBookingForm({
         name: formData.name,
-        phone: `${selectedCountryCode} ${formData.phone}`,
+        phone: getCleanPhoneNumber(phoneInput.value),
         date: formData.date,
         time: formData.time,
         guests: parseInt(formData.guests),
@@ -150,7 +116,7 @@ const Booking = () => {
       // 🔒 БЕЗОПАСНОСТЬ: Санитизируем данные перед отправкой
       const sanitizedData = {
         name: sanitizeText(formData.name),
-        phone: `${selectedCountryCode} ${formData.phone}`,
+        phone: getCleanPhoneNumber(phoneInput.value),
         guests: parseInt(formData.guests),
         date: sanitizeText(formData.date),
         time: sanitizeText(formData.time),
@@ -253,44 +219,19 @@ const Booking = () => {
               </div>
 
               {/* Phone */}
-              <div className="bg-mariko-field rounded-3xl px-6 py-4">
-                <label className="block text-mariko-dark font-el-messiri text-lg font-semibold mb-2 pl-6">
-                  Телефон
-                </label>
-                <div className="flex items-center gap-3 ml-6 mr-8">
-                  {/* Country Code Selector */}
-                  <div className="relative">
-                    <select
-                      value={selectedCountryCode}
-                      onChange={(e) => setSelectedCountryCode(e.target.value)}
-                      className="bg-white/5 text-white border-none outline-none rounded-xl px-3 py-3 font-el-messiri text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10 min-w-[100px] h-[54px]"
-                    >
-                      {Object.entries(countryPhoneFormats).map(([code, info]) => (
-                        <option
-                          key={code}
-                          value={code}
-                          className="bg-mariko-field text-mariko-dark"
-                        >
-                          {code}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
-                  </div>
-                  
-                  {/* Phone Number Input */}
-                  <div className="relative flex-1">
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={handlePhoneChange}
-                      placeholder={profileLoading ? "Загружаем номер..." : getPhonePlaceholder()}
-                      className="w-full bg-transparent text-mariko-dark placeholder-mariko-dark/50 border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-mariko-dark/10"
-                      required
-                    />
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="text-mariko-dark font-el-messiri text-lg font-semibold">
+                  Телефон *
+                </Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={phoneInput.value}
+                  onChange={phoneInput.onChange}
+                  className="bg-mariko-field border-none text-mariko-dark placeholder:text-mariko-dark/60 rounded-lg h-12"
+                  placeholder="+7 (999) 123-45-67"
+                  required
+                />
               </div>
 
               {/* Guests */}

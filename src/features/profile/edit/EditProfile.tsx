@@ -1,68 +1,31 @@
 import { useState, useRef } from "react";
 import { X } from "lucide-react";
 import { Header } from "@widgets/header";
-import { EditableField } from "@shared/ui";
 import { BottomNavigation } from "@widgets/bottomNavigation";
-import { ProfileAvatar } from "@entities/user";
-import { Button, Input, Label } from "@shared/ui";
+import { Label, Button, Input } from "@shared/ui";
+import { EditableField } from "@shared/ui";
 import { useToast } from "@/hooks/use-toast";
-import { useProfile } from "@entities/user";
-
-interface ProfileData {
-  name: string;
-  birthDate: string;
-  gender: string;
-  phone: string;
-  photo: string;
-  notificationsEnabled: boolean;
-}
+import { useProfile, ProfileAvatar } from "@entities/user";
+import { usePhoneInput, getCleanPhoneNumber } from "@/shared/hooks/usePhoneInput";
 
 const EditProfile = () => {
-  const { toast } = useToast();
+  const { profile, updateProfile, updatePhoto } = useProfile();
+  const { toast: showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { profile, loading, updateProfile, updatePhoto } = useProfile();
+
+  // Хук для форматирования телефона - как в анкете вакансии
+  const phoneInput = usePhoneInput();
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
-  const [editCountryCode, setEditCountryCode] = useState<string>("+7");
-  const [editPhoneDigits, setEditPhoneDigits] = useState<string>("");
-
-  const countryPhoneFormats = {
-    "+7": { length: 10, format: "(XXX) XXX-XX-XX" }, // Россия/Казахстан
-    "+375": { length: 9, format: "(XX) XXX-XX-XX" }, // Беларусь
-    "+380": { length: 9, format: "(XX) XXX-XX-XX" }, // Украина
-    "+994": { length: 9, format: "(XX) XXX-XX-XX" }, // Азербайджан
-    "+374": { length: 8, format: "(XX) XXX-XXX" }, // Армения
-    "+995": { length: 9, format: "(XX) XXX-XX-XX" }, // Грузия
-    "+996": { length: 9, format: "(XXX) XX-XX-XX" }, // Кыргызстан
-    "+373": { length: 8, format: "(XX) XXX-XXX" }, // Молдова
-    "+992": { length: 9, format: "(XX) XXX-XX-XX" }, // Таджикистан
-    "+993": { length: 8, format: "(XX) XXX-XXX" }, // Туркменистан
-    "+998": { length: 9, format: "(XX) XXX-XX-XX" }, // Узбекистан
-  };
-
-
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleEdit = (field: string) => {
     setEditingField(field);
     
     if (field === "phone") {
-      // Разделяем код страны и номер телефона
-      const phoneValue = profile.phone || "";
-      let countryCode = "+7";
-      let phoneDigits = "";
-      
-      if (phoneValue.startsWith("+")) {
-        const spaceIndex = phoneValue.indexOf(" ");
-        if (spaceIndex > 0) {
-          countryCode = phoneValue.substring(0, spaceIndex);
-          phoneDigits = phoneValue.substring(spaceIndex + 1);
-        }
-      }
-      
-      setEditCountryCode(countryCode);
-      setEditPhoneDigits(phoneDigits);
-      setEditValue(phoneValue);
+      // Для телефона используем phoneInput хук
+      phoneInput.setValue(profile.phone || "");
     } else {
       setEditValue(profile[field as keyof typeof profile]?.toString() || "");
     }
@@ -75,7 +38,7 @@ const EditProfile = () => {
     if (editingField === "birthDate") {
       const dateRegex = /^\d{2}\.\d{2}\.\d{4}$/;
       if (!dateRegex.test(editValue)) {
-        toast({
+        showToast({
           title: "Ошибка",
           description: "Дата должна быть в формате дд.мм.гггг",
           variant: "destructive",
@@ -88,31 +51,27 @@ const EditProfile = () => {
       let updateData: any = {};
       
       if (editingField === "phone") {
-        // Объединяем код страны и номер
-        updateData[editingField] = `${editCountryCode} ${editPhoneDigits}`;
-        // Сохраняем телефон
+        // Для телефона используем очищенное значение из хука
+        updateData[editingField] = getCleanPhoneNumber(phoneInput.value);
       } else {
         updateData[editingField] = editValue;
-        // Сохраняем поле
       }
       
       const success = await updateProfile(updateData);
 
       if (success) {
-        toast({
+        showToast({
           title: "Профиль обновлен",
           description: "Изменения успешно сохранены",
         });
 
         setEditingField(null);
         setEditValue("");
-        setEditCountryCode("+7");
-        setEditPhoneDigits("");
       } else {
         throw new Error("Не удалось сохранить");
       }
     } catch (error) {
-      toast({
+      showToast({
         title: "Ошибка",
         description: "Не удалось сохранить изменения",
         variant: "destructive",
@@ -123,8 +82,6 @@ const EditProfile = () => {
   const handleCancel = () => {
     setEditingField(null);
     setEditValue("");
-    setEditCountryCode("+7");
-    setEditPhoneDigits("");
   };
 
   const handlePhotoUpload = async (
@@ -135,7 +92,7 @@ const EditProfile = () => {
 
     // Проверяем тип файла
     if (!file.type.startsWith("image/")) {
-      toast({
+      showToast({
         title: "Ошибка",
         description: "Пожалуйста, выберите изображение",
         variant: "destructive",
@@ -145,7 +102,7 @@ const EditProfile = () => {
 
     // Проверяем размер файла (макс 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      toast({
+      showToast({
         title: "Ошибка",
         description: "Размер файла не должен превышать 5MB",
         variant: "destructive",
@@ -157,21 +114,19 @@ const EditProfile = () => {
       const photoUrl = await updatePhoto(file);
       if (photoUrl) {
         await updateProfile({ photo: photoUrl });
-        toast({
+        showToast({
           title: "Фото обновлено",
           description: "Новое фото профиля установлено",
         });
       }
     } catch (error) {
-      toast({
+      showToast({
         title: "Ошибка",
         description: "Не удалось загрузить фото",
         variant: "destructive",
       });
     }
   };
-
-
 
   const formatDateInput = (value: string) => {
     // Убираем все символы кроме цифр
@@ -185,56 +140,6 @@ const EditProfile = () => {
     } else {
       return `${numbers.slice(0, 2)}.${numbers.slice(2, 4)}.${numbers.slice(4, 8)}`;
     }
-  };
-
-  const formatPhoneDigits = (digits: string, countryCode: string) => {
-    // Убираем все нецифровые символы
-    const cleanDigits = digits.replace(/\D/g, "");
-    
-    // Получаем формат для выбранной страны
-    const phoneFormat = countryPhoneFormats[countryCode];
-    if (!phoneFormat) return cleanDigits;
-    
-    // Ограничиваем длину
-    const limitedDigits = cleanDigits.slice(0, phoneFormat.length);
-    
-    // Форматируем в зависимости от кода страны
-    if (countryCode === "+7") {
-      // Россия/Казахстан: (XXX) XXX-XX-XX
-      if (limitedDigits.length <= 3) return `(${limitedDigits}`;
-      if (limitedDigits.length <= 6) return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3)}`;
-      if (limitedDigits.length <= 8) return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3, 6)}-${limitedDigits.slice(6)}`;
-      return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3, 6)}-${limitedDigits.slice(6, 8)}-${limitedDigits.slice(8)}`;
-    } else if (["+375", "+380", "+994", "+995", "+992", "+998"].includes(countryCode)) {
-      // Формат: (XX) XXX-XX-XX
-      if (limitedDigits.length <= 2) return `(${limitedDigits}`;
-      if (limitedDigits.length <= 5) return `(${limitedDigits.slice(0, 2)}) ${limitedDigits.slice(2)}`;
-      if (limitedDigits.length <= 7) return `(${limitedDigits.slice(0, 2)}) ${limitedDigits.slice(2, 5)}-${limitedDigits.slice(5)}`;
-      return `(${limitedDigits.slice(0, 2)}) ${limitedDigits.slice(2, 5)}-${limitedDigits.slice(5, 7)}-${limitedDigits.slice(7)}`;
-    } else if (["+374", "+373", "+993"].includes(countryCode)) {
-      // Формат: (XX) XXX-XXX
-      if (limitedDigits.length <= 2) return `(${limitedDigits}`;
-      if (limitedDigits.length <= 5) return `(${limitedDigits.slice(0, 2)}) ${limitedDigits.slice(2)}`;
-      return `(${limitedDigits.slice(0, 2)}) ${limitedDigits.slice(2, 5)}-${limitedDigits.slice(5)}`;
-    } else if (countryCode === "+996") {
-      // Кыргызстан: (XXX) XX-XX-XX
-      if (limitedDigits.length <= 3) return `(${limitedDigits}`;
-      if (limitedDigits.length <= 5) return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3)}`;
-      if (limitedDigits.length <= 7) return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3, 5)}-${limitedDigits.slice(5)}`;
-      return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3, 5)}-${limitedDigits.slice(5, 7)}-${limitedDigits.slice(7)}`;
-    }
-    
-    return limitedDigits;
-  };
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhoneDigits(e.target.value, editCountryCode);
-    setEditPhoneDigits(formatted);
-  };
-
-  const getPhonePlaceholder = () => {
-    const format = countryPhoneFormats[editCountryCode];
-    return format ? format.format : "(XXX) XXX-XX-XX";
   };
 
   const handleInputChange = (
@@ -393,48 +298,21 @@ const EditProfile = () => {
               />
             )}
 
-            {/* Phone field with country code */}
+            {/* Phone field - как в анкете вакансии */}
             {editingField === "phone" ? (
               <div className="bg-mariko-field rounded-[90px] px-5 md:px-7 py-3 md:py-4">
-                <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2 pl-5 block">
+                <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2 block">
                   Телефон
                 </Label>
-                <div className="flex gap-3 ml-5 mr-7">
-                  {/* Country Code Selector */}
-                  <div className="relative">
-                    <select
-                      value={editCountryCode}
-                      onChange={(e) => setEditCountryCode(e.target.value)}
-                      className="bg-white/5 text-white border-none outline-none rounded-xl px-3 py-2 font-el-messiri text-lg md:text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10 min-w-[90px] h-10 md:h-11"
-                    >
-                      <option value="+7" className="bg-mariko-secondary text-white">+7</option>
-                      <option value="+375" className="bg-mariko-secondary text-white">+375</option>
-                      <option value="+380" className="bg-mariko-secondary text-white">+380</option>
-                      <option value="+994" className="bg-mariko-secondary text-white">+994</option>
-                      <option value="+374" className="bg-mariko-secondary text-white">+374</option>
-                      <option value="+995" className="bg-mariko-secondary text-white">+995</option>
-                      <option value="+996" className="bg-mariko-secondary text-white">+996</option>
-                      <option value="+373" className="bg-mariko-secondary text-white">+373</option>
-                      <option value="+992" className="bg-mariko-secondary text-white">+992</option>
-                      <option value="+993" className="bg-mariko-secondary text-white">+993</option>
-                      <option value="+998" className="bg-mariko-secondary text-white">+998</option>
-                    </select>
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
-                  </div>
-                  
-                  {/* Phone Number Input */}
-                  <div className="relative flex-1">
-                    <input
-                      type="tel"
-                      value={editPhoneDigits}
-                      onChange={handlePhoneChange}
-                      placeholder={getPhonePlaceholder()}
-                      className="w-full bg-white/5 text-white placeholder-white/50 border-none outline-none rounded-xl px-4 py-2 font-el-messiri text-lg md:text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10 h-10 md:h-11"
-                      autoFocus
-                    />
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
-                  </div>
-                  
+                <div className="flex gap-3">
+                  <Input
+                    type="tel"
+                    value={phoneInput.value}
+                    onChange={phoneInput.onChange}
+                    placeholder="+7 (999) 123-45-67"
+                    className="flex-1 bg-white/10 border-white/20 text-white placeholder-white/60 font-el-messiri text-base md:text-lg h-10 md:h-11"
+                    autoFocus
+                  />
                   <Button
                     onClick={handleSave}
                     className="bg-green-600 hover:bg-green-700 text-white px-6"

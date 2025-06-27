@@ -203,9 +203,9 @@ const Index = () => {
               <ChevronDown className="w-5 h-5 md:w-6 md:h-6 text-black" />
             </div>
 
-            <div className="flex items-start justify-between gap-4 md:gap-8 px-3 md:px-6 mb-8 md:mb-12">
+            <div className="px-3 md:px-6 mb-16 md:mb-20">
               {/* Random recommended menu items grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 flex-shrink-0 w-[440px] md:w-[600px]">
+              <div className="grid grid-cols-2 md:grid-cols-2 gap-2 md:gap-4 max-w-none">
                 {randomRecommended.map((item) => (
                   <MenuItemComponent
                     key={item.id}
@@ -216,20 +216,6 @@ const Index = () => {
                     }}
                   />
                 ))}
-              </div>
-
-              {/* Chef image */}
-              <div className="flex-1 flex justify-end items-end">
-                <img
-                  src="/images/characters/character-chef.png"
-                  alt="Шеф-повар"
-                  loading="lazy"
-                  className="w-auto h-auto max-w-48 lg:max-w-sm object-contain object-bottom pointer-events-none"
-                  style={{
-                    filter: "drop-shadow(0 0 20px rgba(0,0,0,0.1))",
-                    transform: "scale(1.05) translateX(20%) translateY(60px)",
-                  }}
-                />
               </div>
             </div>
           </div>

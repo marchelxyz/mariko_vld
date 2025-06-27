@@ -46,20 +46,20 @@ export function MenuItemComponent({ item, onClick, onAdd }: MenuItemProps): JSX.
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="text-4xl">
+          <div className="text-3xl md:text-4xl">
             {getDefaultIcon(item.name)}
           </div>
         )}
         
         {/* Бейджи в углу */}
-        <div className="absolute top-2 right-2 flex flex-col gap-1">
+        <div className="absolute top-1 md:top-2 right-1 md:right-2 flex flex-col gap-1">
           {item.isNew && (
-            <Badge className="text-xs bg-mariko-secondary text-white px-2 py-1">
+            <Badge className="text-[10px] md:text-xs bg-mariko-secondary text-white px-1 md:px-2 py-0.5 md:py-1">
               ✨
             </Badge>
           )}
           {item.isRecommended && (
-            <Badge className="text-xs bg-mariko-primary text-white px-2 py-1">
+            <Badge className="text-[10px] md:text-xs bg-mariko-primary text-white px-1 md:px-2 py-0.5 md:py-1">
               👑
             </Badge>
           )}
@@ -67,14 +67,14 @@ export function MenuItemComponent({ item, onClick, onAdd }: MenuItemProps): JSX.
       </div>
       
       {/* Информация о блюде */}
-      <div className="p-3">
-        <div className="flex items-start justify-between mb-2">
+      <div className="p-2 md:p-3">
+        <div className="flex items-start justify-between mb-1 md:mb-2">
           <div className="flex-1 min-w-0">
-            <h3 className="font-el-messiri text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">
+            <h3 className="font-el-messiri text-xs md:text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">
               {item.name}
             </h3>
             {item.weight && (
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">
                 {item.weight}
               </p>
             )}
@@ -82,9 +82,9 @@ export function MenuItemComponent({ item, onClick, onAdd }: MenuItemProps): JSX.
         </div>
         
         {/* Нижняя часть: цена и кнопка */}
-        <div className="flex items-center justify-between mt-3">
+        <div className="flex items-center justify-between mt-2 md:mt-3">
           <div className="flex items-baseline gap-1">
-            <span className="font-el-messiri text-lg font-bold text-gray-900">
+            <span className="font-el-messiri text-sm md:text-lg font-bold text-gray-900">
               {item.price}₽
             </span>
           </div>
@@ -94,21 +94,22 @@ export function MenuItemComponent({ item, onClick, onAdd }: MenuItemProps): JSX.
               e.stopPropagation();
               onAdd?.(item);
             }}
-            className="bg-gray-100 hover:bg-gray-200 rounded-[12px] px-3 py-2 text-xs font-medium text-gray-700 transition-colors flex items-center gap-1"
+            className="bg-gray-100 hover:bg-gray-200 rounded-[8px] md:rounded-[12px] px-2 md:px-3 py-1 md:py-2 text-[10px] md:text-xs font-medium text-gray-700 transition-colors flex items-center gap-0.5 md:gap-1"
           >
-            <span className="text-sm">+</span>
-            <span>Добавить</span>
+            <span className="text-xs md:text-sm">+</span>
+            <span className="hidden md:inline">Добавить</span>
+            <span className="md:hidden">Доб.</span>
           </button>
         </div>
         
         {/* Дополнительные маркеры */}
         {(item.isVegetarian || item.isSpicy) && (
-          <div className="flex items-center gap-1 mt-2">
+          <div className="flex items-center gap-1 mt-1 md:mt-2">
             {item.isVegetarian && (
-              <span className="text-xs text-green-600">🌱</span>
+              <span className="text-[10px] md:text-xs text-green-600">🌱</span>
             )}
             {item.isSpicy && (
-              <span className="text-xs text-red-600">🌶️</span>
+              <span className="text-[10px] md:text-xs text-red-600">🌶️</span>
             )}
           </div>
         )}
