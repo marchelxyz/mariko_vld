@@ -464,22 +464,31 @@ const EditProfile = () => {
 
         {/* Character and Quote Section - прижимаем к краям экрана */}
         <div className="absolute bottom-16 left-0 right-0 z-10 pointer-events-none">
-          {/* Quote with custom background - вытекает из левого края экрана */}
-          <div className="absolute bottom-32 md:bottom-40" style={{ left: "-10px" }}>
-            <div 
-              className="relative overflow-hidden"
-              style={{
-                backgroundImage: "url('/images/backgrounds/quote-background.png')",
-                backgroundSize: "100% 100%",
-                backgroundRepeat: "no-repeat",
-                width: "220px",
-                height: "150px",
-                borderTopRightRadius: "15px",
-                borderBottomRightRadius: "15px"
-              }}
-            >
-              <div className="absolute inset-0 flex items-center justify-center px-6 py-4">
-                <p className="text-mariko-secondary font-el-messiri text-base md:text-lg font-semibold leading-tight text-center">
+          {/* Thought bubble with quote – облако из перекрывающихся кружков */}
+          <div className="absolute bottom-40 md:bottom-56 right-24 md:right-48 pointer-events-none select-none">
+            {/* SVG-облако более свободной формы */}
+            <div className="relative" style={{ width: "260px", height: "180px" }}>
+              <svg viewBox="0 0 260 180" className="absolute inset-0 overflow-visible">
+                {/* основное облако */}
+                <path
+                  d="M55 95c-15-20 5-45 30-40 10-25 45-35 70-15 20-25 65-10 70 20 25 0 40 30 20 50 10 25-10 45-35 40-10 20-40 25-60 10-20 15-55 10-65-15-25 5-40-15-30-40z"
+                  fill="white"
+                  stroke="#EFEFEF"
+                  strokeWidth="2"
+                  filter="url(#cloudShadow)"
+                />
+                {/* хвостик */}
+                <circle cx="195" cy="150" r="14" fill="white" stroke="#EFEFEF" strokeWidth="2" />
+                <circle cx="215" cy="170" r="9" fill="white" stroke="#EFEFEF" strokeWidth="2" />
+                <defs>
+                  <filter id="cloudShadow" x="-10%" y="-10%" width="120%" height="120%">
+                    <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="rgba(0,0,0,0.15)" />
+                  </filter>
+                </defs>
+              </svg>
+              {/* текст поверх */}
+              <div className="absolute inset-0 flex items-center justify-center px-8 py-6 transform translate-x-[24px] translate-y-[10px]">
+                <p className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold leading-tight text-center select-none">
                   Ты всегда можешь изменить данные, Генацвале!
                 </p>
               </div>
