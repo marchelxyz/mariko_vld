@@ -5,7 +5,7 @@ import { z } from "zod";
 import { CheckCircle, AlertCircle, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import { initEmailService, sendJobApplicationEmail, type JobApplicationEmailData } from "@/lib/emailService";
+import { initEmailService, sendJobApplicationEmail, type JobApplicationEmailData } from "@/services/emailService";
 import { useCityContext } from "@/contexts/CityContext";
 import { cities } from "@/shared/data/cities";
 import { usePhoneInput, getCleanPhoneNumber } from "@/shared/hooks/usePhoneInput";

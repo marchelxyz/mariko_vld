@@ -7,7 +7,7 @@ import { bookingApi, telegramWebApp } from "@shared/api";
 import { useCityContext } from "@/contexts/CityContext";
 import { useProfile } from "@entities/user";
 import { validateBookingForm, sanitizeText } from "@/lib/validation";
-import { initEmailService } from "@/lib/emailService";
+import { initEmailService } from "@/services/emailService";
 import { BookingNotification, useNotification } from "@shared/ui";
 import { Input, Label } from "@shared/ui";
 import DatePicker from "./DatePicker";
