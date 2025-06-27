@@ -259,8 +259,8 @@ const EditProfile = () => {
   ) => {
     if (editingField === key) {
       return (
-        <div className="bg-mariko-secondary rounded-[90px] px-5 md:px-7 py-3 md:py-4">
-          <Label className="text-white font-el-messiri text-base md:text-lg font-semibold mb-2 block">
+        <div className="bg-mariko-field rounded-[90px] px-5 md:px-7 py-3 md:py-4">
+          <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2 block">
             {label}
           </Label>
           <div className="flex gap-3">
@@ -348,8 +348,8 @@ const EditProfile = () => {
 
             {/* Gender Selection */}
             {editingField === "gender" ? (
-              <div className="bg-mariko-secondary rounded-[90px] px-5 md:px-7 py-3 md:py-4">
-                <Label className="text-white font-el-messiri text-base md:text-lg font-semibold mb-2 block">
+              <div className="bg-mariko-field rounded-[90px] px-5 md:px-7 py-3 md:py-4">
+                <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2 block">
                   Пол
                 </Label>
                 <div className="flex gap-3">
@@ -395,8 +395,8 @@ const EditProfile = () => {
 
             {/* Phone field with country code */}
             {editingField === "phone" ? (
-              <div className="bg-mariko-secondary rounded-[90px] px-5 md:px-7 py-3 md:py-4">
-                <Label className="text-white font-el-messiri text-base md:text-lg font-semibold mb-2 pl-5 block">
+              <div className="bg-mariko-field rounded-[90px] px-5 md:px-7 py-3 md:py-4">
+                <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2 pl-5 block">
                   Телефон
                 </Label>
                 <div className="flex gap-3 ml-5 mr-7">

@@ -167,18 +167,18 @@ function JobApplication() {
           </div>
 
           {/* Job Application Form */}
-          <div className="pb-24 md:pb-32">
+          <div className="pb-40 md:pb-48">
             <form onSubmit={onSubmit} className="mt-6 space-y-6">
               {/* Имя */}
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-white font-el-messiri text-lg font-semibold">
+                <Label htmlFor="name" className="text-mariko-dark font-el-messiri text-lg font-semibold">
                   Имя *
                 </Label>
                 <Input
                   id="name"
                   type="text"
                   {...register("name")}
-                  className="bg-mariko-secondary border-none text-white placeholder:text-white/60 rounded-lg h-12"
+                  className="bg-mariko-field border-none text-mariko-dark placeholder:text-mariko-dark/60 rounded-lg h-12"
                   placeholder="Введите ваше имя"
                 />
                 {errors.name && (
@@ -188,7 +188,7 @@ function JobApplication() {
 
               {/* Желаемый город работы */}
               <div className="space-y-2">
-                <Label htmlFor="desiredCity" className="text-white font-el-messiri text-lg font-semibold">
+                <Label htmlFor="desiredCity" className="text-mariko-dark font-el-messiri text-lg font-semibold">
                   Желаемый город работы *
                 </Label>
                 <Select 
@@ -198,7 +198,7 @@ function JobApplication() {
                     handleCityChange(value);
                   }}
                 >
-                  <SelectTrigger className="bg-mariko-secondary border-none text-white h-12 rounded-lg">
+                  <SelectTrigger className="bg-mariko-field border-none text-mariko-dark h-12 rounded-lg">
                     <SelectValue placeholder="Выберите город" />
                   </SelectTrigger>
                   <SelectContent>
@@ -216,11 +216,11 @@ function JobApplication() {
 
               {/* Адрес ресторана */}
               <div className="space-y-2">
-                <Label htmlFor="restaurant" className="text-white font-el-messiri text-lg font-semibold">
+                <Label htmlFor="restaurant" className="text-mariko-dark font-el-messiri text-lg font-semibold">
                   Адрес ресторана *
                 </Label>
                 <Select onValueChange={(value) => setValue("restaurant", value)}>
-                  <SelectTrigger className="bg-mariko-secondary border-none text-white h-12 rounded-lg">
+                  <SelectTrigger className="bg-mariko-field border-none text-mariko-dark h-12 rounded-lg">
                     <SelectValue placeholder="Выберите ресторан" />
                   </SelectTrigger>
                   <SelectContent>
@@ -238,14 +238,14 @@ function JobApplication() {
 
               {/* Возраст */}
               <div className="space-y-2">
-                <Label htmlFor="age" className="text-white font-el-messiri text-lg font-semibold">
+                <Label htmlFor="age" className="text-mariko-dark font-el-messiri text-lg font-semibold">
                   Возраст *
                 </Label>
                 <Input
                   id="age"
                   type="number"
                   {...register("age", { valueAsNumber: true })}
-                  className="bg-mariko-secondary border-none text-white placeholder:text-white/60 rounded-lg h-12"
+                  className="bg-mariko-field border-none text-mariko-dark placeholder:text-mariko-dark/60 rounded-lg h-12"
                   placeholder="Введите ваш возраст"
                   min="16"
                   max="80"
@@ -257,11 +257,11 @@ function JobApplication() {
 
               {/* Должность */}
               <div className="space-y-2">
-                <Label htmlFor="position" className="text-white font-el-messiri text-lg font-semibold">
+                <Label htmlFor="position" className="text-mariko-dark font-el-messiri text-lg font-semibold">
                   Должность *
                 </Label>
                 <Select onValueChange={(value) => setValue("position", value)}>
-                  <SelectTrigger className="bg-mariko-secondary border-none text-white h-12 rounded-lg">
+                  <SelectTrigger className="bg-mariko-field border-none text-mariko-dark h-12 rounded-lg">
                     <SelectValue placeholder="Выберите должность" />
                   </SelectTrigger>
                   <SelectContent>
@@ -281,13 +281,13 @@ function JobApplication() {
 
               {/* Опыт работы */}
               <div className="space-y-2">
-                <Label htmlFor="experience" className="text-white font-el-messiri text-lg font-semibold">
+                <Label htmlFor="experience" className="text-mariko-dark font-el-messiri text-lg font-semibold">
                   Опыт работы
                 </Label>
                 <Textarea
                   id="experience"
                   {...register("experience")}
-                  className="bg-mariko-secondary border-none text-white placeholder:text-white/60 rounded-lg min-h-[100px] resize-none"
+                  className="bg-mariko-field border-none text-mariko-dark placeholder:text-mariko-dark/60 rounded-lg min-h-[100px] resize-none"
                   placeholder="Расскажите о вашем опыте работы"
                 />
                 {errors.experience && (
@@ -297,14 +297,14 @@ function JobApplication() {
 
               {/* Телефон */}
               <div className="space-y-2">
-                <Label htmlFor="phone" className="text-white font-el-messiri text-lg font-semibold">
+                <Label htmlFor="phone" className="text-mariko-dark font-el-messiri text-lg font-semibold">
                   Телефон *
                 </Label>
                 <Input
                   id="phone"
                   type="tel"
                   {...register("phone")}
-                  className="bg-mariko-secondary border-none text-white placeholder:text-white/60 rounded-lg h-12"
+                  className="bg-mariko-field border-none text-mariko-dark placeholder:text-mariko-dark/60 rounded-lg h-12"
                   placeholder="+7 (999) 123-45-67"
                 />
                 {errors.phone && (
@@ -314,14 +314,14 @@ function JobApplication() {
 
               {/* Email */}
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-white font-el-messiri text-lg font-semibold">
+                <Label htmlFor="email" className="text-mariko-dark font-el-messiri text-lg font-semibold">
                   Email *
                 </Label>
                 <Input
                   id="email"
                   type="email"
                   {...register("email")}
-                  className="bg-mariko-secondary border-none text-white placeholder:text-white/60 rounded-lg h-12"
+                  className="bg-mariko-field border-none text-mariko-dark placeholder:text-mariko-dark/60 rounded-lg h-12"
                   placeholder="example@email.com"
                 />
                 {errors.email && (
@@ -334,7 +334,7 @@ function JobApplication() {
                 <Button
                   type="submit"
                   disabled={submissionStatus.isSubmitting}
-                  className="w-full bg-orange-600 hover:bg-orange-700 text-white font-el-messiri text-lg font-bold h-14 rounded-lg transition-colors duration-200"
+                  className="w-full bg-mariko-field text-mariko-dark font-el-messiri text-lg font-bold h-14 rounded-lg hover:scale-105 transition-transform duration-200 disabled:opacity-50"
                 >
                   {submissionStatus.isSubmitting ? (
                     <div className="flex items-center gap-2">

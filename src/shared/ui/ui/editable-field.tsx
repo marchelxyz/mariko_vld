@@ -19,7 +19,7 @@ export const EditableField = ({
   return (
     <div
       className={cn(
-        "bg-mariko-secondary/80 backdrop-blur-sm rounded-[90px] px-5 md:px-7 py-3 md:py-4 transition-all hover:bg-mariko-secondary/90",
+        "bg-mariko-field backdrop-blur-sm rounded-[90px] px-5 md:px-7 py-3 md:py-4 transition-all hover:bg-mariko-field/90",
         className,
       )}
     >
@@ -27,7 +27,7 @@ export const EditableField = ({
         <span
           className={cn(
             "flex-1 font-el-messiri text-base md:text-lg font-semibold tracking-tight",
-            isPlaceholder ? "text-white/60" : "text-white",
+            isPlaceholder ? "text-mariko-dark/60" : "text-mariko-dark",
           )}
         >
           {displayText}

@@ -237,11 +237,11 @@ const Booking = () => {
           <div className="pb-40 md:pb-48">
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Name */}
-              <div className="bg-mariko-secondary rounded-3xl px-6 py-4">
+              <div className="bg-mariko-field rounded-3xl px-6 py-4">
                 <div className="relative ml-6 mr-8">
                   {/* Placeholder как label */}
                   {!formData.name && (
-                    <div className="absolute left-4 top-3 text-white/50 font-el-messiri text-xl pointer-events-none transition-opacity duration-200">
+                    <div className="absolute left-4 top-3 text-mariko-dark/50 font-el-messiri text-xl pointer-events-none transition-opacity duration-200">
                       ФИО
                     </div>
                   )}
@@ -251,7 +251,7 @@ const Booking = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
                     }
-                    className="w-full bg-white/5 text-white border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10"
+                    className="w-full bg-transparent text-mariko-dark placeholder-mariko-dark/50 border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-mariko-dark/10"
                     required
                   />
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
@@ -259,8 +259,8 @@ const Booking = () => {
               </div>
 
               {/* Phone */}
-              <div className="bg-mariko-secondary rounded-3xl px-6 py-4">
-                <label className="block text-white font-el-messiri text-lg font-semibold mb-2 pl-6">
+              <div className="bg-mariko-field rounded-3xl px-6 py-4">
+                <label className="block text-mariko-dark font-el-messiri text-lg font-semibold mb-2 pl-6">
                   Телефон
                 </label>
                 <div className="flex items-center gap-3 ml-6 mr-8">
@@ -275,7 +275,7 @@ const Booking = () => {
                         <option
                           key={code}
                           value={code}
-                          className="bg-mariko-secondary text-white"
+                          className="bg-mariko-field text-mariko-dark"
                         >
                           {code}
                         </option>
@@ -291,7 +291,7 @@ const Booking = () => {
                       value={formData.phone}
                       onChange={handlePhoneChange}
                       placeholder={profileLoading ? "Загружаем номер..." : getPhonePlaceholder()}
-                      className="w-full bg-white/5 text-white placeholder-white/50 border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10"
+                      className="w-full bg-transparent text-mariko-dark placeholder-mariko-dark/50 border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-mariko-dark/10"
                       required
                     />
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
@@ -300,8 +300,8 @@ const Booking = () => {
               </div>
 
               {/* Guests */}
-              <div className="bg-mariko-secondary rounded-3xl px-6 py-4">
-                <label className="flex items-center gap-2 text-white font-el-messiri text-lg font-semibold mb-2">
+              <div className="bg-mariko-field rounded-3xl px-6 py-4">
+                <label className="flex items-center gap-2 text-mariko-dark font-el-messiri text-lg font-semibold mb-2">
                   <Users className="w-5 h-5" />
                   Количество гостей
                 </label>
@@ -310,14 +310,14 @@ const Booking = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, guests: e.target.value })
                   }
-                  className="w-full bg-transparent text-white border-none outline-none font-el-messiri text-xl"
+                  className="w-full bg-transparent text-mariko-dark border-none outline-none font-el-messiri text-xl"
                   required
                 >
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                     <option
                       key={num}
                       value={num}
-                      className="bg-mariko-secondary text-white"
+                      className="bg-mariko-field text-mariko-dark"
                     >
                       {num}
                     </option>
@@ -327,8 +327,8 @@ const Booking = () => {
 
               {/* Date */}
               {isEditingDate ? (
-                <div className="bg-mariko-secondary rounded-3xl px-6 py-4">
-                  <label className="flex items-center gap-2 text-white font-el-messiri text-lg font-semibold mb-2 pl-6">
+                <div className="bg-mariko-field rounded-3xl px-6 py-4">
+                  <label className="flex items-center gap-2 text-mariko-dark font-el-messiri text-lg font-semibold mb-2 pl-6">
                     <Calendar className="w-5 h-5" />
                     Дата
                   </label>
@@ -338,7 +338,7 @@ const Booking = () => {
                         type="text"
                         value={editDateValue}
                         onChange={handleDateInputChange}
-                        className="w-full bg-white/5 border-none text-white placeholder-white/50 font-el-messiri text-lg rounded-xl px-4 py-3 transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10"
+                        className="w-full bg-transparent text-mariko-dark placeholder-mariko-dark/50 border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-lg transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-mariko-dark/10"
                         placeholder="дд.мм.гггг"
                         maxLength={10}
                         autoFocus
@@ -362,13 +362,13 @@ const Booking = () => {
                   </div>
                 </div>
               ) : (
-                <div className="bg-mariko-secondary rounded-3xl px-6 py-4">
-                  <label className="flex items-center gap-2 text-white font-el-messiri text-lg font-semibold mb-2 pl-6">
+                <div className="bg-mariko-field rounded-3xl px-6 py-4">
+                  <label className="flex items-center gap-2 text-mariko-dark font-el-messiri text-lg font-semibold mb-2 pl-6">
                     <Calendar className="w-5 h-5" />
                     Дата
                   </label>
                   <div className="flex items-center justify-between ml-6">
-                    <span className="text-white font-el-messiri text-xl">
+                    <span className="text-mariko-dark font-el-messiri text-xl">
                       {formData.date || (() => {
                         const tomorrow = new Date();
                         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -391,8 +391,8 @@ const Booking = () => {
               )}
 
               {/* Time */}
-              <div className="bg-mariko-secondary rounded-3xl px-6 py-4">
-                <label className="flex items-center gap-2 text-white font-el-messiri text-lg font-semibold mb-2">
+              <div className="bg-mariko-field rounded-3xl px-6 py-4">
+                <label className="flex items-center gap-2 text-mariko-dark font-el-messiri text-lg font-semibold mb-2">
                   <Clock className="w-5 h-5" />
                   Время
                 </label>
@@ -401,17 +401,17 @@ const Booking = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, time: e.target.value })
                   }
-                  className="w-full bg-transparent text-white border-none outline-none font-el-messiri text-xl"
+                  className="w-full bg-transparent text-mariko-dark border-none outline-none font-el-messiri text-xl"
                   required
                 >
-                  <option value="" className="bg-mariko-secondary text-white">
+                  <option value="" className="bg-mariko-field text-mariko-dark">
                     Выберите время
                   </option>
                   {timeSlots.map((time) => (
                     <option
                       key={time}
                       value={time}
-                      className="bg-mariko-secondary text-white"
+                      className="bg-mariko-field text-mariko-dark"
                     >
                       {time}
                     </option>
@@ -420,8 +420,8 @@ const Booking = () => {
               </div>
 
               {/* Comment */}
-              <div className="bg-mariko-secondary rounded-3xl px-6 py-4">
-                <label className="block text-white font-el-messiri text-lg font-semibold mb-2 pl-6">
+              <div className="bg-mariko-field rounded-3xl px-6 py-4">
+                <label className="block text-mariko-dark font-el-messiri text-lg font-semibold mb-2 pl-6">
                   Комментарий
                 </label>
                 <div className="relative ml-6 mr-8">
@@ -431,13 +431,13 @@ const Booking = () => {
                       setFormData({ ...formData, comment: e.target.value })
                     }
                     placeholder="Генацвале, устраиваете супру? Расскажите о вашем празднике - мы накроем стол, достойный самого Тамада!"
-                    className="w-full bg-white/5 text-white placeholder-white/50 border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-lg transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-white/10 resize-none min-h-[100px]"
+                    className="w-full bg-transparent text-mariko-dark placeholder-mariko-dark/50 border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-lg transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-mariko-dark/10 resize-none min-h-[100px]"
                     maxLength={500}
                     rows={4}
                   />
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
                   <div className="text-right mt-1 mr-2">
-                    <span className="text-white/50 font-el-messiri text-sm">
+                    <span className="text-mariko-dark/50 font-el-messiri text-sm">
                       {formData.comment.length}/500
                     </span>
                   </div>
@@ -448,7 +448,7 @@ const Booking = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-[#DB7B28] text-mariko-secondary font-el-messiri text-2xl font-bold py-6 rounded-3xl hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                className="w-full bg-mariko-field text-mariko-dark font-el-messiri text-2xl font-bold py-6 rounded-3xl hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
               >
                 {loading ? "Отправка..." : "Забронировать столик"}
               </button>

@@ -24,7 +24,8 @@ export default {
       colors: {
         mariko: {
           primary: "#8E1A1B", // Main red background
-          secondary: "#721516", // Button background
+          secondary: "#721516", // Темно-красный, как был
+          field: "#EFEFEF", // Мягкий серый фон для инпутов
           dark: "#172127", // Header background
           accent: "#761516", // Footer background
           "text-light": "#EBEBEB", // Light text
