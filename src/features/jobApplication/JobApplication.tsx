@@ -86,6 +86,12 @@ function JobApplication() {
     setAvailableRestaurants(selectedCity.restaurants);
   }, [selectedCity, setValue]);
 
+  // Обновляем поле phone в react-hook-form при каждом изменении телефона,
+  // чтобы zod-валидация считала его заполненным
+  useEffect(() => {
+    setValue("phone", phoneInput.value);
+  }, [phoneInput.value, setValue]);
+
   /**
    * Обработчик смены города
    */

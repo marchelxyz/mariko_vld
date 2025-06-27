@@ -165,15 +165,42 @@ ${jobData.experience}
   }
 }
 
+// Динамическая карта «город → email».
+// Формат переменной VITE_CITY_EMAIL_MAP: "жуковск:Veronika.pdc@yandex.ru,москва:manager@example.com"
+const CITY_EMAIL_MAP: Record<string, string> = (() => {
+  const rawMap = (import.meta.env.VITE_CITY_EMAIL_MAP || "") as string;
+
+  return rawMap.split(",").reduce<Record<string, string>>((acc, pair) => {
+    const [city, email] = pair.split(":");
+    if (city && email) {
+      acc[city.trim().toLowerCase()] = email.trim();
+    }
+    return acc;
+  }, {});
+})();
+
 /**
- * Определяет email получателя в зависимости от города.
- * Для Жуковского (любой регистр) всегда возвращает Veronika.pdc@yandex.ru.
- * В остальных случаях использует email по умолчанию из ENV.
+ * Возвращает email получателя в зависимости от города.
+ *
+ * Если название города (без учёта регистра) совпадает с одним из ключей CITY_EMAIL_MAP,
+ * будет возвращён соответствующий адрес. В противном случае возвращается общий
+ * адрес из переменных окружения.
+ *
+ * @param city Название города из анкеты/бронирования.
+ * @returns Email менеджера, ответственного за город, либо общий email из ENV.
  */
 function _getRecipientEmailByCity(city: string): string {
-  if (city.toLowerCase().includes("жуковск")) {
-    return "Veronika.pdc@yandex.ru";
+  const normalizedCity = city.trim().toLowerCase();
+
+  // Пытаемся найти точное или частичное совпадение города в карте.
+  const matchedEntry = Object.entries(CITY_EMAIL_MAP).find(([key]) =>
+    normalizedCity.includes(key)
+  );
+
+  if (matchedEntry) {
+    return matchedEntry[1];
   }
+
   return EMAIL_CONFIG.recipientEmail;
 }
 

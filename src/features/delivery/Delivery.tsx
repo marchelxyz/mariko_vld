@@ -127,6 +127,7 @@ const Delivery = () => {
                 icon={option.icon}
                 title={option.title}
                 onClick={option.onClick}
+                className="bg-mariko-field text-mariko-dark hover:bg-mariko-field/80"
               />
             ))}
           </div>
