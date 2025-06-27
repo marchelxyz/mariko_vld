@@ -1,5 +1,5 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Header } from "@widgets/header";
 import { MenuCard, QuickActionButton, Carousel, CarouselContent, CarouselItem, PromotionCard, ServiceCard, MenuItemComponent, type CarouselApi } from "@shared/ui";
 import { BottomNavigation } from "@widgets/bottomNavigation";
@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { RESTAURANT_REVIEW_LINKS } from "@/shared/data/reviewLinks";
 import { CalendarDays, Truck, Star as StarIcon, RussianRuble, Utensils, Briefcase, Flame, EggFried, ChevronDown } from "lucide-react";
 import { getMenuByRestaurantId, MenuItem, MenuCategory } from "@/shared/data/menuData";
+// @ts-ignore – библиотека не имеет встроенных d.ts, но работает корректно
+import AutoScroll from "embla-carousel-auto-scroll";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -15,7 +17,13 @@ const Index = () => {
   const { selectedRestaurant } = useCityContext();
   const [activePromo, setActivePromo] = useState<typeof promotions[number] | null>(null);
   const [promoCarouselApi, setPromoCarouselApi] = useState<CarouselApi | null>(null);
-  const [isUserInteracting, setIsUserInteracting] = useState<boolean>(false);
+
+  // Плагин непрерывного авто-скролла Embla
+  const autoScrollPlugin = useMemo(() => AutoScroll({
+    speed: 0.2,          // пикселей за кадр — ещё медленнее
+    startDelay: 0,     // пауза 0.15 с перед запуском
+    stopOnInteraction: false,
+  }), []);
 
   useEffect(() => {
     // Проверяем, пришли ли мы сюда после успешной отправки заявки на вакансию
@@ -32,39 +40,6 @@ const Index = () => {
       setSearchParams(searchParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
-
-  // Эффект автопрокрутки
-  useEffect(() => {
-    if (!promoCarouselApi) return;
-
-    // Обработчики взаимодействия
-    const handlePointerDown = () => {
-      setIsUserInteracting(true);
-    };
-
-    const handlePointerUp = () => {
-      // Даём пользователю закончить жест и ждём 1 с перед возобновлением
-      setTimeout(() => {
-        setIsUserInteracting(false);
-      }, 1000);
-    };
-
-    promoCarouselApi.on("pointerDown", handlePointerDown);
-    promoCarouselApi.on("pointerUp", handlePointerUp);
-
-    // Интервал автопрокрутки
-    const intervalId = setInterval(() => {
-      if (!isUserInteracting && promoCarouselApi.canScrollNext()) {
-        promoCarouselApi.scrollNext();
-      }
-    }, 6000); // 6 сек – «медленно»
-
-    return () => {
-      clearInterval(intervalId);
-      promoCarouselApi.off("pointerDown", handlePointerDown);
-      promoCarouselApi.off("pointerUp", handlePointerUp);
-    };
-  }, [promoCarouselApi, isUserInteracting]);
 
   const handleReviewClick = () => {
     const externalReviewLink = RESTAURANT_REVIEW_LINKS[selectedRestaurant.id];
@@ -197,7 +172,12 @@ const Index = () => {
 
           {/* Promotions Carousel */}
           <div className="mt-6 md:mt-8">
-            <Carousel opts={{ align: "start", loop: true, containScroll: 'trimSnaps', skipSnaps: false }} className="w-full" setApi={setPromoCarouselApi}>
+            <Carousel
+              opts={{ align: "start", loop: true, containScroll: 'trimSnaps', skipSnaps: false }}
+              plugins={[autoScrollPlugin]}
+              className="w-full"
+              setApi={setPromoCarouselApi}
+            >
               <CarouselContent>
                 {promotions.map((promo) => (
                   <CarouselItem key={promo.id} className="basis-[80%] md:basis-[45%] pr-3">
