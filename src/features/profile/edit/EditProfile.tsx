@@ -36,11 +36,10 @@ const EditProfile = () => {
 
     // Валидация даты рождения
     if (editingField === "birthDate") {
-      const dateRegex = /^\d{2}\.\d{2}\.\d{4}$/;
-      if (!dateRegex.test(editValue)) {
+      if (!isValidBirthDate(editValue)) {
         showToast({
           title: "Ошибка",
-          description: "Дата должна быть в формате дд.мм.гггг",
+          description: "Дата должна быть в формате дд.мм.гггг и валидной",
           variant: "destructive",
         });
         return;
@@ -156,6 +155,25 @@ const EditProfile = () => {
     setEditValue(value);
   };
 
+  // Проверка корректности даты рождения
+  const isValidBirthDate = (dateStr: string): boolean => {
+    const [day, month, year] = dateStr.split(".").map(Number);
+    const dateObj = new Date(year, month - 1, day);
+    if (isNaN(dateObj.getTime())) return false;
+    // Дата из объекта должна совпадать
+    if (
+      dateObj.getFullYear() !== year ||
+      dateObj.getMonth() !== month - 1 ||
+      dateObj.getDate() !== day
+    ) {
+      return false;
+    }
+    const currentYear = new Date().getFullYear();
+    // Ограничим возраст: не младше 14 лет и не старше 100
+    if (year < currentYear - 100 || year > currentYear - 14) return false;
+    return true;
+  };
+
   const renderField = (
     key: string,
     label: string,
@@ -173,7 +191,7 @@ const EditProfile = () => {
               type={type}
               value={editValue}
               onChange={(e) => handleInputChange(e, key)}
-              className="flex-1 bg-white/10 border-white/20 text-white placeholder-white/60 font-el-messiri text-base md:text-lg h-10 md:h-11"
+              className="flex-1 bg-white/10 border-white/20 text-mariko-dark placeholder-mariko-dark/60 font-el-messiri text-base md:text-lg h-10 md:h-11"
               placeholder={key === "birthDate" ? "дд.мм.гггг" : ""}
               maxLength={key === "birthDate" ? 10 : undefined}
               autoFocus
@@ -261,7 +279,7 @@ const EditProfile = () => {
                   <select
                     value={editValue}
                     onChange={(e) => setEditValue(e.target.value)}
-                    className="flex-1 bg-white/10 border border-white/20 text-white font-el-messiri text-base md:text-lg rounded-lg px-3 py-2 h-10 md:h-11"
+                    className="flex-1 bg-white/10 border border-white/20 text-mariko-dark font-el-messiri text-base md:text-lg rounded-lg px-3 py-2 h-10 md:h-11"
                   >
                     <option
                       value="Женский"
@@ -310,7 +328,7 @@ const EditProfile = () => {
                     value={phoneInput.value}
                     onChange={phoneInput.onChange}
                     placeholder="+7 (999) 123-45-67"
-                    className="flex-1 bg-white/10 border-white/20 text-white placeholder-white/60 font-el-messiri text-base md:text-lg h-10 md:h-11"
+                    className="flex-1 bg-white/10 border-white/20 text-mariko-dark placeholder-mariko-dark/60 font-el-messiri text-base md:text-lg h-10 md:h-11"
                     autoFocus
                   />
                   <Button
