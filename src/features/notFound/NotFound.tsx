@@ -22,7 +22,11 @@ const NotFound = () => {
       </div>
 
       {/* СРЕДНЯЯ СЕКЦИЯ: Main Content с белым фоном, расширенная до низа */}
-      <div className="flex-1 bg-white relative rounded-t-[24px] md:rounded-t-[32px] flex items-center justify-center">
+      <div className="flex-1 bg-white relative overflow-hidden rounded-t-[24px] md:rounded-t-[32px] pt-6 md:pt-8
+        before:content-[''] before:absolute before:top-0 before:left-0 before:right-0
+        before:h-[28px] md:before:h-[32px]
+        before:bg-gradient-to-b before:from-black/30 before:to-transparent
+        before:rounded-t-[24px] md:before:rounded-t-[32px] flex items-center justify-center">
         <div className="text-center px-4 md:px-6 max-w-md mx-auto">
           <h1 className="text-mariko-primary font-el-messiri text-6xl md:text-8xl font-bold mb-4">404</h1>
           <p className="text-mariko-primary/80 font-el-messiri text-xl md:text-2xl mb-8">

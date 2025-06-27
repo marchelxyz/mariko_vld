@@ -280,7 +280,11 @@ const Review = () => {
         </div>
         
         {/* СРЕДНЯЯ СЕКЦИЯ: Main Content с белым фоном, расширенная до низа */}
-        <div className="flex-1 bg-white relative rounded-t-[24px] md:rounded-t-[32px] flex items-center justify-center">
+        <div className="flex-1 bg-white relative overflow-hidden rounded-t-[24px] md:rounded-t-[32px] pt-6 md:pt-8
+          before:content-[''] before:absolute before:top-0 before:left-0 before:right-0
+          before:h-[28px] md:before:h-[32px]
+          before:bg-gradient-to-b before:from-black/30 before:to-transparent
+          before:rounded-t-[24px] md:before:rounded-t-[32px] flex items-center justify-center">
           <div className="px-4 md:px-6 max-w-md mx-auto">
             <div className="bg-mariko-secondary rounded-[90px] p-8 text-center">
               <h2 className="text-white font-el-messiri text-2xl font-bold mb-6">
@@ -329,7 +333,11 @@ const Review = () => {
       </div>
 
       {/* СРЕДНЯЯ СЕКЦИЯ: Main Content с белым фоном, расширенная до низа */}
-      <div className="flex-1 bg-white relative rounded-t-[24px] md:rounded-t-[32px]">
+      <div className="flex-1 bg-white relative overflow-hidden rounded-t-[24px] md:rounded-t-[32px] pt-6 md:pt-8
+        before:content-[''] before:absolute before:top-0 before:left-0 before:right-0
+        before:h-[28px] md:before:h-[32px]
+        before:bg-gradient-to-b before:from-black/30 before:to-transparent
+        before:rounded-t-[24px] md:before:rounded-t-[32px]">
         <div className="px-4 md:px-6 max-w-4xl mx-auto w-full">
           {/* Back Button and Title */}
           <div className="mt-6 md:mt-8 flex items-center gap-4 mb-8">
