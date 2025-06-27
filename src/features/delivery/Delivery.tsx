@@ -124,7 +124,7 @@ const Delivery = () => {
           </div>
           
           {/* Delivery Options */}
-          <div className="relative z-20 mt-6 md:mt-8 space-y-6 md:space-y-8 pb-[28rem] md:pb-[32rem]">
+          <div className="relative z-20 mt-6 md:mt-8 space-y-6 md:space-y-8 pb-[24rem] md:pb-[28rem]">
             {getDeliveryOptions().map((option, index) => (
               <ActionButton
                 key={index}
