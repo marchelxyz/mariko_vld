@@ -2,8 +2,11 @@ import { Header } from "@widgets/header";
 import { PromotionCard } from "@shared/ui";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { PageHeader } from "@widgets/pageHeader";
+import { useState } from "react";
 
 const Promotions = () => {
+  const [activePromo, setActivePromo] = useState<typeof promotions[number] | null>(null);
+  
   const promotions = [
     {
       id: 1,
@@ -56,7 +59,7 @@ const Promotions = () => {
                 imageUrl={promo.imageUrl}
                 title={promo.title}
                 description={promo.description}
-                onClick={() => {/* Акция: ${promo.title} */}}
+                onClick={() => setActivePromo(promo)}
               />
             ))}
           </div>
@@ -67,6 +70,77 @@ const Promotions = () => {
           <BottomNavigation currentPage="home" />
         </div>
       </div>
+
+      {/* Модальное окно для полной акции */}
+      {activePromo && (
+        <div
+          className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 backdrop-blur-sm" 
+          onClick={() => setActivePromo(null)}
+        >
+          {/* Умеренная стеклянная рамка */}
+          <div 
+            className="relative flex flex-col gap-4 items-center max-w-[90vw] p-6 md:p-8
+              bg-white/12 backdrop-blur-md
+              border border-white/25
+              rounded-[30px]
+              shadow-2xl
+              hover:bg-white/15 transition-all duration-300" 
+            onClick={(e)=>e.stopPropagation()}
+          >
+            {/* Градиент для стеклянного эффекта */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-white/5 rounded-[30px] pointer-events-none" />
+            
+            {/* Блик сверху */}
+            <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-white/15 to-transparent rounded-t-[30px] pointer-events-none" />
+            
+            {/* Гвоздики в углах рамки */}
+            {/* Верхний левый гвоздик */}
+            <div className="absolute top-3 left-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
+              bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
+              shadow-lg border border-gray-500/50
+              before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
+              before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
+            
+            {/* Верхний правый гвоздик */}
+            <div className="absolute top-3 right-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
+              bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
+              shadow-lg border border-gray-500/50
+              before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
+              before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
+            
+            {/* Нижний левый гвоздик */}
+            <div className="absolute bottom-3 left-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
+              bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
+              shadow-lg border border-gray-500/50
+              before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
+              before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
+            
+            {/* Нижний правый гвоздик */}
+            <div className="absolute bottom-3 right-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
+              bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
+              shadow-lg border border-gray-500/50
+              before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
+              before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
+            
+            {/* Контент */}
+            <div className="relative z-10 flex flex-col gap-4 items-center">
+              <img
+                src={activePromo.imageUrl}
+                alt={activePromo.title}
+                className="max-h-[60vh] md:max-h-[70vh] w-auto rounded-[20px] shadow-lg"
+              />
+              <h3 className="font-el-messiri text-2xl md:text-3xl font-bold mb-1 text-white drop-shadow-lg text-center">
+                {activePromo.title}
+              </h3>
+              {activePromo.description && (
+                <p className="text-lg leading-snug text-white/90 drop-shadow-lg text-center max-w-md mx-auto">
+                  {activePromo.description}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
