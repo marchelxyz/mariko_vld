@@ -376,8 +376,8 @@ const Index = () => {
                 rounded-[30px]
                 shadow-2xl
                 hover:bg-white/15 transition-all duration-300
-                overflow-y-auto" 
-              onClick={(e)=>e.stopPropagation()}
+                overflow-y-auto cursor-pointer" 
+              onClick={() => setActiveDish(null)}
             >
               {/* Градиент для стеклянного эффекта */}
               <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-white/5 rounded-[30px] pointer-events-none" />
