@@ -1,11 +1,13 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Header } from "@widgets/header";
-import { MenuCard, QuickActionButton, Carousel, CarouselContent, CarouselItem, PromotionCard } from "@shared/ui";
+import { MenuCard, QuickActionButton, Carousel, CarouselContent, CarouselItem, PromotionCard, ServiceCard, MenuItemComponent } from "@shared/ui";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { useCityContext } from "@/contexts/CityContext";
 import { toast } from "sonner";
 import { RESTAURANT_REVIEW_LINKS } from "@/shared/data/reviewLinks";
+import { CalendarDays, Truck, Star as StarIcon, RussianRuble, Utensils, Briefcase, Flame, EggFried, ChevronDown } from "lucide-react";
+import { getMenuByRestaurantId, MenuItem, MenuCategory } from "@/shared/data/menuData";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -105,6 +107,17 @@ const Index = () => {
     setActivePromo(promo);
   };
 
+  // Random recommended menu items
+  const randomRecommended: MenuItem[] = (() => {
+    const menu = getMenuByRestaurantId(selectedRestaurant.id);
+    if (!menu) return [];
+    const allItems: MenuItem[] = menu.categories.flatMap((c: MenuCategory) => c.items);
+    const recommended = allItems.filter((i) => i.isRecommended);
+    if (recommended.length === 0) return [];
+    const shuffled = recommended.sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, 4);
+  })();
+
   return (
     <div className="min-h-screen overflow-hidden flex flex-col bg-white">
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
@@ -112,32 +125,32 @@ const Index = () => {
         <Header showCitySelector={true} />
       </div>
 
-      {/* СРЕДНЯЯ СЕКЦИЯ: Main Content с белым фоном, расширенная до низа */}
-      <div className="flex-1 bg-white relative">
+      {/* СРЕДНЯЯ СЕКЦИЯ: Main Content */}
+      <div className="flex-1 bg-white relative pb-24 md:pb-32">
         <div className="px-3 md:px-6 max-w-sm md:max-w-6xl mx-auto w-full">
 
           {/* Quick Action Buttons Grid */}
           <div className="mt-6 md:mt-8 grid grid-cols-4 gap-2 md:gap-3">
             <QuickActionButton
-              icon={<img src="/images/action button/Calendar.png" alt="Calendar" className="w-5 h-5 md:w-6 md:h-6 object-contain" />}
+              icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Бронь столика"
               onClick={() => navigate("/booking")}
             />
 
             <QuickActionButton
-              icon={<img src="/images/action button/Van.png" alt="Delivery" className="w-5 h-5 md:w-6 md:h-6 object-contain" />}
-              title="Доставка"
+              icon={<Truck className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
+              title="Заказать доставку"
               onClick={() => navigate("/delivery")}
             />
 
             <QuickActionButton
-              icon={<img src="/images/action button/Star.png" alt="Review" className="w-5 h-5 md:w-6 md:h-6 object-contain" />}
+              icon={<StarIcon className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary fill-none" strokeWidth={2} />}
               title="Оставить отзыв"
               onClick={handleReviewClick}
             />
 
             <QuickActionButton
-              icon={<img src="/images/action button/Ruble.png" alt="Franchise" className="w-5 h-5 md:w-6 md:h-6 object-contain" />}
+              icon={<RussianRuble className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Франшиза"
               onClick={() => window.open("https://vhachapuri.ru/franshiza", "_blank")}
             />
@@ -164,66 +177,63 @@ const Index = () => {
 
           {/* Menu and Additional Services */}
           <div className="mt-6 md:mt-8 grid grid-cols-2 gap-3 md:gap-6">
-            <MenuCard
+            <ServiceCard
               title="Меню"
-              imageUrl="/images/menu/menu.png"
+              icon={<Utensils className="w-8 h-8 md:w-12 md:h-12 text-mariko-primary" strokeWidth={2} />}
+              aspectRatio="aspect-[4/3]"
+              className="max-w-[180px] md:max-w-[220px] mx-auto"
               onClick={() => navigate("/menu")}
             />
-            <MenuCard
+            <ServiceCard
               title="Вакансии"
-              backgroundColor="#DB7B28"
-              className="rounded-[40px] md:rounded-[80px]"
+              icon={<Briefcase className="w-8 h-8 md:w-12 md:h-12 text-mariko-primary" strokeWidth={2} />}
+              aspectRatio="aspect-[4/3]"
+              className="max-w-[180px] md:max-w-[220px] mx-auto"
               onClick={() => navigate("/job-application")}
             />
           </div>
 
-        </div>
+          {/* Recommended Section */}
+          <div className="mt-10 md:mt-12 -mx-3 md:-mx-6">
+            {/* Heading bar */}
+            <div className="w-full bg-gray-100 py-3 md:py-4 flex items-center justify-between px-4 md:px-6 mb-4 md:mb-6">
+              <span className="font-el-messiri text-base md:text-lg font-semibold text-black">
+                Рекомендуем попробовать
+              </span>
+              <ChevronDown className="w-5 h-5 md:w-6 md:h-6 text-black" />
+            </div>
 
-        {/* Quote Section - Vertical text along the chef */}
-        <div className="mt-8 md:mt-12 relative z-60 px-3 md:px-6 pointer-events-none pb-24 md:pb-32">
-          <div className="max-w-sm md:max-w-6xl mx-auto relative flex justify-end">
-            {/* Vertical Column Quote positioned at the left edge - extending beyond left edge */}
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 z-50">
-              {/* Background extending beyond left edge - симметрично размещен */}
-              <div
-                className="absolute inset-0 rounded-[60px] md:rounded-[90px] w-72 h-56 md:w-80 md:h-60 lg:w-88 lg:h-64 xl:w-96 xl:h-72"
-                style={{
-                  transform: "translateX(-30%)",
-                  backgroundImage:
-                    "url('/images/backgrounds/quote-background.png')",
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                }}
-              />
-              {/* Text perfectly fitted within background bounds */}
-              <div
-                className="relative z-60 text-mariko-secondary font-el-messiri text-lg md:text-lg lg:text-xl xl:text-2xl font-bold leading-none px-4 py-3 md:px-5 md:py-4 lg:px-6 lg:py-5 xl:px-7 xl:py-6 w-72 h-56 md:w-80 md:h-60 lg:w-88 lg:h-64 xl:w-96 xl:h-72"
-                style={{
-                  transform: "translateX(-15%)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  textAlign: "center",
-                }}
-              >
-                «Если хачапури пекут<br/>счастливые люди, это<br/>означает, что данное<br/>блюдо делает людей<br/>счастливыми»
+            <div className="flex items-start justify-between gap-4 md:gap-8 px-3 md:px-6 mb-8 md:mb-12">
+              {/* Random recommended menu items grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 flex-shrink-0 w-[440px] md:w-[600px]">
+                {randomRecommended.map((item) => (
+                  <MenuItemComponent
+                    key={item.id}
+                    item={item}
+                    onClick={() => {
+                      // при клике переходим в меню и прокручиваем при необходимости
+                      navigate(`/menu?highlight=${item.id}`);
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* Chef image */}
+              <div className="flex-1 flex justify-end items-end">
+                <img
+                  src="/images/characters/character-chef.png"
+                  alt="Шеф-повар"
+                  loading="lazy"
+                  className="w-auto h-auto max-w-48 lg:max-w-sm object-contain object-bottom pointer-events-none"
+                  style={{
+                    filter: "drop-shadow(0 0 20px rgba(0,0,0,0.1))",
+                    transform: "scale(1.05) translateX(20%) translateY(60px)",
+                  }}
+                />
               </div>
             </div>
-
-            {/* Chef image aligned to the right edge */}
-            <div className="flex-shrink-0 flex items-end justify-end relative z-30">
-              <img
-                src="/images/characters/character-chef.png"
-                alt="Шеф-повар"
-                loading="lazy"
-                className="w-auto h-auto max-w-48 lg:max-w-sm object-contain object-bottom pointer-events-none"
-                style={{
-                  filter: "drop-shadow(0 0 20px rgba(0,0,0,0.1))",
-                  transform: "scale(1.05) translateX(20%)",
-                }}
-              />
-            </div>
           </div>
+
         </div>
 
         {/* НАВИГАЦИЯ: позиционирована поверх белого фона */}

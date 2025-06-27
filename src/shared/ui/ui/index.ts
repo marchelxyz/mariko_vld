@@ -58,3 +58,4 @@ export * from "./editable-field";
 export * from "./booking-notification";
 export * from "./quick-action-button";
 export * from "./menu-item";
+export * from "./service-card";
