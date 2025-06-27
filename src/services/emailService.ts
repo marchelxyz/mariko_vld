@@ -64,9 +64,13 @@ export async function sendBookingEmail(bookingData: BookingEmailData): Promise<{
   try {
     // Подготавливаем данные для шаблона
     const bookingId = `BK${Date.now()}`;
+    // Определяем получателя по городу ресторана
+    const cityName = bookingData.restaurant.split(",")[0].trim();
+    const recipient = _getRecipientEmailByCity(cityName);
+
     const templateParams = {
       name: bookingData.name,
-      email: EMAIL_CONFIG.recipientEmail,
+      email: recipient,
       title: `Новое бронирование столика №${bookingId}`,
       message: `
 📋 ДЕТАЛИ БРОНИРОВАНИЯ:
@@ -114,9 +118,12 @@ export async function sendJobApplicationEmail(jobData: JobApplicationEmailData):
   try {
     // Подготавливаем данные для шаблона
     const applicationId = `JA${Date.now()}`;
+    // Определяем получателя по желаемому городу работы
+    const recipient = _getRecipientEmailByCity(jobData.desiredCity);
+
     const templateParams = {
       name: jobData.name,
-      email: EMAIL_CONFIG.recipientEmail,
+      email: recipient,
       title: `Новая заявка на вакансию №${applicationId}`,
       message: `
 💼 ЗАЯВКА НА ВАКАНСИЮ:
@@ -156,6 +163,18 @@ ${jobData.experience}
       error: 'Не удалось отправить заявку на email. Попробуйте еще раз.'
     };
   }
+}
+
+/**
+ * Определяет email получателя в зависимости от города.
+ * Для Жуковского (любой регистр) всегда возвращает Veronika.pdc@yandex.ru.
+ * В остальных случаях использует email по умолчанию из ENV.
+ */
+function _getRecipientEmailByCity(city: string): string {
+  if (city.toLowerCase().includes("жуковск")) {
+    return "Veronika.pdc@yandex.ru";
+  }
+  return EMAIL_CONFIG.recipientEmail;
 }
 
  
