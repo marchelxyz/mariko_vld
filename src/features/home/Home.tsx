@@ -1,7 +1,7 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Header } from "@widgets/header";
-import { MenuCard, QuickActionButton, Carousel, CarouselContent, CarouselItem, PromotionCard, ServiceCard, MenuItemComponent } from "@shared/ui";
+import { MenuCard, QuickActionButton, Carousel, CarouselContent, CarouselItem, PromotionCard, ServiceCard, MenuItemComponent, type CarouselApi } from "@shared/ui";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { useCityContext } from "@/contexts/CityContext";
 import { toast } from "sonner";
@@ -14,6 +14,8 @@ const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { selectedRestaurant } = useCityContext();
   const [activePromo, setActivePromo] = useState<typeof promotions[number] | null>(null);
+  const [promoCarouselApi, setPromoCarouselApi] = useState<CarouselApi | null>(null);
+  const [isUserInteracting, setIsUserInteracting] = useState<boolean>(false);
 
   useEffect(() => {
     // Проверяем, пришли ли мы сюда после успешной отправки заявки на вакансию
@@ -30,6 +32,39 @@ const Index = () => {
       setSearchParams(searchParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
+
+  // Эффект автопрокрутки
+  useEffect(() => {
+    if (!promoCarouselApi) return;
+
+    // Обработчики взаимодействия
+    const handlePointerDown = () => {
+      setIsUserInteracting(true);
+    };
+
+    const handlePointerUp = () => {
+      // Даём пользователю закончить жест и ждём 1 с перед возобновлением
+      setTimeout(() => {
+        setIsUserInteracting(false);
+      }, 1000);
+    };
+
+    promoCarouselApi.on("pointerDown", handlePointerDown);
+    promoCarouselApi.on("pointerUp", handlePointerUp);
+
+    // Интервал автопрокрутки
+    const intervalId = setInterval(() => {
+      if (!isUserInteracting && promoCarouselApi.canScrollNext()) {
+        promoCarouselApi.scrollNext();
+      }
+    }, 6000); // 6 сек – «медленно»
+
+    return () => {
+      clearInterval(intervalId);
+      promoCarouselApi.off("pointerDown", handlePointerDown);
+      promoCarouselApi.off("pointerUp", handlePointerUp);
+    };
+  }, [promoCarouselApi, isUserInteracting]);
 
   const handleReviewClick = () => {
     const externalReviewLink = RESTAURANT_REVIEW_LINKS[selectedRestaurant.id];
@@ -162,7 +197,7 @@ const Index = () => {
 
           {/* Promotions Carousel */}
           <div className="mt-6 md:mt-8">
-            <Carousel opts={{ align: "start", loop: true, containScroll: 'trimSnaps', skipSnaps: false }} className="w-full">
+            <Carousel opts={{ align: "start", loop: true, containScroll: 'trimSnaps', skipSnaps: false }} className="w-full" setApi={setPromoCarouselApi}>
               <CarouselContent>
                 {promotions.map((promo) => (
                   <CarouselItem key={promo.id} className="basis-[80%] md:basis-[45%] pr-3">
