@@ -38,6 +38,7 @@ const SelectRestaurantForReview = () => {
         <PageHeader 
           title="Выберите ресторан"
           onBackClick={() => navigate("/")}
+          className="!mt-0 md:!mt-1"
         />
 
         {/* Subtitle */}
