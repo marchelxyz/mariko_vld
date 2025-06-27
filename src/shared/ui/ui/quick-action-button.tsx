@@ -33,7 +33,7 @@ export const QuickActionButton = ({
       )}
     >
       <div
-        className="bg-gray-100 rounded-[8px] md:rounded-[12px] flex items-center justify-center shadow-md aspect-square w-14 md:w-16 p-1.5 md:p-2 mx-auto"
+        className="bg-gray-100 rounded-[8px] md:rounded-[12px] flex items-center justify-center shadow-md shadow-inner aspect-square w-14 md:w-16 p-1.5 md:p-2 mx-auto"
       >
         <div className="w-6 h-6 md:w-8 md:h-8 flex items-center justify-center">
           {icon}

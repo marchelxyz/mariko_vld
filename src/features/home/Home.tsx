@@ -200,14 +200,14 @@ const Index = () => {
               title="Меню"
               imageUrl="/images/services/MenuCARD.png"
               aspectRatio="aspect-[4/3]"
-              className="max-w-[180px] md:max-w-[220px] mx-auto"
+              className="max-w-[180px] md:max-w-[220px] mx-auto shadow-[inset_0_2px_10px_rgba(0,0,0,0.1)]"
               onClick={() => navigate("/menu")}
             />
             <ServiceCard
               title="Вакансии"
               imageUrl="/images/services/JOBCARD.png"
               aspectRatio="aspect-[4/3]"
-              className="max-w-[180px] md:max-w-[220px] mx-auto"
+              className="max-w-[180px] md:max-w-[220px] mx-auto shadow-[inset_0_2px_10px_rgba(0,0,0,0.1)]"
               onClick={() => navigate("/job-application")}
             />
           </div>

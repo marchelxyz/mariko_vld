@@ -41,7 +41,7 @@ export const ServiceCard = ({
       type="button"
       onClick={onClick}
       className={cn(
-        "bg-white rounded-[16px] overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer w-full flex flex-col",
+        "bg-white rounded-[16px] overflow-hidden shadow-sm shadow-inner border border-gray-100 hover:shadow-md transition-shadow cursor-pointer w-full flex flex-col",
         className,
       )}
     >
