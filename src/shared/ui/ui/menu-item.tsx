@@ -7,7 +7,7 @@ interface MenuItemProps {
   onAdd?: (item: MenuItem) => void;
 }
 
-export function MenuItemComponent({ item, onClick, onAdd }: MenuItemProps): JSX.Element {
+export function MenuItemComponent({ item, onClick, onAdd: _onAdd }: MenuItemProps): JSX.Element {
   // Временные иконки для блюд до загрузки фотографий
   const getDefaultIcon = (itemName: string): string => {
     const name = itemName.toLowerCase();
@@ -88,18 +88,6 @@ export function MenuItemComponent({ item, onClick, onAdd }: MenuItemProps): JSX.
               {item.price}₽
             </span>
           </div>
-          
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onAdd?.(item);
-            }}
-            className="bg-gray-100 hover:bg-gray-200 rounded-[8px] md:rounded-[12px] px-2 md:px-3 py-1 md:py-2 text-[10px] md:text-xs font-medium text-gray-700 transition-colors flex items-center gap-0.5 md:gap-1"
-          >
-            <span className="text-xs md:text-sm">+</span>
-            <span className="hidden md:inline">Добавить</span>
-            <span className="md:hidden">Доб.</span>
-          </button>
         </div>
         
         {/* Дополнительные маркеры */}
