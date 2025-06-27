@@ -46,7 +46,7 @@ export const ServiceCard = ({
       )}
     >
       {/* Верхняя часть: изображение или цвет */}
-      <div className={cn("relative w-full", aspectRatio, "bg-white flex items-center justify-center")}> 
+      <div className={cn("relative w-full", aspectRatio, "bg-gray-100 flex items-center justify-center")}> 
         {backgroundColor && !imageUrl && (
           <div className="absolute inset-0" style={{ backgroundColor }} />
         )}

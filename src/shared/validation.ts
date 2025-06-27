@@ -73,6 +73,12 @@ export const validatePhone = (phone: string): { isValid: boolean; error?: string
     return { isValid: false, error: 'Неверный формат номера телефона' };
   }
   
+  // Проверяем ровно 11 цифр (для России: +7XXXXXXXXXX)
+  const digits = sanitized.replace(/\D/g, '');
+  if (digits.length !== 11) {
+    return { isValid: false, error: 'Номер телефона должен содержать 11 цифр' };
+  }
+  
   return { isValid: true };
 };
 

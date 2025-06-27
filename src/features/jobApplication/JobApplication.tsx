@@ -281,8 +281,7 @@ function JobApplication() {
                   <SelectContent>
                     <SelectItem value="waiter">Официант</SelectItem>
                     <SelectItem value="cook">Повар</SelectItem>
-                    <SelectItem value="barista">Бариста</SelectItem>
-                    <SelectItem value="administrator">Администратор</SelectItem>
+                    <SelectItem value="bartender">Бармен</SelectItem>
                     <SelectItem value="manager">Менеджер</SelectItem>
                     <SelectItem value="cleaner">Уборщик</SelectItem>
                     <SelectItem value="other">Другая должность</SelectItem>
