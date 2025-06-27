@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, MapPin, Calendar, Clock, Users, X } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { bookingApi, telegramWebApp } from "@shared/api";
 import { useCityContext } from "@/contexts/CityContext";
 import { useProfile } from "@entities/user";
-import { Button, Input } from "@shared/ui";
 import { validateBookingForm, sanitizeText } from "@/lib/validation";
 import { initEmailService } from "@/lib/emailService";
 import { BookingNotification, useNotification } from "@shared/ui";
-import { formatDateInput, formatPhoneDigits, countryPhoneFormats } from "../model/helpers";
+import { formatPhoneDigits, countryPhoneFormats } from "../model/helpers";
+import DatePicker from "./DatePicker";
 
 const Booking = () => {
   const navigate = useNavigate();
@@ -23,15 +23,14 @@ const Booking = () => {
     name: "", // Будет заполнено из профиля
     phone: "", // Только цифры номера без кода
     guests: "2",
-    date: "",
+    date: "", // Дата изначально не выбрана
     time: "",
     restaurant: defaultRestaurantName, // Подтягивается из выбранного ресторана
     comment: "", // Комментарий пользователя
   });
   const [selectedCountryCode, setSelectedCountryCode] = useState("+7");
   const [loading, setLoading] = useState(false);
-  const [isEditingDate, setIsEditingDate] = useState(false);
-  const [editDateValue, setEditDateValue] = useState("");
+  const [isDatePickerOpen, setDatePickerOpen] = useState(false);
   
   // Хук для уведомлений
   const { notification, showSuccess, showError, showLoading, hideNotification } = useNotification();
@@ -97,23 +96,17 @@ const Booking = () => {
   ];
 
   const handleDateEdit = () => {
-    setIsEditingDate(true);
-    setEditDateValue(formData.date);
+    setDatePickerOpen(true);
   };
 
-  const handleDateSave = () => {
-    setFormData({ ...formData, date: editDateValue });
-    setIsEditingDate(false);
-  };
-
-  const handleDateCancel = () => {
-    setEditDateValue(formData.date);
-    setIsEditingDate(false);
-  };
-
-  const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatDateInput(e.target.value);
-    setEditDateValue(formatted);
+  const handleDateSelect = (dateObj: Date) => {
+    const formatted = dateObj.toLocaleDateString("ru-RU", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+    setFormData({ ...formData, date: formatted });
+    setDatePickerOpen(false);
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -251,6 +244,7 @@ const Booking = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
                     }
+                    autoFocus
                     className="w-full bg-transparent text-mariko-dark placeholder-mariko-dark/50 border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-mariko-dark/10"
                     required
                   />
@@ -326,69 +320,20 @@ const Booking = () => {
               </div>
 
               {/* Date */}
-              {isEditingDate ? (
-                <div className="bg-mariko-field rounded-3xl px-6 py-4">
-                  <label className="flex items-center gap-2 text-mariko-dark font-el-messiri text-lg font-semibold mb-2 pl-6">
-                    <Calendar className="w-5 h-5" />
-                    Дата
-                  </label>
-                  <div className="flex gap-3 ml-6 mr-8">
-                    <div className="relative flex-1">
-                      <Input
-                        type="text"
-                        value={editDateValue}
-                        onChange={handleDateInputChange}
-                        className="w-full bg-transparent text-mariko-dark placeholder-mariko-dark/50 border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-lg transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-mariko-dark/10"
-                        placeholder="дд.мм.гггг"
-                        maxLength={10}
-                        autoFocus
-                      />
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
-                    </div>
-                    <Button
-                      onClick={handleDateSave}
-                      className="bg-green-600 hover:bg-green-700 text-white px-6"
-                      type="button"
-                    >
-                      ✓
-                    </Button>
-                    <Button
-                      onClick={handleDateCancel}
-                      className="bg-red-600 hover:bg-red-700 text-white border-0 px-6"
-                      type="button"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
+              <div
+                className="bg-mariko-field rounded-3xl px-6 py-4 cursor-pointer"
+                onClick={handleDateEdit}
+              >
+                <label className="flex items-center gap-2 text-mariko-dark font-el-messiri text-lg font-semibold mb-2 pl-6">
+                  <Calendar className="w-5 h-5" />
+                  Дата
+                </label>
+                <div className="flex items-center ml-6">
+                  <span className="text-mariko-dark font-el-messiri text-xl">
+                    {formData.date || "Выберите дату"}
+                  </span>
                 </div>
-              ) : (
-                <div className="bg-mariko-field rounded-3xl px-6 py-4">
-                  <label className="flex items-center gap-2 text-mariko-dark font-el-messiri text-lg font-semibold mb-2 pl-6">
-                    <Calendar className="w-5 h-5" />
-                    Дата
-                  </label>
-                  <div className="flex items-center justify-between ml-6">
-                    <span className="text-mariko-dark font-el-messiri text-xl">
-                      {formData.date || (() => {
-                        const tomorrow = new Date();
-                        tomorrow.setDate(tomorrow.getDate() + 1);
-                        return tomorrow.toLocaleDateString('ru-RU', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric'
-                        });
-                      })()}
-                    </span>
-                    <Button
-                      onClick={handleDateEdit}
-                      className="bg-white/10 hover:bg-white/20 text-white border-white/20 px-4 py-2"
-                      type="button"
-                    >
-                      Изменить
-                    </Button>
-                  </div>
-                </div>
-              )}
+              </div>
 
               {/* Time */}
               <div className="bg-mariko-field rounded-3xl px-6 py-4">
@@ -461,6 +406,31 @@ const Booking = () => {
           <BottomNavigation currentPage="home" />
         </div>
       </div>
+
+      {/* ВСПЛЫВАЮЩИЙ КАЛЕНДАРЬ */}
+      {isDatePickerOpen && (
+        (() => {
+          let selectedDateObj: Date;
+          if (formData.date) {
+            const [day, month, year] = formData.date.split(".").map(Number);
+            selectedDateObj = new Date(year, month - 1, day);
+          } else {
+            selectedDateObj = new Date();
+          }
+          const today = new Date();
+          const maxDate = new Date();
+          maxDate.setMonth(maxDate.getMonth() + 3);
+          return (
+            <DatePicker
+              selected={selectedDateObj}
+              minDate={today}
+              maxDate={maxDate}
+              onSelect={handleDateSelect}
+              onClose={() => setDatePickerOpen(false)}
+            />
+          );
+        })()
+      )}
     </div>
   );
 };
