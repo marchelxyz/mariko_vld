@@ -129,7 +129,7 @@ const Index = () => {
   })();
 
   return (
-    <div className="min-h-screen overflow-hidden flex flex-col bg-[#FFF4E5]">
+    <div className="min-h-screen overflow-hidden flex flex-col bg-[#FFFBF0]">
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
       <div className="bg-mariko-primary pb-6 md:pb-8 relative rounded-b-[24px] md:rounded-b-[32px]
         after:content-[''] after:absolute after:bottom-0 after:left-0 after:right-0
@@ -140,7 +140,7 @@ const Index = () => {
       </div>
 
       {/* СРЕДНЯЯ СЕКЦИЯ: Main Content */}
-      <div className="flex-1 bg-[#FFF4E5] relative pb-24 md:pb-32">
+      <div className="flex-1 bg-[#FFFBF0] relative pb-24 md:pb-32">
         <div className="px-3 md:px-6 max-w-sm md:max-w-6xl mx-auto w-full">
 
           {/* Quick Action Buttons Grid */}
@@ -215,7 +215,7 @@ const Index = () => {
           {/* Recommended Section */}
           <div className="mt-10 md:mt-12 -mx-3 md:-mx-6">
             {/* Heading bar */}
-            <div className="w-full bg-gray-100 py-3 md:py-4 flex items-center justify-between px-4 md:px-6 mb-4 md:mb-6">
+            <div className="w-full bg-white py-3 md:py-4 flex items-center justify-between px-4 md:px-6 mb-4 md:mb-6">
               <span className="font-el-messiri text-base md:text-lg font-semibold text-black">
                 Рекомендуем попробовать
               </span>
