@@ -1,7 +1,7 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useState, useMemo } from "react";
 import { Header } from "@widgets/header";
-import { MenuCard, QuickActionButton, Carousel, CarouselContent, CarouselItem, PromotionCard, ServiceCard, MenuItemComponent, type CarouselApi } from "@shared/ui";
+import { MenuCard, QuickActionButton, Carousel, CarouselContent, CarouselItem, ServiceCard, MenuItemComponent, type CarouselApi } from "@shared/ui";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { useCityContext } from "@/contexts/CityContext";
 import { toast } from "sonner";
@@ -10,6 +10,38 @@ import { CalendarDays, Truck, Star as StarIcon, RussianRuble, Flame, EggFried, C
 import { getMenuByRestaurantId, MenuItem, MenuCategory } from "@/shared/data/menuData";
 // @ts-ignore – библиотека не имеет встроенных d.ts, но работает корректно
 import AutoScroll from "embla-carousel-auto-scroll";
+
+interface PromoImageCardProps {
+  src: string;
+  title?: string;
+  description?: string;
+}
+
+const PromoImageCard = ({ src, title, description }: PromoImageCardProps) => (
+  <div className="relative w-full h-36 md:h-48 rounded-[16px] overflow-hidden shadow-md">
+    <img
+      src={src}
+      alt={title || "Акция"}
+      className="absolute inset-0 w-full h-full object-cover"
+    />
+    {(title || description) && (
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent flex items-end">
+        <div className="p-2 md:p-3 w-full">
+          {title && (
+            <h3 className="text-white font-el-messiri text-sm md:text-lg font-bold leading-snug mb-1 line-clamp-1">
+              {title}
+            </h3>
+          )}
+          {description && (
+            <p className="hidden md:block text-white/90 font-el-messiri text-xs md:text-sm leading-snug line-clamp-2">
+              {description}
+            </p>
+          )}
+        </div>
+      </div>
+    )}
+  </div>
+);
 
 const Index = () => {
   const navigate = useNavigate();
@@ -131,11 +163,7 @@ const Index = () => {
   return (
     <div className="min-h-screen overflow-hidden flex flex-col bg-[#FFFBF0]">
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
-      <div className="bg-mariko-primary pb-6 md:pb-8 relative rounded-b-[24px] md:rounded-b-[32px]
-        after:content-[''] after:absolute after:bottom-0 after:left-0 after:right-0
-        after:h-[28px] md:after:h-[32px]
-        after:bg-gradient-to-t after:from-black/30 after:to-transparent after:pointer-events-none
-        after:rounded-b-[24px] md:after:rounded-b-[32px]">
+      <div className="bg-mariko-primary pb-6 md:pb-8 relative rounded-b-[24px] md:rounded-b-[32px]">
         <Header showCitySelector={true} />
       </div>
 
@@ -181,13 +209,9 @@ const Index = () => {
               <CarouselContent>
                 {promotions.map((promo) => (
                   <CarouselItem key={promo.id} className="basis-[80%] md:basis-[45%] pr-3">
-                    <PromotionCard
-                      imageUrl={promo.imageUrl}
-                      title={promo.title}
-                      description={promo.description}
-                      className="rounded-[16px] h-36 md:h-48"
-                      onClick={() => handlePromoClick(promo)}
-                    />
+                    <button onClick={() => handlePromoClick(promo)} className="w-full focus:outline-none">
+                      <PromoImageCard src={promo.imageUrl} title={promo.title} description={promo.description} />
+                    </button>
                   </CarouselItem>
                 ))}
               </CarouselContent>
