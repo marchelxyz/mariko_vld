@@ -124,7 +124,7 @@ const MenuSelection = () => {
           </div>
 
           {/* Menu for selected restaurant */}
-          <div className="mt-6 pb-24 md:pb-32">
+          <div className="mt-6 pb-40 md:pb-48">
             <h2 className="text-mariko-primary font-el-messiri text-xl md:text-2xl font-bold mb-2 text-center">
               {selectedRestaurant.name}
             </h2>
