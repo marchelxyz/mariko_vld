@@ -6,7 +6,7 @@ import { BottomNavigation } from "@widgets/bottomNavigation";
 import { useCityContext } from "@/contexts/CityContext";
 import { toast } from "sonner";
 import { RESTAURANT_REVIEW_LINKS } from "@/shared/data/reviewLinks";
-import { CalendarDays, Truck, Star as StarIcon, RussianRuble, Utensils, Briefcase, Flame, EggFried, ChevronDown } from "lucide-react";
+import { CalendarDays, Truck, Star as StarIcon, RussianRuble, Flame, EggFried, ChevronDown } from "lucide-react";
 import { getMenuByRestaurantId, MenuItem, MenuCategory } from "@/shared/data/menuData";
 // @ts-ignore – библиотека не имеет встроенных d.ts, но работает корректно
 import AutoScroll from "embla-carousel-auto-scroll";
@@ -129,7 +129,7 @@ const Index = () => {
   })();
 
   return (
-    <div className="min-h-screen overflow-hidden flex flex-col bg-white">
+    <div className="min-h-screen overflow-hidden flex flex-col bg-[#FFF4E5]">
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
       <div className="bg-mariko-primary pb-6 md:pb-8 relative rounded-b-[24px] md:rounded-b-[32px]
         after:content-[''] after:absolute after:bottom-0 after:left-0 after:right-0
@@ -140,7 +140,7 @@ const Index = () => {
       </div>
 
       {/* СРЕДНЯЯ СЕКЦИЯ: Main Content */}
-      <div className="flex-1 bg-white relative pb-24 md:pb-32">
+      <div className="flex-1 bg-[#FFF4E5] relative pb-24 md:pb-32">
         <div className="px-3 md:px-6 max-w-sm md:max-w-6xl mx-auto w-full">
 
           {/* Quick Action Buttons Grid */}
@@ -198,14 +198,14 @@ const Index = () => {
           <div className="mt-6 md:mt-8 grid grid-cols-2 gap-3 md:gap-6">
             <ServiceCard
               title="Меню"
-              icon={<Utensils className="w-8 h-8 md:w-12 md:h-12 text-mariko-primary" strokeWidth={2} />}
+              imageUrl="/images/services/MenuCARD.png"
               aspectRatio="aspect-[4/3]"
               className="max-w-[180px] md:max-w-[220px] mx-auto"
               onClick={() => navigate("/menu")}
             />
             <ServiceCard
               title="Вакансии"
-              icon={<Briefcase className="w-8 h-8 md:w-12 md:h-12 text-mariko-primary" strokeWidth={2} />}
+              imageUrl="/images/services/JOBCARD.png"
               aspectRatio="aspect-[4/3]"
               className="max-w-[180px] md:max-w-[220px] mx-auto"
               onClick={() => navigate("/job-application")}

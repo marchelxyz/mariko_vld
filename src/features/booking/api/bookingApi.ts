@@ -1,5 +1,5 @@
 import { bookingApi } from "@shared/api";
-import { initEmailService, sendJobApplicationEmail } from "@/lib/emailService";
+import { initEmailService, sendBookingEmail } from "@/services/emailService";
 
 export interface BookingPayload {
   name: string;
@@ -22,17 +22,16 @@ export const createBooking = async (payload: BookingPayload): Promise<boolean> =
       birthDate: "", // не запрашиваем дату рождения при бронировании
     });
 
-    // Письмо менеджеру — пока используем jobApplication Email API как пример
+    // Отправляем письмо с бронированием
     initEmailService();
-    await sendJobApplicationEmail({
+    await sendBookingEmail({
       name: payload.name,
-      desiredCity: payload.restaurant.split(",")[0] || "",
-      restaurant: payload.restaurant,
-      age: 0,
-      position: "booking",
-      experience: payload.comment,
       phone: payload.phone,
-      email: "", // не запрашиваем email у гостя
+      guests: parseInt(payload.guests, 10) || 1,
+      date: payload.date,
+      time: payload.time,
+      restaurant: payload.restaurant,
+      comment: payload.comment,
     });
 
     return tgResult.success;
