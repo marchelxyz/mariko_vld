@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { Pencil } from "lucide-react";
 
 interface EditableFieldProps {
   label?: string;
@@ -37,11 +38,7 @@ export const EditableField = ({
           className="ml-4 p-1.5 hover:bg-white/10 rounded-full transition-colors"
           aria-label="Редактировать"
         >
-          <img
-            src="/images/icons/Pencil.png"
-            alt="Редактировать"
-            className="w-4 h-4 md:w-5 md:h-5 opacity-90 hover:opacity-100 transition-opacity"
-          />
+          <Pencil className="w-4 h-4 md:w-5 md:h-5 text-black hover:text-black/80 transition-colors" />
         </button>
       </div>
     </div>

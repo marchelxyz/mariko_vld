@@ -193,32 +193,26 @@ const Booking = () => {
           </div>
 
           {/* Booking Form */}
-          <div className="pb-40 md:pb-48">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Name */}
-              <div className="bg-mariko-field rounded-3xl px-6 py-4">
-                <div className="relative ml-6 mr-8">
-                  {/* Placeholder как label */}
-                  {!formData.name && (
-                    <div className="absolute left-4 top-3 text-mariko-dark/50 font-el-messiri text-xl pointer-events-none transition-opacity duration-200">
-                      ФИО
-                    </div>
-                  )}
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    autoFocus
-                    className="w-full bg-transparent text-mariko-dark placeholder-mariko-dark/50 border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-xl transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-mariko-dark/10"
-                    required
-                  />
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
-                </div>
+          <div className="pb-36 md:pb-48">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* ФИО */}
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-mariko-dark font-el-messiri text-lg font-semibold">
+                  ФИО *
+                </Label>
+                <Input
+                  id="name"
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="bg-mariko-field border-none text-mariko-dark placeholder:text-mariko-dark/60 rounded-lg h-12"
+                  placeholder="Введите ваше имя"
+                  autoFocus
+                  required
+                />
               </div>
 
-              {/* Phone */}
+              {/* Телефон */}
               <div className="space-y-2">
                 <Label htmlFor="phone" className="text-mariko-dark font-el-messiri text-lg font-semibold">
                   Телефон *
@@ -234,95 +228,86 @@ const Booking = () => {
                 />
               </div>
 
-              {/* Guests */}
-              <div className="bg-mariko-field rounded-3xl px-6 py-4">
-                <label className="flex items-center gap-2 text-mariko-dark font-el-messiri text-lg font-semibold mb-2">
+              {/* Количество гостей */}
+              <div className="space-y-2">
+                <Label htmlFor="guests" className="text-mariko-dark font-el-messiri text-lg font-semibold flex items-center gap-2">
                   <Users className="w-5 h-5" />
-                  Количество гостей
-                </label>
+                  Количество гостей *
+                </Label>
                 <select
+                  id="guests"
                   value={formData.guests}
-                  onChange={(e) =>
-                    setFormData({ ...formData, guests: e.target.value })
-                  }
-                  className="w-full bg-transparent text-mariko-dark border-none outline-none font-el-messiri text-xl"
+                  onChange={(e) => setFormData({ ...formData, guests: e.target.value })}
+                  className="w-full bg-mariko-field border-none text-mariko-dark rounded-lg h-12 px-4 font-el-messiri text-lg outline-none focus:ring-2 focus:ring-mariko-primary/20"
                   required
                 >
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                    <option
-                      key={num}
-                      value={num}
-                      className="bg-mariko-field text-mariko-dark"
-                    >
-                      {num}
+                    <option key={num} value={num} className="bg-mariko-field text-mariko-dark">
+                      {num} {num === 1 ? 'гость' : num < 5 ? 'гостя' : 'гостей'}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* Date */}
-              <div
-                className="bg-mariko-field rounded-3xl px-6 py-4 cursor-pointer"
-                onClick={handleDateEdit}
-              >
-                <label className="flex items-center gap-2 text-mariko-dark font-el-messiri text-lg font-semibold mb-2 pl-6">
-                  <Calendar className="w-5 h-5" />
-                  Дата
-                </label>
-                <div className="flex items-center ml-6">
-                  <span className="text-mariko-dark font-el-messiri text-xl">
-                    {formData.date || "Выберите дату"}
-                  </span>
+              {/* Дата и время - в одной строке для компактности */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Дата */}
+                <div className="space-y-2">
+                  <Label className="text-mariko-dark font-el-messiri text-lg font-semibold flex items-center gap-2">
+                    <Calendar className="w-5 h-5" />
+                    Дата *
+                  </Label>
+                  <div
+                    onClick={handleDateEdit}
+                    className="w-full bg-mariko-field border-none text-mariko-dark rounded-lg h-12 px-4 flex items-center cursor-pointer hover:bg-mariko-field/80 transition-colors"
+                  >
+                    <span className={`font-el-messiri text-lg ${formData.date ? 'text-mariko-dark' : 'text-mariko-dark/60'}`}>
+                      {formData.date || "Выберите дату"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Время */}
+                <div className="space-y-2">
+                  <Label htmlFor="time" className="text-mariko-dark font-el-messiri text-lg font-semibold flex items-center gap-2">
+                    <Clock className="w-5 h-5" />
+                    Время *
+                  </Label>
+                  <select
+                    id="time"
+                    value={formData.time}
+                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                    className="w-full bg-mariko-field border-none text-mariko-dark rounded-lg h-12 px-4 font-el-messiri text-lg outline-none focus:ring-2 focus:ring-mariko-primary/20"
+                    required
+                  >
+                    <option value="" className="bg-mariko-field text-mariko-dark/60">
+                      Выберите время
+                    </option>
+                    {timeSlots.map((time) => (
+                      <option key={time} value={time} className="bg-mariko-field text-mariko-dark">
+                        {time}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
-              {/* Time */}
-              <div className="bg-mariko-field rounded-3xl px-6 py-4">
-                <label className="flex items-center gap-2 text-mariko-dark font-el-messiri text-lg font-semibold mb-2">
-                  <Clock className="w-5 h-5" />
-                  Время
-                </label>
-                <select
-                  value={formData.time}
-                  onChange={(e) =>
-                    setFormData({ ...formData, time: e.target.value })
-                  }
-                  className="w-full bg-transparent text-mariko-dark border-none outline-none font-el-messiri text-xl"
-                  required
-                >
-                  <option value="" className="bg-mariko-field text-mariko-dark">
-                    Выберите время
-                  </option>
-                  {timeSlots.map((time) => (
-                    <option
-                      key={time}
-                      value={time}
-                      className="bg-mariko-field text-mariko-dark"
-                    >
-                      {time}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Comment */}
-              <div className="bg-mariko-field rounded-3xl px-6 py-4">
-                <label className="block text-mariko-dark font-el-messiri text-lg font-semibold mb-2 pl-6">
+              {/* Комментарий */}
+              <div className="space-y-2">
+                <Label htmlFor="comment" className="text-mariko-dark font-el-messiri text-lg font-semibold">
                   Комментарий
-                </label>
-                <div className="relative ml-6 mr-8">
+                </Label>
+                <div className="relative">
                   <textarea
+                    id="comment"
                     value={formData.comment}
-                    onChange={(e) =>
-                      setFormData({ ...formData, comment: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
                     placeholder="Генацвале, устраиваете супру? Расскажите о вашем празднике - мы накроем стол, достойный самого Тамада!"
-                    className="w-full bg-transparent text-mariko-dark placeholder-mariko-dark/50 border-none outline-none rounded-xl px-4 py-3 font-el-messiri text-lg transition-all duration-200 focus:bg-white/10 focus:shadow-lg focus:shadow-mariko-dark/10 resize-none min-h-[100px]"
+                    className="w-full bg-mariko-field border-none text-mariko-dark placeholder:text-mariko-dark/60 rounded-lg px-4 py-3 font-el-messiri text-lg resize-none outline-none focus:ring-2 focus:ring-mariko-primary/20"
                     maxLength={500}
-                    rows={4}
+                    rows={3}
                   />
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 rounded-full"></div>
-                  <div className="text-right mt-1 mr-2">
+                  <div className="absolute bottom-2 right-3">
                     <span className="text-mariko-dark/50 font-el-messiri text-sm">
                       {formData.comment.length}/500
                     </span>
@@ -330,14 +315,23 @@ const Booking = () => {
                 </div>
               </div>
 
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-mariko-field text-mariko-dark font-el-messiri text-2xl font-bold py-6 rounded-3xl hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-              >
-                {loading ? "Отправка..." : "Забронировать столик"}
-              </button>
+              {/* Кнопка отправки */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-mariko-field text-mariko-dark font-el-messiri text-xl font-bold py-4 rounded-lg hover:bg-mariko-field/80 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+                >
+                  {loading ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Отправляем...
+                    </div>
+                  ) : (
+                    "Забронировать столик"
+                  )}
+                </button>
+              </div>
             </form>
           </div>
         </div>
