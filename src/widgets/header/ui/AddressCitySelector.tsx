@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { MapPin, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { cities, type City, type Restaurant } from "@/shared/data/cities";
+import { getAvailableCities, type City, type Restaurant } from "@/shared/data/cities";
 
 interface AddressCitySelectorProps {
   selectedRestaurant: Restaurant;
@@ -23,7 +23,7 @@ export const AddressCitySelector = ({
 
   // Создаем список всех ресторанов из всех городов
   const allRestaurants: Array<{ restaurant: Restaurant; city: City }> = [];
-  cities.forEach(city => {
+  getAvailableCities().forEach(city => {
     city.restaurants.forEach(restaurant => {
       allRestaurants.push({ restaurant, city });
     });

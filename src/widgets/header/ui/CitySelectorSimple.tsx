@@ -2,7 +2,7 @@ import { useState } from "react";
 import { MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-import { cities, type City, type Restaurant } from "@/shared/data/cities";
+import { getAvailableCities, type City, type Restaurant } from "@/shared/data/cities";
 
 interface CitySelectorSimpleProps {
   selectedCity: City | null;
@@ -79,7 +79,7 @@ export const CitySelectorSimple = ({
           )}
         >
           <div className="p-2">
-            {cities.map((city) => (
+            {getAvailableCities().map((city) => (
               <button
                 key={city.id}
                 onClick={() => {

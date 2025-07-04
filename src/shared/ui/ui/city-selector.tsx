@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { cities, type City } from "@/shared/data/cities";
+import { getAvailableCities, type City } from "@/shared/data/cities";
 
 interface CitySelectorProps {
   selectedCity: City | null;
@@ -68,7 +68,7 @@ export const CitySelector = ({
       {isOpen && (
         <div className="absolute top-full right-0 mt-2 bg-mariko-secondary rounded-lg shadow-lg z-50 min-w-64 max-h-80 overflow-y-auto">
           <div className="p-2">
-            {cities.map((city) => (
+            {getAvailableCities().map((city) => (
               <button
                 key={city.id}
                 onClick={() => {

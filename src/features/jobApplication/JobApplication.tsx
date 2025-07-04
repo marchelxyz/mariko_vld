@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 
 import { initEmailService, sendJobApplicationEmail, type JobApplicationEmailData } from "@/services/emailService";
 import { useCityContext } from "@/contexts/CityContext";
-import { cities } from "@/shared/data/cities";
+import { getAvailableCities } from "@/shared/data/cities";
 import { usePhoneInput, getCleanPhoneNumber } from "@/shared/hooks/usePhoneInput";
 
 import { Header } from "@widgets/header";
@@ -100,7 +100,7 @@ function JobApplication() {
    * Обработчик смены города
    */
   function handleCityChange(cityName: string) {
-    const city = cities.find(c => c.name === cityName);
+    const city = getAvailableCities().find(c => c.name === cityName);
     if (city) {
       setSelectedCityForJob(cityName);
       setAvailableRestaurants(city.restaurants);
@@ -220,7 +220,7 @@ function JobApplication() {
                     <SelectValue placeholder="Выберите город" />
                   </SelectTrigger>
                   <SelectContent>
-                    {cities.map((city) => (
+                    {getAvailableCities().map((city) => (
                       <SelectItem key={city.id} value={city.name}>
                         {city.name}
                       </SelectItem>

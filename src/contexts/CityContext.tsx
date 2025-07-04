@@ -5,12 +5,12 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-import { cities, type City, type Restaurant } from "@/shared/data/cities";
+import { getAvailableCities, type City, type Restaurant } from "@/shared/data/cities";
 
 // Создаем плоский список всех ресторанов для удобного поиска
 const getAllRestaurants = (): Restaurant[] => {
   const allRestaurants: Restaurant[] = [];
-  cities.forEach(city => {
+  getAvailableCities().forEach(city => {
     city.restaurants.forEach(restaurant => {
       allRestaurants.push(restaurant);
     });
@@ -64,10 +64,11 @@ export const RestaurantProvider = ({ children }: RestaurantProviderProps) => {
 
   // Функция для получения города выбранного ресторана
   const getSelectedCity = (): City => {
-    const city = cities.find(city => 
+    const availableCities = getAvailableCities();
+    const city = availableCities.find(city => 
       city.restaurants.some(restaurant => restaurant.id === selectedRestaurant.id)
     );
-    return city || cities[0];
+    return city || availableCities[0];
   };
 
   // 🔧 ИСПРАВЛЕНИЕ: Загружаем сохраненный ресторан из localStorage при инициализации
