@@ -2,7 +2,7 @@ import { Header } from "@widgets/header";
 import { PageHeader } from "@widgets/pageHeader";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { CONTACTS } from "@shared/data/contacts";
-import { Phone, Instagram, Send, MapPin, Car, Globe } from "lucide-react";
+import { Phone, Instagram, Send, MapPin, Car, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const About = () => {
@@ -82,7 +82,7 @@ const About = () => {
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 hover:underline"
                     >
-                      <Globe className="w-6 h-6" />
+                      <MessageCircle className="w-6 h-6" />
                       <span className="hidden md:inline">VK</span>
                     </a>
                   )}
