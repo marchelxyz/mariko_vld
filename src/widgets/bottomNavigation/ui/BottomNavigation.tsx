@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface BottomNavigationProps {
-  currentPage: "home" | "profile" | "franchise";
+  currentPage: "home" | "profile" | "about";
   /**
    * Дополнительные CSS-классы для кастомизации внешнего вида навигации.
    * Например, можно передать `mt-4`, чтобы добавить отступ сверху.
@@ -19,7 +19,7 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
   useEffect(() => {
     const iconPaths = [
       "/images/icons/Male User.png",
-      "/images/icons/Franchise.png",
+      "/images/action button/Star.png",
       "/images/icons/House.png",
     ];
 
@@ -59,10 +59,10 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
       onClick: () => navigate("/"),
     },
     {
-      id: "franchise",
-      label: "Франшиза",
-      iconPath: "/images/icons/Franchise.png",
-      onClick: () => window.open("https://vhachapuri.ru/franshiza", "_blank"),
+      id: "about",
+      label: "О нас",
+      iconPath: "/images/action button/Star.png",
+      onClick: () => navigate("/about"),
     },
     {
       id: "profile",
