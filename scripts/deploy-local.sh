@@ -31,11 +31,11 @@ npm run build
 
 # 2. Загрузка файлов на сервер
 log "→ rsync dist → $SERVER_HOST:$WEB_ROOT"
-rsync -avz --delete dist/ "$SERVER_HOST:$WEB_ROOT/"
+sshpass -p 'p*R-5KNwyE4XJ.' rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" dist/ "$SERVER_HOST:$WEB_ROOT/"
 
 # 3. Перезапуск бота
 log "→ pm2 reload $BOT_NAME"
-ssh "$SERVER_HOST" "pm2 reload $BOT_NAME && pm2 save"
+sshpass -p 'p*R-5KNwyE4XJ.' ssh -o StrictHostKeyChecking=no "$SERVER_HOST" "pm2 reload $BOT_NAME && pm2 save"
 
 log "✅ Деплой завершён"
 log "🌐 Сайт доступен по адресу: https://ineedaglokk.ru" 
