@@ -188,7 +188,7 @@ const Index = () => {
             <QuickActionButton
               icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Бронь столика"
-              onClick={() => navigate("/booking")}
+              onClick={() => window.open("https://remarked.online/marico/#openReMarkedWidget", "_blank")}
             />
 
             <QuickActionButton
@@ -244,7 +244,11 @@ const Index = () => {
               imageUrl="/images/services/JOBCARD.png"
               aspectRatio="aspect-[4/3]"
               className="max-w-[180px] md:max-w-[220px] mx-auto"
-              onClick={() => navigate("/job-application")}
+              onClick={() => {
+                // TODO: Заменить на внешнюю ссылку когда будет готова
+                // window.open("ССЫЛКА_НА_ФОРМУ_ВАКАНСИЙ", "_blank");
+                navigate("/job-application");
+              }}
             />
           </div>
 

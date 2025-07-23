@@ -12,7 +12,6 @@ const Profile = lazy(() => import("./pages/profile"));
 const EditProfile = lazy(() => import("./pages/editProfile"));
 
 const Restaurants = lazy(() => import("./pages/restaurants"));
-const Booking = lazy(() => import("./pages/booking"));
 const Delivery = lazy(() => import("./pages/delivery"));
 const Promotions = lazy(() => import("./pages/promotions"));
 const Review = lazy(() => import("./pages/review"));
@@ -54,7 +53,6 @@ function App() {
 
                 <Route path="/restaurants/:id" element={<Restaurants />} />
                 <Route path="/restaurants" element={<Restaurants />} />
-                <Route path="/booking" element={<Booking />} />
                 <Route path="/delivery" element={<Delivery />} />
                 <Route path="/promotions" element={<Promotions />} />
                 <Route path="/review" element={<Review />} />
