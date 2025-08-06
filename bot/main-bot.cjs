@@ -58,7 +58,10 @@ bot.onText(/\/start/, (msg) => {
 
 Нажмите кнопку ниже, чтобы начать пользоваться всеми возможностями!`;
 
-  bot.sendMessage(chatId, welcomeMessage, options);
+  bot.sendPhoto(chatId, './images/Vine Glass.jpg', {
+    caption: welcomeMessage,
+    ...options
+  });
 });
 
 // Обработка любых других сообщений (отправляем то же самое, что и /start)
