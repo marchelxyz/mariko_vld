@@ -1,4 +1,5 @@
 const TelegramBot = require('node-telegram-bot-api');
+const path = require('path');
 require('dotenv').config();
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
@@ -58,12 +59,21 @@ bot.onText(/\/start/, (msg) => {
 
 Нажмите кнопку ниже, чтобы начать пользоваться всеми возможностями!`;
 
-  const path = require('path');
   const imagePath = path.join(__dirname, 'images', 'Vine Glass.jpg');
   
   bot.sendPhoto(chatId, imagePath, {
     caption: welcomeMessage,
-    ...options
+    parse_mode: 'Markdown',
+    reply_markup: {
+      inline_keyboard: [[
+        {
+          text: '🍽️ Открыть меню ресторана',
+          web_app: {
+            url: WEBAPP_URL
+          }
+        }
+      ]]
+    }
   }).catch((error) => {
     console.error('Ошибка отправки фото:', error);
     // Если не получилось отправить фото, отправляем просто текст
