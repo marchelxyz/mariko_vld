@@ -1,6 +1,4 @@
 const TelegramBot = require('node-telegram-bot-api');
-const path = require('path');
-const fs = require('fs');
 require('dotenv').config();
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
@@ -60,37 +58,7 @@ bot.onText(/\/start/, (msg) => {
 
 Нажмите кнопку ниже, чтобы начать пользоваться всеми возможностями!`;
 
-  const imagePath = path.join(__dirname, 'images', 'welcome.jpg');
-  console.log('Пытаемся отправить фото:', imagePath);
-  
-  // Проверяем существование файла
-  if (!fs.existsSync(imagePath)) {
-    console.error('Файл не найден:', imagePath);
-    bot.sendMessage(chatId, welcomeMessage, options);
-    return;
-  }
-  
-  bot.sendPhoto(chatId, imagePath, {
-    caption: welcomeMessage,
-    parse_mode: 'Markdown',
-    reply_markup: {
-      inline_keyboard: [[
-        {
-          text: '🍽️ Открыть меню ресторана',
-          web_app: {
-            url: WEBAPP_URL
-          }
-        }
-      ]]
-    }
-  }).then(() => {
-    console.log('Фото успешно отправлено!');
-  }).catch((error) => {
-    console.error('Ошибка отправки фото:', error.message);
-    console.error('Код ошибки:', error.code);
-    // Если не получилось отправить фото, отправляем просто текст
-    bot.sendMessage(chatId, welcomeMessage, options);
-  });
+  bot.sendMessage(chatId, welcomeMessage, options);
 });
 
 // Обработка любых других сообщений (отправляем то же самое, что и /start)
