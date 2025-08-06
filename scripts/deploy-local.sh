@@ -33,6 +33,10 @@ npm run build
 log "→ rsync dist → $SERVER_HOST:$WEB_ROOT"
 sshpass -p 'p*R-5KNwyE4XJ.' rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" dist/ "$SERVER_HOST:$WEB_ROOT/"
 
+# 2.1. Загрузка файлов бота на сервер
+log "→ rsync bot → $SERVER_HOST:/root/bot"
+sshpass -p 'p*R-5KNwyE4XJ.' rsync -avz --exclude='node_modules' -e "ssh -o StrictHostKeyChecking=no" bot/ "$SERVER_HOST:/root/bot/"
+
 # 3. Перезапуск бота
 log "→ pm2 reload $BOT_NAME"
 sshpass -p 'p*R-5KNwyE4XJ.' ssh -o StrictHostKeyChecking=no "$SERVER_HOST" "pm2 reload $BOT_NAME && pm2 save"
