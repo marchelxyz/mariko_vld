@@ -17,7 +17,6 @@ const Promotions = lazy(() => import("./pages/promotions"));
 const Review = lazy(() => import("./pages/review"));
 const SelectRestaurantForReview = lazy(() => import("./pages/selectRestaurantReview"));
 const DetailedMenu = lazy(() => import("./features/menu/DetailedMenu"));
-const JobApplication = lazy(() => import("./pages/jobApplication"));
 const About = lazy(() => import("./pages/about"));
 const NotFound = lazy(() => import("./pages/notFound"));
 
@@ -58,7 +57,6 @@ function App() {
                 <Route path="/review" element={<Review />} />
                 <Route path="/select-restaurant-review" element={<SelectRestaurantForReview />} />
                 <Route path="/menu" element={<DetailedMenu />} />
-                <Route path="/job-application" element={<JobApplication />} />
                 <Route path="/about" element={<About />} />
                 {/* Catch-all route for 404 */}
                 <Route path="*" element={<NotFound />} />

@@ -58,21 +58,7 @@ const Index = () => {
     stopOnInteraction: false,
   }), []);
 
-  useEffect(() => {
-    // Проверяем, пришли ли мы сюда после успешной отправки заявки на вакансию
-    if (searchParams.get('jobApplicationSent') === 'true') {
-      // Добавляем небольшую задержку, чтобы страница полностью загрузилась
-      setTimeout(() => {
-        toast.success("Заявка успешно отправлена! Мы рассмотрим вашу заявку и свяжемся с вами в ближайшее время.", {
-          duration: 3000,
-        });
-      }, 100);
-      
-      // Убираем параметр из URL, чтобы уведомление не показывалось повторно
-      searchParams.delete('jobApplicationSent');
-      setSearchParams(searchParams, { replace: true });
-    }
-  }, [searchParams, setSearchParams]);
+
 
   const handleReviewClick = () => {
     const externalReviewLink = RESTAURANT_REVIEW_LINKS[selectedRestaurant.id];
@@ -113,34 +99,22 @@ const Index = () => {
   // Акции для Жуковского (id города zhukovsky)
   const zhukovskyPromotions = [
     {
-      id: "zh1",
-      imageUrl: "/images/promotions/zhukovsky/promo-discount.png",
-      title: "Комплимент",
-      description: "За бронь столика от 6 человек",
-    },
-    {
       id: "zh2",
-      imageUrl: "/images/promotions/zhukovsky/promo-women.png",
+      imageUrl: "/images/promotions/zhukovsky/promo women.jpg",
       title: "Скидка до 40%",
       description: "Каждый понедельник женским компаниям",
     },
     {
       id: "zh3",
-      imageUrl: "/images/promotions/zhukovsky/promo-birthday.png",
+      imageUrl: "/images/promotions/zhukovsky/promo birhtday.jpg",
       title: "Скидка 30% именинникам",
       description: "Вторник — четверг",
     },
     {
       id: "zh4",
-      imageUrl: "/images/promotions/zhukovsky/promo-takeaway.png",
+      imageUrl: "/images/promotions/zhukovsky/promo self delivery.jpg",
       title: "15% на самовывоз",
       description: "При заказе по телефону или в зале",
-    },
-    {
-      id: "zh5",
-      imageUrl: "/images/promotions/zhukovsky/promo-hinkal.png",
-      title: "Хинкали по 25₽",
-      description: "Пн-чт 15:00-18:00",
     },
   ];
 
@@ -188,7 +162,7 @@ const Index = () => {
             <QuickActionButton
               icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Бронь столика"
-              onClick={() => window.open("https://remarked.online/marico/#openReMarkedWidget", "_blank")}
+              onClick={() => window.location.href = "https://remarked.online/marico/#openReMarkedWidget"}
             />
 
             <QuickActionButton
@@ -206,7 +180,7 @@ const Index = () => {
             <QuickActionButton
               icon={<RussianRuble className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Франшиза"
-              onClick={() => window.open("https://vhachapuri.ru/franshiza", "_blank")}
+              onClick={() => window.location.href = "https://vhachapuri.ru/franshiza"}
             />
           </div>
 
@@ -244,11 +218,7 @@ const Index = () => {
               imageUrl="/images/services/JOBCARD.png"
               aspectRatio="aspect-[4/3]"
               className="max-w-[180px] md:max-w-[220px] mx-auto"
-              onClick={() => {
-                // TODO: Заменить на внешнюю ссылку когда будет готова
-                // window.open("ССЫЛКА_НА_ФОРМУ_ВАКАНСИЙ", "_blank");
-                navigate("/job-application");
-              }}
+              onClick={() => window.location.href = "https://vhachapuri.ru/work"}
             />
           </div>
 
