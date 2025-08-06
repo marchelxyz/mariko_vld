@@ -58,9 +58,16 @@ bot.onText(/\/start/, (msg) => {
 
 Нажмите кнопку ниже, чтобы начать пользоваться всеми возможностями!`;
 
-  bot.sendPhoto(chatId, './images/Vine Glass.jpg', {
+  const path = require('path');
+  const imagePath = path.join(__dirname, 'images', 'Vine Glass.jpg');
+  
+  bot.sendPhoto(chatId, imagePath, {
     caption: welcomeMessage,
     ...options
+  }).catch((error) => {
+    console.error('Ошибка отправки фото:', error);
+    // Если не получилось отправить фото, отправляем просто текст
+    bot.sendMessage(chatId, welcomeMessage, options);
   });
 });
 
