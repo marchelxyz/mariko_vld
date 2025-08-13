@@ -104,7 +104,9 @@ const DetailedMenu = () => {
 
   const handleMenuOptionClick = (option: MenuOption): void => {
     if (option.url.startsWith("http")) {
-      window.open(option.url, "_blank");
+      window.Telegram.WebApp.openLink(option.url, {
+        try_instant_view: false
+      });
     } else {
       navigate(option.url);
     }

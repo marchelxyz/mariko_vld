@@ -60,7 +60,7 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
     },
     {
       id: "about",
-      label: "О нас",
+      label: "Как нас найти?",
       iconPath: "/images/action button/Star.png",
       onClick: () => navigate("/about"),
     },

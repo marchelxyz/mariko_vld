@@ -17,8 +17,10 @@ const SelectRestaurantForReview = () => {
     const externalReviewLink = RESTAURANT_REVIEW_LINKS[restaurantId];
     
     if (externalReviewLink) {
-      // Открываем внешнюю ссылку в новой вкладке
-      window.open(externalReviewLink, "_blank");
+      // Открываем внешнюю ссылку без подтверждения
+      window.Telegram.WebApp.openLink(externalReviewLink, {
+        try_instant_view: false
+      });
       return;
     }
 

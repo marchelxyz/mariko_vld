@@ -263,9 +263,13 @@ const Review = () => {
     const links = getRestaurantReviewLinks(restaurant.id, restaurant.city, restaurant.address);
 
     if (platform === "yandex") {
-      window.open(links.yandex, "_blank");
+      window.Telegram.WebApp.openLink(links.yandex, {
+        try_instant_view: false
+      });
     } else if (platform === "gis") {
-      window.open(links.gis, "_blank");
+      window.Telegram.WebApp.openLink(links.gis, {
+        try_instant_view: false
+      });
     }
 
     navigate("/");

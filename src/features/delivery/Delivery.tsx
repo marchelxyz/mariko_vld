@@ -8,6 +8,9 @@ import { useCityContext } from "@/contexts/CityContext";
 const Delivery = () => {
   const { selectedCity, selectedRestaurant } = useCityContext();
 
+  // 🔧 ВРЕМЕННОЕ СКРЫТИЕ: измените на true чтобы показать кнопку "Самовывоз"
+  const showPickupOption = false;
+
   /**
    * Генерирует список доступных способов доставки.
    * Кнопка «Доставка Марико» отображается только для городов,
@@ -41,25 +44,29 @@ const Delivery = () => {
           />
         ),
         title: "Доставка Марико",
-        onClick: () => window.open("https://marikodostavka.ru", "_blank"),
+        onClick: () => window.Telegram.WebApp.openLink('https://marikodostavka.ru', {
+          try_instant_view: false
+        }),
       });
     }
 
-    // 2. Самовывоз – доступен всегда
-    options.push({
-      icon: (
-        <img
-          src="/images/action button/Delivery Scooter.png"
-          alt="Pickup"
-          className="w-6 h-6 md:w-12 md:h-12 object-contain"
-        />
-      ),
-      title: "Самовывоз",
-      onClick: () => {
-        // Самовывоз из selectedRestaurant.address
-        console.log(`Самовывоз из: ${selectedRestaurant.address}`);
-      },
-    });
+    // 2. Самовывоз – доступен всегда (временно скрыто)
+    if (showPickupOption) {
+      options.push({
+        icon: (
+          <img
+            src="/images/action button/Delivery Scooter.png"
+            alt="Pickup"
+            className="w-6 h-6 md:w-12 md:h-12 object-contain"
+          />
+        ),
+        title: "Самовывоз",
+        onClick: () => {
+          // Самовывоз из selectedRestaurant.address
+          console.log(`Самовывоз из: ${selectedRestaurant.address}`);
+        },
+      });
+    }
 
     // ссылки по умолчанию
     let yandexLink = "https://eda.yandex.ru/restaurant/khachapuri_mariko";
@@ -83,7 +90,9 @@ const Delivery = () => {
           />
         ),
         title: "Яндекс Еда",
-        onClick: () => window.open(yandexLink, "_blank"),
+        onClick: () => window.Telegram.WebApp.openLink(yandexLink, {
+          try_instant_view: false
+        }),
       },
       {
         icon: (
@@ -94,7 +103,9 @@ const Delivery = () => {
           />
         ),
         title: "Delivery Club",
-        onClick: () => window.open(dcLink, "_blank"),
+        onClick: () => window.Telegram.WebApp.openLink(dcLink, {
+          try_instant_view: false
+        }),
       },
     );
 

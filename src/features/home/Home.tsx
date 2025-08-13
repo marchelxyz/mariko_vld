@@ -1,62 +1,22 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useEffect, useState, useMemo } from "react";
+import { useState } from "react";
 import { Header } from "@widgets/header";
-import { MenuCard, QuickActionButton, Carousel, CarouselContent, CarouselItem, ServiceCard, MenuItemComponent, type CarouselApi } from "@shared/ui";
+import { QuickActionButton, ServiceCard, MenuItemComponent } from "@shared/ui";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { useCityContext } from "@/contexts/CityContext";
-import { toast } from "sonner";
 import { RESTAURANT_REVIEW_LINKS } from "@/shared/data/reviewLinks";
-import { CalendarDays, Truck, Star as StarIcon, RussianRuble, Flame, EggFried, ChevronDown } from "lucide-react";
+import { CalendarDays, Truck, Star as StarIcon, RussianRuble, ChevronDown } from "lucide-react";
 import { getMenuByRestaurantId, MenuItem, MenuCategory } from "@/shared/data/menuData";
-// @ts-ignore – библиотека не имеет встроенных d.ts, но работает корректно
-import AutoScroll from "embla-carousel-auto-scroll";
 
-interface PromoImageCardProps {
-  src: string;
-  title?: string;
-  description?: string;
-}
-
-const PromoImageCard = ({ src, title, description }: PromoImageCardProps) => (
-  <div className="relative w-full h-36 md:h-48 rounded-[16px] overflow-hidden shadow-md">
-    <img
-      src={src}
-      alt={title || "Акция"}
-      className="absolute inset-0 w-full h-full object-cover"
-    />
-    {(title || description) && (
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent flex items-end">
-        <div className="p-2 md:p-3 w-full">
-          {title && (
-            <h3 className="text-white font-el-messiri text-sm md:text-lg font-bold leading-snug mb-1 line-clamp-1">
-              {title}
-            </h3>
-          )}
-          {description && (
-            <p className="hidden md:block text-white/90 font-el-messiri text-xs md:text-sm leading-snug line-clamp-2">
-              {description}
-            </p>
-          )}
-        </div>
-      </div>
-    )}
-  </div>
-);
 
 const Index = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { selectedRestaurant } = useCityContext();
-  const [activePromo, setActivePromo] = useState<typeof promotions[number] | null>(null);
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
-  const [promoCarouselApi, setPromoCarouselApi] = useState<CarouselApi | null>(null);
 
-  // Плагин непрерывного авто-скролла Embla
-  const autoScrollPlugin = useMemo(() => AutoScroll({
-    speed: 0.2,          // пикселей за кадр — ещё медленнее
-    startDelay: 0,     // пауза 0.15 с перед запуском
-    stopOnInteraction: false,
-  }), []);
+  // 🔧 ВРЕМЕННОЕ СКРЫТИЕ: измените на true чтобы показать раздел "Рекомендуем попробовать"
+  const showRecommendedSection = false;
 
 
 
@@ -64,8 +24,10 @@ const Index = () => {
     const externalReviewLink = RESTAURANT_REVIEW_LINKS[selectedRestaurant.id];
 
     if (externalReviewLink) {
-      // Открываем внешнюю ссылку в новой вкладке
-      window.open(externalReviewLink, "_blank");
+      // Открываем внешнюю ссылку без подтверждения
+      window.Telegram.WebApp.openLink(externalReviewLink, {
+        try_instant_view: false
+      });
       return;
     }
 
@@ -74,55 +36,6 @@ const Index = () => {
     navigate("/review");
   };
 
-  // Базовые акции, показываем по умолчанию
-  const genericPromotions = [
-    {
-      id: 1,
-      imageUrl: "/images/promotions/promo-tuesday.png",
-      title: "Безлимит виноградного",
-      description: "При заказе от 1500₽ на гостя по вторникам",
-    },
-    {
-      id: 2,
-      imageUrl: "/images/promotions/promo-cashback.png",
-      title: "Вай, со своим отмечай!",
-      description: "Принесите свои горячительные напитки на свою закуску у Марико! Билеты со своими закусками от 2500₽ на гостя",
-    },
-    {
-      id: 3,
-      imageUrl: "/images/promotions/promo-delivery.png",
-      title: "Накормим 300 гостей",
-      description: "Совершенно бесплатно",
-    },
-  ];
-
-  // Акции для Жуковского (id города zhukovsky)
-  const zhukovskyPromotions = [
-    {
-      id: "zh2",
-      imageUrl: "/images/promotions/zhukovsky/promo women.jpg",
-      title: "Скидка до 40%",
-      description: "Каждый понедельник женским компаниям",
-    },
-    {
-      id: "zh3",
-      imageUrl: "/images/promotions/zhukovsky/promo birhtday.jpg",
-      title: "Скидка 30% именинникам",
-      description: "Вторник — четверг",
-    },
-    {
-      id: "zh4",
-      imageUrl: "/images/promotions/zhukovsky/promo self delivery.jpg",
-      title: "15% на самовывоз",
-      description: "При заказе по телефону или в зале",
-    },
-  ];
-
-  const promotions = selectedRestaurant.city === "Жуковский" ? zhukovskyPromotions : genericPromotions;
-
-  const handlePromoClick = (promo: typeof promotions[number]) => {
-    setActivePromo(promo);
-  };
 
   const handleDishClick = (dish: MenuItem) => {
     // Если кликнули на то же блюдо, которое уже открыто - закрываем модальное окно
@@ -162,7 +75,9 @@ const Index = () => {
             <QuickActionButton
               icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Бронь столика"
-              onClick={() => window.location.href = "https://remarked.online/marico/#openReMarkedWidget"}
+              onClick={() => window.Telegram.WebApp.openLink('https://remarked.online/marico/#openReMarkedWidget', {
+                try_instant_view: false
+              })}
             />
 
             <QuickActionButton
@@ -180,85 +95,86 @@ const Index = () => {
             <QuickActionButton
               icon={<RussianRuble className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Франшиза"
-              onClick={() => window.location.href = "https://vhachapuri.ru/franshiza"}
+              onClick={() => window.Telegram.WebApp.openLink('https://vhachapuri.ru/franshiza', {
+                try_instant_view: false
+              })}
             />
           </div>
 
-          {/* Promotions Carousel */}
+          {/* Menu Button (Full Width) */}
           <div className="mt-6 md:mt-8">
-            <Carousel
-              opts={{ align: "start", loop: true, containScroll: 'trimSnaps', skipSnaps: false }}
-              plugins={[autoScrollPlugin]}
-              className="w-full"
-              setApi={setPromoCarouselApi}
-            >
-              <CarouselContent>
-                {promotions.map((promo) => (
-                  <CarouselItem key={promo.id} className="basis-[80%] md:basis-[45%] pr-3">
-                    <button onClick={() => handlePromoClick(promo)} className="w-full focus:outline-none">
-                      <PromoImageCard src={promo.imageUrl} title={promo.title} description={promo.description} />
-                    </button>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-            </Carousel>
-          </div>
-
-          {/* Menu and Additional Services */}
-          <div className="mt-6 md:mt-8 grid grid-cols-2 gap-3 md:gap-6">
             <ServiceCard
               title="Меню"
-              imageUrl="/images/services/MenuCARD.png"
+              imageUrl="/images/services/MENU-CARD.png"
+              aspectRatio="aspect-[3/1]"
+              className="w-full"
+              onClick={() => window.Telegram.WebApp.openLink('https://vhachapuri.ru/zhukovsky/menu', {
+                try_instant_view: false
+              })}
+            />
+          </div>
+
+          {/* Actions and Vacancies Services */}
+          <div className="mt-6 md:mt-8 mb-24 md:mb-28 grid grid-cols-2 gap-3 md:gap-6">
+            <ServiceCard
+              title="Акции"
+              imageUrl="/images/services/promo self delivery 1.png"
               aspectRatio="aspect-[4/3]"
               className="max-w-[180px] md:max-w-[220px] mx-auto"
-              onClick={() => navigate("/menu")}
+              onClick={() => window.Telegram.WebApp.openLink('https://vhachapuri.ru/zhukovsky/special', {
+                try_instant_view: false
+              })}
             />
             <ServiceCard
               title="Вакансии"
               imageUrl="/images/services/JOBCARD.png"
               aspectRatio="aspect-[4/3]"
               className="max-w-[180px] md:max-w-[220px] mx-auto"
-              onClick={() => window.location.href = "https://vhachapuri.ru/work"}
+              onClick={() => window.Telegram.WebApp.openLink('https://vhachapuri.ru/work', {
+                try_instant_view: false
+              })}
             />
           </div>
 
-          {/* Recommended Section */}
-          <div className="mt-10 md:mt-12 -mx-3 md:-mx-6">
-            {/* Heading bar */}
-            <div className="w-full bg-white py-3 md:py-4 flex items-center justify-between px-4 md:px-6 mb-4 md:mb-6">
-              <span className="font-el-messiri text-base md:text-lg font-semibold text-black">
-                Рекомендуем попробовать
-              </span>
-              <ChevronDown className="w-5 h-5 md:w-6 md:h-6 text-black" />
-            </div>
+          {/* Recommended Section (временно скрыто) */}
+          {showRecommendedSection && (
+            <div className="mt-10 md:mt-12 -mx-3 md:-mx-6">
+              {/* Heading bar */}
+              <div className="w-full bg-white py-3 md:py-4 flex items-center justify-between px-4 md:px-6 mb-4 md:mb-6">
+                <span className="font-el-messiri text-base md:text-lg font-semibold text-black">
+                  Рекомендуем попробовать
+                </span>
+                <ChevronDown className="w-5 h-5 md:w-6 md:h-6 text-black" />
+              </div>
 
-            <div className="px-3 md:px-6 mb-16 md:mb-20">
-              {/* Random recommended menu items grid */}
-              {/* Компактная сетка 2x2 на мобильных, адаптивная на больших экранах */}
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
-                {randomRecommended.map((item) => (
-                  <div key={item.id}>
-                    {/* Мобильный вариант для экранов < 768px */}
-                    <div className="block md:hidden">
-                      <MenuItemComponent
-                        item={item}
-                        variant="mobile"
-                        onClick={() => handleDishClick(item)}
-                      />
+              <div className="px-3 md:px-6 mb-16 md:mb-20">
+                {/* Random recommended menu items grid */}
+                {/* Компактная сетка 2x2 на мобильных, адаптивная на больших экранах */}
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
+                  {randomRecommended.map((item) => (
+                    <div key={item.id}>
+                      {/* Мобильный вариант для экранов < 768px */}
+                      <div className="block md:hidden">
+                        <MenuItemComponent
+                          item={item}
+                          variant="mobile"
+                          onClick={() => handleDishClick(item)}
+                        />
+                      </div>
+                      {/* Компактный вариант для экранов >= 768px */}
+                      <div className="hidden md:block">
+                        <MenuItemComponent
+                          item={item}
+                          variant="compact"
+                          onClick={() => handleDishClick(item)}
+                        />
+                      </div>
                     </div>
-                    {/* Компактный вариант для экранов >= 768px */}
-                    <div className="hidden md:block">
-                      <MenuItemComponent
-                        item={item}
-                        variant="compact"
-                        onClick={() => handleDishClick(item)}
-                      />
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
         </div>
 
@@ -267,75 +183,6 @@ const Index = () => {
           <BottomNavigation currentPage="home" />
         </div>
 
-        {activePromo && (
-          <div
-            className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 backdrop-blur-sm" 
-            onClick={() => setActivePromo(null)}
-          >
-            {/* Умеренная стеклянная рамка */}
-            <div 
-              className="relative flex flex-col gap-4 items-center max-w-[90vw] p-6 md:p-8
-                bg-white/12 backdrop-blur-md
-                border border-white/25
-                rounded-[30px]
-                shadow-2xl
-                hover:bg-white/15 transition-all duration-300" 
-              onClick={(e)=>e.stopPropagation()}
-            >
-              {/* Градиент для стеклянного эффекта */}
-              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-white/5 rounded-[30px] pointer-events-none" />
-              
-              {/* Блик сверху */}
-              <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-white/15 to-transparent rounded-t-[30px] pointer-events-none" />
-              
-              {/* Гвоздики в углах рамки */}
-              {/* Верхний левый гвоздик */}
-              <div className="absolute top-3 left-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
-                bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
-                shadow-lg border border-gray-500/50
-                before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
-                before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
-              
-              {/* Верхний правый гвоздик */}
-              <div className="absolute top-3 right-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
-                bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
-                shadow-lg border border-gray-500/50
-                before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
-                before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
-              
-              {/* Нижний левый гвоздик */}
-              <div className="absolute bottom-3 left-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
-                bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
-                shadow-lg border border-gray-500/50
-                before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
-                before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
-              
-              {/* Нижний правый гвоздик */}
-              <div className="absolute bottom-3 right-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
-                bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
-                shadow-lg border border-gray-500/50
-                before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
-                before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
-              
-              {/* Контент */}
-              <div className="relative z-10 flex flex-col gap-4 items-center">
-                <img
-                  src={activePromo.imageUrl}
-                  alt={activePromo.title}
-                  className="max-h-[60vh] md:max-h-[70vh] w-auto rounded-[20px] shadow-lg"
-                />
-                <h3 className="font-el-messiri text-2xl md:text-3xl font-bold mb-1 text-white drop-shadow-lg text-center">
-                  {activePromo.title}
-                </h3>
-                {activePromo.description && (
-                  <p className="text-lg leading-snug text-white/90 drop-shadow-lg text-center max-w-md mx-auto">
-                    {activePromo.description}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
 
         {activeDish && (
           <div
