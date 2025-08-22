@@ -21,7 +21,22 @@ if (!BOT_TOKEN) {
 // 🔒 БЕЗОПАСНОСТЬ: Логируем маскированный токен
 console.log(`🔑 Bot token: ${maskToken(BOT_TOKEN)}`);
 
-const bot = new TelegramBot(BOT_TOKEN, {polling: true});
+const bot = new TelegramBot(BOT_TOKEN, {
+  polling: {
+    interval: 300,
+    autoStart: true,
+    params: {
+      timeout: 10
+    }
+  },
+  request: {
+    agentOptions: {
+      family: 4, // Принудительно использовать IPv4
+      keepAlive: true,
+      maxSockets: 1
+    }
+  }
+});
 
 console.log('🍴 Хачапури Марико бот запущен!');
 
