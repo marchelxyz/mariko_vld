@@ -14,17 +14,6 @@ export interface UserProfile {
   selectedRestaurant: string;
 }
 
-export interface BookingData {
-  name: string;
-  phone: string;
-  guests: number;
-  date: string;
-  time: string;
-  restaurant: string;
-  birthDate: string; // Скрытое поле для АЙКО
-  comment?: string; // Комментарий пользователя
-}
-
 export interface ReviewData {
   rating: number;
   text: string;
@@ -154,36 +143,6 @@ export const botApi = {
     } catch (error) {
       console.error("Ошибка обновления профиля:", error);
       return false;
-    }
-  },
-
-  // Отправка бронирования
-  async submitBooking(
-    booking: BookingData,
-  ): Promise<{ success: boolean; bookingId?: string; error?: string }> {
-    try {
-      // Генерируем ID бронирования
-      const bookingId = `BK${Date.now()}`;
-
-      // Email-уведомления отключены.
-
-      // В реальной интеграции:
-      // 1. Отправляем данные в АЙКО систему
-      // 2. Получаем подтверждение
-      // 3. Отправляем уведомление пользователю в Telegram
-
-      console.log('Бронирование успешно отправлено:', bookingId);
-
-      return {
-        success: true,
-        bookingId,
-      };
-    } catch (error) {
-      console.error('Ошибка обработки бронирования:', error);
-      return {
-        success: false,
-        error: 'Произошла ошибка при обработке заявки. Попробуйте еще раз.'
-      };
     }
   },
 

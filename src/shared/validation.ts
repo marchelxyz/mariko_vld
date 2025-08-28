@@ -209,58 +209,6 @@ export const validateRestaurantId = (id: string): { isValid: boolean; error?: st
 };
 
 /**
- * Комплексная валидация формы бронирования
- */
-export const validateBookingForm = (data: {
-  name: string;
-  phone: string;
-  date: string;
-  time: string;
-  guests: number;
-  comment?: string;
-}): { isValid: boolean; errors: Record<string, string> } => {
-  const errors: Record<string, string> = {};
-  
-  // Валидируем имя
-  const nameResult = validateName(data.name);
-  if (!nameResult.isValid) {
-    errors.name = nameResult.error!;
-  }
-  
-  // Валидируем телефон
-  const phoneResult = validatePhone(data.phone);
-  if (!phoneResult.isValid) {
-    errors.phone = phoneResult.error!;
-  }
-  
-  // Валидируем дату
-  const dateResult = validateDate(data.date);
-  if (!dateResult.isValid) {
-    errors.date = dateResult.error!;
-  }
-  
-  // Валидируем время
-  if (!data.time || !/^\d{2}:\d{2}$/.test(data.time)) {
-    errors.time = 'Время должно быть в формате ЧЧ:ММ';
-  }
-  
-  // Валидируем количество гостей
-  if (!data.guests || !Number.isInteger(data.guests) || data.guests < 1 || data.guests > 20) {
-    errors.guests = 'Количество гостей должно быть от 1 до 20';
-  }
-  
-  // Валидируем комментарий (опционально)
-  if (data.comment && data.comment.length > 500) {
-    errors.comment = 'Комментарий не может превышать 500 символов';
-  }
-  
-  return {
-    isValid: Object.keys(errors).length === 0,
-    errors
-  };
-};
-
-/**
  * Комплексная валидация формы отзыва
  */
 export const validateReviewForm = (data: {

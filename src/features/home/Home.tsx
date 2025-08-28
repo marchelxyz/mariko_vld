@@ -1,4 +1,4 @@
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { telegramWebApp } from "@/services/botApi";
 import { Header } from "@widgets/header";
@@ -12,14 +12,11 @@ import { getMenuByRestaurantId, MenuItem, MenuCategory } from "@/shared/data/men
 
 const Index = () => {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const { selectedRestaurant } = useCityContext();
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
 
   // 🔧 ВРЕМЕННОЕ СКРЫТИЕ: измените на true чтобы показать раздел "Рекомендуем попробовать"
   const showRecommendedSection = false;
-
-
 
   const handleReviewClick = () => {
     const externalReviewLink = RESTAURANT_REVIEW_LINKS[selectedRestaurant.id];
@@ -77,7 +74,7 @@ const Index = () => {
               onClick={() =>
                 telegramWebApp.openLink(
                   'https://remarked.online/marico/#openReMarkedWidget',
-                  { try_instant_view: false }
+                  { try_instant_view: true }
                 )
               }
             />
@@ -99,7 +96,7 @@ const Index = () => {
               title="Франшиза"
               onClick={() =>
                 telegramWebApp.openLink('https://vhachapuri.ru/franshiza', {
-                  try_instant_view: false,
+                  try_instant_view: true,
                 })
               }
             />
@@ -129,7 +126,7 @@ const Index = () => {
               className="max-w-[180px] md:max-w-[220px] mx-auto"
               onClick={() =>
                 telegramWebApp.openLink('https://vhachapuri.ru/zhukovsky/special', {
-                  try_instant_view: false,
+                  try_instant_view: true,
                 })
               }
             />
@@ -140,7 +137,7 @@ const Index = () => {
               className="max-w-[180px] md:max-w-[220px] mx-auto"
               onClick={() =>
                 telegramWebApp.openLink('https://vhachapuri.ru/work', {
-                  try_instant_view: false,
+                  try_instant_view: true,
                 })
               }
             />
