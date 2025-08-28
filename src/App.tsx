@@ -3,7 +3,7 @@ import { TooltipProvider } from "@shared/ui/tooltip";
 import { Toaster } from "@shared/ui/toaster";
 import { Toaster as SonnerToaster } from "@shared/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { RestaurantProvider } from "@/contexts/CityContext";
 
 // Lazy load pages for better code splitting
@@ -16,7 +16,6 @@ const Delivery = lazy(() => import("./pages/delivery"));
 const Promotions = lazy(() => import("./pages/promotions"));
 const Review = lazy(() => import("./pages/review"));
 const SelectRestaurantForReview = lazy(() => import("./pages/selectRestaurantReview"));
-const DetailedMenu = lazy(() => import("./features/menu/DetailedMenu"));
 const About = lazy(() => import("./pages/about"));
 const NotFound = lazy(() => import("./pages/notFound"));
 
@@ -43,7 +42,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <RestaurantProvider>
-          <BrowserRouter>
+          <HashRouter>
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<Index />} />
@@ -56,13 +55,14 @@ function App() {
                 <Route path="/promotions" element={<Promotions />} />
                 <Route path="/review" element={<Review />} />
                 <Route path="/select-restaurant-review" element={<SelectRestaurantForReview />} />
-                <Route path="/menu" element={<DetailedMenu />} />
+                {/* Удалено внутреннее меню */}
                 <Route path="/about" element={<About />} />
-                {/* Catch-all route for 404 */}
-                <Route path="*" element={<NotFound />} />
+                {/* 404 → домой, чтобы избежать белого экрана в WebView */}
+                <Route path="/404" element={<NotFound />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
-          </BrowserRouter>
+          </HashRouter>
           <Toaster />
           <SonnerToaster />
         </RestaurantProvider>

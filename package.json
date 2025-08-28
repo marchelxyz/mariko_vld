@@ -11,7 +11,6 @@
     "build:optimized": "npm run optimize-images && npm run build"
   },
   "dependencies": {
-    "@emailjs/browser": "^4.4.1",
     "@hookform/resolvers": "^3.9.0",
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.1",
@@ -79,6 +78,7 @@
     "@types/react-dom": "^18.3.0",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
+    "@vitejs/plugin-legacy": "^7.2.1",
     "@vitejs/plugin-react-swc": "^3.5.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.0",
@@ -89,7 +89,9 @@
     "globals": "^15.9.0",
     "postcss": "^8.4.47",
     "prettier": "^3.5.3",
+    "regenerator-runtime": "^0.14.1",
     "tailwindcss": "^3.4.11",
+    "terser": "^5.43.1",
     "typescript": "5.3.3",
     "vite": "^6.2.2",
     "vitest": "^3.1.4"
