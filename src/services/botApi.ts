@@ -458,6 +458,15 @@ export const telegramWebApp = {
     }
   },
 
+  // Открытие внешней ссылки внутри Telegram (встроенный браузер)
+  openLink(url: string, options?: { try_instant_view?: boolean }): void {
+    if (this.isInTelegram()) {
+      window.Telegram.WebApp.openLink(url, options);
+    } else if (typeof window !== "undefined") {
+      window.open(url, "_blank");
+    }
+  },
+
   // Показ главной кнопки
   showMainButton(text: string, callback: () => void) {
     if (this.isInTelegram()) {
@@ -468,31 +477,4 @@ export const telegramWebApp = {
     }
   },
 };
-
-// Типы для расширения Window объекта
-declare global {
-  interface Window {
-    Telegram: {
-      WebApp: {
-        initDataUnsafe: {
-          user?: {
-            id: number;
-            first_name: string;
-            last_name?: string;
-            username?: string;
-            language_code: string;
-          };
-        };
-        ready: () => void;
-        close: () => void;
-        sendData: (data: string) => void;
-        MainButton: {
-          text: string;
-          show: () => void;
-          hide: () => void;
-          onClick: (callback: () => void) => void;
-        };
-      };
-    };
-  }
-}
+// Глобальные типы объявлены в src/types/telegram-webapp.d.ts

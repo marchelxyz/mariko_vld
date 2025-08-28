@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { telegramWebApp } from "@/services/botApi";
 import { MapPin, Star, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@widgets/header";
@@ -17,10 +18,8 @@ const SelectRestaurantForReview = () => {
     const externalReviewLink = RESTAURANT_REVIEW_LINKS[restaurantId];
     
     if (externalReviewLink) {
-      // Открываем внешнюю ссылку без подтверждения
-      window.Telegram.WebApp.openLink(externalReviewLink, {
-        try_instant_view: false
-      });
+      // Открываем внешнюю ссылку во встроенном браузере Telegram
+      telegramWebApp.openLink(externalReviewLink, { try_instant_view: false });
       return;
     }
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { telegramWebApp } from "@/services/botApi";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { PageHeader } from "@widgets/pageHeader";
@@ -104,9 +105,7 @@ const DetailedMenu = () => {
 
   const handleMenuOptionClick = (option: MenuOption): void => {
     if (option.url.startsWith("http")) {
-      window.Telegram.WebApp.openLink(option.url, {
-        try_instant_view: false
-      });
+      telegramWebApp.openLink(option.url, { try_instant_view: false });
     } else {
       navigate(option.url);
     }

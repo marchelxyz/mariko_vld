@@ -1,5 +1,6 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
+import { telegramWebApp } from "@/services/botApi";
 import { Header } from "@widgets/header";
 import { QuickActionButton, ServiceCard, MenuItemComponent } from "@shared/ui";
 import { BottomNavigation } from "@widgets/bottomNavigation";
@@ -25,9 +26,7 @@ const Index = () => {
 
     if (externalReviewLink) {
       // Открываем внешнюю ссылку без подтверждения
-      window.Telegram.WebApp.openLink(externalReviewLink, {
-        try_instant_view: false
-      });
+      telegramWebApp.openLink(externalReviewLink, { try_instant_view: false });
       return;
     }
 
@@ -75,9 +74,12 @@ const Index = () => {
             <QuickActionButton
               icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Бронь столика"
-              onClick={() => window.Telegram.WebApp.openLink('https://remarked.online/marico/#openReMarkedWidget', {
-                try_instant_view: false
-              })}
+              onClick={() =>
+                telegramWebApp.openLink(
+                  'https://remarked.online/marico/#openReMarkedWidget',
+                  { try_instant_view: false }
+                )
+              }
             />
 
             <QuickActionButton
@@ -95,9 +97,11 @@ const Index = () => {
             <QuickActionButton
               icon={<RussianRuble className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Франшиза"
-              onClick={() => window.Telegram.WebApp.openLink('https://vhachapuri.ru/franshiza', {
-                try_instant_view: false
-              })}
+              onClick={() =>
+                telegramWebApp.openLink('https://vhachapuri.ru/franshiza', {
+                  try_instant_view: false,
+                })
+              }
             />
           </div>
 
@@ -108,9 +112,11 @@ const Index = () => {
               imageUrl="/images/services/MENU-CARD.png"
               aspectRatio="aspect-[3/1]"
               className="w-full"
-              onClick={() => window.Telegram.WebApp.openLink('https://vhachapuri.ru/zhukovsky/menu', {
-                try_instant_view: false
-              })}
+              onClick={() =>
+                telegramWebApp.openLink('https://vhachapuri.ru/zhukovsky/menu', {
+                  try_instant_view: false,
+                })
+              }
             />
           </div>
 
@@ -121,18 +127,22 @@ const Index = () => {
               imageUrl="/images/services/promo self delivery 1.png"
               aspectRatio="aspect-[4/3]"
               className="max-w-[180px] md:max-w-[220px] mx-auto"
-              onClick={() => window.Telegram.WebApp.openLink('https://vhachapuri.ru/zhukovsky/special', {
-                try_instant_view: false
-              })}
+              onClick={() =>
+                telegramWebApp.openLink('https://vhachapuri.ru/zhukovsky/special', {
+                  try_instant_view: false,
+                })
+              }
             />
             <ServiceCard
               title="Вакансии"
               imageUrl="/images/services/JOBCARD.png"
               aspectRatio="aspect-[4/3]"
               className="max-w-[180px] md:max-w-[220px] mx-auto"
-              onClick={() => window.Telegram.WebApp.openLink('https://vhachapuri.ru/work', {
-                try_instant_view: false
-              })}
+              onClick={() =>
+                telegramWebApp.openLink('https://vhachapuri.ru/work', {
+                  try_instant_view: false,
+                })
+              }
             />
           </div>
 

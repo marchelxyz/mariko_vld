@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Star, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { telegramWebApp } from "@/services/botApi";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { useCityContext } from "@/contexts/CityContext";
@@ -263,13 +264,9 @@ const Review = () => {
     const links = getRestaurantReviewLinks(restaurant.id, restaurant.city, restaurant.address);
 
     if (platform === "yandex") {
-      window.Telegram.WebApp.openLink(links.yandex, {
-        try_instant_view: false
-      });
+      telegramWebApp.openLink(links.yandex, { try_instant_view: false });
     } else if (platform === "gis") {
-      window.Telegram.WebApp.openLink(links.gis, {
-        try_instant_view: false
-      });
+      telegramWebApp.openLink(links.gis, { try_instant_view: false });
     }
 
     navigate("/");
