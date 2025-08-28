@@ -2,7 +2,6 @@
 // Эти функции будут интегрированы с бэкендом бота
 
 import { profileDB, type UserProfile as DBUserProfile, type Review } from "./database";
-import { sendBookingEmail } from "./emailService";
 
 export interface UserProfile {
   id: string;
@@ -166,27 +165,7 @@ export const botApi = {
       // Генерируем ID бронирования
       const bookingId = `BK${Date.now()}`;
 
-      // Подготавливаем данные для отправки email
-      const emailData = {
-        name: booking.name,
-        phone: booking.phone,
-        guests: booking.guests,
-        date: booking.date,
-        time: booking.time,
-        restaurant: booking.restaurant,
-        comment: booking.comment
-      };
-
-      // Отправляем email с данными бронирования
-      const emailResult = await sendBookingEmail(emailData);
-
-      if (!emailResult.success) {
-        console.error('Ошибка отправки email:', emailResult.error);
-        return {
-          success: false,
-          error: 'Не удалось отправить заявку на бронирование. Попробуйте еще раз.'
-        };
-      }
+      // Email-уведомления отключены.
 
       // В реальной интеграции:
       // 1. Отправляем данные в АЙКО систему

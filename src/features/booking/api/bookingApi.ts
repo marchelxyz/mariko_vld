@@ -1,5 +1,4 @@
 import { bookingApi } from "@shared/api";
-import { initEmailService, sendBookingEmail } from "@/services/emailService";
 
 export interface BookingPayload {
   name: string;
@@ -22,17 +21,7 @@ export const createBooking = async (payload: BookingPayload): Promise<boolean> =
       birthDate: "", // не запрашиваем дату рождения при бронировании
     });
 
-    // Отправляем письмо с бронированием
-    initEmailService();
-    await sendBookingEmail({
-      name: payload.name,
-      phone: payload.phone,
-      guests: parseInt(payload.guests, 10) || 1,
-      date: payload.date,
-      time: payload.time,
-      restaurant: payload.restaurant,
-      comment: payload.comment,
-    });
+    // Email отключен
 
     return tgResult.success;
   } catch (err) {
