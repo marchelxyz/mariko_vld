@@ -61,7 +61,7 @@ export const ServiceCard = ({
             loading={loading}
             className={cn(
               // Небольшое перекрытие по краям, чтобы убрать возможные 1px-щели из-за округления
-              "absolute -inset-px w-[calc(100%+2px)] h-[calc(100%+2px)] object-cover block transition-opacity duration-300",
+              "absolute -inset-px w-[calc(100%+2px)] h-[calc(100%+2px)] object-cover block transition-opacity duration-300 transform-gpu scale-[1.01] origin-center",
               imageClassName,
               imageLoaded ? "opacity-100" : "opacity-0",
             )}
