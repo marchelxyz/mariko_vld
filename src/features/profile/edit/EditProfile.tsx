@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { X } from "lucide-react";
+import { X, Pencil } from "lucide-react";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { Label, Button, Input } from "@shared/ui";
@@ -179,6 +179,18 @@ const EditProfile = () => {
 
         {/* Greeting */}
         <div className="px-4 md:px-6 max-w-6xl mx-auto mt-4">
+          {/* Top right edit icon */}
+          {!isEditing && (
+            <div className="flex justify-end mb-2">
+              <button
+                onClick={startEditAll}
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                aria-label="Редактировать профиль"
+              >
+                <Pencil className="w-5 h-5 text-white" />
+              </button>
+            </div>
+          )}
           <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6">
             <ProfileAvatar
               photo={profile.photo}
@@ -215,11 +227,6 @@ const EditProfile = () => {
               {renderViewField("Дата рождения", profile.birthDate)}
               {renderViewField("Пол", profile.gender)}
               {renderViewField("Телефон", profile.phone)}
-              <div className="flex justify-end">
-                <Button onClick={startEditAll} className="bg-green-600 hover:bg-green-700 text-white px-6">
-                  Редактировать профиль
-                </Button>
-              </div>
             </div>
           ) : (
             <div className="mt-10 md:mt-12 space-y-4 md:space-y-6">
