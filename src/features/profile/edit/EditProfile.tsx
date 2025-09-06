@@ -16,70 +16,55 @@ const EditProfile = () => {
   // Хук для форматирования телефона - как в анкете вакансии
   const phoneInput = usePhoneInput();
 
-  const [editingField, setEditingField] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState("");
+  // Единый режим редактирования всех полей
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [editValue, setEditValue] = useState(""); // используется для одиночных инпутов (дата)
+  const [nameValue, setNameValue] = useState<string>("");
+  const [birthDateValue, setBirthDateValue] = useState<string>("");
+  const [genderValue, setGenderValue] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
 
-  const handleEdit = (field: string) => {
-    setEditingField(field);
-    
-    if (field === "phone") {
-      // Для телефона используем phoneInput хук
-      phoneInput.setValue(profile.phone || "");
-    } else {
-      setEditValue(profile[field as keyof typeof profile]?.toString() || "");
-    }
+  const startEditAll = () => {
+    setIsEditing(true);
+    setNameValue(profile.name || "");
+    setBirthDateValue(profile.birthDate || "");
+    setGenderValue(profile.gender || "");
+    phoneInput.setValue(profile.phone || "");
   };
 
-  const handleSave = async () => {
-    if (!editingField) return;
-
-    // Валидация даты рождения
-    if (editingField === "birthDate") {
-      if (!isValidBirthDate(editValue)) {
-        showToast({
-          title: "Ошибка",
-          description: "Дата должна быть в формате дд.мм.гггг и валидной",
-          variant: "destructive",
-        });
-        return;
-      }
+  const handleSaveAll = async () => {
+    // Валидация даты рождения (если заполнена)
+    if (birthDateValue && !isValidBirthDate(birthDateValue)) {
+      showToast({
+        title: "Ошибка",
+        description: "Дата должна быть в формате дд.мм.гггг и валидной",
+        variant: "destructive",
+      });
+      return;
     }
 
     try {
-      let updateData: any = {};
-      
-      if (editingField === "phone") {
-        // Для телефона используем очищенное значение из хука
-        updateData[editingField] = getCleanPhoneNumber(phoneInput.value);
-      } else {
-        updateData[editingField] = editValue;
-      }
-      
+      const updateData: Record<string, string> = {};
+      if (nameValue !== (profile.name || "")) updateData.name = nameValue;
+      if (birthDateValue !== (profile.birthDate || "")) updateData.birthDate = birthDateValue;
+      if (genderValue !== (profile.gender || "")) updateData.gender = genderValue;
+      const cleanedPhone = getCleanPhoneNumber(phoneInput.value || "");
+      if (cleanedPhone !== getCleanPhoneNumber(profile.phone || "")) updateData.phone = cleanedPhone;
+
       const success = await updateProfile(updateData);
-
       if (success) {
-        showToast({
-          title: "Профиль обновлен",
-          description: "Изменения успешно сохранены",
-        });
-
-        setEditingField(null);
-        setEditValue("");
+        showToast({ title: "Профиль обновлен", description: "Изменения успешно сохранены" });
+        setIsEditing(false);
       } else {
         throw new Error("Не удалось сохранить");
       }
     } catch (error) {
-      showToast({
-        title: "Ошибка",
-        description: "Не удалось сохранить изменения",
-        variant: "destructive",
-      });
+      showToast({ title: "Ошибка", description: "Не удалось сохранить изменения", variant: "destructive" });
     }
   };
 
   const handleCancel = () => {
-    setEditingField(null);
+    setIsEditing(false);
     setEditValue("");
   };
 
@@ -174,53 +159,17 @@ const EditProfile = () => {
     return true;
   };
 
-  const renderField = (
-    key: string,
-    label: string,
-    value: string,
-    type: string = "text",
-  ) => {
-    if (editingField === key) {
-      return (
-        <div className="bg-mariko-field rounded-[90px] px-5 md:px-7 py-3 md:py-4">
-          <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2 block">
-            {label}
-          </Label>
-          <div className="flex gap-3">
-            <Input
-              type={type}
-              value={editValue}
-              onChange={(e) => handleInputChange(e, key)}
-              className="flex-1 bg-white/10 border-white/20 text-mariko-dark placeholder-mariko-dark/60 font-el-messiri text-base md:text-lg h-10 md:h-11"
-              placeholder={key === "birthDate" ? "дд.мм.гггг" : ""}
-              maxLength={key === "birthDate" ? 10 : undefined}
-              autoFocus
-            />
-            <Button
-              onClick={handleSave}
-              className="bg-green-600 hover:bg-green-700 text-white px-6"
-            >
-              ✓
-            </Button>
-            <Button
-              onClick={handleCancel}
-              className="bg-red-600 hover:bg-red-700 text-white border-0 px-6"
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <EditableField
-        label={label}
-        value={value}
-        onEdit={() => handleEdit(key)}
-      />
-    );
-  };
+  // Нережим редактирования – просто вывод значения
+  const renderViewField = (label: string, value: string) => (
+    <div className="bg-mariko-field rounded-[90px] px-5 md:px-7 py-3 md:py-4">
+      <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-1 block">
+        {label}
+      </Label>
+      <div className="text-mariko-dark font-el-messiri text-base md:text-lg">
+        {value || "—"}
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen overflow-hidden flex flex-col bg-transparent relative">
@@ -260,99 +209,49 @@ const EditProfile = () => {
       <div className="flex-1 bg-transparent relative overflow-hidden rounded-t-[24px] md:rounded-t-[32px] pt-6 md:pt-8">
         <div className="px-4 md:px-6 max-w-6xl mx-auto w-full pb-32 md:pb-40">
           {/* Editable Fields */}
-          <div className="mt-10 md:mt-12 space-y-4 md:space-y-6">
-            {renderField("name", "ФИО", profile.name)}
-            {renderField(
-              "birthDate",
-              "Дата рождения",
-              profile.birthDate,
-              "text",
-            )}
-
-            {/* Gender Selection */}
-            {editingField === "gender" ? (
-              <div className="bg-mariko-field rounded-[90px] px-5 md:px-7 py-3 md:py-4">
-                <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2 block">
-                  Пол
-                </Label>
-                <div className="flex gap-3">
-                  <select
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    className="flex-1 bg-white/10 border border-white/20 text-mariko-dark font-el-messiri text-base md:text-lg rounded-lg px-3 py-2 h-10 md:h-11"
-                  >
-                    <option
-                      value="Женский"
-                      className="bg-mariko-secondary text-white"
-                    >
-                      Женский
-                    </option>
-                    <option
-                      value="Мужской"
-                      className="bg-mariko-secondary text-white"
-                    >
-                      Мужской
-                    </option>
-                  </select>
-                  <Button
-                    onClick={handleSave}
-                    className="bg-green-600 hover:bg-green-700 text-white px-6"
-                  >
-                    ✓
-                  </Button>
-                  <Button
-                    onClick={handleCancel}
-                    className="bg-red-600 hover:bg-red-700 text-white border-0 px-6"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
+          {!isEditing ? (
+            <div className="mt-10 md:mt-12 space-y-4 md:space-y-6">
+              {renderViewField("ФИО", profile.name)}
+              {renderViewField("Дата рождения", profile.birthDate)}
+              {renderViewField("Пол", profile.gender)}
+              {renderViewField("Телефон", profile.phone)}
+              <div className="flex justify-end">
+                <Button onClick={startEditAll} className="bg-green-600 hover:bg-green-700 text-white px-6">
+                  Редактировать профиль
+                </Button>
               </div>
-            ) : (
-              <EditableField
-                label="Пол"
-                value={profile.gender}
-                onEdit={() => handleEdit("gender")}
-              />
-            )}
-
-            {/* Phone field - как в анкете вакансии */}
-            {editingField === "phone" ? (
+            </div>
+          ) : (
+            <div className="mt-10 md:mt-12 space-y-4 md:space-y-6">
               <div className="bg-mariko-field rounded-[90px] px-5 md:px-7 py-3 md:py-4">
-                <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2 block">
-                  Телефон
-                </Label>
-                <div className="flex gap-3">
-                  <Input
-                    type="tel"
-                    value={phoneInput.value}
-                    onChange={phoneInput.onChange}
-                    placeholder="+7 (999) 123-45-67"
-                    className="flex-1 bg-white/10 border-white/20 text-mariko-dark placeholder-mariko-dark/60 font-el-messiri text-base md:text-lg h-10 md:h-11"
-                    autoFocus
-                  />
-                  <Button
-                    onClick={handleSave}
-                    className="bg-green-600 hover:bg-green-700 text-white px-6"
-                  >
-                    ✓
-                  </Button>
-                  <Button
-                    onClick={handleCancel}
-                    className="bg-red-600 hover:bg-red-700 text-white border-0 px-6"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
+                <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2 block">ФИО</Label>
+                <Input value={nameValue} onChange={(e) => setNameValue(e.target.value)} className="bg-white/10 border-white/20 text-mariko-dark font-el-messiri text-base md:text-lg h-10 md:h-11" />
               </div>
-            ) : (
-              <EditableField
-                label="Телефон"
-                value={profile.phone}
-                onEdit={() => handleEdit("phone")}
-              />
-            )}
-          </div>
+
+              <div className="bg-mariko-field rounded-[90px] px-5 md:px-7 py-3 md:py-4">
+                <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2 block">Дата рождения</Label>
+                <Input value={birthDateValue} onChange={(e) => setBirthDateValue(formatDateInput(e.target.value))} placeholder="дд.мм.гггг" maxLength={10} className="bg-white/10 border-white/20 text-mariko-dark font-el-messiri text-base md:text-lg h-10 md:h-11" />
+              </div>
+
+              <div className="bg-mariko-field rounded-[90px] px-5 md:px-7 py-3 md:py-4">
+                <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2 block">Пол</Label>
+                <select value={genderValue} onChange={(e) => setGenderValue(e.target.value)} className="flex-1 bg-white/10 border border-white/20 text-mariko-dark font-el-messiri text-base md:text-lg rounded-lg px-3 py-2 h-10 md:h-11">
+                  <option value="Женский" className="bg-mariko-secondary text-white">Женский</option>
+                  <option value="Мужской" className="bg-mariko-secondary text-white">Мужской</option>
+                </select>
+              </div>
+
+              <div className="bg-mariko-field rounded-[90px] px-5 md:px-7 py-3 md:py-4">
+                <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2 block">Телефон</Label>
+                <Input type="tel" value={phoneInput.value} onChange={phoneInput.onChange} placeholder="+7 (999) 123-45-67" className="bg-white/10 border-white/20 text-mariko-dark font-el-messiri text-base md:text-lg h-10 md:h-11" />
+              </div>
+
+              <div className="flex gap-3 justify-end">
+                <Button onClick={handleSaveAll} className="bg-green-600 hover:bg-green-700 text-white px-6">Сохранить</Button>
+                <Button onClick={handleCancel} className="bg-red-600 hover:bg-red-700 text-white border-0 px-6">Отмена</Button>
+              </div>
+            </div>
+          )}
 
           {/* Bottom spacing for character */}
           <div className="mt-12 md:mt-16 h-32 md:h-40"></div>
