@@ -106,6 +106,19 @@
     background-color: #8E1A1B;
     min-height: 100%;
   }
+
+  /* Дублируем фон отдельным слоем, чтобы гарантировать отображение в WebView */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url('/images/backgrounds/BACKGROUND.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: -1;
+    pointer-events: none;
+  }
 }
 
 /* Примечание: красный фон не гасим глобально, чтобы не ломать бейджи/кнопки.
