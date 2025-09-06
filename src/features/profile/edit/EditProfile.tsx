@@ -179,18 +179,6 @@ const EditProfile = () => {
 
         {/* Greeting */}
         <div className="px-4 md:px-6 max-w-6xl mx-auto mt-4">
-          {/* Top right edit icon */}
-          {!isEditing && (
-            <div className="flex justify-end mb-2">
-              <button
-                onClick={startEditAll}
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                aria-label="Редактировать профиль"
-              >
-                <Pencil className="w-5 h-5 text-white" />
-              </button>
-            </div>
-          )}
           <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6">
             <ProfileAvatar
               photo={profile.photo}
@@ -220,6 +208,18 @@ const EditProfile = () => {
       {/* MAIN SECTION: белый фон с редактируемыми полями */}
       <div className="flex-1 bg-transparent relative overflow-hidden rounded-t-[24px] md:rounded-t-[32px] pt-6 md:pt-8">
         <div className="px-4 md:px-6 max-w-6xl mx-auto w-full pb-32 md:pb-40">
+          {/* Edit icon above first field (ФИО) */}
+          {!isEditing && (
+            <div className="flex justify-end mb-2">
+              <button
+                onClick={startEditAll}
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                aria-label="Редактировать профиль"
+              >
+                <Pencil className="w-5 h-5 text-white" />
+              </button>
+            </div>
+          )}
           {/* Editable Fields */}
           {!isEditing ? (
             <div className="mt-10 md:mt-12 space-y-4 md:space-y-6">
