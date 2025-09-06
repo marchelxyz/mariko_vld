@@ -108,6 +108,7 @@ const Index = () => {
               title="Меню"
               imageUrl="/images/services/MENU-CARD.png"
               aspectRatio="aspect-[3/1]"
+              imageClassName="object-[center]"
               className="w-full"
               onClick={() =>
                 telegramWebApp.openLink('https://vhachapuri.ru/zhukovsky/menu', {

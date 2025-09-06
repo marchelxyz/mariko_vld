@@ -18,6 +18,8 @@ interface ServiceCardProps {
   aspectRatio?: string;
   /** Стратегия загрузки изображения */
   loading?: "lazy" | "eager";
+  /** Дополнительные классы для тега img */
+  imageClassName?: string;
 }
 
 /**
@@ -32,6 +34,7 @@ export const ServiceCard = ({
   className,
   aspectRatio = "aspect-[4/3]",
   loading = "lazy",
+  imageClassName,
 }: ServiceCardProps) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -59,6 +62,7 @@ export const ServiceCard = ({
             className={cn(
               // Небольшое перекрытие по краям, чтобы убрать возможные 1px-щели из-за округления
               "absolute -inset-px w-[calc(100%+2px)] h-[calc(100%+2px)] object-cover block transition-opacity duration-300",
+              imageClassName,
               imageLoaded ? "opacity-100" : "opacity-0",
             )}
             onLoad={() => setImageLoaded(true)}
