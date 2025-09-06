@@ -21,7 +21,7 @@ const About = () => {
       >
         <div className="px-4 md:px-6 max-w-6xl mx-auto w-full">
           {/* Page title */}
-          <PageHeader title="О нас" onBackClick={() => navigate(-1)} />
+          <PageHeader title="О нас" variant="white" onBackClick={() => navigate(-1)} />
 
           {/* Contacts list */}
           <div className="space-y-6 pb-[10rem] md:pb-[12rem]">
