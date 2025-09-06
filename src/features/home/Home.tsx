@@ -108,7 +108,7 @@ const Index = () => {
               title="Меню"
               imageUrl="/images/services/MENU-CARD.png"
               aspectRatio="aspect-[3/1]"
-              imageClassName="object-[center]"
+              imageClassName="object-left"
               className="w-full"
               onClick={() =>
                 telegramWebApp.openLink('https://vhachapuri.ru/zhukovsky/menu', {
@@ -124,6 +124,7 @@ const Index = () => {
               title="Акции"
               imageUrl="/images/services/promo self delivery 1.png"
               aspectRatio="aspect-[4/3]"
+              imageClassName="object-left"
               className="max-w-[180px] md:max-w-[220px] mx-auto"
               onClick={() =>
                 telegramWebApp.openLink('https://vhachapuri.ru/zhukovsky/special', {
@@ -135,6 +136,7 @@ const Index = () => {
               title="Вакансии"
               imageUrl="/images/services/JOBCARD.png"
               aspectRatio="aspect-[4/3]"
+              imageClassName="object-left"
               className="max-w-[180px] md:max-w-[220px] mx-auto"
               onClick={() =>
                 telegramWebApp.openLink('https://vhachapuri.ru/work', {
