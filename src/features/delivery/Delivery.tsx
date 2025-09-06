@@ -108,14 +108,14 @@ const Delivery = () => {
   };
 
   return (
-    <div className="min-h-screen overflow-hidden flex flex-col bg-mariko-primary">
+    <div className="min-h-screen overflow-hidden flex flex-col bg-transparent">
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
-      <div className="bg-mariko-primary pb-6 md:pb-8">
+      <div className="bg-transparent pb-6 md:pb-8">
         <Header />
       </div>
 
       {/* СРЕДНЯЯ СЕКЦИЯ: Main Content с белым фоном, расширенная до низа */}
-      <div className="flex-1 bg-mariko-primary relative overflow-hidden rounded-t-[24px] md:rounded-t-[32px] pt-0 md:pt-2
+      <div className="flex-1 bg-transparent relative overflow-hidden rounded-t-[24px] md:rounded-t-[32px] pt-0 md:pt-2
         before:content-[''] before:absolute before:top-0 before:left-0 before:right-0
         before:h-[20px] md:before:h-[24px]
         before:bg-gradient-to-b before:from-black/30 before:to-transparent

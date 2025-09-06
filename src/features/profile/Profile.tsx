@@ -12,14 +12,14 @@ const Profile = () => {
   const { profile, loading } = useProfile();
 
   return (
-    <div className="min-h-screen overflow-hidden flex flex-col bg-mariko-primary">
+    <div className="min-h-screen overflow-hidden flex flex-col bg-transparent">
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
-      <div className="bg-mariko-primary pb-6 md:pb-8">
+      <div className="bg-transparent pb-6 md:pb-8">
         <Header />
       </div>
 
       {/* СРЕДНЯЯ СЕКЦИЯ: Main Content с белым фоном, расширенная до низа */}
-      <div className="flex-1 bg-mariko-primary relative overflow-hidden pt-0 md:pt-2">
+      <div className="flex-1 bg-transparent relative overflow-hidden pt-0 md:pt-2">
         <div className="px-4 md:px-6 max-w-6xl mx-auto w-full">
           {/* Page Header */}
           <div className="mt-0 md:mt-1">

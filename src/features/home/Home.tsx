@@ -56,14 +56,14 @@ const Index = () => {
   })();
 
   return (
-    <div className="min-h-screen overflow-hidden flex flex-col bg-mariko-primary">
+    <div className="min-h-screen overflow-hidden flex flex-col bg-transparent">
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
-      <div className="bg-mariko-primary pb-6 md:pb-8 relative">
+      <div className="bg-transparent pb-6 md:pb-8 relative">
         <Header showCitySelector={true} />
       </div>
 
       {/* СРЕДНЯЯ СЕКЦИЯ: Main Content */}
-      <div className="flex-1 bg-mariko-primary relative pb-24 md:pb-32">
+      <div className="flex-1 bg-transparent relative pb-24 md:pb-32">
         <div className="px-3 md:px-6 max-w-sm md:max-w-6xl mx-auto w-full">
 
           {/* Quick Action Buttons Grid */}

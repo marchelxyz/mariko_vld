@@ -403,7 +403,7 @@ const Restaurants = () => {
   };
 
   return (
-    <div className="min-h-screen bg-mariko-primary overflow-hidden flex flex-col">
+    <div className="min-h-screen bg-transparent overflow-hidden flex flex-col">
       {/* Header */}
       <Header />
 

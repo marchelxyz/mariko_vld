@@ -9,15 +9,15 @@ const About = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen overflow-hidden flex flex-col bg-mariko-primary">
+    <div className="min-h-screen overflow-hidden flex flex-col bg-transparent">
       {/* Header */}
-      <div className="bg-mariko-primary pb-6 md:pb-8">
+      <div className="bg-transparent pb-6 md:pb-8">
         <Header />
       </div>
 
       {/* Main Content */}
       <div
-        className="flex-1 bg-mariko-primary relative overflow-hidden pt-0 md:pt-2"
+        className="flex-1 bg-transparent relative overflow-hidden pt-0 md:pt-2"
       >
         <div className="px-4 md:px-6 max-w-6xl mx-auto w-full">
           {/* Page title */}

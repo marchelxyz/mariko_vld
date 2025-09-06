@@ -223,9 +223,9 @@ const EditProfile = () => {
   };
 
   return (
-    <div className="min-h-screen overflow-hidden flex flex-col bg-mariko-primary relative">
+    <div className="min-h-screen overflow-hidden flex flex-col bg-transparent relative">
       {/* TOP SECTION: красный фон + шапка и приветствие */}
-      <div className="bg-mariko-primary pb-6 md:pb-8">
+      <div className="bg-transparent pb-6 md:pb-8">
         <Header />
 
         {/* Greeting */}
@@ -257,7 +257,7 @@ const EditProfile = () => {
       </div>
 
       {/* MAIN SECTION: белый фон с редактируемыми полями */}
-      <div className="flex-1 bg-mariko-primary relative overflow-hidden rounded-t-[24px] md:rounded-t-[32px] pt-6 md:pt-8">
+      <div className="flex-1 bg-transparent relative overflow-hidden rounded-t-[24px] md:rounded-t-[32px] pt-6 md:pt-8">
         <div className="px-4 md:px-6 max-w-6xl mx-auto w-full pb-32 md:pb-40">
           {/* Editable Fields */}
           <div className="mt-10 md:mt-12 space-y-4 md:space-y-6">
