@@ -37,6 +37,10 @@ sshpass -p 'p*R-5KNwyE4XJ.' rsync -avz --delete -e "ssh -o StrictHostKeyChecking
 log "→ rsync bot → $SERVER_HOST:/root/bot"
 sshpass -p 'p*R-5KNwyE4XJ.' rsync -avz --exclude='node_modules' --exclude='.env' -e "ssh -o StrictHostKeyChecking=no" bot/ "$SERVER_HOST:/root/bot/"
 
+# 2.2. Поправить права доступа на статику (чтобы nginx отдавал картинки)
+log "→ fix permissions for $WEB_ROOT"
+sshpass -p 'p*R-5KNwyE4XJ.' ssh -o StrictHostKeyChecking=no "$SERVER_HOST" "find $WEB_ROOT -type d -exec chmod 755 {} + && find $WEB_ROOT -type f -exec chmod 644 {} +"
+
 # 3. Перезапуск бота
 log "→ pm2 reload $BOT_NAME"
 sshpass -p 'p*R-5KNwyE4XJ.' ssh -o StrictHostKeyChecking=no "$SERVER_HOST" "pm2 reload $BOT_NAME && pm2 save"
