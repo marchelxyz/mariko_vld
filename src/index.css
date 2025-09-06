@@ -95,16 +95,16 @@
     @apply border-border;
   }
 
-  body {
+  html, body {
     @apply bg-background text-foreground;
     /* Глобальный фон приложения */
     background-image: url('/images/backgrounds/BACKGROUND.png');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    background-attachment: fixed;
     /* Фолбек цвет под изображением */
     background-color: #8E1A1B;
+    min-height: 100%;
   }
 }
 
