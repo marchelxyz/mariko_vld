@@ -22,7 +22,7 @@ const NotFound = () => {
       </div>
 
       {/* СРЕДНЯЯ СЕКЦИЯ: Main Content с белым фоном, расширенная до низа */}
-      <div className="flex-1 bg-[#FFFBF0] relative overflow-hidden rounded-t-[24px] md:rounded-t-[32px] pt-6 md:pt-8
+      <div className="flex-1 bg-mariko-primary relative overflow-hidden rounded-t-[24px] md:rounded-t-[32px] pt-6 md:pt-8
         before:content-[''] before:absolute before:top-0 before:left-0 before:right-0
         before:h-[28px] md:before:h-[32px]
         before:bg-gradient-to-b before:from-black/30 before:to-transparent

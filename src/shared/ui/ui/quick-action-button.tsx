@@ -40,7 +40,7 @@ export const QuickActionButton = ({
         </div>
       </div>
 
-      <div className="mt-1 text-center leading-tight text-[11px] md:text-[12px] text-black">
+      <div className="mt-1 text-center leading-tight text-[11px] md:text-[12px] text-white">
         {title}
       </div>
     </button>
