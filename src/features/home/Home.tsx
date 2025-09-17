@@ -12,7 +12,7 @@ import { getMenuByRestaurantId, MenuItem, MenuCategory } from "@/shared/data/men
 
 const Index = () => {
   const navigate = useNavigate();
-  const { selectedRestaurant } = useCityContext();
+  const { selectedRestaurant, selectedCity } = useCityContext();
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
 
   // 🔧 ВРЕМЕННОЕ СКРЫТИЕ: измените на true чтобы показать раздел "Рекомендуем попробовать"
@@ -71,12 +71,15 @@ const Index = () => {
             <QuickActionButton
               icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Бронь столика"
-              onClick={() =>
-                telegramWebApp.openLink(
-                  'https://remarked.online/marico/#openReMarkedWidget',
-                  { try_instant_view: true }
-                )
-              }
+              onClick={() => {
+                const bookingLink =
+                  selectedCity?.id === 'kaluga'
+                    ? 'https://remarked.online/marico-kaluga/#openReMarkedWidget'
+                    : selectedCity?.id === 'penza'
+                    ? 'https://remarked.online/marico-zacechnoe/#openReMarkedWidget'
+                    : 'https://remarked.online/marico/#openReMarkedWidget';
+                telegramWebApp.openLink(bookingLink, { try_instant_view: true });
+              }}
             />
 
             <QuickActionButton
@@ -110,11 +113,15 @@ const Index = () => {
               aspectRatio="aspect-[3/1]"
               imageClassName="object-left translate-x-[2px]"
               className="w-full"
-              onClick={() =>
-                telegramWebApp.openLink('https://vhachapuri.ru/zhukovsky/menu', {
-                  try_instant_view: false,
-                })
-              }
+              onClick={() => {
+                const menuLink =
+                  selectedCity?.id === 'kaluga'
+                    ? 'https://vhachapuri.ru/kaluga#menu'
+                    : selectedCity?.id === 'penza'
+                    ? 'https://vhachapuri.ru/penza#menu'
+                    : 'https://vhachapuri.ru/zhukovsky/menu';
+                telegramWebApp.openLink(menuLink, { try_instant_view: false });
+              }}
             />
           </div>
 
