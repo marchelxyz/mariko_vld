@@ -71,8 +71,14 @@ const Delivery = () => {
     let yandexLink = "https://eda.yandex.ru/restaurant/khachapuri_mariko";
     let dcLink = "https://deliveryclub.ru/restaurant/khachapuri_mariko";
 
-    // отдельные ссылки для Жуковского
-    if (selectedCity.id === "zhukovsky") {
+    // отдельные ссылки для Калуги и Пензы
+    if (selectedCity.id === "kaluga") {
+      yandexLink =
+        "https://eda.yandex.ru/restaurant/xachapuri_mariko_?utm_campaign=superapp_taxi_web&utm_medium=referral&utm_source=rst_shared_link";
+    } else if (selectedCity.id === "penza") {
+      yandexLink =
+        "https://eda.yandex.ru/restaurant/xachapuri_tetushki_mariko_kdbfq?utm_campaign=superapp_taxi_web&utm_medium=referral&utm_source=rst_shared_link";
+    } else if (selectedCity.id === "zhukovsky") {
       yandexLink =
         "https://eda.yandex.ru/restaurant/xachapuri_tyotushki_mariko_aoygs?utm_campaign=superapp_taxi_web&utm_medium=referral&utm_source=rst_shared_link";
       dcLink =
