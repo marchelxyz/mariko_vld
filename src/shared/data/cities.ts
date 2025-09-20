@@ -351,8 +351,9 @@ export const cities: City[] = [
   },
 ];
 
-// Флаг для тестового режима (только Жуковский)
+// Флаг для тестового режима (ограниченный список городов)
 const IS_TEST_MODE = true; // Устанавливайте в false для включения всех городов
+const TEST_MODE_CITY_IDS: string[] = ["zhukovsky", "kaluga", "penza"];
 
 /**
  * Получить список городов в зависимости от режима работы
@@ -360,8 +361,7 @@ const IS_TEST_MODE = true; // Устанавливайте в false для вк�
  */
 export function getAvailableCities(): City[] {
   if (IS_TEST_MODE) {
-    const zhukovskyCity = cities.find(city => city.id === "zhukovsky");
-    return zhukovskyCity ? [zhukovskyCity] : [];
+    return cities.filter(city => TEST_MODE_CITY_IDS.includes(city.id));
   }
   return cities;
 }

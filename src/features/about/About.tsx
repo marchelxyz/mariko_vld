@@ -4,9 +4,13 @@ import { BottomNavigation } from "@widgets/bottomNavigation";
 import { CONTACTS } from "@shared/data/contacts";
 import { Phone, Instagram, Send, MapPin, Car, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useCityContext } from "@/contexts/CityContext";
+import { telegramWebApp } from "@/services/botApi";
 
 const About = () => {
   const navigate = useNavigate();
+  const { selectedCity } = useCityContext();
+  const filteredContacts = CONTACTS.filter((c) => c.city === selectedCity.name);
 
   return (
     <div className="min-h-screen overflow-hidden flex flex-col bg-transparent">
@@ -23,9 +27,9 @@ const About = () => {
           {/* Page title */}
           <PageHeader title="О нас" variant="white" onBackClick={() => navigate(-1)} />
 
-          {/* Contacts list */}
+          {/* Contacts list (filtered by selected city) */}
           <div className="space-y-6 pb-[10rem] md:pb-[12rem]">
-            {CONTACTS.map((contact) => (
+            {filteredContacts.map((contact) => (
               <div
                 key={contact.id}
                 className="relative bg-mariko-secondary rounded-[90px] p-4 md:p-6 lg:p-8 text-white transition-all duration-300 hover:bg-mariko-secondary/95"
@@ -56,6 +60,10 @@ const About = () => {
                         href={contact.instagramUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          telegramWebApp.openLink(contact.instagramUrl as string, { try_instant_view: false });
+                        }}
                         className="flex items-center gap-2 hover:underline"
                       >
                         <Instagram className="w-6 h-6" />
@@ -67,6 +75,10 @@ const About = () => {
                         href={contact.telegramUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          telegramWebApp.openLink(contact.telegramUrl as string, { try_instant_view: false });
+                        }}
                         className="flex items-center gap-2 hover:underline"
                       >
                         <Send className="w-6 h-6" />
@@ -78,6 +90,10 @@ const About = () => {
                         href={contact.vkUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          telegramWebApp.openLink(contact.vkUrl as string, { try_instant_view: false });
+                        }}
                         className="flex items-center gap-2 hover:underline"
                       >
                         <MessageCircle className="w-6 h-6" />
@@ -94,6 +110,10 @@ const About = () => {
                         href={contact.addressUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          telegramWebApp.openLink(contact.addressUrl as string, { try_instant_view: false });
+                        }}
                         className="font-el-messiri text-lg md:text-xl hover:underline"
                       >
                         {contact.addressLabel}
@@ -109,6 +129,10 @@ const About = () => {
                         href={contact.parkingUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          telegramWebApp.openLink(contact.parkingUrl as string, { try_instant_view: false });
+                        }}
                         className="font-el-messiri text-lg md:text-xl hover:underline"
                       >
                         {contact.parkingLabel}
@@ -147,6 +171,10 @@ const About = () => {
                         href={contact.telegramUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          telegramWebApp.openLink(contact.telegramUrl as string, { try_instant_view: false });
+                        }}
                         className="flex items-center gap-3 hover:underline"
                       >
                         <Send className="w-5 h-5" />
@@ -158,6 +186,10 @@ const About = () => {
                         href={contact.vkUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          telegramWebApp.openLink(contact.vkUrl as string, { try_instant_view: false });
+                        }}
                         className="flex items-center gap-3 hover:underline"
                       >
                         <MessageCircle className="w-5 h-5" />
@@ -169,6 +201,10 @@ const About = () => {
                         href={contact.instagramUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          telegramWebApp.openLink(contact.instagramUrl as string, { try_instant_view: false });
+                        }}
                         className="flex items-center gap-3 hover:underline"
                       >
                         <Instagram className="w-5 h-5" />
@@ -186,6 +222,10 @@ const About = () => {
                           href={contact.addressUrl}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            telegramWebApp.openLink(contact.addressUrl as string, { try_instant_view: false });
+                          }}
                           className="font-el-messiri text-base hover:underline text-center"
                         >
                           {contact.addressLabel}
@@ -203,6 +243,10 @@ const About = () => {
                           href={contact.parkingUrl}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            telegramWebApp.openLink(contact.parkingUrl as string, { try_instant_view: false });
+                          }}
                           className="font-el-messiri text-base hover:underline text-center"
                         >
                           {contact.parkingLabel}
