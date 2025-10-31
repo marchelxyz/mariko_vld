@@ -1,14 +1,14 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
-import { getTg, markReady, tryRequestFullscreen } from "@/lib/telegram";
+import { getTg, markReady } from "@/lib/telegram";
 
 const tg = getTg();
 
 // Инициализация Telegram WebApp (если запущено в Telegram)
 if (tg) {
   markReady();
-  tryRequestFullscreen();
+  tg.expand?.();
 }
 
 // Глобальный перехват ошибок для диагностики в WebView Telegram
