@@ -1,0 +1,101 @@
+import type { UserProfile } from "@/services/botApi";
+
+function getEnv(key: string): string | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const env = (import.meta as any).env as Record<string, string | undefined>;
+  return env[key];
+}
+
+function getSupabaseRestBase(): { restUrl: string; anonKey: string } | null {
+  const url = getEnv("VITE_SUPABASE_URL");
+  const anon = getEnv("VITE_SUPABASE_ANON_KEY");
+  if (!url || !anon) return null;
+  const restUrl = url.replace(/\/$/, "") + "/rest/v1";
+  return { restUrl, anonKey: anon };
+}
+
+function mapDbToProfile(row: any): UserProfile {
+  return {
+    id: row.id,
+    name: row.name ?? "",
+    phone: row.phone ?? "",
+    birthDate: row.birth_date ?? "",
+    gender: row.gender ?? "Не указан",
+    photo: row.photo ?? "",
+    notificationsEnabled: row.notifications_enabled ?? true,
+  };
+}
+
+export const profileSupabaseApi = {
+  async getUserProfile(userId: string): Promise<UserProfile> {
+    const cfg = getSupabaseRestBase();
+    if (!cfg) throw new Error("Supabase is not configured");
+
+    const { restUrl, anonKey } = cfg;
+    const headers = {
+      apikey: anonKey,
+      Authorization: `Bearer ${anonKey}`,
+      Accept: "application/json",
+    } as Record<string, string>;
+
+    // Пытаемся найти по id, затем по telegram_id (если число)
+    const encodedUserId = encodeURIComponent(userId);
+    const byIdUrl = `${restUrl}/user_profiles?select=*&id=eq.${encodedUserId}&limit=1`;
+    const byIdResp = await fetch(byIdUrl, { headers });
+    if (!byIdResp.ok) throw new Error(`Supabase error: ${byIdResp.status}`);
+    const byIdData = (await byIdResp.json()) as any[];
+    if (byIdData.length > 0) return mapDbToProfile(byIdData[0]);
+
+    const asNum = Number(userId);
+    if (!Number.isNaN(asNum)) {
+      const byTgUrl = `${restUrl}/user_profiles?select=*&telegram_id=eq.${encodeURIComponent(String(asNum))}&limit=1`;
+      const byTgResp = await fetch(byTgUrl, { headers });
+      if (!byTgResp.ok) throw new Error(`Supabase error: ${byTgResp.status}`);
+      const byTgData = (await byTgResp.json()) as any[];
+      if (byTgData.length > 0) return mapDbToProfile(byTgData[0]);
+    }
+
+    // Если профиль ещё не существует — создаём пустой скелет локально (без записи в БД)
+    return {
+      id: userId,
+      name: "",
+      phone: "",
+      birthDate: "",
+      gender: "Не указан",
+      photo: "",
+      notificationsEnabled: true,
+    };
+  },
+
+  async updateUserProfile(userId: string, profile: Partial<UserProfile>): Promise<boolean> {
+    const cfg = getSupabaseRestBase();
+    if (!cfg) throw new Error("Supabase is not configured");
+
+    const { restUrl, anonKey } = cfg;
+    const headers: Record<string, string> = {
+      apikey: anonKey,
+      Authorization: `Bearer ${anonKey}`,
+      "Content-Type": "application/json",
+      Prefer: "resolution=merge-duplicates,return=representation",
+    };
+
+    const payload: Record<string, unknown> = { id: userId };
+    if (profile.name !== undefined) payload.name = profile.name;
+    if (profile.phone !== undefined) payload.phone = profile.phone;
+    if (profile.birthDate !== undefined) payload.birth_date = profile.birthDate;
+    if (profile.gender !== undefined) payload.gender = profile.gender;
+    if (profile.photo !== undefined) payload.photo = profile.photo;
+    if (profile.notificationsEnabled !== undefined) payload.notifications_enabled = profile.notificationsEnabled;
+
+    const url = `${restUrl}/user_profiles?on_conflict=id`;
+    const resp = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) return false;
+    return true;
+  },
+};
+
+

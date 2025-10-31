@@ -10,7 +10,6 @@ export interface UserProfile {
   gender: string;
   photo: string;
   notificationsEnabled: boolean;
-  selectedRestaurant: string;
   createdAt: string;
   updatedAt: string;
   lastLogin: string;
@@ -235,7 +234,6 @@ class ProfileDatabase {
       photo: "",
 
       notificationsEnabled: true,
-      selectedRestaurant: "Нижний Новгород, Рождественская, 39",
       createdAt: now,
       updatedAt: now,
       lastLogin: now,
@@ -659,7 +657,6 @@ class ProfileDatabase {
             gender: profile.gender,
             photo: profile.photo.includes("TEMP") ? "" : profile.photo, // Убираем большие изображения
             notificationsEnabled: profile.notificationsEnabled,
-            selectedRestaurant: profile.selectedRestaurant,
             createdAt: profile.createdAt,
             updatedAt: profile.updatedAt,
             lastLogin: profile.lastLogin,
@@ -727,7 +724,6 @@ class ProfileDatabase {
             gender: profile.gender,
             photo: profile.photo.includes("TEMP") ? "" : profile.photo, // Убираем большие изображения
             notificationsEnabled: profile.notificationsEnabled,
-            selectedRestaurant: profile.selectedRestaurant,
             createdAt: profile.createdAt,
             updatedAt: profile.updatedAt,
             lastLogin: profile.lastLogin,
@@ -957,7 +953,6 @@ export const sqlSchemas = {
       photo TEXT,
 
       notifications_enabled BOOLEAN DEFAULT true,
-      selected_restaurant VARCHAR(255),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP

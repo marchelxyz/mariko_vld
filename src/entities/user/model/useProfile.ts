@@ -9,7 +9,6 @@ export interface UserProfile {
   gender: string;
   photo: string;
   notificationsEnabled: boolean;
-  selectedRestaurant: string;
 }
 
 const defaultProfile: UserProfile = {
@@ -20,7 +19,6 @@ const defaultProfile: UserProfile = {
   gender: "Не указан",
   photo: "",
   notificationsEnabled: true,
-  selectedRestaurant: "Нижний Новгород, Рождественская, 39",
 };
 
 export const useProfile = () => {

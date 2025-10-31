@@ -8,6 +8,7 @@ import { useCityContext } from "@/contexts/CityContext";
 import { RESTAURANT_REVIEW_LINKS } from "@/shared/data/reviewLinks";
 import { CalendarDays, Truck, Star as StarIcon, RussianRuble, ChevronDown } from "lucide-react";
 import { getMenuByRestaurantId, MenuItem, MenuCategory } from "@/shared/data/menuData";
+import { toast } from "@/hooks/use-toast";
 
 
 const Index = () => {
@@ -133,11 +134,26 @@ const Index = () => {
               aspectRatio="aspect-[4/3]"
               imageClassName="object-left translate-x-[2px]"
               className="max-w-[180px] md:max-w-[220px] mx-auto"
-              onClick={() =>
-                telegramWebApp.openLink('https://vhachapuri.ru/zhukovsky/special', {
-                  try_instant_view: true,
-                })
-              }
+              onClick={() => {
+                const promoLink =
+                  selectedCity?.id === 'kaluga'
+                    ? 'https://vhachapuri.ru/kaluga#rec814439827'
+                    : selectedCity?.id === 'penza'
+                    ? 'https://vhachapuri.ru/penza#rec755133606'
+                    : selectedCity?.id === 'zhukovsky'
+                    ? 'https://vhachapuri.ru/zhukovsky/special'
+                    : null;
+
+                if (!promoLink) {
+                  toast({
+                    title: 'Акции скоро появятся',
+                    description: 'Для вашего города пока нет ссылки на акции.',
+                  });
+                  return;
+                }
+
+                telegramWebApp.openLink(promoLink, { try_instant_view: true });
+              }}
             />
             <ServiceCard
               title="Вакансии"

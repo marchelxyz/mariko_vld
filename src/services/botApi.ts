@@ -11,7 +11,6 @@ export interface UserProfile {
   gender: string;
   photo: string;
   notificationsEnabled: boolean;
-  selectedRestaurant: string;
 }
 
 export interface ReviewData {
@@ -99,7 +98,6 @@ export const botApi = {
       gender: profile.gender,
       photo: profile.photo,
       notificationsEnabled: profile.notificationsEnabled,
-      selectedRestaurant: profile.selectedRestaurant,
       };
     } catch (error) {
       console.error("Ошибка получения профиля:", error);
@@ -113,7 +111,6 @@ export const botApi = {
         gender: "Не указан",
         photo: "",
         notificationsEnabled: true,
-        selectedRestaurant: "Нижний Новгород, Рождественская, 39",
       };
     }
   },
