@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { profileApi } from "@shared/api";
+import { getUser, storage } from "@/lib/telegram";
 
 export interface UserProfile {
   id: string;
@@ -45,7 +46,7 @@ export const useProfile = () => {
       setError(null);
 
       // Получаем ID пользователя из Telegram
-      const telegramUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+      const telegramUser = getUser();
       const currentUserId = telegramUser?.id?.toString() || "demo_user";
       
       // Обновляем userId только если он изменился
@@ -79,11 +80,11 @@ export const useProfile = () => {
         // Обновляем локальное состояние только при успешном сохранении
         setProfile(updatedProfile);
         
-        // Дополнительно сохраняем в localStorage для надежности
+        // Дополнительно сохраняем в fallback storage для надежности
         try {
-          localStorage.setItem(`profile_${currentUserId}`, JSON.stringify(updatedProfile));
+          storage.setItem(`profile_${currentUserId}`, JSON.stringify(updatedProfile));
         } catch (storageErr) {
-          console.warn("Не удалось сохранить в localStorage:", storageErr);
+          console.warn("Не удалось сохранить данные локально:", storageErr);
           // Не считаем это критической ошибкой
         }
         
@@ -98,14 +99,14 @@ export const useProfile = () => {
       setError("Не удалось обновить профиль");
       console.error("Ошибка обновления профиля:", err);
       
-      // Попытка восстановить из localStorage только в случае серьезной ошибки
+      // Попытка восстановить из fallback storage только в случае серьезной ошибки
       try {
         const currentUserId = userId || "demo_user";
-        const savedProfile = localStorage.getItem(`profile_${currentUserId}`);
+        const savedProfile = storage.getItem(`profile_${currentUserId}`);
         if (savedProfile) {
           const parsedProfile = JSON.parse(savedProfile);
           setProfile({ ...defaultProfile, ...parsedProfile });
-          console.log("Профиль восстановлен из localStorage");
+          console.log("Профиль восстановлен из локального хранилища");
         }
       } catch (restoreErr) {
         console.error("Не удалось восстановить профиль:", restoreErr);

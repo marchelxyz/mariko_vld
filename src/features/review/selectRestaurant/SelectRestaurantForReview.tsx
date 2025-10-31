@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { telegramWebApp } from "@/services/botApi";
+import { safeOpenLink, storage } from "@/lib/telegram";
 import { MapPin, Star, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@widgets/header";
@@ -19,12 +19,12 @@ const SelectRestaurantForReview = () => {
     
     if (externalReviewLink) {
       // Открываем внешнюю ссылку во встроенном браузере Telegram
-      telegramWebApp.openLink(externalReviewLink, { try_instant_view: false });
+      safeOpenLink(externalReviewLink, { try_instant_view: false });
       return;
     }
 
     // Если нет внешней ссылки, сохраняем выбранный ресторан и переходим к форме отзыва
-    localStorage.setItem('selectedRestaurantForReview', restaurantId);
+    storage.setItem("selectedRestaurantForReview", restaurantId);
     navigate("/review");
   };
 

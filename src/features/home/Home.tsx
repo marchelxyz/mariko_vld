@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { telegramWebApp } from "@/services/botApi";
+import { safeOpenLink, storage } from "@/lib/telegram";
 import { Header } from "@widgets/header";
 import { QuickActionButton, ServiceCard, MenuItemComponent } from "@shared/ui";
 import { BottomNavigation } from "@widgets/bottomNavigation";
@@ -24,12 +24,12 @@ const Index = () => {
 
     if (externalReviewLink) {
       // Открываем внешнюю ссылку без подтверждения
-      telegramWebApp.openLink(externalReviewLink, { try_instant_view: false });
+      safeOpenLink(externalReviewLink, { try_instant_view: false });
       return;
     }
 
     // Если внешней ссылки нет, используем внутреннюю форму отзыва
-    localStorage.setItem("selectedRestaurantForReview", selectedRestaurant.id);
+    storage.setItem("selectedRestaurantForReview", selectedRestaurant.id);
     navigate("/review");
   };
 
@@ -79,7 +79,7 @@ const Index = () => {
                     : selectedCity?.id === 'penza'
                     ? 'https://remarked.online/marico-zacechnoe/#openReMarkedWidget'
                     : 'https://remarked.online/marico/#openReMarkedWidget';
-                telegramWebApp.openLink(bookingLink, { try_instant_view: true });
+                safeOpenLink(bookingLink, { try_instant_view: true });
               }}
             />
 
@@ -99,7 +99,7 @@ const Index = () => {
               icon={<RussianRuble className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Франшиза"
               onClick={() =>
-                telegramWebApp.openLink('https://vhachapuri.ru/franshiza', {
+                safeOpenLink('https://vhachapuri.ru/franshiza', {
                   try_instant_view: true,
                 })
               }
@@ -121,7 +121,7 @@ const Index = () => {
                     : selectedCity?.id === 'penza'
                     ? 'https://vhachapuri.ru/penza#menu'
                     : 'https://vhachapuri.ru/zhukovsky/menu';
-                telegramWebApp.openLink(menuLink, { try_instant_view: false });
+                safeOpenLink(menuLink, { try_instant_view: false });
               }}
             />
           </div>
@@ -152,7 +152,7 @@ const Index = () => {
                   return;
                 }
 
-                telegramWebApp.openLink(promoLink, { try_instant_view: true });
+                safeOpenLink(promoLink, { try_instant_view: true });
               }}
             />
             <ServiceCard
@@ -162,7 +162,7 @@ const Index = () => {
               imageClassName="object-left translate-x-[2px]"
               className="max-w-[180px] md:max-w-[220px] mx-auto"
               onClick={() =>
-                telegramWebApp.openLink('https://vhachapuri.ru/work', {
+                safeOpenLink('https://vhachapuri.ru/work', {
                   try_instant_view: true,
                 })
               }

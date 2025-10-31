@@ -5,7 +5,7 @@ import { CONTACTS } from "@shared/data/contacts";
 import { Phone, Instagram, Send, MapPin, Car, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCityContext } from "@/contexts/CityContext";
-import { telegramWebApp } from "@/services/botApi";
+import { safeOpenLink } from "@/lib/telegram";
 
 const About = () => {
   const navigate = useNavigate();
@@ -62,7 +62,7 @@ const About = () => {
                         rel="noopener noreferrer"
                         onClick={(e) => {
                           e.preventDefault();
-                          telegramWebApp.openLink(contact.instagramUrl as string, { try_instant_view: false });
+                          safeOpenLink(contact.instagramUrl as string, { try_instant_view: false });
                         }}
                         className="flex items-center gap-2 hover:underline"
                       >
@@ -77,7 +77,7 @@ const About = () => {
                         rel="noopener noreferrer"
                         onClick={(e) => {
                           e.preventDefault();
-                          telegramWebApp.openLink(contact.telegramUrl as string, { try_instant_view: false });
+                          safeOpenLink(contact.telegramUrl as string, { try_instant_view: false });
                         }}
                         className="flex items-center gap-2 hover:underline"
                       >
@@ -92,7 +92,7 @@ const About = () => {
                         rel="noopener noreferrer"
                         onClick={(e) => {
                           e.preventDefault();
-                          telegramWebApp.openLink(contact.vkUrl as string, { try_instant_view: false });
+                          safeOpenLink(contact.vkUrl as string, { try_instant_view: false });
                         }}
                         className="flex items-center gap-2 hover:underline"
                       >
@@ -112,7 +112,7 @@ const About = () => {
                         rel="noopener noreferrer"
                         onClick={(e) => {
                           e.preventDefault();
-                          telegramWebApp.openLink(contact.addressUrl as string, { try_instant_view: false });
+                          safeOpenLink(contact.addressUrl as string, { try_instant_view: false });
                         }}
                         className="font-el-messiri text-lg md:text-xl hover:underline"
                       >
@@ -131,7 +131,7 @@ const About = () => {
                         rel="noopener noreferrer"
                         onClick={(e) => {
                           e.preventDefault();
-                          telegramWebApp.openLink(contact.parkingUrl as string, { try_instant_view: false });
+                          safeOpenLink(contact.parkingUrl as string, { try_instant_view: false });
                         }}
                         className="font-el-messiri text-lg md:text-xl hover:underline"
                       >
@@ -173,7 +173,7 @@ const About = () => {
                         rel="noopener noreferrer"
                         onClick={(e) => {
                           e.preventDefault();
-                          telegramWebApp.openLink(contact.telegramUrl as string, { try_instant_view: false });
+                          safeOpenLink(contact.telegramUrl as string, { try_instant_view: false });
                         }}
                         className="flex items-center gap-3 hover:underline"
                       >
@@ -188,7 +188,7 @@ const About = () => {
                         rel="noopener noreferrer"
                         onClick={(e) => {
                           e.preventDefault();
-                          telegramWebApp.openLink(contact.vkUrl as string, { try_instant_view: false });
+                          safeOpenLink(contact.vkUrl as string, { try_instant_view: false });
                         }}
                         className="flex items-center gap-3 hover:underline"
                       >
@@ -203,7 +203,7 @@ const About = () => {
                         rel="noopener noreferrer"
                         onClick={(e) => {
                           e.preventDefault();
-                          telegramWebApp.openLink(contact.instagramUrl as string, { try_instant_view: false });
+                          safeOpenLink(contact.instagramUrl as string, { try_instant_view: false });
                         }}
                         className="flex items-center gap-3 hover:underline"
                       >
@@ -224,7 +224,7 @@ const About = () => {
                           rel="noopener noreferrer"
                           onClick={(e) => {
                             e.preventDefault();
-                            telegramWebApp.openLink(contact.addressUrl as string, { try_instant_view: false });
+                            safeOpenLink(contact.addressUrl as string, { try_instant_view: false });
                           }}
                           className="font-el-messiri text-base hover:underline text-center"
                         >
@@ -245,7 +245,7 @@ const About = () => {
                           rel="noopener noreferrer"
                           onClick={(e) => {
                             e.preventDefault();
-                            telegramWebApp.openLink(contact.parkingUrl as string, { try_instant_view: false });
+                            safeOpenLink(contact.parkingUrl as string, { try_instant_view: false });
                           }}
                           className="font-el-messiri text-base hover:underline text-center"
                         >

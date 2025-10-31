@@ -1,6 +1,7 @@
 // Telegram Bot API интеграция
 // Эти функции будут интегрированы с бэкендом бота
 
+import { getUser } from "@/lib/telegram";
 import { profileDB, type UserProfile as DBUserProfile, type Review } from "./database";
 
 export interface UserProfile {
@@ -69,7 +70,7 @@ export const botApi = {
 
       // Если профиля нет, создаем новый
       if (!profile) {
-        const telegramUser = telegramWebApp.getUserData();
+        const telegramUser = getUser();
 
         profile = profileDB.createProfile({
           id: telegramUserId,
@@ -361,55 +362,3 @@ export const botApi = {
     }
   },
 };
-
-// Вспомогательные функции для работы с Telegram WebApp
-export const telegramWebApp = {
-  // Проверка, что приложение запущено в Telegram
-  isInTelegram(): boolean {
-    return !!(
-      typeof window !== "undefined" && window.Telegram && window.Telegram.WebApp
-    );
-  },
-
-  // Получение данных пользователя из Telegram
-  getUserData() {
-    if (this.isInTelegram()) {
-      return window.Telegram.WebApp.initDataUnsafe.user;
-    }
-    return null;
-  },
-
-  // Закрытие WebApp
-  close() {
-    if (this.isInTelegram()) {
-      window.Telegram.WebApp.close();
-    }
-  },
-
-  // Отправка данных обратно в бот
-  sendData(data: any) {
-    if (this.isInTelegram()) {
-      window.Telegram.WebApp.sendData(JSON.stringify(data));
-    }
-  },
-
-  // Открытие внешней ссылки внутри Telegram (встроенный браузер)
-  openLink(url: string, options?: { try_instant_view?: boolean }): void {
-    if (this.isInTelegram()) {
-      window.Telegram.WebApp.openLink(url, options);
-    } else if (typeof window !== "undefined") {
-      window.open(url, "_blank");
-    }
-  },
-
-  // Показ главной кнопки
-  showMainButton(text: string, callback: () => void) {
-    if (this.isInTelegram()) {
-      const mainButton = window.Telegram.WebApp.MainButton;
-      mainButton.text = text;
-      mainButton.show();
-      mainButton.onClick(callback);
-    }
-  },
-};
-// Глобальные типы объявлены в src/types/telegram-webapp.d.ts

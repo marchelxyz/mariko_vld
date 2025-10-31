@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { applySafeAreaTo, setBottomBarColor, getTg } from "@/lib/telegram";
 
 interface BottomNavigationProps {
   currentPage: "home" | "profile" | "about";
@@ -14,6 +15,25 @@ interface BottomNavigationProps {
 export const BottomNavigation = ({ currentPage, className }: BottomNavigationProps) => {
   const navigate = useNavigate();
   const [iconsLoaded, setIconsLoaded] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    const cleanupSafeArea = applySafeAreaTo(element, { property: "padding", sides: ["bottom"] });
+    const previousColor = getTg()?.bottomBarColor;
+    const colorApplied = setBottomBarColor("#0b0b0f", true);
+
+    return () => {
+      cleanupSafeArea();
+      if (colorApplied) {
+        if (previousColor) {
+          setBottomBarColor(previousColor, false);
+        } else {
+          setBottomBarColor("#000000", false);
+        }
+      }
+    };
+  }, []);
 
   // Preload критически важных иконок при монтировании компонента
   useEffect(() => {
@@ -73,7 +93,7 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
   ];
 
   return (
-    <div className={cn("relative z-50", className)}>
+    <div ref={containerRef} className={cn("relative z-50", className)}>
       {/* БЛОК 1: Прозрачные кнопки навигации с затемненным blur эффектом */}
       <div className="backdrop-blur-lg backdrop-saturate-150 bg-black/60 rounded-t-3xl">
         <div className="flex justify-around items-end relative min-h-[4rem]">

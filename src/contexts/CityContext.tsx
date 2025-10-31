@@ -6,6 +6,7 @@ import {
   ReactNode,
 } from "react";
 import { getAvailableCities, type City, type Restaurant } from "@/shared/data/cities";
+import { storage } from "@/lib/telegram";
 
 // Создаем плоский список всех ресторанов для удобного поиска
 const getAllRestaurants = (): Restaurant[] => {
@@ -71,13 +72,13 @@ export const RestaurantProvider = ({ children }: RestaurantProviderProps) => {
     return city || availableCities[0];
   };
 
-  // 🔧 ИСПРАВЛЕНИЕ: Загружаем сохраненный ресторан из localStorage при инициализации
+  // 🔧 ИСПРАВЛЕНИЕ: Загружаем сохраненный ресторан из безопасного хранилища при инициализации
   useEffect(() => {
     let isMounted = true; // Защита от race condition
     
     const loadSavedRestaurant = () => {
       try {
-        const savedRestaurant = localStorage.getItem("selectedRestaurant");
+        const savedRestaurant = storage.getItem("selectedRestaurant");
         if (savedRestaurant && isMounted) {
           const restaurantData = JSON.parse(savedRestaurant);
           const restaurant = allRestaurants.find((r) => r.id === restaurantData.id);
@@ -101,7 +102,7 @@ export const RestaurantProvider = ({ children }: RestaurantProviderProps) => {
 
   const setSelectedRestaurant = (restaurant: Restaurant) => {
     setSelectedRestaurantState(restaurant);
-    localStorage.setItem(
+    storage.setItem(
       "selectedRestaurant",
       JSON.stringify({ id: restaurant.id, name: restaurant.name, address: restaurant.address, city: restaurant.city }),
     );

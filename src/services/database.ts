@@ -1,6 +1,8 @@
 // База данных профилей пользователей
 // В продакшене это будет заменено на реальную базу данных (PostgreSQL, MongoDB и т.д.)
 
+import { storage } from "@/lib/telegram";
+
 export interface UserProfile {
   id: string;
   telegramId?: number;
@@ -53,14 +55,14 @@ class ProfileDatabase {
 
   private initializeDatabase(): void {
     // Проверяем и создаем начальные данные если нужно
-    if (!localStorage.getItem(this.storageKey)) {
+    if (!storage.getItem(this.storageKey)) {
       this.saveProfiles([]);
     }
-    if (!localStorage.getItem(this.activityKey)) {
-      localStorage.setItem(this.activityKey, JSON.stringify([]));
+    if (!storage.getItem(this.activityKey)) {
+      storage.setItem(this.activityKey, JSON.stringify([]));
     }
-    if (!localStorage.getItem(this.reviewsKey)) {
-      localStorage.setItem(this.reviewsKey, JSON.stringify([]));
+    if (!storage.getItem(this.reviewsKey)) {
+      storage.setItem(this.reviewsKey, JSON.stringify([]));
       // Создаем несколько тестовых отзывов
       this.createTestReviews();
     }
@@ -163,21 +165,21 @@ class ProfileDatabase {
       }
     ];
 
-    localStorage.setItem(this.reviewsKey, JSON.stringify(testReviews));
+    storage.setItem(this.reviewsKey, JSON.stringify(testReviews));
     // Созданы тестовые отзывы для демонстрации функциональности
   }
 
   private initCleanup(): void {
     try {
       // Проверяем, когда последний раз была очистка
-      const lastCleanup = localStorage.getItem("mariko_last_cleanup");
+      const lastCleanup = storage.getItem("mariko_last_cleanup");
       const now = Date.now();
       const dayAgo = now - 24 * 60 * 60 * 1000; // 24 часа
 
       if (!lastCleanup || parseInt(lastCleanup) < dayAgo) {
         // Выполняем автоматическую очистку базы данных
         this.cleanupOldData();
-        localStorage.setItem("mariko_last_cleanup", now.toString());
+        storage.setItem("mariko_last_cleanup", now.toString());
       }
     } catch (error) {
       console.error("Ошибка инициализации очистки:", error);
@@ -188,7 +190,7 @@ class ProfileDatabase {
   getAllProfiles(): UserProfile[] {
     return this.safeLocalStorageOperation(
       () => {
-        const data = localStorage.getItem(this.storageKey);
+        const data = storage.getItem(this.storageKey);
         return data ? JSON.parse(data) : [];
       },
       [],
@@ -385,19 +387,19 @@ class ProfileDatabase {
         // 1MB лимит для активности
         console.warn("Активность слишком большая, очищаем старые записи");
         const recentActivities = activities.slice(-100); // Оставляем только последние 100
-        localStorage.setItem(
+        storage.setItem(
           this.activityKey,
           JSON.stringify(recentActivities),
         );
       } else {
-        localStorage.setItem(this.activityKey, activityString);
+        storage.setItem(this.activityKey, activityString);
       }
     } catch (error) {
       console.error("Ошибка записи активности:", error);
 
       // Fallback: очищаем активность если не получается записать
       try {
-        localStorage.removeItem(this.activityKey);
+        storage.removeItem(this.activityKey);
         // Очищена история активности из-за переполнения
       } catch (e) {
         console.error("Не удалось очистить активность");
@@ -422,7 +424,7 @@ class ProfileDatabase {
   getAllReviews(): Review[] {
     return this.safeLocalStorageOperation(
       () => {
-        const data = localStorage.getItem(this.reviewsKey);
+        const data = storage.getItem(this.reviewsKey);
         return data ? JSON.parse(data) : [];
       },
       [],
@@ -576,10 +578,10 @@ class ProfileDatabase {
             ...pendingReviews.filter(p => !recentReviews.find(r => r.id === p.id))
           ];
           
-          localStorage.setItem(this.reviewsKey, JSON.stringify(cleanedReviews));
+          storage.setItem(this.reviewsKey, JSON.stringify(cleanedReviews));
           console.log(`Очищена база отзывов: оставлено ${cleanedReviews.length} из ${reviews.length}`);
         } else {
-          localStorage.setItem(this.reviewsKey, reviewsString);
+          storage.setItem(this.reviewsKey, reviewsString);
         }
         
         return true;
@@ -606,7 +608,7 @@ class ProfileDatabase {
         this.saveProfiles(data.profiles);
       }
       if (data.activities && Array.isArray(data.activities)) {
-        localStorage.setItem(this.activityKey, JSON.stringify(data.activities));
+        storage.setItem(this.activityKey, JSON.stringify(data.activities));
       }
       return true;
     } catch (error) {
@@ -633,9 +635,9 @@ class ProfileDatabase {
           )
           .slice(0, 100);
 
-        localStorage.setItem(this.storageKey, JSON.stringify(sortedProfiles));
+        storage.setItem(this.storageKey, JSON.stringify(sortedProfiles));
       } else {
-        localStorage.setItem(this.storageKey, dataString);
+        storage.setItem(this.storageKey, dataString);
       }
     } catch (error) {
       console.error("Ошибка сохранения профилей:", error);
@@ -662,19 +664,19 @@ class ProfileDatabase {
             lastLogin: profile.lastLogin,
           }));
 
-        localStorage.setItem(
+        storage.setItem(
           this.storageKey,
           JSON.stringify(essentialProfiles),
         );
         console.log("Сохранены только ключевые данные профилей");
       } catch (fallbackError) {
         console.error("Критическая ошибка сохранения:", fallbackError);
-        // Очищаем localStorage если совсем не получается
+        // Очищаем локальное хранилище если совсем не получается
         try {
-          localStorage.removeItem(this.storageKey);
-          localStorage.removeItem(this.activityKey);
+          storage.removeItem(this.storageKey);
+          storage.removeItem(this.activityKey);
         } catch (e) {
-          console.error("Не удалось очистить localStorage");
+          console.error("Не удалось очистить локальное хранилище");
         }
       }
     }
@@ -698,10 +700,10 @@ class ProfileDatabase {
           )
           .slice(0, 100);
 
-        localStorage.setItem(this.storageKey, JSON.stringify(sortedProfiles));
+        storage.setItem(this.storageKey, JSON.stringify(sortedProfiles));
         return true;
       } else {
-        localStorage.setItem(this.storageKey, dataString);
+        storage.setItem(this.storageKey, dataString);
         return true;
       }
     } catch (error) {
@@ -729,7 +731,7 @@ class ProfileDatabase {
             lastLogin: profile.lastLogin,
           }));
 
-        localStorage.setItem(
+        storage.setItem(
           this.storageKey,
           JSON.stringify(essentialProfiles),
         );
@@ -737,12 +739,12 @@ class ProfileDatabase {
         return true; // Даже при fallback считаем сохранение успешным
       } catch (fallbackError) {
         console.error("Критическая ошибка сохранения:", fallbackError);
-        // Очищаем localStorage если совсем не получается
+        // Очищаем локальное хранилище если совсем не получается
         try {
-          localStorage.removeItem(this.storageKey);
-          localStorage.removeItem(this.activityKey);
+          storage.removeItem(this.storageKey);
+          storage.removeItem(this.activityKey);
         } catch (e) {
-          console.error("Не удалось очистить localStorage");
+          console.error("Не удалось очистить локальное хранилище");
         }
         return false; // Возвращаем false только если совсем ничего не получилось
       }
@@ -752,7 +754,7 @@ class ProfileDatabase {
   private getAllActivities(): UserActivity[] {
     return this.safeLocalStorageOperation(
       () => {
-        const data = localStorage.getItem(this.activityKey);
+        const data = storage.getItem(this.activityKey);
         return data ? JSON.parse(data) : [];
       },
       [],
@@ -760,7 +762,7 @@ class ProfileDatabase {
     );
   }
 
-  // Безопасная обертка для операций с localStorage
+  // Безопасная обертка для операций с локальным хранилищем
   private safeLocalStorageOperation<T>(
     operation: () => T,
     fallbackValue: T,
@@ -773,7 +775,7 @@ class ProfileDatabase {
 
       // Если это ошибка переполнения, пытаемся очистить место
       if (error instanceof Error && error.name === "QuotaExceededError") {
-        console.warn("localStorage переполнен, выполняем экстренную очистку");
+        console.warn("Локальное хранилище переполнено, выполняем экстренную очистку");
         this.emergencyCleanup();
       }
 
@@ -785,7 +787,7 @@ class ProfileDatabase {
   private emergencyCleanup(): void {
     try {
       // Очищаем активность полностью
-      localStorage.removeItem(this.activityKey);
+      storage.removeItem(this.activityKey);
 
       // Оставляем только 30 самых свежих отзывов
       const reviews = this.getAllReviews();
@@ -795,7 +797,7 @@ class ProfileDatabase {
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         )
         .slice(0, 30);
-      localStorage.setItem(this.reviewsKey, JSON.stringify(recentReviews));
+      storage.setItem(this.reviewsKey, JSON.stringify(recentReviews));
 
       // Оставляем только 20 самых свежих профилей
       const profiles = this.getAllProfiles();
@@ -815,15 +817,15 @@ class ProfileDatabase {
           photo: profile.photo.includes("TEMP") ? "" : profile.photo, // Убираем тяжелые изображения
         }));
 
-      localStorage.setItem(this.storageKey, JSON.stringify(recentProfiles));
+      storage.setItem(this.storageKey, JSON.stringify(recentProfiles));
       console.log("Экстренная очистка завершена");
     } catch (error) {
       console.error("Ошибка экстренной очистки:", error);
       // В крайнем случае очищаем все
       try {
-        localStorage.clear();
+        storage.clear();
       } catch (e) {
-        console.error("Не удалось очистить localStorage");
+        console.error("Не удалось очистить локальное хранилище");
       }
     }
   }
@@ -843,12 +845,12 @@ class ProfileDatabase {
     return `anonymous_${timestamp}_${random}`;
   }
 
-  // Проверка размера localStorage
+  // Проверка размера локального хранилища
   getStorageInfo() {
     try {
-      const profiles = localStorage.getItem(this.storageKey) || "[]";
-      const activities = localStorage.getItem(this.activityKey) || "[]";
-      const reviews = localStorage.getItem(this.reviewsKey) || "[]";
+      const profiles = storage.getItem(this.storageKey) || "[]";
+      const activities = storage.getItem(this.activityKey) || "[]";
+      const reviews = storage.getItem(this.reviewsKey) || "[]";
 
       return {
         profilesSize: this.formatBytes(profiles.length),
@@ -910,7 +912,7 @@ class ProfileDatabase {
           `Удалено ${activities.length - recentActivities.length} старых записей активности`,
         );
         try {
-          localStorage.setItem(
+          storage.setItem(
             this.activityKey,
             JSON.stringify(recentActivities),
           );

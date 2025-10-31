@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, MapPin, Car, Star, Search } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import { telegramWebApp } from "@/services/botApi";
+import { safeOpenLink, storage } from "@/lib/telegram";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { CitySelector } from "@shared/ui";
@@ -480,7 +480,7 @@ const Restaurants = () => {
                   <div className="flex gap-2">
                     <button
                       onClick={() =>
-                        telegramWebApp.openLink(restaurant.yandexMapsUrl, { try_instant_view: false })
+                        safeOpenLink(restaurant.yandexMapsUrl, { try_instant_view: false })
                       }
                       className="flex-1 bg-yellow-500 text-black rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-yellow-400 transition-colors"
                     >
@@ -488,7 +488,7 @@ const Restaurants = () => {
                     </button>
                     <button
                       onClick={() =>
-                        telegramWebApp.openLink(restaurant.gisUrl, { try_instant_view: false })
+                        safeOpenLink(restaurant.gisUrl, { try_instant_view: false })
                       }
                       className="flex-1 bg-green-500 text-white rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-green-400 transition-colors"
                     >
@@ -504,7 +504,7 @@ const Restaurants = () => {
                   <div className="flex gap-2">
                     <button
                       onClick={() =>
-                        telegramWebApp.openLink(restaurant.yandexParkingUrl, { try_instant_view: false })
+                        safeOpenLink(restaurant.yandexParkingUrl, { try_instant_view: false })
                       }
                       className="flex-1 bg-yellow-500 text-black rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-yellow-400 transition-colors"
                     >
@@ -512,7 +512,7 @@ const Restaurants = () => {
                     </button>
                     <button
                       onClick={() =>
-                        telegramWebApp.openLink(restaurant.gisParkingUrl, { try_instant_view: false })
+                        safeOpenLink(restaurant.gisParkingUrl, { try_instant_view: false })
                       }
                       className="flex-1 bg-green-500 text-white rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-green-400 transition-colors"
                     >
@@ -530,7 +530,7 @@ const Restaurants = () => {
                   <button
                     onClick={() => {
                       // Сохраняем ID конкретного ресторана
-                      localStorage.setItem('selectedRestaurantForReview', restaurant.id);
+                      storage.setItem('selectedRestaurantForReview', restaurant.id);
                       navigate("/review");
                     }}
                     className="flex-1 bg-mariko-primary border-2 border-white rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-white hover:text-mariko-primary transition-colors text-white"
@@ -539,7 +539,7 @@ const Restaurants = () => {
                   </button>
                   <button
                     onClick={() =>
-                      telegramWebApp.openLink(restaurant.yandexReviewUrl, { try_instant_view: false })
+                      safeOpenLink(restaurant.yandexReviewUrl, { try_instant_view: false })
                     }
                     className="flex-1 bg-yellow-500 text-black rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-yellow-400 transition-colors"
                   >
@@ -547,7 +547,7 @@ const Restaurants = () => {
                   </button>
                   <button
                     onClick={() =>
-                      telegramWebApp.openLink(restaurant.gisReviewUrl, { try_instant_view: false })
+                      safeOpenLink(restaurant.gisReviewUrl, { try_instant_view: false })
                     }
                     className="flex-1 bg-green-500 text-white rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-green-400 transition-colors"
                   >

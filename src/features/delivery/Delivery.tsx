@@ -3,7 +3,7 @@ import { Header } from "@widgets/header";
 import { ActionButton } from "@shared/ui";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { PageHeader } from "@widgets/pageHeader";
-import { telegramWebApp } from "@/services/botApi";
+import { safeOpenLink } from "@/lib/telegram";
 import { useCityContext } from "@/contexts/CityContext";
 
 const Delivery = () => {
@@ -45,7 +45,7 @@ const Delivery = () => {
           />
         ),
         title: "Доставка Марико",
-        onClick: () => telegramWebApp.openLink('https://marikodostavka.ru', { try_instant_view: false }),
+        onClick: () => safeOpenLink("https://marikodostavka.ru", { try_instant_view: false }),
       });
     }
 
@@ -99,7 +99,7 @@ const Delivery = () => {
           />
         ),
         title: "Яндекс Еда",
-        onClick: () => telegramWebApp.openLink(yandexLink, { try_instant_view: false }),
+        onClick: () => safeOpenLink(yandexLink, { try_instant_view: false }),
       },
       {
         icon: (
@@ -110,7 +110,7 @@ const Delivery = () => {
           />
         ),
         title: "Delivery Club",
-        onClick: () => telegramWebApp.openLink(dcLink, { try_instant_view: false }),
+        onClick: () => safeOpenLink(dcLink, { try_instant_view: false }),
       },
     );
 

@@ -1,10 +1,11 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { TooltipProvider } from "@shared/ui/tooltip";
 import { Toaster } from "@shared/ui/toaster";
 import { Toaster as SonnerToaster } from "@shared/ui/sonner";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { RestaurantProvider } from "@/contexts/CityContext";
+import { isActive, onActivated, onDeactivated } from "@/lib/telegram";
 
 // Lazy load pages for better code splitting
 const Index = lazy(() => import("./pages/home"));
@@ -38,6 +39,21 @@ const PageLoader = () => (
 );
 
 function App() {
+  useEffect(() => {
+    const updateFocus = (focused: boolean) => {
+      focusManager.setFocused(focused);
+    };
+
+    updateFocus(isActive());
+    const unsubscribeActivate = onActivated(() => updateFocus(true));
+    const unsubscribeDeactivate = onDeactivated(() => updateFocus(false));
+
+    return () => {
+      unsubscribeActivate();
+      unsubscribeDeactivate();
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

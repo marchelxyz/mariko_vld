@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Star, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { telegramWebApp } from "@/services/botApi";
+import { safeOpenLink, storage } from "@/lib/telegram";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { useCityContext } from "@/contexts/CityContext";
@@ -20,7 +20,7 @@ const Review = () => {
 
   const validateForm = () => {
     // 🔒 БЕЗОПАСНОСТЬ: Используем защищенную валидацию
-    const selectedRestaurantId = localStorage.getItem('selectedRestaurantForReview');
+    const selectedRestaurantId = storage.getItem('selectedRestaurantForReview');
     const restaurant = selectedRestaurantId 
       ? selectedCity.restaurants.find(r => r.id === selectedRestaurantId) || selectedCity.restaurants[0]
       : selectedCity.restaurants[0];
@@ -78,8 +78,8 @@ const Review = () => {
         };
       }
 
-      // Получаем выбранный ресторан из localStorage или берем первый
-      const selectedRestaurantId = localStorage.getItem('selectedRestaurantForReview');
+      // Получаем выбранный ресторан из безопасного хранилища или берем первый
+      const selectedRestaurantId = storage.getItem('selectedRestaurantForReview');
       const restaurant = selectedRestaurantId 
         ? selectedCity.restaurants.find(r => r.id === selectedRestaurantId) || selectedCity.restaurants[0]
         : selectedCity.restaurants[0];
@@ -105,7 +105,7 @@ const Review = () => {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Очищаем выбранный ресторан после отправки
-      localStorage.removeItem('selectedRestaurantForReview');
+      storage.removeItem('selectedRestaurantForReview');
 
       if (result.shouldRedirectToExternal) {
         setShowExternalReviews(true);
@@ -264,9 +264,9 @@ const Review = () => {
     const links = getRestaurantReviewLinks(restaurant.id, restaurant.city, restaurant.address);
 
     if (platform === "yandex") {
-      telegramWebApp.openLink(links.yandex, { try_instant_view: false });
+      safeOpenLink(links.yandex, { try_instant_view: false });
     } else if (platform === "gis") {
-      telegramWebApp.openLink(links.gis, { try_instant_view: false });
+      safeOpenLink(links.gis, { try_instant_view: false });
     }
 
     navigate("/");
@@ -345,7 +345,7 @@ const Review = () => {
             <button
               onClick={() => {
                 // Очищаем сохранённый ресторан и возвращаемся на главную
-                localStorage.removeItem('selectedRestaurantForReview');
+                storage.removeItem('selectedRestaurantForReview');
                 navigate("/");
               }}
               className="p-2 text-mariko-primary hover:bg-mariko-primary/10 rounded-full transition-colors"
@@ -357,7 +357,7 @@ const Review = () => {
                 Оставить отзыв
               </h1>
               {(() => {
-                const selectedRestaurantId = localStorage.getItem('selectedRestaurantForReview');
+                const selectedRestaurantId = storage.getItem('selectedRestaurantForReview');
                 const restaurant = selectedRestaurantId 
                   ? selectedCity.restaurants.find(r => r.id === selectedRestaurantId) || selectedCity.restaurants[0]
                   : selectedCity.restaurants[0];
