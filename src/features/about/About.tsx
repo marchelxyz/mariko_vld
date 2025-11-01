@@ -7,7 +7,7 @@ import type { LucideIcon } from "lucide-react";
 import type { MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCityContext } from "@/contexts/CityContext";
-import { getTg, safeOpenLink } from "@/lib/telegram";
+import { safeOpenLink } from "@/lib/telegram";
 import { cn } from "@/lib/utils";
 
 interface InteractiveLinkProps {
@@ -25,25 +25,7 @@ const InteractiveLink = ({
   description,
   className,
 }: InteractiveLinkProps) => {
-  const isTelScheme = href.startsWith("tel:");
-
   const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
-    if (isTelScheme) {
-      event.preventDefault();
-      const tg = getTg();
-      try {
-        if (tg?.openLink) {
-          tg.openLink(href);
-          return;
-        }
-      } catch (error) {
-        console.warn("Не удалось открыть ссылку через Telegram WebApp:", error);
-      }
-      if (typeof window !== "undefined") {
-        window.location.href = href;
-      }
-      return;
-    }
     event.preventDefault();
     safeOpenLink(href, { try_instant_view: false });
   };
@@ -52,8 +34,8 @@ const InteractiveLink = ({
     <a
       href={href}
       onClick={handleClick}
-      target={isTelScheme ? undefined : "_blank"}
-      rel={isTelScheme ? undefined : "noopener noreferrer"}
+      target="_blank"
+      rel="noopener noreferrer"
       className={cn(
         "group flex w-full items-center gap-3 rounded-full bg-white/10 px-4 py-3 text-left text-white transition-transform duration-200 hover:bg-white/20 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80",
         className,
@@ -107,12 +89,12 @@ const About = () => {
                   {/* Phone */}
                   {contact.phone && (
                     <div className="mb-4 max-w-md">
-                      <InteractiveLink
-                        icon={Phone}
-                        label={contact.phone}
-                        href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`}
-                        description="Нажмите, чтобы позвонить"
-                      />
+                      <div className="flex items-center gap-3">
+                        <Phone className="w-6 h-6 flex-shrink-0" />
+                        <span className="font-el-messiri text-lg md:text-xl underline decoration-dotted">
+                          {contact.phone}
+                        </span>
+                      </div>
                     </div>
                   )}
 
@@ -183,12 +165,12 @@ const About = () => {
                   {/* Phone */}
                   {contact.phone && (
                     <div className="mb-4 w-full">
-                      <InteractiveLink
-                        icon={Phone}
-                        label={contact.phone}
-                        href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`}
-                        description="Нажмите, чтобы позвонить"
-                      />
+                      <div className="flex flex-col items-center gap-2">
+                        <Phone className="w-5 h-5 flex-shrink-0" />
+                        <span className="font-el-messiri text-base underline decoration-dotted text-center">
+                          {contact.phone}
+                        </span>
+                      </div>
                     </div>
                   )}
 
