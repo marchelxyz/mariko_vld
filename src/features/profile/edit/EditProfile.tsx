@@ -23,6 +23,13 @@ const EditProfile = () => {
   const [birthDateValue, setBirthDateValue] = useState<string>("");
   const [genderValue, setGenderValue] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
+  const rawDisplayName = (isEditing ? nameValue : profile.name) || "";
+  const normalizedDisplayName = rawDisplayName.trim();
+  const hasCustomGreetingName =
+    normalizedDisplayName.length > 0 && normalizedDisplayName !== "Пользователь";
+  const greetingText = hasCustomGreetingName
+    ? `Сердечно встречаем тебя, ${normalizedDisplayName}!`
+    : "Сердечно встречаем тебя, генацвале!";
 
   const startEditAll = () => {
     setIsEditing(true);
@@ -195,7 +202,7 @@ const EditProfile = () => {
             />
             <div className="flex-1">
               <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold tracking-tight">
-                Сердечно встречаем тебя, генацвале!
+                {greetingText}
               </h2>
               <p className="text-white/70 font-el-messiri text-sm md:text-base mt-1">
                 Нажмите на фото для изменения

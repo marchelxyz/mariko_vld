@@ -10,6 +10,11 @@ import { PageHeader } from "@widgets/pageHeader";
 const Profile = () => {
   const navigate = useNavigate();
   const { profile, loading } = useProfile();
+  const normalizedName = (profile.name || "").trim();
+  const hasCustomName = normalizedName.length > 0 && normalizedName !== "Пользователь";
+  const greetingText = hasCustomName
+    ? `Сердечно встречаем тебя, ${normalizedName}!`
+    : "Сердечно встречаем тебя, генацвале!";
 
   return (
     <div className="min-h-screen overflow-hidden flex flex-col bg-transparent">
@@ -35,7 +40,7 @@ const Profile = () => {
               />
               <div className="flex-1">
                 <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold tracking-tight">
-                  Сердечно встречаем тебя, генацвале!
+                  {greetingText}
                 </h2>
                 <p className="text-white/80 font-el-messiri text-lg mt-1">
                   {profile.name}
