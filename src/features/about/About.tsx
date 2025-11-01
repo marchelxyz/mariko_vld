@@ -7,7 +7,7 @@ import type { LucideIcon } from "lucide-react";
 import type { MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCityContext } from "@/contexts/CityContext";
-import { safeOpenLink } from "@/lib/telegram";
+import { getTg, safeOpenLink } from "@/lib/telegram";
 import { cn } from "@/lib/utils";
 
 interface InteractiveLinkProps {
@@ -29,6 +29,19 @@ const InteractiveLink = ({
 
   const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
     if (isTelScheme) {
+      event.preventDefault();
+      const tg = getTg();
+      try {
+        if (tg?.openLink) {
+          tg.openLink(href);
+          return;
+        }
+      } catch (error) {
+        console.warn("Не удалось открыть ссылку через Telegram WebApp:", error);
+      }
+      if (typeof window !== "undefined") {
+        window.location.href = href;
+      }
       return;
     }
     event.preventDefault();

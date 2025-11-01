@@ -14,7 +14,6 @@ const EditProfile = lazy(() => import("./pages/editProfile"));
 
 const Restaurants = lazy(() => import("./pages/restaurants"));
 const Delivery = lazy(() => import("./pages/delivery"));
-const Promotions = lazy(() => import("./pages/promotions"));
 const Review = lazy(() => import("./pages/review"));
 const SelectRestaurantForReview = lazy(() => import("./pages/selectRestaurantReview"));
 const About = lazy(() => import("./pages/about"));
@@ -68,7 +67,6 @@ function App() {
                 <Route path="/restaurants/:id" element={<Restaurants />} />
                 <Route path="/restaurants" element={<Restaurants />} />
                 <Route path="/delivery" element={<Delivery />} />
-                <Route path="/promotions" element={<Promotions />} />
                 <Route path="/review" element={<Review />} />
                 <Route path="/select-restaurant-review" element={<SelectRestaurantForReview />} />
                 {/* Удалено внутреннее меню */}
