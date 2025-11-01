@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { profileApi } from "@shared/api";
 import { getUser, storage } from "@/lib/telegram";
 
@@ -28,6 +28,7 @@ export const useProfile = () => {
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string>("");
   const [isInitialized, setIsInitialized] = useState(false);
+  const storageUnsubscribeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     loadProfile();
@@ -39,6 +40,20 @@ export const useProfile = () => {
       loadProfile();
     }
   }, [userId, isInitialized]);
+
+  const applyProfileUpdate = (incomingProfile: Partial<UserProfile>) => {
+    const telegramPhotoUrl = (getUser()?.photo_url ?? "").trim();
+    setProfile((currentProfile) => {
+      const mergedProfile = {
+        ...defaultProfile,
+        ...currentProfile,
+        ...incomingProfile,
+      };
+      const storedPhoto = (mergedProfile.photo ?? "").trim();
+      const resolvedPhoto = storedPhoto || telegramPhotoUrl || defaultProfile.photo;
+      return { ...mergedProfile, photo: resolvedPhoto };
+    });
+  };
 
   const loadProfile = async () => {
     try {
@@ -55,11 +70,20 @@ export const useProfile = () => {
       }
 
       const userProfile = await profileApi.getUserProfile(currentUserId);
-      setProfile({ ...defaultProfile, ...userProfile });
+      applyProfileUpdate(userProfile);
       setIsInitialized(true);
     } catch (err) {
       setError("Не удалось загрузить профиль");
       console.error("Ошибка загрузки профиля:", err);
+      const telegramPhotoUrl = (getUser()?.photo_url ?? "").trim();
+      if (telegramPhotoUrl) {
+        setProfile((prevProfile) => {
+          if ((prevProfile.photo ?? "").trim()) {
+            return prevProfile;
+          }
+          return { ...prevProfile, photo: telegramPhotoUrl };
+        });
+      }
       // В случае ошибки оставляем дефолтный профиль
       setIsInitialized(true);
     } finally {
@@ -77,12 +101,17 @@ export const useProfile = () => {
       const success = await profileApi.updateUserProfile(currentUserId, updatedProfile);
 
       if (success) {
+        const telegramPhotoUrl = (getUser()?.photo_url ?? "").trim();
+        const normalizedPhoto = (updatedProfile.photo ?? "").trim();
+        const nextProfile = normalizedPhoto
+          ? updatedProfile
+          : { ...updatedProfile, photo: telegramPhotoUrl || defaultProfile.photo };
         // Обновляем локальное состояние только при успешном сохранении
-        setProfile(updatedProfile);
+        setProfile(nextProfile);
         
         // Дополнительно сохраняем в fallback storage для надежности
         try {
-          storage.setItem(`profile_${currentUserId}`, JSON.stringify(updatedProfile));
+          storage.setItem(`profile_${currentUserId}`, JSON.stringify(nextProfile));
         } catch (storageErr) {
           console.warn("Не удалось сохранить данные локально:", storageErr);
           // Не считаем это критической ошибкой
@@ -105,7 +134,13 @@ export const useProfile = () => {
         const savedProfile = storage.getItem(`profile_${currentUserId}`);
         if (savedProfile) {
           const parsedProfile = JSON.parse(savedProfile);
-          setProfile({ ...defaultProfile, ...parsedProfile });
+          const restoredPhoto = (parsedProfile.photo ?? "").trim();
+          const telegramPhotoUrl = (getUser()?.photo_url ?? "").trim();
+          setProfile({
+            ...defaultProfile,
+            ...parsedProfile,
+            photo: restoredPhoto || telegramPhotoUrl || defaultProfile.photo,
+          });
           console.log("Профиль восстановлен из локального хранилища");
         }
       } catch (restoreErr) {
@@ -115,6 +150,32 @@ export const useProfile = () => {
       return false;
     }
   };
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    const storageKey = `profile_${userId}`;
+
+    storageUnsubscribeRef.current?.();
+    storageUnsubscribeRef.current = storage.subscribe(storageKey, (value) => {
+      if (!value) {
+        return;
+      }
+      try {
+        const parsedProfile = JSON.parse(value) as Partial<UserProfile>;
+        applyProfileUpdate(parsedProfile);
+      } catch (err) {
+        console.warn("Не удалось распарсить профиль из хранилища:", err);
+      }
+    });
+
+    return () => {
+      storageUnsubscribeRef.current?.();
+      storageUnsubscribeRef.current = null;
+    };
+  }, [userId]);
 
   const updatePhoto = async (photoFile: File): Promise<string | null> => {
     try {

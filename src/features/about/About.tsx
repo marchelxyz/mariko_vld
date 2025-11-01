@@ -2,10 +2,61 @@ import { Header } from "@widgets/header";
 import { PageHeader } from "@widgets/pageHeader";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { CONTACTS } from "@shared/data/contacts";
-import { Phone, Instagram, Send, MapPin, Car, MessageCircle } from "lucide-react";
+import { Phone, Instagram, Send, MapPin, Car, MessageCircle, ExternalLink } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import type { MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCityContext } from "@/contexts/CityContext";
 import { safeOpenLink } from "@/lib/telegram";
+import { cn } from "@/lib/utils";
+
+interface InteractiveLinkProps {
+  icon: LucideIcon;
+  label: string;
+  href: string;
+  description?: string;
+  className?: string;
+}
+
+const InteractiveLink = ({
+  icon: Icon,
+  label,
+  href,
+  description,
+  className,
+}: InteractiveLinkProps) => {
+  const isTelScheme = href.startsWith("tel:");
+
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (isTelScheme) {
+      return;
+    }
+    event.preventDefault();
+    safeOpenLink(href, { try_instant_view: false });
+  };
+
+  return (
+    <a
+      href={href}
+      onClick={handleClick}
+      target={isTelScheme ? undefined : "_blank"}
+      rel={isTelScheme ? undefined : "noopener noreferrer"}
+      className={cn(
+        "group flex w-full items-center gap-3 rounded-full bg-white/10 px-4 py-3 text-left text-white transition-transform duration-200 hover:bg-white/20 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80",
+        className,
+      )}
+    >
+      <Icon className="h-5 w-5 flex-shrink-0 md:h-6 md:w-6" />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate font-el-messiri text-base md:text-lg">{label}</span>
+        {description && (
+          <span className="text-xs text-white/70 md:text-sm">{description}</span>
+        )}
+      </span>
+      <ExternalLink className="ml-auto h-4 w-4 text-white/70 transition-transform duration-200 group-hover:translate-x-0.5 md:h-5 md:w-5" />
+    </a>
+  );
+};
 
 const About = () => {
   const navigate = useNavigate();
@@ -42,101 +93,68 @@ const About = () => {
 
                   {/* Phone */}
                   {contact.phone && (
-                    <div className="flex items-center gap-3 mb-3">
-                      <Phone className="w-6 h-6 flex-shrink-0" />
-                      <a
+                    <div className="mb-4 max-w-md">
+                      <InteractiveLink
+                        icon={Phone}
+                        label={contact.phone}
                         href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`}
-                        className="font-el-messiri text-lg md:text-xl hover:underline"
-                      >
-                        {contact.phone}
-                      </a>
+                        description="Нажмите, чтобы позвонить"
+                      />
                     </div>
                   )}
 
                   {/* Socials */}
-                  <div className="flex items-center gap-4 mb-4 flex-wrap">
+                  <div className="flex flex-wrap gap-3 mb-4">
                     {contact.instagramUrl && (
-                      <a
-                        href={contact.instagramUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          safeOpenLink(contact.instagramUrl as string, { try_instant_view: false });
-                        }}
-                        className="flex items-center gap-2 hover:underline"
-                      >
-                        <Instagram className="w-6 h-6" />
-                        <span>Instagram</span>
-                      </a>
+                      <InteractiveLink
+                        icon={Instagram}
+                        label="Instagram"
+                        href={contact.instagramUrl as string}
+                        description="Перейти в профиль"
+                        className="md:w-auto"
+                      />
                     )}
                     {contact.telegramUrl && (
-                      <a
-                        href={contact.telegramUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          safeOpenLink(contact.telegramUrl as string, { try_instant_view: false });
-                        }}
-                        className="flex items-center gap-2 hover:underline"
-                      >
-                        <Send className="w-6 h-6" />
-                        <span>Telegram</span>
-                      </a>
+                      <InteractiveLink
+                        icon={Send}
+                        label="Telegram"
+                        href={contact.telegramUrl as string}
+                        description="Перейти в Telegram-канал"
+                        className="md:w-auto"
+                      />
                     )}
                     {contact.vkUrl && (
-                      <a
-                        href={contact.vkUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          safeOpenLink(contact.vkUrl as string, { try_instant_view: false });
-                        }}
-                        className="flex items-center gap-2 hover:underline"
-                      >
-                        <MessageCircle className="w-6 h-6" />
-                        <span>VK</span>
-                      </a>
+                      <InteractiveLink
+                        icon={MessageCircle}
+                        label="VK"
+                        href={contact.vkUrl as string}
+                        description="Перейти в сообщество"
+                        className="md:w-auto"
+                      />
                     )}
                   </div>
 
                   {/* Address */}
                   {contact.addressUrl && (
-                    <div className="flex items-center gap-3 mb-3">
-                      <MapPin className="w-6 h-6 flex-shrink-0" />
-                      <a
-                        href={contact.addressUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          safeOpenLink(contact.addressUrl as string, { try_instant_view: false });
-                        }}
-                        className="font-el-messiri text-lg md:text-xl hover:underline"
-                      >
-                        {contact.addressLabel}
-                      </a>
+                    <div className="mb-4 max-w-2xl">
+                      <InteractiveLink
+                        icon={MapPin}
+                        label={contact.addressLabel}
+                        href={contact.addressUrl as string}
+                        description="Открыть на карте"
+                      />
                     </div>
                   )}
 
                   {/* Parking */}
                   {contact.parkingUrl && (
-                    <div className="flex items-center gap-3">
-                      <Car className="w-6 h-6 flex-shrink-0" />
-                      <a
-                        href={contact.parkingUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          safeOpenLink(contact.parkingUrl as string, { try_instant_view: false });
-                        }}
-                        className="font-el-messiri text-lg md:text-xl hover:underline"
-                      >
-                        {contact.parkingLabel}
-                      </a>
+                    <div className="max-w-2xl">
+                      <InteractiveLink
+                        icon={Car}
+                        label={contact.parkingLabel}
+                        href={contact.parkingUrl as string}
+                        description="Посмотреть парковку"
+                      />
                     </div>
                   )}
 
@@ -151,107 +169,65 @@ const About = () => {
 
                   {/* Phone */}
                   {contact.phone && (
-                    <div className="flex flex-col items-center gap-2 mb-4">
-                      <div className="flex items-center gap-3">
-                        <Phone className="w-5 h-5 flex-shrink-0" />
-                        <a
-                          href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`}
-                          className="font-el-messiri text-base hover:underline"
-                        >
-                          {contact.phone}
-                        </a>
-                      </div>
+                    <div className="mb-4 w-full">
+                      <InteractiveLink
+                        icon={Phone}
+                        label={contact.phone}
+                        href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`}
+                        description="Нажмите, чтобы позвонить"
+                      />
                     </div>
                   )}
 
                   {/* Socials - vertical stack */}
-                  <div className="flex flex-col items-center gap-3 mb-4">
+                  <div className="flex flex-col gap-3 mb-4 w-full">
                     {contact.telegramUrl && (
-                      <a
-                        href={contact.telegramUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          safeOpenLink(contact.telegramUrl as string, { try_instant_view: false });
-                        }}
-                        className="flex items-center gap-3 hover:underline"
-                      >
-                        <Send className="w-5 h-5" />
-                        <span className="font-el-messiri text-base">Telegram</span>
-                      </a>
+                      <InteractiveLink
+                        icon={Send}
+                        label="Telegram"
+                        href={contact.telegramUrl as string}
+                        description="Написать в Telegram"
+                      />
                     )}
                     {contact.vkUrl && (
-                      <a
-                        href={contact.vkUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          safeOpenLink(contact.vkUrl as string, { try_instant_view: false });
-                        }}
-                        className="flex items-center gap-3 hover:underline"
-                      >
-                        <MessageCircle className="w-5 h-5" />
-                        <span className="font-el-messiri text-base">VK</span>
-                      </a>
+                      <InteractiveLink
+                        icon={MessageCircle}
+                        label="VK"
+                        href={contact.vkUrl as string}
+                        description="Перейти в сообщество"
+                      />
                     )}
                     {contact.instagramUrl && (
-                      <a
-                        href={contact.instagramUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          safeOpenLink(contact.instagramUrl as string, { try_instant_view: false });
-                        }}
-                        className="flex items-center gap-3 hover:underline"
-                      >
-                        <Instagram className="w-5 h-5" />
-                        <span className="font-el-messiri text-base">Instagram</span>
-                      </a>
+                      <InteractiveLink
+                        icon={Instagram}
+                        label="Instagram"
+                        href={contact.instagramUrl as string}
+                        description="Перейти в профиль"
+                      />
                     )}
                   </div>
 
                   {/* Address */}
                   {contact.addressUrl && (
-                    <div className="flex flex-col items-center gap-2 mb-4">
-                      <div className="flex items-center gap-3">
-                        <MapPin className="w-5 h-5 flex-shrink-0" />
-                        <a
-                          href={contact.addressUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            safeOpenLink(contact.addressUrl as string, { try_instant_view: false });
-                          }}
-                          className="font-el-messiri text-base hover:underline text-center"
-                        >
-                          {contact.addressLabel}
-                        </a>
-                      </div>
+                    <div className="mb-4 w-full">
+                      <InteractiveLink
+                        icon={MapPin}
+                        label={contact.addressLabel}
+                        href={contact.addressUrl as string}
+                        description="Открыть на карте"
+                      />
                     </div>
                   )}
 
                   {/* Parking */}
                   {contact.parkingUrl && (
-                    <div className="flex flex-col items-center gap-2 mb-6">
-                      <div className="flex items-center gap-3">
-                        <Car className="w-5 h-5 flex-shrink-0" />
-                        <a
-                          href={contact.parkingUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            safeOpenLink(contact.parkingUrl as string, { try_instant_view: false });
-                          }}
-                          className="font-el-messiri text-base hover:underline text-center"
-                        >
-                          {contact.parkingLabel}
-                        </a>
-                      </div>
+                    <div className="mb-6 w-full">
+                      <InteractiveLink
+                        icon={Car}
+                        label={contact.parkingLabel}
+                        href={contact.parkingUrl as string}
+                        description="Посмотреть парковку"
+                      />
                     </div>
                   )}
 
