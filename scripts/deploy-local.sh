@@ -18,6 +18,7 @@ IFS=$'\n\t'
 SERVER_HOST="root@ineedaglokk.ru"
 WEB_ROOT="/var/www/html"
 BOT_NAME="hachapuri-bot"
+REMOTE_BOT_DIR="/root/bot"
 # ======================================================================
 
 log() { printf "\033[1;32m[deploy] %s\033[0m\n" "$*"; }
@@ -25,6 +26,7 @@ err() { printf "\033[1;31m[deploy] %s\033[0m\n" "$*" >&2; }
 
 log "🚀 Начало локального деплоя"
 
+# Загружаем переменные окружения бота (для синхронизации Supabase)
 # 1. Локальная сборка проекта
 log "→ npm run build"
 npm run build
@@ -41,9 +43,25 @@ sshpass -p 'p*R-5KNwyE4XJ.' rsync -avz --exclude='node_modules' --exclude='.env'
 log "→ fix permissions for $WEB_ROOT"
 sshpass -p 'p*R-5KNwyE4XJ.' ssh -o StrictHostKeyChecking=no "$SERVER_HOST" "find $WEB_ROOT -type d -exec chmod 755 {} + && find $WEB_ROOT -type f -exec chmod 644 {} +"
 
-# 3. Перезапуск бота
-log "→ pm2 reload $BOT_NAME"
-sshpass -p 'p*R-5KNwyE4XJ.' ssh -o StrictHostKeyChecking=no "$SERVER_HOST" "pm2 reload $BOT_NAME && pm2 save"
+# 3. Установка зависимостей бота и перезапуск pm2
+log "→ install bot dependencies & restart bot"
+sshpass -p 'p*R-5KNwyE4XJ.' ssh -o StrictHostKeyChecking=no "$SERVER_HOST" "
+  set -e
+  cd $REMOTE_BOT_DIR
+  rm -rf node_modules
+  if command -v npm >/dev/null 2>&1; then
+    if [ -f package-lock.json ]; then
+      npm ci --omit=dev
+    else
+      npm install --production
+    fi
+  else
+    echo 'npm не найден на сервере' >&2
+    exit 1
+  fi
+  pm2 restart $BOT_NAME --update-env || pm2 start main-bot.cjs --name $BOT_NAME --cwd $REMOTE_BOT_DIR
+  pm2 save
+"
 
 log "✅ Деплой завершён"
-log "🌐 Сайт доступен по адресу: https://ineedaglokk.ru" 
+log "🌐 Сайт доступен по адресу: https://ineedaglokk.ru"

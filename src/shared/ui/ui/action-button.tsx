@@ -38,7 +38,7 @@ export const ActionButton = ({
           src="/images/avatars/Rectangle 1322.png"
           alt=""
           loading="eager"
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-cover scale-y-[1.2] origin-center"
         />
         <div className="relative w-10 h-10 md:w-20 md:h-20 text-white flex items-center justify-center z-10">
           <div className="w-6 h-6 md:w-12 md:h-12 flex items-center justify-center">

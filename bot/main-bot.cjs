@@ -5,12 +5,30 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 // Используем URL из переменных окружения с fallback
 const WEBAPP_URL = process.env.WEBAPP_URL || "https://ineedaglokk.ru";
 
+const INVITE_MESSAGE = [
+  "🇬🇪 Гамарджоба, Генацвале!",
+  "Добро пожаловать в *Хачапури Марико*!",
+  "",
+  "🔥 Мы рады принять вас в нашу грузинскую семью!",
+  "",
+  "В нашем приложении вы можете:",
+  "• 📍 Найти ближайший ресторан",
+  "• 📋 Забронировать столик",
+  "• 🎁 Узнать об акциях  ",
+  "• ⭐ Оставить отзыв",
+  "• 🚀 Заказать доставку",
+  "",
+  "Нажмите кнопку ниже, чтобы открыть Mini App и воспользоваться всеми возможностями!"
+].join("\n");
+
 // 🔒 БЕЗОПАСНОСТЬ: Функция для маскировки токена в логах
 const maskToken = (token) => {
   if (!token) return "отсутствует";
   if (token.length <= 10) return "***";
   return `${token.slice(0, 8)}...${token.slice(-4)}`;
 };
+
+const escapeMarkdown = (text = "") => text.replace(/([_*[\]()])/g, "\\$1");
 
 if (!BOT_TOKEN) {
   console.error("❌ BOT_TOKEN не найден в переменных окружения!");
@@ -40,75 +58,68 @@ const bot = new TelegramBot(BOT_TOKEN, {
 
 console.log('🍴 Хачапури Марико бот запущен!');
 
-// Команда /start - приветствие и запуск Mini App
+const sendWebAppInvite = (chatId, extraOptions = {}) =>
+  bot.sendMessage(chatId, INVITE_MESSAGE, {
+    parse_mode: 'Markdown',
+    reply_markup: {
+      inline_keyboard: [[
+        {
+          text: '🍽️ Открыть меню ресторана',
+          web_app: {
+            url: WEBAPP_URL
+          }
+        }
+      ]]
+    },
+    ...extraOptions
+  });
+
+const sendOnboarding = (chatId, firstName) => {
+  const onboardingMessage = [
+    `🇬🇪 Гамарджоба, ${firstName}!`,
+    "Добро пожаловать в *Хачапури Марико*.",
+    "",
+    "Вместе с грузинской душой мы подготовили для вас персональный сервис прямо в Telegram.",
+    "",
+    "Чтобы пользоваться всеми возможностями, отправьте команду /webapp — и мы запустим мини‑приложение."
+  ].join("\n");
+
+  return bot.sendMessage(chatId, onboardingMessage, {
+    parse_mode: 'Markdown'
+  });
+};
+
+// Команда /start - онбординг
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   const user = msg.from;
-  const firstName = user?.first_name || 'друг';
-  
-  const options = {
-    parse_mode: 'Markdown',
-    reply_markup: {
-      inline_keyboard: [[
-        {
-          text: '🍽️ Открыть меню ресторана',
-          web_app: {
-            url: WEBAPP_URL
-          }
-        }
-      ]]
-    }
-  };
+  const firstName = escapeMarkdown(user?.first_name || 'друг');
 
-  const welcomeMessage = `🇬🇪 Гамарджоба, Генацвале! 
-  Добро пожаловать в *Хачапури Марико*!
-
-🔥 Мы рады принять вас в нашу грузинскую семью!
-
-В нашем приложении вы можете:
-• 📍 Найти ближайший ресторан
-• 📋 Забронировать столик
-• 🎁 Узнать об акциях  
-• ⭐ Оставить отзыв
-• 🚀 Заказать доставку
-
-Нажмите кнопку ниже, чтобы начать пользоваться всеми возможностями!`;
-
-  bot.sendMessage(chatId, welcomeMessage, options);
+  sendOnboarding(chatId, firstName);
 });
 
-// Обработка любых других сообщений (отправляем то же самое, что и /start)
+// Команда /webapp - открытие мини-приложения
+bot.onText(/\/webapp/, (msg) => {
+  const chatId = msg.chat.id;
+  sendWebAppInvite(chatId);
+});
+
+// Обработка любых других сообщений
 bot.on('message', (msg) => {
-  // Пропускаем команду /start, чтобы не дублировать
-  if (msg.text === '/start') {
+  const chatId = msg.chat.id;
+
+  const text = msg.text;
+  if (!text) {
     return;
   }
 
-  const chatId = msg.chat.id;
+  if (text === '/start' || text === '/webapp') {
+    return;
+  }
+
   const user = msg.from;
-  const firstName = user?.first_name || 'друг';
-  
-  const options = {
-    parse_mode: 'Markdown',
-    reply_markup: {
-      inline_keyboard: [[
-        {
-          text: '🍽️ Открыть меню ресторана',
-          web_app: {
-            url: WEBAPP_URL
-          }
-        }
-      ]]
-    }
-  };
-
-  const fallbackMessage = `Привет, ${firstName}! 😊
-
-Используйте приложение ниже для работы с рестораном *Хачапури Марико*.
-
-Или отправьте команду /start для полной информации.`;
-
-  bot.sendMessage(chatId, fallbackMessage, options);
+  const firstName = escapeMarkdown(user?.first_name || 'друг');
+  sendOnboarding(chatId, firstName);
 });
 
 // Обработка ошибок
@@ -148,4 +159,4 @@ const gracefulShutdown = (signal) => {
 };
 
 process.once("SIGINT", () => gracefulShutdown("SIGINT"));
-process.once("SIGTERM", () => gracefulShutdown("SIGTERM")); 
+process.once("SIGTERM", () => gracefulShutdown("SIGTERM"));

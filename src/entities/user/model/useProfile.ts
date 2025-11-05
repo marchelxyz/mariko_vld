@@ -49,8 +49,7 @@ export const useProfile = () => {
         ...currentProfile,
         ...incomingProfile,
       };
-      const storedPhoto = (mergedProfile.photo ?? "").trim();
-      const resolvedPhoto = storedPhoto || telegramPhotoUrl || defaultProfile.photo;
+      const resolvedPhoto = telegramPhotoUrl || defaultProfile.photo;
       return { ...mergedProfile, photo: resolvedPhoto };
     });
   };
@@ -76,14 +75,12 @@ export const useProfile = () => {
       setError("Не удалось загрузить профиль");
       console.error("Ошибка загрузки профиля:", err);
       const telegramPhotoUrl = (getUser()?.photo_url ?? "").trim();
-      if (telegramPhotoUrl) {
-        setProfile((prevProfile) => {
-          if ((prevProfile.photo ?? "").trim()) {
-            return prevProfile;
-          }
-          return { ...prevProfile, photo: telegramPhotoUrl };
-        });
-      }
+      const resolvedPhoto = telegramPhotoUrl || defaultProfile.photo;
+      setProfile((prevProfile) => ({
+        ...defaultProfile,
+        ...prevProfile,
+        photo: resolvedPhoto,
+      }));
       // В случае ошибки оставляем дефолтный профиль
       setIsInitialized(true);
     } finally {
@@ -94,24 +91,22 @@ export const useProfile = () => {
   const updateProfile = async (updates: Partial<UserProfile>) => {
     try {
       setError(null); // Очищаем предыдущие ошибки
-      const updatedProfile = { ...profile, ...updates };
+      const telegramPhotoUrl = (getUser()?.photo_url ?? "").trim();
+      const resolvedPhoto = telegramPhotoUrl || defaultProfile.photo;
+      const { photo: _ignoredPhoto, ...restUpdates } = updates;
+      const updatedProfile = { ...profile, ...restUpdates, photo: resolvedPhoto };
 
       // Используем правильный userId
       const currentUserId = userId || "demo_user";
       const success = await profileApi.updateUserProfile(currentUserId, updatedProfile);
 
       if (success) {
-        const telegramPhotoUrl = (getUser()?.photo_url ?? "").trim();
-        const normalizedPhoto = (updatedProfile.photo ?? "").trim();
-        const nextProfile = normalizedPhoto
-          ? updatedProfile
-          : { ...updatedProfile, photo: telegramPhotoUrl || defaultProfile.photo };
         // Обновляем локальное состояние только при успешном сохранении
-        setProfile(nextProfile);
+        setProfile(updatedProfile);
         
         // Дополнительно сохраняем в fallback storage для надежности
         try {
-          storage.setItem(`profile_${currentUserId}`, JSON.stringify(nextProfile));
+          storage.setItem(`profile_${currentUserId}`, JSON.stringify(updatedProfile));
         } catch (storageErr) {
           console.warn("Не удалось сохранить данные локально:", storageErr);
           // Не считаем это критической ошибкой
@@ -134,12 +129,11 @@ export const useProfile = () => {
         const savedProfile = storage.getItem(`profile_${currentUserId}`);
         if (savedProfile) {
           const parsedProfile = JSON.parse(savedProfile);
-          const restoredPhoto = (parsedProfile.photo ?? "").trim();
           const telegramPhotoUrl = (getUser()?.photo_url ?? "").trim();
           setProfile({
             ...defaultProfile,
             ...parsedProfile,
-            photo: restoredPhoto || telegramPhotoUrl || defaultProfile.photo,
+            photo: telegramPhotoUrl || defaultProfile.photo,
           });
           console.log("Профиль восстановлен из локального хранилища");
         }
@@ -177,29 +171,11 @@ export const useProfile = () => {
     };
   }, [userId]);
 
-  const updatePhoto = async (photoFile: File): Promise<string | null> => {
-    try {
-      // В реальном приложении здесь будет загрузка на сервер
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const result = e.target?.result as string;
-          resolve(result);
-        };
-        reader.readAsDataURL(photoFile);
-      });
-    } catch (err) {
-      console.error("Ошибка загрузки фото:", err);
-      return null;
-    }
-  };
-
   return {
     profile,
     loading,
     error,
     updateProfile,
-    updatePhoto,
     reload: loadProfile,
     isInitialized,
   };

@@ -1,28 +1,23 @@
-import { useState, useRef } from "react";
-import { X, Pencil } from "lucide-react";
+import { useState } from "react";
+import { Pencil } from "lucide-react";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { Label, Button, Input } from "@shared/ui";
-import { EditableField } from "@shared/ui";
 import { useToast } from "@/hooks/use-toast";
 import { useProfile, ProfileAvatar } from "@entities/user";
 import { usePhoneInput, getCleanPhoneNumber } from "@/shared/hooks/usePhoneInput";
 
 const EditProfile = () => {
-  const { profile, updateProfile, updatePhoto } = useProfile();
+  const { profile, updateProfile } = useProfile();
   const { toast: showToast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   // Хук для форматирования телефона - как в анкете вакансии
   const phoneInput = usePhoneInput();
 
   // Единый режим редактирования всех полей
   const [isEditing, setIsEditing] = useState<boolean>(false);
-  const [editValue, setEditValue] = useState(""); // используется для одиночных инпутов (дата)
   const [nameValue, setNameValue] = useState<string>("");
   const [birthDateValue, setBirthDateValue] = useState<string>("");
   const [genderValue, setGenderValue] = useState<string>("");
-  const [isUploading, setIsUploading] = useState(false);
   const rawDisplayName = (isEditing ? nameValue : profile.name) || "";
   const normalizedDisplayName = rawDisplayName.trim();
   const hasCustomGreetingName =
@@ -72,51 +67,6 @@ const EditProfile = () => {
 
   const handleCancel = () => {
     setIsEditing(false);
-    setEditValue("");
-  };
-
-  const handlePhotoUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Проверяем тип файла
-    if (!file.type.startsWith("image/")) {
-      showToast({
-        title: "Ошибка",
-        description: "Пожалуйста, выберите изображение",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Проверяем размер файла (макс 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      showToast({
-        title: "Ошибка",
-        description: "Размер файла не должен превышать 5MB",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const photoUrl = await updatePhoto(file);
-      if (photoUrl) {
-        await updateProfile({ photo: photoUrl });
-        showToast({
-          title: "Фото обновлено",
-          description: "Новое фото профиля установлено",
-        });
-      }
-    } catch (error) {
-      showToast({
-        title: "Ошибка",
-        description: "Не удалось загрузить фото",
-        variant: "destructive",
-      });
-    }
   };
 
   const formatDateInput = (value: string) => {
@@ -131,20 +81,6 @@ const EditProfile = () => {
     } else {
       return `${numbers.slice(0, 2)}.${numbers.slice(2, 4)}.${numbers.slice(4, 8)}`;
     }
-  };
-
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    fieldKey: string,
-  ) => {
-    let value = e.target.value;
-
-    // Форматируем дату рождения
-    if (fieldKey === "birthDate") {
-      value = formatDateInput(value);
-    }
-
-    setEditValue(value);
   };
 
   // Проверка корректности даты рождения
@@ -187,25 +123,13 @@ const EditProfile = () => {
         {/* Greeting */}
         <div className="px-4 md:px-6 max-w-6xl mx-auto mt-4">
           <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6">
-            <ProfileAvatar
-              photo={profile.photo}
-              size="medium"
-              showCameraIcon={true}
-              onPhotoClick={() => fileInputRef.current?.click()}
-            />
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoUpload}
-              className="hidden"
-            />
+            <ProfileAvatar photo={profile.photo} size="medium" />
             <div className="flex-1">
               <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold tracking-tight">
                 {greetingText}
               </h2>
               <p className="text-white/70 font-el-messiri text-sm md:text-base mt-1">
-                Нажмите на фото для изменения
+                Фото берётся автоматически из вашего профиля Telegram
               </p>
             </div>
           </div>

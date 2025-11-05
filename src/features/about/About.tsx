@@ -165,9 +165,9 @@ const About = () => {
                   {/* Phone */}
                   {contact.phone && (
                     <div className="mb-4 w-full">
-                      <div className="flex flex-col items-center gap-2">
+                      <div className="flex items-center justify-center gap-3">
                         <Phone className="w-5 h-5 flex-shrink-0" />
-                        <span className="font-el-messiri text-base underline decoration-dotted text-center">
+                        <span className="font-el-messiri text-base underline decoration-dotted">
                           {contact.phone}
                         </span>
                       </div>
