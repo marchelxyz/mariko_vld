@@ -58,8 +58,8 @@ const bot = new TelegramBot(BOT_TOKEN, {
 
 console.log('🍴 Хачапури Марико бот запущен!');
 
-const sendWebAppInvite = (chatId, extraOptions = {}) =>
-  bot.sendMessage(chatId, INVITE_MESSAGE, {
+const sendInviteMessage = (chatId, message, extraOptions = {}) =>
+  bot.sendMessage(chatId, message, {
     parse_mode: 'Markdown',
     reply_markup: {
       inline_keyboard: [[
@@ -74,6 +74,9 @@ const sendWebAppInvite = (chatId, extraOptions = {}) =>
     ...extraOptions
   });
 
+const sendWebAppInvite = (chatId, extraOptions = {}) =>
+  sendInviteMessage(chatId, INVITE_MESSAGE, extraOptions);
+
 const sendOnboarding = (chatId, firstName) => {
   const onboardingMessage = [
     `🇬🇪 Гамарджоба, ${firstName}!`,
@@ -81,12 +84,10 @@ const sendOnboarding = (chatId, firstName) => {
     "",
     "Вместе с грузинской душой мы подготовили для вас персональный сервис прямо в Telegram.",
     "",
-    "Чтобы пользоваться всеми возможностями, отправьте команду /webapp — и мы запустим мини‑приложение."
+    "Нажмите кнопку ниже, чтобы начать пользоваться всеми возможностями."
   ].join("\n");
 
-  return bot.sendMessage(chatId, onboardingMessage, {
-    parse_mode: 'Markdown'
-  });
+  return sendInviteMessage(chatId, onboardingMessage);
 };
 
 // Команда /start - онбординг
