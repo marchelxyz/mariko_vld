@@ -95,7 +95,7 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
   return (
     <div ref={containerRef} className={cn("relative z-50", className)}>
       {/* БЛОК 1: Прозрачные кнопки навигации с затемненным blur эффектом */}
-      <div className="backdrop-blur-lg backdrop-saturate-150 bg-black/60 rounded-t-3xl">
+      <div className="backdrop-blur-lg backdrop-saturate-150 bg-black/60 rounded-t-3xl pb-4 md:pb-6">
         <div className="flex justify-around items-end relative min-h-[4rem]">
           {navItems.map((item) => {
             const isActive = item.id === currentPage;
@@ -156,14 +156,6 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
         </div>
       </div>
 
-      {/* БЛОК 2: Серый футер с названием бота */}
-      <div className="bg-mariko-dark">
-        <div className="text-center py-2 md:py-4 border-t border-mariko-text-secondary/20">
-          <span className="text-mariko-text-secondary font-normal text-sm md:text-base tracking-wide">
-            @Mariko_Bot
-          </span>
-        </div>
-      </div>
     </div>
   );
 }; 
