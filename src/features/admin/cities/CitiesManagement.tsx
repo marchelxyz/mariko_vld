@@ -57,23 +57,17 @@ export function CitiesManagement(): JSX.Element {
       setIsLoading(true);
       try {
         const cities = await getAllCitiesAsync();
-        setCitiesWithStatus(
-          cities.map((city) => ({
-            ...city,
-            isActive: true, // Получим реальный статус из базы
-          }))
-        );
+        
+        // Преобразуем в нужный формат с правильным статусом
+        const citiesWithStatus = cities.map((city: any) => ({
+          ...city,
+          isActive: city.is_active !== undefined ? city.is_active : true,
+        }));
 
-        // Обновляем статусы из Supabase
-        if (useSupabase) {
-          const citiesWithRealStatus = await Promise.all(
-            cities.map(async (city) => ({
-              ...city,
-              isActive: await citiesSupabaseApi.getCityStatus(city.id),
-            }))
-          );
-          setCitiesWithStatus(citiesWithRealStatus);
-        }
+        console.log('📊 Загружено городов:', citiesWithStatus.length);
+        console.log('✅ Активных:', citiesWithStatus.filter(c => c.isActive).length);
+        
+        setCitiesWithStatus(citiesWithStatus);
       } catch (error) {
         console.error('Ошибка загрузки городов:', error);
       } finally {
@@ -88,18 +82,22 @@ export function CitiesManagement(): JSX.Element {
   useEffect(() => {
     if (!useSupabase) return;
 
-    const unsubscribe = citiesSupabaseApi.subscribeToCitiesChanges(async (updatedCities) => {
-      const citiesWithRealStatus = await Promise.all(
-        updatedCities.map(async (city) => ({
-          ...city,
-          isActive: await citiesSupabaseApi.getCityStatus(city.id),
-        }))
-      );
-      setCitiesWithStatus(citiesWithRealStatus);
-      console.log('🔄 Города обновлены в реальном времени');
+    console.log('🔄 Подписка на изменения городов активирована');
+
+    const unsubscribe = citiesSupabaseApi.subscribeToCitiesChanges(async () => {
+      // Перезагружаем все города при любом изменении
+      const cities = await getAllCitiesAsync();
+      const citiesWithStatus = cities.map((city: any) => ({
+        ...city,
+        isActive: city.is_active !== undefined ? city.is_active : true,
+      }));
+      
+      setCitiesWithStatus(citiesWithStatus);
+      console.log('✅ Города обновлены в реальном времени');
     });
 
     return () => {
+      console.log('❌ Отписка от изменений городов');
       unsubscribe();
     };
   }, [useSupabase]);
@@ -148,34 +146,14 @@ export function CitiesManagement(): JSX.Element {
         // Логируем изменение
         adminApi.setCityStatus(cityId, newStatus, userId);
 
-        alert(
-          `✅ Город ${newStatus ? 'активирован' : 'деактивирован'}!\n\n` +
-          `🌍 Изменения применены для ВСЕХ пользователей в реальном времени!`
-        );
-      } else {
-        alert('❌ Ошибка изменения статуса города');
-      }
-    } else {
-      // Fallback: используем файл конфигурации
-      const success = adminApi.setCityStatus(cityId, newStatus, userId);
-
-      if (success) {
-        setCitiesWithStatus((prev) =>
-          prev.map((c) =>
-            c.id === cityId ? { ...c, isActive: newStatus } : c
-          )
-        );
-
-        alert(
-          `✅ Статус изменен!\n\n` +
-          `⚠️ Для применения для всех:\n` +
-          `1. Откройте src/shared/config/activeCities.ts\n` +
-          `2. ${newStatus ? 'Добавьте' : 'Удалите'} "${cityId}"\n` +
-          `3. Задеплойте на сервер`
-        );
+        // Короткое сообщение без лишней информации
+        alert(`✅ Готово! Город ${newStatus ? 'активирован' : 'деактивирован'}`);
       } else {
         alert('❌ Ошибка изменения статуса');
       }
+    } else {
+      // Fallback: используем файл конфигурации
+      alert('⚠️ Supabase не подключен. Обратитесь к администратору.');
     }
   };
 
@@ -209,150 +187,96 @@ export function CitiesManagement(): JSX.Element {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Информационная панель */}
-      <div className={`${useSupabase ? 'bg-green-500/10 border-green-500/30' : 'bg-blue-500/10 border-blue-500/30'} border rounded-[20px] p-4`}>
-        <div className="flex items-start gap-3">
-          <div className={`p-2 ${useSupabase ? 'bg-green-500/20' : 'bg-blue-500/20'} rounded-full flex-shrink-0`}>
-            <svg className={`w-5 h-5 ${useSupabase ? 'text-green-300' : 'text-blue-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {useSupabase ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              )}
-            </svg>
-          </div>
-          <div className="flex-1">
-            {useSupabase ? (
-              <>
-                <h3 className="text-green-200 font-el-messiri font-bold mb-1 flex items-center gap-2">
-                  ✅ Supabase подключен - Real-time режим
-                </h3>
-                <p className="text-green-200/80 text-sm mb-2">
-                  Изменения применяются <strong>моментально для ВСЕХ пользователей</strong>!
-                </p>
-                <ul className="text-green-200/80 text-sm space-y-1 list-disc list-inside">
-                  <li>Нажмите кнопку активации/деактивации - готово! 🎉</li>
-                  <li>Все пользователи увидят изменения мгновенно</li>
-                  <li>Не нужно деплоить или обновлять файлы</li>
-                </ul>
-              </>
-            ) : (
-              <>
-                <h3 className="text-blue-200 font-el-messiri font-bold mb-1">
-                  ⚠️ Режим файла конфигурации
-                </h3>
-                <p className="text-blue-200/80 text-sm mb-2">
-                  Чтобы изменения применились для ВСЕХ пользователей:
-                </p>
-                <ol className="text-blue-200/80 text-sm space-y-1 list-decimal list-inside">
-                  <li>Нажмите кнопку активации/деактивации города</li>
-                  <li>Откройте файл <code className="bg-blue-500/20 px-1 rounded">src/shared/config/activeCities.ts</code></li>
-                  <li>Обновите массив <code className="bg-blue-500/20 px-1 rounded">ACTIVE_CITY_IDS</code></li>
-                  <li>Сохраните и задеплойте изменения на сервер</li>
-                </ol>
-              </>
-            )}
+    <div className="space-y-4 md:space-y-6">
+      {/* Компактная информационная панель */}
+      {useSupabase && (
+        <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-3">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <p className="text-green-200 text-sm font-medium">
+              Real-time режим активен
+            </p>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Заголовок и поиск */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+      <div className="space-y-3">
         <div>
-          <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold">
+          <h2 className="text-white font-el-messiri text-xl md:text-2xl font-bold">
             Управление городами
           </h2>
-          <p className="text-white/70 mt-1">
-            Всего городов: {citiesWithStatus.length} | Активных: {citiesWithStatus.filter((c) => c.isActive).length}
+          <p className="text-white/70 text-sm mt-1">
+            Всего: {citiesWithStatus.length} | Активных: {citiesWithStatus.filter((c) => c.isActive).length}
           </p>
         </div>
 
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row gap-2">
           <Input
             type="text"
-            placeholder="Поиск по названию или адресу..."
+            placeholder="Поиск..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 sm:w-64"
+            className="flex-1"
           />
-          {canManage && (
-            <Button
-              variant="default"
-              className="whitespace-nowrap"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Добавить город
-            </Button>
-          )}
         </div>
       </div>
 
       {/* Список городов */}
-      <div className="grid gap-4">
+      <div className="grid gap-3 md:gap-4">
         {filteredCities.map((city) => (
           <div
             key={city.id}
-            className={`bg-mariko-secondary rounded-[24px] p-6 transition-all ${
+            className={`bg-mariko-secondary rounded-2xl md:rounded-[24px] p-4 md:p-6 transition-all ${
               city.isActive ? '' : 'opacity-60'
             }`}
           >
             {/* Заголовок города */}
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-mariko-primary rounded-full">
-                  <MapPin className="w-5 h-5 text-white" />
+            <div className="flex items-start justify-between gap-3 mb-3 md:mb-4">
+              <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+                <div className="p-1.5 md:p-2 bg-mariko-primary rounded-full flex-shrink-0">
+                  <MapPin className="w-4 h-4 md:w-5 md:h-5 text-white" />
                 </div>
-                <div>
-                  <h3 className="text-white font-el-messiri text-xl font-bold">
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-white font-el-messiri text-base md:text-xl font-bold truncate">
                     {city.name}
                   </h3>
-                  <p className="text-white/70 text-sm">
+                  <p className="text-white/70 text-xs md:text-sm">
                     {city.restaurants.length} {city.restaurants.length === 1 ? 'ресторан' : 'ресторанов'}
                   </p>
                 </div>
                 {!city.isActive && (
-                  <span className="px-3 py-1 bg-red-500/20 text-red-200 rounded-full text-sm font-medium">
-                    Деактивирован
+                  <span className="px-2 py-0.5 md:px-3 md:py-1 bg-red-500/20 text-red-200 rounded-full text-xs font-medium flex-shrink-0">
+                    Выкл
                   </span>
                 )}
               </div>
 
               {/* Кнопки управления */}
               {canManage && (
-                <div className="flex gap-2">
+                <div className="flex gap-1 md:gap-2 flex-shrink-0">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleToggleActive(city.id)}
-                    title={city.isActive ? 'Деактивировать город' : 'Активировать город'}
+                    title={city.isActive ? 'Деактивировать' : 'Активировать'}
+                    className="h-8 w-8 md:h-9 md:w-9 p-0"
                   >
                     {city.isActive ? (
-                      <EyeOff className="w-4 h-4" />
+                      <EyeOff className="w-3.5 h-3.5 md:w-4 md:h-4" />
                     ) : (
-                      <Eye className="w-4 h-4" />
+                      <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
                     )}
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      // Переход к редактированию города
-                      alert('Функция редактирования города в разработке');
-                    }}
-                    title="Редактировать город"
-                  >
-                    <Edit className="w-4 h-4" />
                   </Button>
 
                   <Button
                     variant="destructive"
                     size="sm"
                     onClick={() => setCityToDelete(city.id)}
-                    title="Удалить город"
+                    title="Удалить"
+                    className="h-8 w-8 md:h-9 md:w-9 p-0"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   </Button>
                 </div>
               )}
@@ -363,30 +287,17 @@ export function CitiesManagement(): JSX.Element {
               {city.restaurants.map((restaurant) => (
                 <div
                   key={restaurant.id}
-                  className="flex items-center gap-3 p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors"
+                  className="flex items-center gap-2 md:gap-3 p-2 md:p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors"
                 >
-                  <Building2 className="w-4 h-4 text-white/50 flex-shrink-0" />
+                  <Building2 className="w-3.5 h-3.5 md:w-4 md:h-4 text-white/50 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-medium truncate">
+                    <p className="text-white font-medium text-sm md:text-base truncate">
                       {restaurant.name}
                     </p>
-                    <p className="text-white/60 text-sm truncate">
+                    <p className="text-white/60 text-xs md:text-sm truncate">
                       {restaurant.address}
                     </p>
                   </div>
-                  {canManage && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        // Переход к редактированию меню
-                        alert('Переход к редактированию меню: ' + restaurant.id);
-                      }}
-                      className="text-white/70 hover:text-white"
-                    >
-                      Меню
-                    </Button>
-                  )}
                 </div>
               ))}
             </div>

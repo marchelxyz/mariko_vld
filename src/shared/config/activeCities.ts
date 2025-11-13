@@ -23,8 +23,11 @@ export const ACTIVE_CITY_IDS: string[] = [
  * Режим работы приложения
  * - true: показывать только города из ACTIVE_CITY_IDS (рекомендуется для продакшена)
  * - false: показывать все города из cities.ts
+ * 
+ * ⚠️ ВАЖНО: Если используете Supabase - установите в false!
+ * Supabase сам управляет активностью городов через базу данных
  */
-export const USE_ACTIVE_CITIES_FILTER = true;
+export const USE_ACTIVE_CITIES_FILTER = false; // Отключено, используем Supabase
 
 /**
  * Конфигурация активных ресторанов внутри городов

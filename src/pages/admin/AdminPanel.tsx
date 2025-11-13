@@ -60,9 +60,9 @@ export default function AdminPanel(): JSX.Element {
     <div className="min-h-screen bg-transparent overflow-hidden flex flex-col">
       <Header />
       
-      <div className="flex-1 px-4 md:px-6 max-w-7xl mx-auto w-full pb-28">
+      <div className="flex-1 px-3 md:px-6 max-w-7xl mx-auto w-full pb-24 md:pb-28">
         {/* Заголовок */}
-        <div className="mt-10 flex items-center gap-4 mb-8">
+        <div className="mt-6 md:mt-10 flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
           {activeSection ? (
             <button
               onClick={() => setActiveSection(null)}
@@ -78,26 +78,19 @@ export default function AdminPanel(): JSX.Element {
               <ArrowLeft className="w-6 h-6" />
             </button>
           )}
-          <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-white font-el-messiri text-3xl md:text-4xl font-bold">
-                Админ-панель
-              </h1>
-              {userId === 'demo_user' && (
-                <span className="px-3 py-1 bg-yellow-500/20 border border-yellow-500/40 text-yellow-200 rounded-full text-sm font-medium">
-                  🔧 DEV режим
-                </span>
-              )}
-            </div>
-            <p className="text-white/70 mt-1">
-              Ваша роль: {userRole === 'super_admin' ? 'Супер-администратор' : 'Администратор'}
+          <div className="flex-1 min-w-0">
+            <h1 className="text-white font-el-messiri text-2xl md:text-3xl lg:text-4xl font-bold truncate">
+              Админ-панель
+            </h1>
+            <p className="text-white/70 text-sm md:text-base mt-1">
+              {userRole === 'super_admin' ? 'Супер-админ' : 'Админ'}
             </p>
           </div>
         </div>
 
         {/* Контент */}
         {!activeSection ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-3">
             {/* Управление городами */}
             <AdminCard
               icon={<Building2 className="w-8 h-8" />}
@@ -156,8 +149,8 @@ function AdminCard({ icon, title, description, onClick, highlighted }: AdminCard
       onClick={onClick}
       className={`
         group relative overflow-hidden
-        bg-mariko-secondary rounded-[24px] p-6
-        hover:scale-105 transition-all duration-300
+        bg-mariko-secondary rounded-2xl md:rounded-[24px] p-4 md:p-6
+        active:scale-95 md:hover:scale-105 transition-all duration-300
         text-left
         ${highlighted ? 'ring-2 ring-mariko-primary' : ''}
       `}
@@ -166,28 +159,28 @@ function AdminCard({ icon, title, description, onClick, highlighted }: AdminCard
       <div className="absolute inset-0 bg-gradient-to-br from-white/0 to-white/0 group-hover:from-white/5 group-hover:to-white/10 transition-all duration-300" />
       
       {/* Иконка */}
-      <div className="relative mb-4 text-mariko-primary">
+      <div className="relative mb-3 md:mb-4 text-mariko-primary scale-90 md:scale-100">
         {icon}
       </div>
 
       {/* Заголовок */}
-      <h3 className="relative text-white font-el-messiri text-xl font-bold mb-2">
+      <h3 className="relative text-white font-el-messiri text-lg md:text-xl font-bold mb-1 md:mb-2">
         {title}
       </h3>
 
       {/* Описание */}
-      <p className="relative text-white/70 text-sm mb-4">
+      <p className="relative text-white/70 text-xs md:text-sm mb-3 md:mb-4">
         {description}
       </p>
 
       {/* Стрелка */}
-      <div className="relative flex items-center text-mariko-primary font-medium">
+      <div className="relative flex items-center text-mariko-primary font-medium text-sm">
         <span>Открыть</span>
         <ChevronRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
       </div>
 
       {highlighted && (
-        <div className="absolute top-4 right-4 px-2 py-1 bg-mariko-primary rounded text-white text-xs font-bold">
+        <div className="absolute top-3 md:top-4 right-3 md:right-4 px-2 py-0.5 md:py-1 bg-mariko-primary rounded text-white text-xs font-bold">
           Только для вас
         </div>
       )}

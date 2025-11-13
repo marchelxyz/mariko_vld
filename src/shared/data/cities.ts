@@ -358,15 +358,17 @@ export const cities: City[] = [
  * Получить список городов в зависимости от конфигурации
  * Возвращает только активные города, которые видят ВСЕ пользователи
  * 
- * ⚠️ Синхронная версия - использует статичные данные
- * Для работы с Supabase используйте getAvailableCitiesAsync()
+ * ⚠️ УСТАРЕВШАЯ функция - использует статичные данные
+ * Для продакшена используйте getAvailableCitiesAsync() с Supabase!
  */
 export function getAvailableCities(): City[] {
+  // Если фильтр отключен - возвращаем все города
+  // (Supabase сам управляет активностью)
   if (!USE_ACTIVE_CITIES_FILTER) {
     return cities;
   }
 
-  // Фильтруем города и рестораны по конфигурации
+  // Фильтруем города и рестораны по конфигурации (старая система)
   return cities
     .filter(city => ACTIVE_CITY_IDS.includes(city.id))
     .map(city => ({
@@ -375,7 +377,7 @@ export function getAvailableCities(): City[] {
         isRestaurantActive(city.id, restaurant.id)
       ),
     }))
-    .filter(city => city.restaurants.length > 0); // Скрываем города без активных ресторанов
+    .filter(city => city.restaurants.length > 0);
 }
 
 /**
