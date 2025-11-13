@@ -1,3 +1,6 @@
+import { ACTIVE_CITY_IDS, USE_ACTIVE_CITIES_FILTER, isRestaurantActive } from '@/shared/config/activeCities';
+import { citiesSupabaseApi } from '@/shared/api/citiesSupabaseApi';
+
 export interface Restaurant {
   id: string;
   name: string;
@@ -351,19 +354,51 @@ export const cities: City[] = [
   },
 ];
 
-// Флаг для тестового режима (ограниченный список городов)
-const IS_TEST_MODE = true; // Устанавливайте в false для включения всех городов
-const TEST_MODE_CITY_IDS: string[] = ["zhukovsky", "kaluga", "penza"];
-
 /**
- * Получить список городов в зависимости от режима работы
- * В тестовом режиме возвращает только Жуковский
+ * Получить список городов в зависимости от конфигурации
+ * Возвращает только активные города, которые видят ВСЕ пользователи
+ * 
+ * ⚠️ Синхронная версия - использует статичные данные
+ * Для работы с Supabase используйте getAvailableCitiesAsync()
  */
 export function getAvailableCities(): City[] {
-  if (IS_TEST_MODE) {
-    return cities.filter(city => TEST_MODE_CITY_IDS.includes(city.id));
+  if (!USE_ACTIVE_CITIES_FILTER) {
+    return cities;
   }
+
+  // Фильтруем города и рестораны по конфигурации
+  return cities
+    .filter(city => ACTIVE_CITY_IDS.includes(city.id))
+    .map(city => ({
+      ...city,
+      restaurants: city.restaurants.filter(restaurant => 
+        isRestaurantActive(city.id, restaurant.id)
+      ),
+    }))
+    .filter(city => city.restaurants.length > 0); // Скрываем города без активных ресторанов
+}
+
+/**
+ * Получить список активных городов из Supabase (асинхронно)
+ * Используйте эту функцию для real-time данных
+ */
+export async function getAvailableCitiesAsync(): Promise<City[]> {
+  return await citiesSupabaseApi.getActiveCities();
+}
+
+/**
+ * Получить ВСЕ города (для админ-панели)
+ * Не фильтрует по активности
+ */
+export function getAllCities(): City[] {
   return cities;
+}
+
+/**
+ * Получить ВСЕ города из Supabase (асинхронно)
+ */
+export async function getAllCitiesAsync(): Promise<City[]> {
+  return await citiesSupabaseApi.getAllCities();
 }
 
 // Полный список городов уже экспортирован выше
