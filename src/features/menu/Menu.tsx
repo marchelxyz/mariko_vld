@@ -1,0 +1,320 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Search, X } from "lucide-react";
+import { Header } from "@widgets/header";
+import { BottomNavigation } from "@widgets/bottomNavigation";
+import { MenuItemComponent } from "@shared/ui";
+import { useCityContext } from "@/contexts/CityContext";
+import { getMenuByRestaurantId, MenuItem } from "@/shared/data/menuData";
+
+const Menu = () => {
+  const navigate = useNavigate();
+  const { selectedRestaurant } = useCityContext();
+  const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState<string>("");
+
+  // Получаем меню для выбранного ресторана
+  const menu = getMenuByRestaurantId(selectedRestaurant.id);
+
+  // Устанавливаем первую категорию по умолчанию
+  useEffect(() => {
+    if (menu && !activeCategory && menu.categories.length > 0) {
+      setActiveCategory(menu.categories[0].id);
+    }
+  }, [menu, activeCategory]);
+
+  // Если нет меню для этого ресторана, показываем заглушку
+  if (!menu) {
+    return (
+      <div className="min-h-screen bg-transparent overflow-hidden flex flex-col">
+        <Header />
+        <div className="flex-1 px-4 md:px-6 max-w-4xl mx-auto w-full">
+          <div className="mt-10 flex items-center gap-4 mb-8">
+            <button
+              onClick={() => navigate("/")}
+              className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
+            >
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+            <h1 className="text-white font-el-messiri text-3xl md:text-4xl font-bold flex-1">
+              Меню
+            </h1>
+          </div>
+          <div className="bg-mariko-secondary rounded-[24px] p-8 text-center">
+            <p className="text-white font-el-messiri text-xl mb-4">
+              Меню для этого ресторана пока не доступно
+            </p>
+            <button
+              onClick={() => navigate("/")}
+              className="bg-white text-mariko-primary px-6 py-3 rounded-full font-el-messiri font-bold hover:bg-white/90 transition-colors"
+            >
+              На главную
+            </button>
+          </div>
+        </div>
+        <BottomNavigation currentPage="home" />
+      </div>
+    );
+  }
+
+  const handleDishClick = (dish: MenuItem) => {
+    if (activeDish && activeDish.id === dish.id) {
+      setActiveDish(null);
+    } else {
+      setActiveDish(dish);
+    }
+  };
+
+  // Получаем текущую категорию
+  const currentCategory = menu.categories.find((cat) => cat.id === activeCategory);
+
+  // Фильтрация блюд по поисковому запросу
+  const getFilteredItems = () => {
+    if (!searchQuery) {
+      return currentCategory?.items || [];
+    }
+
+    // Если есть поиск, ищем по всем категориям
+    const allItems = menu.categories.flatMap((cat) => cat.items);
+    return allItems.filter(
+      (item) =>
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.description.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  };
+
+  const filteredItems = getFilteredItems();
+
+  return (
+    <div className="min-h-screen bg-transparent overflow-hidden flex flex-col">
+      {/* Header */}
+      <Header />
+
+      {/* Main Content */}
+      <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full pb-28">
+        {/* Back Button and Title */}
+        <div className="mt-10 flex items-center gap-4 mb-6">
+          <button
+            onClick={() => navigate("/")}
+            className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
+          >
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-white font-el-messiri text-3xl md:text-4xl font-bold flex-1">
+            Меню
+          </h1>
+        </div>
+
+        {/* Search */}
+        <div className="mb-6 relative">
+          <div className="bg-mariko-secondary rounded-full px-6 py-4 flex items-center gap-3">
+            <Search className="w-6 h-6 text-white" />
+            <input
+              type="text"
+              placeholder="Поиск блюд..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 bg-transparent text-white placeholder-white/60 border-none outline-none font-el-messiri text-xl"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="p-1 hover:bg-white/10 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Category Tabs */}
+        {!searchQuery && (
+          <div className="mb-6 overflow-x-auto scrollbar-hide">
+            <div className="flex gap-2 pb-2">
+              {menu.categories.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => setActiveCategory(category.id)}
+                  className={`px-5 py-3 rounded-full font-el-messiri font-semibold whitespace-nowrap transition-all ${
+                    activeCategory === category.id
+                      ? "bg-white text-mariko-primary shadow-lg scale-105"
+                      : "bg-mariko-secondary text-white hover:bg-mariko-secondary/80"
+                  }`}
+                >
+                  {category.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Category Header */}
+        {!searchQuery && currentCategory && (
+          <div className="mb-6">
+            <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold">
+              {currentCategory.name}
+            </h2>
+            {currentCategory.description && (
+              <p className="text-white/80 font-el-messiri text-lg mt-1">
+                {currentCategory.description}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Search Results Header */}
+        {searchQuery && (
+          <div className="mb-6">
+            <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold">
+              Результаты поиска
+            </h2>
+            <p className="text-white/80 font-el-messiri text-lg mt-1">
+              Найдено блюд: {filteredItems.length}
+            </p>
+          </div>
+        )}
+
+        {/* Menu Items Grid */}
+        <div>
+          {filteredItems.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+              {filteredItems.map((item: MenuItem) => (
+                <MenuItemComponent
+                  key={item.id}
+                  item={item}
+                  variant="default"
+                  onClick={() => handleDishClick(item)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="bg-mariko-secondary rounded-[24px] p-8 text-center">
+              <p className="text-white font-el-messiri text-xl">
+                {searchQuery
+                  ? "По вашему запросу ничего не найдено"
+                  : "В этой категории пока нет блюд"}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom Navigation */}
+      <BottomNavigation currentPage="home" />
+
+      {/* Dish Modal */}
+      {activeDish && (
+        <div
+          className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+          onClick={() => setActiveDish(null)}
+        >
+          {/* Стеклянная рамка для блюда */}
+          <div
+            className="relative flex flex-col gap-4 items-center max-w-[90vw] max-h-[90vh] p-6 md:p-8
+              bg-white/12 backdrop-blur-md
+              border border-white/25
+              rounded-[30px]
+              shadow-2xl
+              hover:bg-white/15 transition-all duration-300
+              overflow-y-auto cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveDish(null);
+            }}
+          >
+            {/* Градиент для стеклянного эффекта */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-white/5 rounded-[30px] pointer-events-none" />
+
+            {/* Блик сверху */}
+            <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-white/15 to-transparent rounded-t-[30px] pointer-events-none" />
+
+            {/* Гвоздики в углах рамки */}
+            <div className="absolute top-3 left-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
+              bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
+              shadow-lg border border-gray-500/50
+              before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
+              before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
+
+            <div className="absolute top-3 right-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
+              bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
+              shadow-lg border border-gray-500/50
+              before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
+              before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
+
+            <div className="absolute bottom-3 left-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
+              bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
+              shadow-lg border border-gray-500/50
+              before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
+              before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
+
+            <div className="absolute bottom-3 right-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
+              bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
+              shadow-lg border border-gray-500/50
+              before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
+              before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
+
+            {/* Контент блюда */}
+            <div className="relative z-10 flex flex-col gap-4 items-center text-center">
+              {activeDish.imageUrl && (
+                <img
+                  src={activeDish.imageUrl}
+                  alt={activeDish.name}
+                  className="max-h-[40vh] md:max-h-[50vh] w-auto rounded-[20px] shadow-lg"
+                />
+              )}
+
+              {/* Бейджи блюда */}
+              <div className="flex gap-2 flex-wrap justify-center">
+                {activeDish.isRecommended && (
+                  <span className="bg-mariko-primary text-white px-3 py-1 rounded-full text-sm font-medium">
+                    👑 Рекомендуем
+                  </span>
+                )}
+                {activeDish.isNew && (
+                  <span className="bg-mariko-secondary text-white px-3 py-1 rounded-full text-sm font-medium">
+                    ✨ Новинка
+                  </span>
+                )}
+                {activeDish.isVegetarian && (
+                  <span className="bg-green-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                    🌱 Вегетарианское
+                  </span>
+                )}
+                {activeDish.isSpicy && (
+                  <span className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                    🌶️ Острое
+                  </span>
+                )}
+              </div>
+
+              <h3 className="font-el-messiri text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
+                {activeDish.name}
+              </h3>
+
+              {activeDish.description && (
+                <p className="text-base md:text-lg leading-relaxed text-white/90 drop-shadow-lg max-w-md mx-auto">
+                  {activeDish.description}
+                </p>
+              )}
+
+              <div className="flex items-center gap-4 mt-2">
+                <span className="font-el-messiri text-2xl md:text-3xl font-bold text-mariko-secondary drop-shadow-lg">
+                  {activeDish.price}₽
+                </span>
+                {activeDish.weight && (
+                  <span className="text-white/80 text-lg drop-shadow-lg">
+                    {activeDish.weight}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Menu;
+

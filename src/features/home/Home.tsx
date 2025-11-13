@@ -115,6 +115,13 @@ const Index = () => {
               imageClassName="object-left translate-x-[2px]"
               className="w-full"
               onClick={() => {
+                // Для Жуковского открываем внутреннюю страницу меню
+                if (selectedRestaurant.id === 'zhukovsky-myasishcheva') {
+                  navigate('/menu');
+                  return;
+                }
+
+                // Для остальных городов открываем внешние ссылки
                 const menuLink =
                   selectedCity?.id === 'kaluga'
                     ? 'https://vhachapuri.ru/kaluga#menu'

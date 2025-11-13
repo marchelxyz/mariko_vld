@@ -14,6 +14,7 @@ const EditProfile = lazy(() => import("./pages/editProfile"));
 
 const Restaurants = lazy(() => import("./pages/restaurants"));
 const Delivery = lazy(() => import("./pages/delivery"));
+const Menu = lazy(() => import("./pages/menu"));
 const Review = lazy(() => import("./pages/review"));
 const SelectRestaurantForReview = lazy(() => import("./pages/selectRestaurantReview"));
 const About = lazy(() => import("./pages/about"));
@@ -67,9 +68,9 @@ function App() {
                 <Route path="/restaurants/:id" element={<Restaurants />} />
                 <Route path="/restaurants" element={<Restaurants />} />
                 <Route path="/delivery" element={<Delivery />} />
+                <Route path="/menu" element={<Menu />} />
                 <Route path="/review" element={<Review />} />
                 <Route path="/select-restaurant-review" element={<SelectRestaurantForReview />} />
-                {/* Удалено внутреннее меню */}
                 <Route path="/about" element={<About />} />
                 {/* 404 → домой, чтобы избежать белого экрана в WebView */}
                 <Route path="/404" element={<NotFound />} />
