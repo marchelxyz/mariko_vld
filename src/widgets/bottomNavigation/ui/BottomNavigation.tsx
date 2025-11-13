@@ -1,10 +1,12 @@
 import { useNavigate } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { applySafeAreaTo, setBottomBarColor, getTg } from "@/lib/telegram";
+import { useAdmin } from "@/shared/hooks/useAdmin";
+import { Shield } from "lucide-react";
 
 interface BottomNavigationProps {
-  currentPage: "home" | "profile" | "about";
+  currentPage: "home" | "profile" | "about" | "admin";
   /**
    * Дополнительные CSS-классы для кастомизации внешнего вида навигации.
    * Например, можно передать `mt-4`, чтобы добавить отступ сверху.
@@ -14,6 +16,7 @@ interface BottomNavigationProps {
 
 export const BottomNavigation = ({ currentPage, className }: BottomNavigationProps) => {
   const navigate = useNavigate();
+  const { isAdmin } = useAdmin();
   const [iconsLoaded, setIconsLoaded] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -71,26 +74,45 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
     return () => clearTimeout(fallbackTimer);
   }, []);
 
-  const navItems = [
-    {
-      id: "home",
-      label: "Главная",
-      iconPath: "/images/icons/House.png",
-      onClick: () => navigate("/"),
-    },
-    {
-      id: "about",
-      label: "Как нас найти?",
-      iconPath: "/images/action button/Star.png",
-      onClick: () => navigate("/about"),
-    },
-    {
-      id: "profile",
-      label: "Профиль",
-      iconPath: "/images/icons/Male User.png",
-      onClick: () => navigate("/profile"),
-    },
-  ];
+  // Формируем список навигации с учетом прав доступа
+  const navItems = useMemo(() => {
+    const baseItems = [
+      {
+        id: "home",
+        label: "Главная",
+        iconPath: "/images/icons/House.png",
+        onClick: () => navigate("/"),
+        isIconComponent: false,
+      },
+      {
+        id: "about",
+        label: "Как нас найти?",
+        iconPath: "/images/action button/Star.png",
+        onClick: () => navigate("/about"),
+        isIconComponent: false,
+      },
+      {
+        id: "profile",
+        label: "Профиль",
+        iconPath: "/images/icons/Male User.png",
+        onClick: () => navigate("/profile"),
+        isIconComponent: false,
+      },
+    ];
+
+    // Добавляем админ-панель только для администраторов
+    if (isAdmin) {
+      baseItems.splice(2, 0, {
+        id: "admin",
+        label: "Админ-панель",
+        iconPath: "", // Используем компонент вместо картинки
+        onClick: () => navigate("/admin"),
+        isIconComponent: true,
+      });
+    }
+
+    return baseItems;
+  }, [isAdmin, navigate]);
 
   return (
     <div ref={containerRef} className={cn("relative z-50", className)}>
@@ -116,29 +138,42 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
                     isActive ? "w-8 h-8 md:w-11 md:h-11" : "w-6 h-6 md:w-8 md:h-8",
                   )}
                 >
-                  <img
-                    src={item.iconPath}
-                    alt={item.label}
-                    loading="eager"
-                    decoding="sync"
-                    className={cn(
-                      "brightness-0 invert transition-all duration-200 w-full h-full object-contain",
-                      iconsLoaded ? "opacity-100" : "opacity-70",
-                      isActive
-                        ? "drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]"
-                        : "drop-shadow-[0_0_6px_rgba(255,255,255,0.7)]",
-                    )}
-                    style={{
-                      // Устанавливаем минимальные размеры для предотвращения скачков
-                      minWidth: isActive ? "32px" : "24px",
-                      minHeight: isActive ? "32px" : "24px",
-                    }}
-                    onError={(e) => {
-                      // Fallback для случая ошибки загрузки иконки
-                      (e.currentTarget as HTMLImageElement).style.display = "block";
-                      (e.currentTarget as HTMLImageElement).style.opacity = "0.5";
-                    }}
-                  />
+                  {item.isIconComponent ? (
+                    // Для админ-панели используем SVG иконку
+                    <Shield
+                      className={cn(
+                        "text-white transition-all duration-200",
+                        isActive
+                          ? "w-8 h-8 md:w-11 md:h-11 drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]"
+                          : "w-6 h-6 md:w-8 md:h-8 drop-shadow-[0_0_6px_rgba(255,255,255,0.7)]",
+                      )}
+                    />
+                  ) : (
+                    // Для остальных кнопок используем картинки
+                    <img
+                      src={item.iconPath}
+                      alt={item.label}
+                      loading="eager"
+                      decoding="sync"
+                      className={cn(
+                        "brightness-0 invert transition-all duration-200 w-full h-full object-contain",
+                        iconsLoaded ? "opacity-100" : "opacity-70",
+                        isActive
+                          ? "drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]"
+                          : "drop-shadow-[0_0_6px_rgba(255,255,255,0.7)]",
+                      )}
+                      style={{
+                        // Устанавливаем минимальные размеры для предотвращения скачков
+                        minWidth: isActive ? "32px" : "24px",
+                        minHeight: isActive ? "32px" : "24px",
+                      }}
+                      onError={(e) => {
+                        // Fallback для случая ошибки загрузки иконки
+                        (e.currentTarget as HTMLImageElement).style.display = "block";
+                        (e.currentTarget as HTMLImageElement).style.opacity = "0.5";
+                      }}
+                    />
+                  )}
                 </div>
                 <span
                   className={cn(

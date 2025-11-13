@@ -1,17 +1,19 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, X } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { MenuItemComponent } from "@shared/ui";
 import { useCityContext } from "@/contexts/CityContext";
 import { getMenuByRestaurantId, MenuItem } from "@/shared/data/menuData";
 
-const Menu = () => {
+/**
+ * Отображает меню выбранного ресторана с навигацией по категориям и карточками блюд.
+ */
+const Menu = (): JSX.Element => {
   const navigate = useNavigate();
   const { selectedRestaurant } = useCityContext();
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("");
 
   // Получаем меню для выбранного ресторана
@@ -19,7 +21,13 @@ const Menu = () => {
 
   // Устанавливаем первую категорию по умолчанию
   useEffect(() => {
-    if (menu && !activeCategory && menu.categories.length > 0) {
+    if (!menu?.categories?.length) {
+      setActiveCategory("");
+      return;
+    }
+
+    const categoryExists = menu.categories.some((category) => category.id === activeCategory);
+    if (!activeCategory || !categoryExists) {
       setActiveCategory(menu.categories[0].id);
     }
   }, [menu, activeCategory]);
@@ -66,25 +74,10 @@ const Menu = () => {
     }
   };
 
-  // Получаем текущую категорию
-  const currentCategory = menu.categories.find((cat) => cat.id === activeCategory);
-
-  // Фильтрация блюд по поисковому запросу
-  const getFilteredItems = () => {
-    if (!searchQuery) {
-      return currentCategory?.items || [];
-    }
-
-    // Если есть поиск, ищем по всем категориям
-    const allItems = menu.categories.flatMap((cat) => cat.items);
-    return allItems.filter(
-      (item) =>
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.description.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  };
-
-  const filteredItems = getFilteredItems();
+  const activeCategoryId = activeCategory || menu.categories[0]?.id || "";
+  const currentCategory =
+    menu.categories.find((category) => category.id === activeCategoryId) ?? null;
+  const itemsToRender = currentCategory?.items ?? [];
 
   return (
     <div className="min-h-screen bg-transparent overflow-hidden flex flex-col">
@@ -106,51 +99,27 @@ const Menu = () => {
           </h1>
         </div>
 
-        {/* Search */}
-        <div className="mb-6 relative">
-          <div className="bg-mariko-secondary rounded-full px-6 py-4 flex items-center gap-3">
-            <Search className="w-6 h-6 text-white" />
-            <input
-              type="text"
-              placeholder="Поиск блюд..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent text-white placeholder-white/60 border-none outline-none font-el-messiri text-xl"
-            />
-            {searchQuery && (
+        {/* Category Tabs */}
+        <div className="mb-6 overflow-x-auto scrollbar-hide">
+          <div className="flex gap-2 pb-2">
+            {menu.categories.map((category) => (
               <button
-                onClick={() => setSearchQuery("")}
-                className="p-1 hover:bg-white/10 rounded-full transition-colors"
+                key={category.id}
+                onClick={() => setActiveCategory(category.id)}
+                className={`px-5 py-3 rounded-full font-el-messiri font-semibold whitespace-nowrap transition-all ${
+                  activeCategoryId === category.id
+                    ? "bg-white text-mariko-primary shadow-lg scale-105"
+                    : "bg-mariko-secondary text-white hover:bg-mariko-secondary/80"
+                }`}
               >
-                <X className="w-5 h-5 text-white" />
+                {category.name}
               </button>
-            )}
+            ))}
           </div>
         </div>
 
-        {/* Category Tabs */}
-        {!searchQuery && (
-          <div className="mb-6 overflow-x-auto scrollbar-hide">
-            <div className="flex gap-2 pb-2">
-              {menu.categories.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => setActiveCategory(category.id)}
-                  className={`px-5 py-3 rounded-full font-el-messiri font-semibold whitespace-nowrap transition-all ${
-                    activeCategory === category.id
-                      ? "bg-white text-mariko-primary shadow-lg scale-105"
-                      : "bg-mariko-secondary text-white hover:bg-mariko-secondary/80"
-                  }`}
-                >
-                  {category.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Category Header */}
-        {!searchQuery && currentCategory && (
+        {currentCategory && (
           <div className="mb-6">
             <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold">
               {currentCategory.name}
@@ -163,23 +132,11 @@ const Menu = () => {
           </div>
         )}
 
-        {/* Search Results Header */}
-        {searchQuery && (
-          <div className="mb-6">
-            <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold">
-              Результаты поиска
-            </h2>
-            <p className="text-white/80 font-el-messiri text-lg mt-1">
-              Найдено блюд: {filteredItems.length}
-            </p>
-          </div>
-        )}
-
         {/* Menu Items Grid */}
         <div>
-          {filteredItems.length > 0 ? (
+          {itemsToRender.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-              {filteredItems.map((item: MenuItem) => (
+              {itemsToRender.map((item: MenuItem) => (
                 <MenuItemComponent
                   key={item.id}
                   item={item}
@@ -191,9 +148,7 @@ const Menu = () => {
           ) : (
             <div className="bg-mariko-secondary rounded-[24px] p-8 text-center">
               <p className="text-white font-el-messiri text-xl">
-                {searchQuery
-                  ? "По вашему запросу ничего не найдено"
-                  : "В этой категории пока нет блюд"}
+                В этой категории пока нет блюд
               </p>
             </div>
           )}

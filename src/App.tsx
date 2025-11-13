@@ -19,6 +19,7 @@ const Review = lazy(() => import("./pages/review"));
 const SelectRestaurantForReview = lazy(() => import("./pages/selectRestaurantReview"));
 const About = lazy(() => import("./pages/about"));
 const NotFound = lazy(() => import("./pages/notFound"));
+const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
 
 // Create a query client
 const queryClient = new QueryClient({
@@ -72,6 +73,7 @@ function App() {
                 <Route path="/review" element={<Review />} />
                 <Route path="/select-restaurant-review" element={<SelectRestaurantForReview />} />
                 <Route path="/about" element={<About />} />
+                <Route path="/admin" element={<AdminPanel />} />
                 {/* 404 → домой, чтобы избежать белого экрана в WebView */}
                 <Route path="/404" element={<NotFound />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
