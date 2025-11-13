@@ -5,8 +5,8 @@ import { safeOpenLink, storage } from "@/lib/telegram";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { CitySelector } from "@shared/ui";
-import { getAvailableCities } from "@/shared/data/cities";
 import { useCityContext } from "@/contexts/CityContext";
+import { useCities } from "@/shared/hooks/useCities";
 import { RestaurantReviews } from "@entities/restaurant";
 
 interface Restaurant {
@@ -27,9 +27,10 @@ const Restaurants = () => {
   const { id: restaurantId } = useParams();
   const [searchQuery, setSearchQuery] = useState("");
   const { selectedCity, setSelectedCity } = useCityContext();
+  const { cities: availableCities, isLoading } = useCities();
 
   // Получаем все рестораны из всех городов для поиска
-  const allRestaurants: Restaurant[] = getAvailableCities().flatMap((city) =>
+  const allRestaurants: Restaurant[] = availableCities.flatMap((city) =>
     city.restaurants.map((restaurant) => ({
       id: restaurant.id,
       name: restaurant.name,
@@ -381,7 +382,7 @@ const Restaurants = () => {
     if (restaurantId) {
       const restaurant = allRestaurants.find((r) => r.id === restaurantId);
       if (restaurant) {
-        const restaurantCity = getAvailableCities().find((city) =>
+        const restaurantCity = availableCities.find((city) =>
           city.restaurants.some((r) => r.id === restaurant.id),
         );
         if (restaurantCity && selectedCity.id !== restaurantCity.id) {
@@ -393,7 +394,7 @@ const Restaurants = () => {
 
   const selectRestaurant = (restaurant: Restaurant) => {
     // Находим город этого ресторана и устанавливаем его как выбранный
-    const restaurantCity = getAvailableCities().find((city) =>
+    const restaurantCity = availableCities.find((city) =>
       city.restaurants.some((r) => r.id === restaurant.id),
     );
     if (restaurantCity) {

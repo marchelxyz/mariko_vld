@@ -17,12 +17,16 @@ class CitiesSupabaseApi {
    * Получить все активные города (для пользователей)
    */
   async getActiveCities(): Promise<City[]> {
+    console.log('🔍 Проверка Supabase конфигурации:', isSupabaseConfigured());
+    
     if (!isSupabaseConfigured()) {
-      console.warn('Supabase не настроен, используем статичные данные');
-      return this.getStaticActiveCities();
+      console.warn('⚠️ Supabase не настроен, используем статичные данные');
+      return await this.getStaticActiveCities();
     }
 
     try {
+      console.log('📡 Запрос активных городов из Supabase...');
+      
       // Получаем активные города
       const { data: citiesData, error: citiesError } = await supabase
         .from('cities')
@@ -30,14 +34,23 @@ class CitiesSupabaseApi {
         .eq('is_active', true)
         .order('display_order', { ascending: true });
 
-      if (citiesError) throw citiesError;
+      if (citiesError) {
+        console.error('❌ Ошибка запроса городов:', citiesError);
+        throw citiesError;
+      }
+
+      console.log('✅ Получено городов из Supabase:', citiesData?.length || 0);
+      console.log('📊 Данные городов:', citiesData);
 
       if (!citiesData || citiesData.length === 0) {
+        console.warn('⚠️ Таблица cities пустая или нет активных городов');
         return await this.getStaticActiveCities();
       }
 
       // Получаем активные рестораны для этих городов
       const cityIds = citiesData.map((c) => c.id);
+      console.log('📡 Запрос ресторанов для городов:', cityIds);
+      
       const { data: restaurantsData, error: restaurantsError } = await supabase
         .from('restaurants')
         .select('*')
@@ -45,7 +58,12 @@ class CitiesSupabaseApi {
         .eq('is_active', true)
         .order('display_order', { ascending: true });
 
-      if (restaurantsError) throw restaurantsError;
+      if (restaurantsError) {
+        console.error('❌ Ошибка запроса ресторанов:', restaurantsError);
+        throw restaurantsError;
+      }
+
+      console.log('✅ Получено ресторанов из Supabase:', restaurantsData?.length || 0);
 
       // Формируем структуру City[]
       const cities: City[] = citiesData.map((cityRow) => ({
@@ -61,18 +79,24 @@ class CitiesSupabaseApi {
           })),
       }));
 
-      return cities.filter((c) => c.restaurants.length > 0);
+      const activeCities = cities.filter((c) => c.restaurants.length > 0);
+      console.log('✅ ИТОГО активных городов с ресторанами:', activeCities.length);
+      console.log('📋 Список:', activeCities.map(c => c.name).join(', '));
+      
+      return activeCities;
     } catch (error) {
-      console.error('Ошибка загрузки городов из Supabase:', error);
+      console.error('❌ Ошибка загрузки городов из Supabase:', error);
+      console.error('📄 Детали ошибки:', error);
       return await this.getStaticActiveCities();
     }
   }
 
   /**
-   * Получить ВСЕ города (для админ-панели)
+   * Получить ВСЕ города (для админ-панели) с информацией об активности
    */
-  async getAllCities(): Promise<City[]> {
+  async getAllCities(): Promise<Array<City & { is_active?: boolean }>> {
     if (!isSupabaseConfigured()) {
+      console.log('⚠️ Supabase не настроен, используем статичные данные');
       return staticCities;
     }
 
@@ -83,9 +107,13 @@ class CitiesSupabaseApi {
         .select('*')
         .order('display_order', { ascending: true });
 
-      if (citiesError) throw citiesError;
+      if (citiesError) {
+        console.error('Ошибка загрузки городов из Supabase:', citiesError);
+        throw citiesError;
+      }
 
       if (!citiesData || citiesData.length === 0) {
+        console.warn('Таблица cities пустая, используем статичные данные');
         return staticCities;
       }
 
@@ -95,12 +123,16 @@ class CitiesSupabaseApi {
         .select('*')
         .order('display_order', { ascending: true });
 
-      if (restaurantsError) throw restaurantsError;
+      if (restaurantsError) {
+        console.error('Ошибка загрузки ресторанов из Supabase:', restaurantsError);
+        throw restaurantsError;
+      }
 
-      // Формируем структуру City[]
-      const cities: City[] = citiesData.map((cityRow) => ({
+      // Формируем структуру City[] с информацией об активности
+      const cities = citiesData.map((cityRow) => ({
         id: cityRow.id,
         name: cityRow.name,
+        is_active: cityRow.is_active, // Сохраняем статус активности
         restaurants: (restaurantsData || [])
           .filter((r) => r.city_id === cityRow.id)
           .map((r) => ({
@@ -110,6 +142,9 @@ class CitiesSupabaseApi {
             city: cityRow.name,
           })),
       }));
+
+      console.log(`✅ Загружено из Supabase: ${cities.length} городов`);
+      console.log(`✅ Активных городов: ${cities.filter(c => c.is_active).length}`);
 
       return cities;
     } catch (error) {

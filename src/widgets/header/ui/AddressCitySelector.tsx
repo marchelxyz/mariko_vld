@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { MapPin, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getAvailableCities, type City, type Restaurant } from "@/shared/data/cities";
+import { type City, type Restaurant } from "@/shared/data/cities";
+import { useCities } from "@/shared/hooks/useCities";
 
 interface AddressCitySelectorProps {
   selectedRestaurant: Restaurant;
@@ -20,10 +21,11 @@ export const AddressCitySelector = ({
   className,
 }: AddressCitySelectorProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const { cities: availableCities, isLoading } = useCities();
 
   // Создаем список всех ресторанов из всех городов
   const allRestaurants: Array<{ restaurant: Restaurant; city: City }> = [];
-  getAvailableCities().forEach(city => {
+  availableCities.forEach(city => {
     city.restaurants.forEach(restaurant => {
       allRestaurants.push({ restaurant, city });
     });

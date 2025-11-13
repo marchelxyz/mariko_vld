@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getAvailableCities, type City } from "@/shared/data/cities";
+import { type City } from "@/shared/data/cities";
+import { useCities } from "@/shared/hooks/useCities";
 
 interface CitySelectorProps {
   selectedCity: City | null;
@@ -15,8 +16,16 @@ export const CitySelector = ({
   className,
 }: CitySelectorProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const { cities: availableCities, isLoading } = useCities();
 
   const currentRestaurant = selectedCity?.restaurants[0];
+
+  // Автоматически выбираем первый город если не выбран
+  useEffect(() => {
+    if (!selectedCity && availableCities.length > 0 && !isLoading) {
+      onCityChange(availableCities[0]);
+    }
+  }, [availableCities, selectedCity, isLoading, onCityChange]);
 
   return (
     <div className={cn("relative", className)}>
@@ -68,26 +77,32 @@ export const CitySelector = ({
       {isOpen && (
         <div className="absolute top-full right-0 mt-2 bg-mariko-secondary rounded-lg shadow-lg z-50 min-w-64 max-h-80 overflow-y-auto">
           <div className="p-2">
-            {getAvailableCities().map((city) => (
-              <button
-                key={city.id}
-                onClick={() => {
-                  onCityChange(city);
-                  setIsOpen(false);
-                }}
-                className={cn(
-                  "w-full text-left p-3 rounded-lg font-el-messiri transition-colors",
-                  selectedCity?.id === city.id
-                    ? "bg-mariko-primary text-white"
-                    : "text-white hover:bg-mariko-primary/50",
-                )}
-              >
-                <div className="font-semibold text-lg">{city.name}</div>
-                <div className="text-sm text-white/80">
-                  {city.restaurants.length} ресторан{city.restaurants.length > 1 ? "а" : ""}
-                </div>
-              </button>
-            ))}
+            {isLoading ? (
+              <div className="text-white/70 text-center py-4">Загрузка...</div>
+            ) : availableCities.length === 0 ? (
+              <div className="text-white/70 text-center py-4">Нет доступных городов</div>
+            ) : (
+              availableCities.map((city) => (
+                <button
+                  key={city.id}
+                  onClick={() => {
+                    onCityChange(city);
+                    setIsOpen(false);
+                  }}
+                  className={cn(
+                    "w-full text-left p-3 rounded-lg font-el-messiri transition-colors",
+                    selectedCity?.id === city.id
+                      ? "bg-mariko-primary text-white"
+                      : "text-white hover:bg-mariko-primary/50",
+                  )}
+                >
+                  <div className="font-semibold text-lg">{city.name}</div>
+                  <div className="text-sm text-white/80">
+                    {city.restaurants.length} ресторан{city.restaurants.length > 1 ? "а" : ""}
+                  </div>
+                </button>
+              ))
+            )}
           </div>
         </div>
       )}

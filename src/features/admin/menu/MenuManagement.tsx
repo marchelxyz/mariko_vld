@@ -228,14 +228,14 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
   const selectedRestaurant = allRestaurants.find((r) => r.id === selectedRestaurantId);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Заголовок и выбор ресторана */}
-      <div className="flex flex-col gap-4">
-        <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold">
+      <div className="flex flex-col gap-3 md:gap-4">
+        <h2 className="text-white font-el-messiri text-xl md:text-2xl font-bold">
           Управление меню
         </h2>
 
-        <div className="bg-mariko-secondary rounded-[24px] p-4">
+        <div className="bg-mariko-secondary rounded-2xl md:rounded-[24px] p-3 md:p-4">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <Label className="text-white mb-2">Город</Label>

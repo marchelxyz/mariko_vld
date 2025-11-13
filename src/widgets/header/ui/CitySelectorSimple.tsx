@@ -2,7 +2,8 @@ import { useState } from "react";
 import { MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-import { getAvailableCities, type City, type Restaurant } from "@/shared/data/cities";
+import { type City, type Restaurant } from "@/shared/data/cities";
+import { useCities } from "@/shared/hooks/useCities";
 
 interface CitySelectorSimpleProps {
   selectedCity: City | null;
@@ -18,6 +19,7 @@ export const CitySelectorSimple = ({
   openDirection = "down",
 }: CitySelectorSimpleProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const { cities: availableCities, isLoading } = useCities();
 
   return (
     <div className={cn("relative", className)}>
@@ -79,7 +81,12 @@ export const CitySelectorSimple = ({
           )}
         >
           <div className="p-2">
-            {getAvailableCities().map((city) => (
+            {isLoading ? (
+              <div className="text-white/70 text-center py-4">Загрузка...</div>
+            ) : availableCities.length === 0 ? (
+              <div className="text-white/70 text-center py-4">Нет доступных городов</div>
+            ) : (
+              availableCities.map((city) => (
               <button
                 key={city.id}
                 onClick={() => {
@@ -99,7 +106,8 @@ export const CitySelectorSimple = ({
                   {city.restaurants.length > 1 ? "а" : ""}
                 </div>
               </button>
-            ))}
+            ))
+            )}
           </div>
         </div>
       )}
