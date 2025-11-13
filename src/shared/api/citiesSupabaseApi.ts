@@ -1,158 +1,54 @@
-/**
- * API для работы с городами и ресторанами через Supabase
- */
-
-import { supabase, isSupabaseConfigured, getCurrentUserId, Database } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured, Database } from '@/lib/supabase';
+import { getTg } from '@/lib/telegram';
 import { City, Restaurant } from '@/shared/data/cities';
 import { cities as staticCities } from '@/shared/data/cities';
 
-type CityRow = Database['public']['Tables']['cities']['Row'];
-type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
+const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
+const RAW_SERVER_API_BASE = normalizeBaseUrl(rawServerEnv || '/api');
+const HAS_CUSTOM_SERVER_BASE = Boolean(rawServerEnv);
+const USE_SERVER_API = (import.meta.env.VITE_USE_SERVER_API ?? 'true') !== 'false';
+const FORCE_SERVER_API_IN_DEV = import.meta.env.VITE_FORCE_SERVER_API === 'true';
+const DEV_ADMIN_TOKEN = import.meta.env.VITE_DEV_ADMIN_TOKEN;
+const SERVER_POLL_INTERVAL_MS = Number(import.meta.env.VITE_SERVER_POLL_INTERVAL_MS || 15000);
+
+function normalizeBaseUrl(base: string): string {
+  if (!base || base === '/') {
+    return '';
+  }
+  return base.endsWith('/') ? base.slice(0, -1) : base;
+}
 
 /**
- * Класс для работы с городами через Supabase
+ * API для работы с городами и ресторанами через серверный мост (Express) или напрямую через Supabase.
+ * Серверный API нужен для обхода блокировок Supabase у пользователей.
  */
 class CitiesSupabaseApi {
   /**
    * Получить все активные города (для пользователей)
    */
   async getActiveCities(): Promise<City[]> {
-    console.log('🔍 Проверка Supabase конфигурации:', isSupabaseConfigured());
-    
-    if (!isSupabaseConfigured()) {
-      console.warn('⚠️ Supabase не настроен, используем статичные данные');
-      return await this.getStaticActiveCities();
+    if (this.shouldUseServerApi()) {
+      try {
+        return await this.fetchActiveCitiesViaServer();
+      } catch (error) {
+        console.error('❌ Ошибка серверного API городов, используем прямое подключение к Supabase:', error);
+      }
     }
-
-    try {
-      console.log('📡 Запрос активных городов из Supabase...');
-      
-      // Получаем активные города
-      const { data: citiesData, error: citiesError } = await supabase
-        .from('cities')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_order', { ascending: true });
-
-      if (citiesError) {
-        console.error('❌ Ошибка запроса городов:', citiesError);
-        throw citiesError;
-      }
-
-      console.log('✅ Получено городов из Supabase:', citiesData?.length || 0);
-      console.log('📊 Данные городов:', citiesData);
-
-      if (!citiesData || citiesData.length === 0) {
-        console.warn('⚠️ Таблица cities пустая или нет активных городов');
-        return await this.getStaticActiveCities();
-      }
-
-      // Получаем активные рестораны для этих городов
-      const cityIds = citiesData.map((c) => c.id);
-      console.log('📡 Запрос ресторанов для городов:', cityIds);
-      
-      const { data: restaurantsData, error: restaurantsError } = await supabase
-        .from('restaurants')
-        .select('*')
-        .in('city_id', cityIds)
-        .eq('is_active', true)
-        .order('display_order', { ascending: true });
-
-      if (restaurantsError) {
-        console.error('❌ Ошибка запроса ресторанов:', restaurantsError);
-        throw restaurantsError;
-      }
-
-      console.log('✅ Получено ресторанов из Supabase:', restaurantsData?.length || 0);
-
-      // Формируем структуру City[]
-      const cities: City[] = citiesData.map((cityRow) => ({
-        id: cityRow.id,
-        name: cityRow.name,
-        restaurants: (restaurantsData || [])
-          .filter((r) => r.city_id === cityRow.id)
-          .map((r) => ({
-            id: r.id,
-            name: r.name,
-            address: r.address,
-            city: cityRow.name,
-          })),
-      }));
-
-      const activeCities = cities.filter((c) => c.restaurants.length > 0);
-      console.log('✅ ИТОГО активных городов с ресторанами:', activeCities.length);
-      console.log('📋 Список:', activeCities.map(c => c.name).join(', '));
-      
-      return activeCities;
-    } catch (error) {
-      console.error('❌ Ошибка загрузки городов из Supabase:', error);
-      console.error('📄 Детали ошибки:', error);
-      // Если Supabase настроен, не подменяем данные статикой, а даём ошибку наверх,
-      // чтобы на клиенте можно было показать понятное сообщение.
-      throw error;
-    }
+    return await this.fetchActiveCitiesViaSupabase();
   }
 
   /**
    * Получить ВСЕ города (для админ-панели) с информацией об активности
    */
   async getAllCities(): Promise<Array<City & { is_active?: boolean }>> {
-    if (!isSupabaseConfigured()) {
-      console.log('⚠️ Supabase не настроен, используем статичные данные');
-      return staticCities;
+    if (this.shouldUseServerApi()) {
+      try {
+        return await this.fetchAllCitiesViaServer();
+      } catch (error) {
+        console.error('❌ Ошибка серверного API всех городов, используем прямой доступ к Supabase:', error);
+      }
     }
-
-    try {
-      // Получаем все города
-      const { data: citiesData, error: citiesError } = await supabase
-        .from('cities')
-        .select('*')
-        .order('display_order', { ascending: true });
-
-      if (citiesError) {
-        console.error('Ошибка загрузки городов из Supabase:', citiesError);
-        throw citiesError;
-      }
-
-      if (!citiesData || citiesData.length === 0) {
-        console.warn('Таблица cities пустая, используем статичные данные');
-        return staticCities;
-      }
-
-      // Получаем все рестораны
-      const { data: restaurantsData, error: restaurantsError } = await supabase
-        .from('restaurants')
-        .select('*')
-        .order('display_order', { ascending: true });
-
-      if (restaurantsError) {
-        console.error('Ошибка загрузки ресторанов из Supabase:', restaurantsError);
-        throw restaurantsError;
-      }
-
-      // Формируем структуру City[] с информацией об активности
-      const cities = citiesData.map((cityRow) => ({
-        id: cityRow.id,
-        name: cityRow.name,
-        is_active: cityRow.is_active, // Сохраняем статус активности
-        restaurants: (restaurantsData || [])
-          .filter((r) => r.city_id === cityRow.id)
-          .map((r) => ({
-            id: r.id,
-            name: r.name,
-            address: r.address,
-            city: cityRow.name,
-          })),
-      }));
-
-      console.log(`✅ Загружено из Supabase: ${cities.length} городов`);
-      console.log(`✅ Активных городов: ${cities.filter(c => c.is_active).length}`);
-
-      return cities;
-    } catch (error) {
-      console.error('Ошибка загрузки всех городов из Supabase:', error);
-      return staticCities;
-    }
+    return await this.fetchAllCitiesViaSupabase();
   }
 
   /**
@@ -184,36 +80,18 @@ class CitiesSupabaseApi {
    * Возвращает флаг успеха и человеко‑читаемое сообщение об ошибке,
    * чтобы его можно было показать в админ‑панели (особенно на телефоне).
    */
-  async setCityStatus(cityId: string, isActive: boolean): Promise<{ success: boolean; errorMessage?: string }> {
-    if (!isSupabaseConfigured()) {
-      const message = 'Supabase не настроен. Проверьте .env на сервере.';
-      console.error(message);
-      return { success: false, errorMessage: message };
-    }
-
-    try {
-      const { error } = await supabase
-        .from('cities')
-        .update({ is_active: isActive })
-        .eq('id', cityId);
-
-      if (error) {
-        console.error('Ошибка изменения статуса города в Supabase:', error);
-        return {
-          success: false,
-          errorMessage: error.message ?? 'Неизвестная ошибка Supabase при изменении статуса города',
-        };
+  async setCityStatus(
+    cityId: string,
+    isActive: boolean,
+  ): Promise<{ success: boolean; errorMessage?: string }> {
+    if (this.shouldUseServerApi()) {
+      try {
+        return await this.setCityStatusViaServer(cityId, isActive);
+      } catch (error) {
+        console.error('❌ Ошибка серверного API при изменении статуса города, fallback на Supabase:', error);
       }
-
-      console.log(`✅ Город ${cityId} ${isActive ? 'активирован' : 'деактивирован'}`);
-      return { success: true };
-    } catch (error: any) {
-      console.error('Неожиданная ошибка изменения статуса города:', error);
-      return {
-        success: false,
-        errorMessage: error?.message ?? 'Неожиданная ошибка при изменении статуса города',
-      };
     }
+    return await this.setCityStatusViaSupabase(cityId, isActive);
   }
 
   /**
@@ -369,6 +247,23 @@ class CitiesSupabaseApi {
    * Подписаться на изменения городов (real-time)
    */
   subscribeToCitiesChanges(callback: (cities: City[]) => void): () => void {
+    if (this.shouldUseServerApi()) {
+      if (typeof window === 'undefined') {
+        return () => {};
+      }
+      const intervalId = window.setInterval(() => {
+        this.fetchActiveCitiesViaServer()
+          .then(callback)
+          .catch((error) => {
+            console.warn('⚠️ Не удалось обновить города через серверный API:', error);
+          });
+      }, SERVER_POLL_INTERVAL_MS);
+
+      return () => {
+        window.clearInterval(intervalId);
+      };
+    }
+
     if (!isSupabaseConfigured()) {
       return () => {};
     }
@@ -383,9 +278,8 @@ class CitiesSupabaseApi {
           table: 'cities',
         },
         () => {
-          // При любом изменении перезагружаем города
           this.getActiveCities().then(callback);
-        }
+        },
       )
       .on(
         'postgres_changes',
@@ -395,15 +289,242 @@ class CitiesSupabaseApi {
           table: 'restaurants',
         },
         () => {
-          // При изменении ресторанов тоже обновляем
           this.getActiveCities().then(callback);
-        }
+        },
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
+  }
+
+  private shouldUseServerApi(): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    if (!USE_SERVER_API) {
+      return false;
+    }
+    if (import.meta.env.DEV && !HAS_CUSTOM_SERVER_BASE && !FORCE_SERVER_API_IN_DEV) {
+      return false;
+    }
+    return true;
+  }
+
+  private resolveServerUrl(path: string): string {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    if (!RAW_SERVER_API_BASE) {
+      return normalizedPath;
+    }
+    return `${RAW_SERVER_API_BASE}${normalizedPath}`;
+  }
+
+  private async fetchFromServer<T>(path: string, options?: RequestInit): Promise<T> {
+    const response = await fetch(this.resolveServerUrl(path), {
+      credentials: 'include',
+      ...options,
+      headers: {
+        Accept: 'application/json',
+        ...(options?.headers ?? {}),
+      },
+    });
+
+    const text = await response.text();
+    if (!response.ok) {
+      const errorMessage = this.parseErrorPayload(text) ?? `Server API responded with ${response.status}`;
+      throw new Error(errorMessage);
+    }
+
+    return text ? (JSON.parse(text) as T) : (undefined as T);
+  }
+
+  private parseErrorPayload(payload?: string): string | null {
+    if (!payload) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(payload);
+      return parsed?.error ?? parsed?.message ?? null;
+    } catch {
+      return payload;
+    }
+  }
+
+  private fetchActiveCitiesViaServer(): Promise<City[]> {
+    return this.fetchFromServer<City[]>('/cities/active');
+  }
+
+  private fetchAllCitiesViaServer(): Promise<Array<City & { is_active?: boolean }>> {
+    return this.fetchFromServer<Array<City & { is_active?: boolean }>>('/cities/all');
+  }
+
+  private async setCityStatusViaServer(
+    cityId: string,
+    isActive: boolean,
+  ): Promise<{ success: boolean; errorMessage?: string }> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    const initData = getTg()?.initData;
+    if (initData) {
+      headers['X-Telegram-Init-Data'] = initData;
+    } else if (import.meta.env.DEV && DEV_ADMIN_TOKEN) {
+      headers['X-Admin-Token'] = DEV_ADMIN_TOKEN;
+    }
+
+    const response = await fetch(this.resolveServerUrl('/admin/cities/status'), {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: JSON.stringify({ cityId, isActive }),
+    });
+
+    const text = await response.text();
+    if (!response.ok) {
+      return {
+        success: false,
+        errorMessage: this.parseErrorPayload(text) ?? 'Ошибка серверного API при изменении статуса города',
+      };
+    }
+
+    return { success: true };
+  }
+
+  private async fetchActiveCitiesViaSupabase(): Promise<City[]> {
+    if (!isSupabaseConfigured()) {
+      console.warn('⚠️ Supabase не настроен, используем статичные данные');
+      return this.getStaticActiveCities();
+    }
+
+    try {
+      const { data: citiesData, error: citiesError } = await supabase
+        .from('cities')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (citiesError) {
+        throw citiesError;
+      }
+
+      if (!citiesData || citiesData.length === 0) {
+        return this.getStaticActiveCities();
+      }
+
+      const cityIds = citiesData.map((c) => c.id);
+      const { data: restaurantsData, error: restaurantsError } = await supabase
+        .from('restaurants')
+        .select('*')
+        .in('city_id', cityIds)
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (restaurantsError) {
+        throw restaurantsError;
+      }
+
+      return citiesData
+        .map((cityRow) => ({
+          id: cityRow.id,
+          name: cityRow.name,
+          restaurants: (restaurantsData || [])
+            .filter((r) => r.city_id === cityRow.id)
+            .map((r) => ({
+              id: r.id,
+              name: r.name,
+              address: r.address,
+              city: cityRow.name,
+            })),
+        }))
+        .filter((city) => city.restaurants.length > 0);
+    } catch (error) {
+      console.error('❌ Ошибка загрузки городов из Supabase:', error);
+      return this.getStaticActiveCities();
+    }
+  }
+
+  private async fetchAllCitiesViaSupabase(): Promise<Array<City & { is_active?: boolean }>> {
+    if (!isSupabaseConfigured()) {
+      console.warn('⚠️ Supabase не настроен, используем статичные данные');
+      return staticCities;
+    }
+
+    try {
+      const { data: citiesData, error: citiesError } = await supabase
+        .from('cities')
+        .select('*')
+        .order('display_order', { ascending: true });
+
+      if (citiesError) {
+        throw citiesError;
+      }
+
+      if (!citiesData || citiesData.length === 0) {
+        return staticCities;
+      }
+
+      const { data: restaurantsData, error: restaurantsError } = await supabase
+        .from('restaurants')
+        .select('*')
+        .order('display_order', { ascending: true });
+
+      if (restaurantsError) {
+        throw restaurantsError;
+      }
+
+      return citiesData.map((cityRow) => ({
+        id: cityRow.id,
+        name: cityRow.name,
+        is_active: cityRow.is_active,
+        restaurants: (restaurantsData || [])
+          .filter((r) => r.city_id === cityRow.id)
+          .map((r) => ({
+            id: r.id,
+            name: r.name,
+            address: r.address,
+            city: cityRow.name,
+          })),
+      }));
+    } catch (error) {
+      console.error('❌ Ошибка загрузки всех городов из Supabase:', error);
+      return staticCities;
+    }
+  }
+
+  private async setCityStatusViaSupabase(
+    cityId: string,
+    isActive: boolean,
+  ): Promise<{ success: boolean; errorMessage?: string }> {
+    if (!isSupabaseConfigured()) {
+      const message = 'Supabase не настроен. Проверьте .env на сервере.';
+      console.error(message);
+      return { success: false, errorMessage: message };
+    }
+
+    try {
+      const { error } = await supabase
+        .from('cities')
+        .update({ is_active: isActive })
+        .eq('id', cityId);
+
+      if (error) {
+        console.error('Ошибка изменения статуса города в Supabase:', error);
+        return {
+          success: false,
+          errorMessage: error.message ?? 'Неизвестная ошибка Supabase при изменении статуса города',
+        };
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Неожиданная ошибка изменения статуса города:', error);
+      return {
+        success: false,
+        errorMessage: error?.message ?? 'Неожиданная ошибка при изменении статуса города',
+      };
+    }
   }
 
   /**

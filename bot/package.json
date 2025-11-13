@@ -8,7 +8,9 @@
     "dev": "node main-bot.cjs"
   },
   "dependencies": {
+    "cors": "^2.8.5",
     "dotenv": "^16.3.1",
+    "express": "^4.19.2",
     "node-telegram-bot-api": "^0.66.0"
   },
   "keywords": [
