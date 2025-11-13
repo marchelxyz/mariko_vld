@@ -133,9 +133,9 @@ export function CitiesManagement(): JSX.Element {
 
     if (useSupabase) {
       // Используем Supabase - изменения применяются моментально для всех
-      const success = await citiesSupabaseApi.setCityStatus(cityId, newStatus);
+      const result = await citiesSupabaseApi.setCityStatus(cityId, newStatus);
 
-      if (success) {
+      if (result.success) {
         // Обновляем локальное состояние
         setCitiesWithStatus((prev) =>
           prev.map((c) =>
@@ -143,13 +143,14 @@ export function CitiesManagement(): JSX.Element {
           )
         );
 
-        // Логируем изменение
+        // Логируем изменение (внутренний аудит, не влияет на Supabase)
         adminApi.setCityStatus(cityId, newStatus, userId);
 
         // Короткое сообщение без лишней информации
         alert(`✅ Готово! Город ${newStatus ? 'активирован' : 'деактивирован'}`);
       } else {
-        alert('❌ Ошибка изменения статуса');
+        const details = result.errorMessage ? `\n\nДетали: ${result.errorMessage}` : '';
+        alert(`❌ Ошибка изменения статуса${details}`);
       }
     } else {
       // Fallback: используем файл конфигурации

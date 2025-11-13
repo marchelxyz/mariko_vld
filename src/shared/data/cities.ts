@@ -378,7 +378,7 @@ export function getAvailableCities(): City[] {
       ),
     }))
     .filter(city => city.restaurants.length > 0);
-}
+  }
 
 /**
  * Получить список активных городов из Supabase (асинхронно)

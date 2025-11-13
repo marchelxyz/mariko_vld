@@ -77,28 +77,28 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
   // Формируем список навигации с учетом прав доступа
   const navItems = useMemo(() => {
     const baseItems = [
-      {
-        id: "home",
-        label: "Главная",
-        iconPath: "/images/icons/House.png",
-        onClick: () => navigate("/"),
+    {
+      id: "home",
+      label: "Главная",
+      iconPath: "/images/icons/House.png",
+      onClick: () => navigate("/"),
         isIconComponent: false,
-      },
-      {
-        id: "about",
-        label: "Как нас найти?",
-        iconPath: "/images/action button/Star.png",
-        onClick: () => navigate("/about"),
+    },
+    {
+      id: "about",
+      label: "Как нас найти?",
+      iconPath: "/images/action button/Star.png",
+      onClick: () => navigate("/about"),
         isIconComponent: false,
-      },
-      {
-        id: "profile",
-        label: "Профиль",
-        iconPath: "/images/icons/Male User.png",
-        onClick: () => navigate("/profile"),
+    },
+    {
+      id: "profile",
+      label: "Профиль",
+      iconPath: "/images/icons/Male User.png",
+      onClick: () => navigate("/profile"),
         isIconComponent: false,
-      },
-    ];
+    },
+  ];
 
     // Добавляем админ-панель только для администраторов
     if (isAdmin) {
@@ -150,29 +150,29 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
                     />
                   ) : (
                     // Для остальных кнопок используем картинки
-                    <img
-                      src={item.iconPath}
-                      alt={item.label}
-                      loading="eager"
-                      decoding="sync"
-                      className={cn(
-                        "brightness-0 invert transition-all duration-200 w-full h-full object-contain",
-                        iconsLoaded ? "opacity-100" : "opacity-70",
-                        isActive
-                          ? "drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]"
-                          : "drop-shadow-[0_0_6px_rgba(255,255,255,0.7)]",
-                      )}
-                      style={{
-                        // Устанавливаем минимальные размеры для предотвращения скачков
-                        minWidth: isActive ? "32px" : "24px",
-                        minHeight: isActive ? "32px" : "24px",
-                      }}
-                      onError={(e) => {
-                        // Fallback для случая ошибки загрузки иконки
-                        (e.currentTarget as HTMLImageElement).style.display = "block";
-                        (e.currentTarget as HTMLImageElement).style.opacity = "0.5";
-                      }}
-                    />
+                  <img
+                    src={item.iconPath}
+                    alt={item.label}
+                    loading="eager"
+                    decoding="sync"
+                    className={cn(
+                      "brightness-0 invert transition-all duration-200 w-full h-full object-contain",
+                      iconsLoaded ? "opacity-100" : "opacity-70",
+                      isActive
+                        ? "drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]"
+                        : "drop-shadow-[0_0_6px_rgba(255,255,255,0.7)]",
+                    )}
+                    style={{
+                      // Устанавливаем минимальные размеры для предотвращения скачков
+                      minWidth: isActive ? "32px" : "24px",
+                      minHeight: isActive ? "32px" : "24px",
+                    }}
+                    onError={(e) => {
+                      // Fallback для случая ошибки загрузки иконки
+                      (e.currentTarget as HTMLImageElement).style.display = "block";
+                      (e.currentTarget as HTMLImageElement).style.opacity = "0.5";
+                    }}
+                  />
                   )}
                 </div>
                 <span

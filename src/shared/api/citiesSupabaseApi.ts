@@ -87,7 +87,9 @@ class CitiesSupabaseApi {
     } catch (error) {
       console.error('❌ Ошибка загрузки городов из Supabase:', error);
       console.error('📄 Детали ошибки:', error);
-      return await this.getStaticActiveCities();
+      // Если Supabase настроен, не подменяем данные статикой, а даём ошибку наверх,
+      // чтобы на клиенте можно было показать понятное сообщение.
+      throw error;
     }
   }
 
@@ -178,11 +180,15 @@ class CitiesSupabaseApi {
 
   /**
    * Установить статус города (активировать/деактивировать)
+   *
+   * Возвращает флаг успеха и человеко‑читаемое сообщение об ошибке,
+   * чтобы его можно было показать в админ‑панели (особенно на телефоне).
    */
-  async setCityStatus(cityId: string, isActive: boolean): Promise<boolean> {
+  async setCityStatus(cityId: string, isActive: boolean): Promise<{ success: boolean; errorMessage?: string }> {
     if (!isSupabaseConfigured()) {
-      console.error('Supabase не настроен');
-      return false;
+      const message = 'Supabase не настроен. Проверьте .env на сервере.';
+      console.error(message);
+      return { success: false, errorMessage: message };
     }
 
     try {
@@ -191,13 +197,22 @@ class CitiesSupabaseApi {
         .update({ is_active: isActive })
         .eq('id', cityId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Ошибка изменения статуса города в Supabase:', error);
+        return {
+          success: false,
+          errorMessage: error.message ?? 'Неизвестная ошибка Supabase при изменении статуса города',
+        };
+      }
 
       console.log(`✅ Город ${cityId} ${isActive ? 'активирован' : 'деактивирован'}`);
-      return true;
-    } catch (error) {
-      console.error('Ошибка изменения статуса города:', error);
-      return false;
+      return { success: true };
+    } catch (error: any) {
+      console.error('Неожиданная ошибка изменения статуса города:', error);
+      return {
+        success: false,
+        errorMessage: error?.message ?? 'Неожиданная ошибка при изменении статуса города',
+      };
     }
   }
 
