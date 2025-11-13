@@ -33,7 +33,7 @@ class CitiesSupabaseApi {
       if (citiesError) throw citiesError;
 
       if (!citiesData || citiesData.length === 0) {
-        return this.getStaticActiveCities();
+        return await this.getStaticActiveCities();
       }
 
       // Получаем активные рестораны для этих городов
@@ -64,7 +64,7 @@ class CitiesSupabaseApi {
       return cities.filter((c) => c.restaurants.length > 0);
     } catch (error) {
       console.error('Ошибка загрузки городов из Supabase:', error);
-      return this.getStaticActiveCities();
+      return await this.getStaticActiveCities();
     }
   }
 
@@ -359,8 +359,8 @@ class CitiesSupabaseApi {
   /**
    * Fallback: получить активные города из статичных данных
    */
-  private getStaticActiveCities(): City[] {
-    const { ACTIVE_CITY_IDS, USE_ACTIVE_CITIES_FILTER, isRestaurantActive } = require('@/shared/config/activeCities');
+  private async getStaticActiveCities(): Promise<City[]> {
+    const { ACTIVE_CITY_IDS, USE_ACTIVE_CITIES_FILTER, isRestaurantActive } = await import('@/shared/config/activeCities');
     
     if (!USE_ACTIVE_CITIES_FILTER) {
       return staticCities;
