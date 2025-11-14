@@ -13,5 +13,5 @@ export type CopySourceSelection = {
   restaurantId: string;
   categoryId: string;
   itemId: string;
+  importAllCategories: boolean;
 };
-

@@ -100,11 +100,13 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     restaurantId: '',
     categoryId: '',
     itemId: '',
+    importAllCategories: false,
   });
   const [sourceMenu, setSourceMenu] = useState<RestaurantMenu | null>(null);
   const [isLoadingSourceMenu, setIsLoadingSourceMenu] = useState<boolean>(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState<boolean>(false);
   const [libraryImages, setLibraryImages] = useState<MenuImageAsset[]>([]);
+  const [librarySearch, setLibrarySearch] = useState<string>('');
   const [isLoadingLibrary, setIsLoadingLibrary] = useState<boolean>(false);
   const [libraryError, setLibraryError] = useState<string | null>(null);
 
@@ -398,6 +400,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
       restaurantId: '',
       categoryId: '',
       itemId: '',
+      importAllCategories: false,
     });
     setSourceMenu(null);
     setIsLoadingSourceMenu(false);
@@ -409,6 +412,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
       restaurantId,
       categoryId: '',
       itemId: '',
+      importAllCategories: false,
     }));
     if (!restaurantId) {
       setSourceMenu(null);
@@ -472,6 +476,24 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
       return;
     }
     if (copyContext.type === 'category') {
+      if (sourceSelection.importAllCategories) {
+        if (!sourceMenu.categories.length) {
+          alert('В выбранном ресторане нет категорий для импорта');
+          return;
+        }
+        await applyMenuChanges(
+          (previous) => ({
+            ...previous,
+            categories: [
+              ...previous.categories,
+              ...sourceMenu.categories.map((category) => cloneCategory(category)),
+            ],
+          }),
+          '✅ Категории импортированы',
+        );
+        setCopyContext(null);
+        return;
+      }
       const category = sourceMenu.categories.find(
         (candidate) => candidate.id === sourceSelection.categoryId,
       );
