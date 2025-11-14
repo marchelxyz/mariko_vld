@@ -37,7 +37,7 @@ const InteractiveLink = ({
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        "group flex w-full items-center gap-3 rounded-full bg-white/10 px-4 py-3 text-left text-white transition-transform duration-200 hover:bg-white/20 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80",
+        "group flex w-full items-center gap-3 rounded-[16px] bg-white/10 px-4 py-3 text-left text-white transition-transform duration-200 hover:bg-white/20 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80",
         className,
       )}
     >
@@ -78,7 +78,7 @@ const About = () => {
             {filteredContacts.map((contact) => (
               <div
                 key={contact.id}
-                className="relative bg-mariko-secondary rounded-[90px] p-4 md:p-6 lg:p-8 text-white transition-all duration-300 hover:bg-mariko-secondary/95"
+                className="relative bg-mariko-secondary rounded-[16px] p-4 md:p-6 lg:p-8 text-white transition-all duration-300 hover:bg-mariko-secondary/95"
               >
                 {/* Desktop layout - image on the right */}
                 <div className="hidden md:block">
