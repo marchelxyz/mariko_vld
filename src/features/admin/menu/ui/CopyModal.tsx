@@ -1,4 +1,4 @@
-import { Button, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@shared/ui';
+import { Button, Checkbox, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@shared/ui';
 import { X } from 'lucide-react';
 import type { CopyContext, CopySourceSelection } from '../model/types';
 import type { RestaurantMenu } from '@/shared/data/menuData';
@@ -48,6 +48,13 @@ export function CopyModal({
   const categories = sourceMenu?.categories ?? [];
   const items =
     categories.find((category) => category.id === selection.categoryId)?.items ?? [];
+  const importAllCategories = Boolean(selection.importAllCategories);
+  const isCategoryMode = context.type === 'category';
+  const isCategorySelectDisabled = !sourceMenu || isLoadingMenu || (isCategoryMode && importAllCategories);
+  const isConfirmDisabled =
+    !selection.restaurantId ||
+    (isCategoryMode && !importAllCategories && !selection.categoryId) ||
+    (context.type === 'item' && !selection.itemId);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
@@ -108,10 +115,11 @@ export function CopyModal({
             </Select>
           </div>
 
-          <div>
+          <div className="space-y-2">
+            <div>
             <Label className="text-white">Категория</Label>
             <Select
-              disabled={!sourceMenu || isLoadingMenu}
+              disabled={isCategorySelectDisabled}
               value={selection.categoryId}
               onValueChange={(value) => onChangeSelection({ categoryId: value, itemId: '' })}
             >
@@ -126,6 +134,27 @@ export function CopyModal({
                 ))}
               </SelectContent>
             </Select>
+            </div>
+
+            {context.type === 'category' && (
+              <label className="flex items-center gap-3 text-white cursor-pointer select-none">
+                <Checkbox
+                  checked={importAllCategories}
+                  onCheckedChange={(checked) =>
+                    onChangeSelection({
+                      importAllCategories: Boolean(checked),
+                      categoryId: checked ? '' : selection.categoryId,
+                    })
+                  }
+                />
+                <span className="text-sm leading-tight">
+                  Импортировать все категории
+                  <span className="block text-white/60 text-xs">
+                    Скопирует весь список категорий вместе с блюдами.
+                  </span>
+                </span>
+              </label>
+            )}
           </div>
 
           {context.type === 'item' && (
@@ -155,15 +184,7 @@ export function CopyModal({
           <Button variant="outline" onClick={onClose}>
             Отмена
           </Button>
-          <Button
-            variant="default"
-            disabled={
-              !selection.restaurantId ||
-              !selection.categoryId ||
-              (context.type === 'item' && !selection.itemId)
-            }
-            onClick={onConfirm}
-          >
+          <Button variant="default" disabled={isConfirmDisabled} onClick={onConfirm}>
             Импортировать
           </Button>
         </div>
@@ -171,4 +192,3 @@ export function CopyModal({
     </div>
   );
 }
-
