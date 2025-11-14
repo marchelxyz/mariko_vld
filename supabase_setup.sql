@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS cities (
 CREATE INDEX IF NOT EXISTS idx_cities_is_active ON cities(is_active);
 CREATE INDEX IF NOT EXISTS idx_cities_display_order ON cities(display_order);
 
--- 2. Создание таблицы ресторанов
 CREATE TABLE IF NOT EXISTS restaurants (
   id TEXT PRIMARY KEY,
   city_id TEXT NOT NULL REFERENCES cities(id) ON DELETE CASCADE,
@@ -36,9 +35,61 @@ CREATE INDEX IF NOT EXISTS idx_restaurants_city_id ON restaurants(city_id);
 CREATE INDEX IF NOT EXISTS idx_restaurants_is_active ON restaurants(is_active);
 CREATE INDEX IF NOT EXISTS idx_restaurants_display_order ON restaurants(display_order);
 
--- 3. Включение Row Level Security
+-- 3. Создание таблиц меню (категории и блюда)
+CREATE TABLE IF NOT EXISTS menu_categories (
+  id TEXT PRIMARY KEY,
+  restaurant_id TEXT NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  is_active BOOLEAN DEFAULT true,
+  display_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS menu_items (
+  id TEXT PRIMARY KEY,
+  category_id TEXT NOT NULL REFERENCES menu_categories(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  price NUMERIC(10, 2) NOT NULL,
+  weight TEXT,
+  image_url TEXT,
+  is_vegetarian BOOLEAN DEFAULT false,
+  is_spicy BOOLEAN DEFAULT false,
+  is_new BOOLEAN DEFAULT false,
+  is_recommended BOOLEAN DEFAULT false,
+  is_active BOOLEAN DEFAULT true,
+  display_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Индексы для меню
+CREATE INDEX IF NOT EXISTS idx_menu_categories_restaurant_id ON menu_categories(restaurant_id);
+CREATE INDEX IF NOT EXISTS idx_menu_categories_display_order ON menu_categories(display_order);
+CREATE INDEX IF NOT EXISTS idx_menu_items_category_id ON menu_items(category_id);
+CREATE INDEX IF NOT EXISTS idx_menu_items_display_order ON menu_items(display_order);
+
 ALTER TABLE cities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE restaurants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE menu_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE menu_items ENABLE ROW LEVEL SECURITY;
+
+-- Гарантируем наличие столбцов активности при повторном запуске скрипта
+DO $$
+BEGIN
+  ALTER TABLE menu_categories ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+EXCEPTION WHEN duplicate_column THEN
+  NULL;
+END $$;
+
+DO $$
+BEGIN
+  ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+EXCEPTION WHEN duplicate_column THEN
+  NULL;
+END $$;
 
 -- Политики доступа (временно разрешаем всем, потом настроим)
 DROP POLICY IF EXISTS "Anyone can view cities" ON cities;
@@ -59,6 +110,26 @@ CREATE POLICY "Anyone can view restaurants"
 DROP POLICY IF EXISTS "Anyone can manage restaurants" ON restaurants;
 CREATE POLICY "Anyone can manage restaurants"
   ON restaurants FOR ALL
+  USING (true);
+
+DROP POLICY IF EXISTS "Anyone can view menu_categories" ON menu_categories;
+CREATE POLICY "Anyone can view menu_categories"
+  ON menu_categories FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Anyone can manage menu_categories" ON menu_categories;
+CREATE POLICY "Anyone can manage menu_categories"
+  ON menu_categories FOR ALL
+  USING (true);
+
+DROP POLICY IF EXISTS "Anyone can view menu_items" ON menu_items;
+CREATE POLICY "Anyone can view menu_items"
+  ON menu_items FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Anyone can manage menu_items" ON menu_items;
+CREATE POLICY "Anyone can manage menu_items"
+  ON menu_items FOR ALL
   USING (true);
 
 -- 4. Вставка всех городов с начальными статусами
@@ -230,11 +301,25 @@ ON CONFLICT (id) DO NOTHING;
 -- Посмотреть все города
 SELECT id, name, is_active, display_order FROM cities ORDER BY display_order;
 
--- Посмотреть все рестораны
 SELECT r.id, c.name as city_name, r.address, r.is_active 
 FROM restaurants r 
 JOIN cities c ON r.city_id = c.id 
 ORDER BY c.display_order, r.display_order;
+
+-- Посмотреть категории меню и блюда для конкретного ресторана
+-- Замените 'zhukovsky-myasishcheva' на нужный ID ресторана
+SELECT 
+  mc.id AS category_id,
+  mc.name AS category_name,
+  mc.display_order AS category_order,
+  mi.id AS item_id,
+  mi.name AS item_name,
+  mi.price,
+  mi.display_order AS item_order
+FROM menu_categories mc
+LEFT JOIN menu_items mi ON mi.category_id = mc.id
+WHERE mc.restaurant_id = 'zhukovsky-myasishcheva'
+ORDER BY mc.display_order, mi.display_order;
 
 -- Посмотреть только активные города
 SELECT id, name FROM cities WHERE is_active = true ORDER BY display_order;

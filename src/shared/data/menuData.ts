@@ -9,6 +9,7 @@ export interface MenuItem {
   isSpicy?: boolean;
   isNew?: boolean;
   isRecommended?: boolean;
+   isActive?: boolean;
 }
 
 export interface MenuCategory {
@@ -16,6 +17,7 @@ export interface MenuCategory {
   name: string;
   description?: string;
   items: MenuItem[];
+  isActive?: boolean;
 }
 
 export interface RestaurantMenu {
