@@ -93,6 +93,20 @@ const requestJson = async (url, options = {}) => {
   return response.json();
 };
 
+const normalizeMenuImageUrl = (rawUrl) => {
+  if (!rawUrl) {
+    return undefined;
+  }
+  const trimmed = String(rawUrl).trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  if (/^(\.?\/)?images\//i.test(trimmed)) {
+    return undefined;
+  }
+  return trimmed;
+};
+
 const escapeForInFilter = (value = "") => `"${value.replace(/"/g, '\\"')}"`;
 
 const loadRestaurantsForCities = async (cityIds = [], { onlyActive = false } = {}) => {
@@ -215,7 +229,7 @@ const getMenuForRestaurantFromSupabase = async (restaurantId) => {
       description: row.description,
       price: Number(row.price),
       weight: row.weight || undefined,
-      imageUrl: row.image_url || undefined,
+      imageUrl: normalizeMenuImageUrl(row.image_url),
       isVegetarian: !!row.is_vegetarian,
       isSpicy: !!row.is_spicy,
       isNew: !!row.is_new,
@@ -286,7 +300,7 @@ const replaceRestaurantMenu = async (restaurantId, menu) => {
         description: item.description,
         price: item.price,
         weight: item.weight || null,
-        image_url: item.imageUrl || null,
+        image_url: normalizeMenuImageUrl(item.imageUrl) || null,
         is_vegetarian: !!item.isVegetarian,
         is_spicy: !!item.isSpicy,
         is_new: !!item.isNew,
@@ -472,7 +486,21 @@ const handleUploadMenuImage = async (req, res) => {
       .pop()
       .replace(/[^a-zA-Z0-9_.-]+/g, '_');
 
-    const objectPath = `menu-images/${restaurantId}/${Date.now()}_${safeFileName}`;
+    const hash = crypto.createHash('sha1').update(buffer).digest('hex');
+    const extension = (() => {
+      const parts = safeFileName.split('.');
+      if (parts.length > 1) {
+        return `.${parts.pop()}`;
+      }
+      if (contentType && contentType.includes('/')) {
+        const [, subtype] = contentType.split('/');
+        if (subtype) {
+          return `.${subtype.split('+')[0]}`;
+        }
+      }
+      return '';
+    })();
+    const objectPath = `menu-images/${hash}${extension}`;
     const encodedPath = objectPath
       .split('/')
       .map((segment) => encodeURIComponent(segment))
@@ -485,6 +513,7 @@ const handleUploadMenuImage = async (req, res) => {
         apikey: SUPABASE_SERVICE_ROLE_KEY,
         Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
         'Content-Type': contentType || 'application/octet-stream',
+        'x-upsert': 'true',
       },
       body: buffer,
     });
@@ -500,10 +529,10 @@ const handleUploadMenuImage = async (req, res) => {
     const publicUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/${encodedPath}`;
 
     console.log(
-      `✅ ${adminUser.username || adminUser.id} загрузил изображение для ресторана ${restaurantId}: ${publicUrl}`,
+      `✅ ${adminUser.username || adminUser.id} загрузил изображение hash=${hash} для ресторана ${restaurantId}: ${publicUrl}`,
     );
 
-    res.json({ url: publicUrl });
+    res.json({ url: publicUrl, hash });
   } catch (error) {
     console.error('❌ Неожиданная ошибка загрузки изображения меню:', error);
     res.status(500).json({ error: error.message || 'Не удалось загрузить изображение меню' });
@@ -512,6 +541,72 @@ const handleUploadMenuImage = async (req, res) => {
 
 ['/api/admin/menu/upload-image', '/admin/menu/upload-image'].forEach((route) => {
   app.post(route, handleUploadMenuImage);
+});
+
+const handleListMenuImages = async (req, res) => {
+  if (!SUPABASE_BASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return res.status(500).json({ error: 'Supabase Storage не настроен на сервере' });
+  }
+
+  const adminUser = resolveAdminUser(req);
+  if (!adminUser) {
+    return res.status(401).json({ error: 'Недостаточно прав для выполнения операции' });
+  }
+
+  const restaurantId = req.query.restaurantId || null;
+  const scope = (req.query.scope || 'global').toString();
+  const prefix =
+    scope === 'restaurant' && restaurantId ? `${restaurantId}/` : '';
+
+  try {
+    const listUrl = `${SUPABASE_BASE_URL}/storage/v1/object/list/menu-images`;
+    const response = await fetch(listUrl, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prefix,
+        limit: 500,
+        offset: 0,
+        sortBy: { column: 'updated_at', order: 'desc' },
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error('❌ Ошибка получения списка изображений из Supabase Storage:', text);
+      return res.status(500).json({ error: 'Не удалось получить список изображений' });
+    }
+
+    const files = (await response.json()) || [];
+    const images = files
+      .filter((file) => file && typeof file.name === 'string' && !file.name.endsWith('/'))
+      .map((file) => {
+        const encodedPath = file.name
+          .split('/')
+          .map((segment) => encodeURIComponent(segment))
+          .join('/');
+        const publicUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/menu-images/${encodedPath}`;
+        return {
+          path: file.name,
+          url: publicUrl,
+          size: file.metadata?.size ?? file.size ?? 0,
+          updatedAt: file.updated_at ?? null,
+        };
+      });
+
+    res.json({ images });
+  } catch (error) {
+    console.error('❌ Неожиданная ошибка при получении списка изображений:', error);
+    res.status(500).json({ error: error.message || 'Не удалось получить список изображений' });
+  }
+};
+
+['/api/admin/menu/images', '/admin/menu/images'].forEach((route) => {
+  app.get(route, handleListMenuImages);
 });
 
 const handleGetRestaurantMenu = async (req, res) => {

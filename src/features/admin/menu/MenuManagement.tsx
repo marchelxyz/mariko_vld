@@ -8,8 +8,14 @@ import { useAdmin } from '@/shared/hooks/useAdmin';
 import { Permission } from '@/shared/types/admin';
 import { MenuCategory, MenuItem, RestaurantMenu } from '@/shared/data/menuData';
 import { cities } from '@/shared/data/cities';
-import { fetchRestaurantMenu, saveRestaurantMenu, uploadMenuImage } from '@/shared/api/menuApi';
-import {
+import { 
+  fetchRestaurantMenu,
+  saveRestaurantMenu,
+  uploadMenuImage,
+  fetchMenuImageLibrary,
+  MenuImageAsset,
+} from '@/shared/api/menuApi';
+import { 
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -64,6 +70,19 @@ const buildRestaurantDictionary = () =>
     })),
   );
 
+const formatFileSize = (size: number): string => {
+  if (!size || Number.isNaN(size)) {
+    return '—';
+  }
+  if (size < 1024) {
+    return `${size} Б`;
+  }
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} КБ`;
+  }
+  return `${(size / (1024 * 1024)).toFixed(1)} МБ`;
+};
+
 export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManagementProps): JSX.Element {
   const { hasPermission } = useAdmin();
   const canManage = hasPermission(Permission.MANAGE_MENU);
@@ -88,7 +107,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [copyContext, setCopyContext] = useState<CopyContext | null>(null);
+const [copyContext, setCopyContext] = useState<CopyContext | null>(null);
   const [sourceSelection, setSourceSelection] = useState({
     cityId: initialCityId,
     restaurantId: '',
@@ -97,6 +116,10 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
   });
   const [sourceMenu, setSourceMenu] = useState<RestaurantMenu | null>(null);
   const [isLoadingSourceMenu, setIsLoadingSourceMenu] = useState<boolean>(false);
+const [isLibraryOpen, setIsLibraryOpen] = useState<boolean>(false);
+const [libraryImages, setLibraryImages] = useState<MenuImageAsset[]>([]);
+const [isLoadingLibrary, setIsLoadingLibrary] = useState<boolean>(false);
+const [libraryError, setLibraryError] = useState<string | null>(null);
 
   const selectedRestaurantMeta = useMemo(
     () => allRestaurants.find((restaurant) => restaurant.id === selectedRestaurantId) ?? null,
@@ -164,6 +187,12 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
       cancelled = true;
     };
   }, [selectedRestaurantId]);
+
+  useEffect(() => {
+    if (!editingItem) {
+      setIsLibraryOpen(false);
+    }
+  }, [editingItem]);
 
   const applyMenuChanges = useCallback(
     async (updater: (previous: RestaurantMenu) => RestaurantMenu, successMessage?: string) => {
@@ -322,7 +351,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     setActiveCategoryId((prev) => {
       if (prev === categoryToDelete) {
         return menu.categories.filter((category) => category.id !== categoryToDelete)[0]?.id ?? '';
-      }
+    }
       return prev;
     });
   };
@@ -345,7 +374,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
       }),
       '✅ Блюдо удалено',
     );
-    setItemToDelete(null);
+      setItemToDelete(null);
   };
 
   const handleStartCopy = (context: CopyContext) => {
@@ -381,6 +410,33 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     } finally {
       setIsLoadingSourceMenu(false);
     }
+  };
+
+  const handleOpenLibrary = async () => {
+    if (!selectedRestaurantId) {
+      return;
+    }
+    setIsLibraryOpen(true);
+    setLibraryImages([]);
+    setLibraryError(null);
+    setIsLoadingLibrary(true);
+    try {
+      const images = await fetchMenuImageLibrary(selectedRestaurantId);
+      setLibraryImages(images);
+    } catch (error: any) {
+      console.error('Не удалось получить список изображений меню:', error);
+      setLibraryError(error?.message ?? 'Не удалось загрузить изображения');
+    } finally {
+      setIsLoadingLibrary(false);
+    }
+  };
+
+  const handleSelectLibraryImage = (url: string) => {
+    if (!editingItem) {
+      return;
+    }
+    setEditingItem({ ...editingItem, imageUrl: url });
+    setIsLibraryOpen(false);
   };
 
   const cloneCategory = (category: MenuCategory): MenuCategory => ({
@@ -522,21 +578,21 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
             {selectedRestaurantMeta ? ` • ${selectedRestaurantMeta.address}` : ''}
           </p>
         )}
-      </div>
+            </div>
       {isSavingMenu && (
         <div className="px-3 py-1 rounded-full bg-white/10 text-white text-xs">
           Сохраняем…
-        </div>
+            </div>
       )}
-    </div>
-  );
+      </div>
+    );
 
   const renderCitySelection = () => (
     <div className="space-y-4">
       {viewHeader}
       <p className="text-white/70">Выберите город, чтобы редактировать меню ресторанов.</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {cities.map((city) => (
+                  {cities.map((city) => (
           <button
             key={city.id}
             onClick={() => handleSelectCity(city.id)}
@@ -548,7 +604,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
             </p>
           </button>
         ))}
-      </div>
+            </div>
     </div>
   );
 
@@ -564,7 +620,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
         Изменить город
       </Button>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {filteredRestaurants.map((restaurant) => (
+                  {filteredRestaurants.map((restaurant) => (
           <button
             key={restaurant.id}
             onClick={() => handleSelectRestaurant(restaurant.id)}
@@ -574,13 +630,13 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
             <p className="text-white/70 text-sm mt-1">{restaurant.address}</p>
           </button>
         ))}
-      </div>
+            </div>
       {filteredRestaurants.length === 0 && (
         <div className="bg-mariko-secondary rounded-[24px] p-8 text-white/70 text-center">
           В выбранном городе пока нет ресторанов в конфигурации.
-        </div>
+          </div>
       )}
-    </div>
+            </div>
   );
 
   const activeCategory = menu?.categories.find((category) => category.id === activeCategoryId) ?? null;
@@ -618,7 +674,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
   };
 
   const renderMenuView = () => (
-    <div className="space-y-4">
+        <div className="space-y-4">
       {viewHeader}
       <div className="flex flex-wrap gap-2">
         <Button variant="ghost" className="text-white/80" onClick={handleBackToRestaurants}>
@@ -628,7 +684,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
         <Button variant="ghost" className="text-white/80" onClick={handleBackToCities}>
           Изменить город
         </Button>
-        {canManage && (
+          {canManage && (
           <>
             <Button variant="outline" onClick={() => handleStartEditCategory()}>
               <Plus className="w-4 h-4 mr-2" />
@@ -664,15 +720,15 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
                     </Button>
                   )}
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:pr-32">
-                    <div>
+                  <div>
                       <p className="text-white font-el-messiri text-xl font-bold">
                         {activeCategory.name}
                       </p>
                       {activeCategory.description && (
                         <p className="text-white/70 text-sm mt-1">{activeCategory.description}</p>
-                      )}
-                    </div>
-                    {canManage && (
+                    )}
+                  </div>
+                {canManage && (
                       <div className="flex items-center gap-2">
                         <Switch
                           checked={activeCategory.isActive !== false}
@@ -692,25 +748,25 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
                         <Edit className="w-4 h-4 mr-2" />
                         Редактировать
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
+                    <Button
+                      variant="outline"
+                      size="sm"
                         onClick={() => handleStartCopy({ type: 'item', targetCategoryId: activeCategory.id })}
-                      >
+                    >
                         <Copy className="w-4 h-4 mr-2" />
                         Импорт блюда
-                      </Button>
-                      <Button
+                    </Button>
+                    <Button
                         variant="outline"
-                        size="sm"
+                      size="sm"
                         onClick={() => handleStartEditItem(activeCategory.id)}
-                      >
+                    >
                         <Plus className="w-4 h-4 mr-2" />
                         Добавить блюдо
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                    </Button>
+                  </div>
+                )}
+              </div>
 
                 <div className="space-y-3">
                   {activeCategory.items.length === 0 && (
@@ -726,33 +782,47 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
                         item.isActive === false ? 'opacity-60' : ''
                       }`}
                     >
-                      {canManage && (
-                        <Button
+                  {canManage && (
+                    <Button
                           variant="destructive"
-                          size="sm"
+                      size="sm"
                           className="absolute top-4 right-4 shadow-lg"
                           onClick={() =>
                             setItemToDelete({ categoryId: activeCategory.id, itemId: item.id })
                           }
-                        >
+                    >
                           Удалить
-                        </Button>
-                      )}
-                      <div className="flex flex-col gap-3 pr-0 md:pr-28">
-                        <div>
-                          <p className="text-white font-semibold">{item.name}</p>
-                          <p className="text-white/70 text-sm line-clamp-2">{item.description}</p>
+                    </Button>
+                  )}
+                      <div className="flex flex-col sm:flex-row gap-4 pr-0 md:pr-24">
+                        <div className="w-full sm:w-28 h-36 sm:h-28 rounded-2xl overflow-hidden bg-white/5 flex items-center justify-center text-white/60 text-xs text-center px-3">
+                          {item.imageUrl ? (
+                            <img
+                              src={item.imageUrl}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <span>Фото не загружено</span>
+                            )}
+                          </div>
+                        <div className="flex-1 flex flex-col gap-3">
+                          <div>
+                            <p className="text-white font-semibold">{item.name}</p>
+                            <p className="text-white/70 text-sm line-clamp-2">{item.description}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-3 text-sm text-white/80">
+                            <span>{item.price} ₽</span>
+                            {item.weight && <span>{item.weight}</span>}
+                            {item.isVegetarian && <span>🌱 Вегетарианское</span>}
+                            {item.isSpicy && <span>🌶️ Острое</span>}
+                            {item.isRecommended && <span>👑 Рекомендуем</span>}
+                            {item.isNew && <span>✨ Новинка</span>}
                         </div>
-                        <div className="flex flex-wrap gap-3 text-sm text-white/80">
-                          <span>{item.price} ₽</span>
-                          {item.weight && <span>{item.weight}</span>}
-                          {item.isVegetarian && <span>🌱 Вегетарианское</span>}
-                          {item.isSpicy && <span>🌶️ Острое</span>}
-                          {item.isRecommended && <span>👑 Рекомендуем</span>}
-                          {item.isNew && <span>✨ Новинка</span>}
                         </div>
                       </div>
-                      {canManage && (
+                        {canManage && (
                         <div className="space-y-3 pt-2 border-t border-white/10">
                           <div className="flex items-center gap-2 flex-wrap">
                             <Switch
@@ -774,25 +844,25 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
                               Редактировать
                             </Button>
                           </div>
-                        </div>
-                      )}
+                          </div>
+                        )}
                     </div>
                   ))}
+                    </div>
                 </div>
-              </div>
             ) : (
               <div className="bg-mariko-secondary/50 rounded-[24px] p-12 text-center">
-                <UtensilsCrossed className="w-12 h-12 text-white/30 mx-auto mb-4" />
+              <UtensilsCrossed className="w-12 h-12 text-white/30 mx-auto mb-4" />
                 <p className="text-white/70">Выберите категорию, чтобы увидеть блюда</p>
-              </div>
-            )}
+            </div>
+          )}
           </>
-        ) : (
+      ) : (
           <div className="bg-mariko-secondary/50 rounded-[24px] p-12 text-center">
-            <UtensilsCrossed className="w-12 h-12 text-white/30 mx-auto mb-4" />
+          <UtensilsCrossed className="w-12 h-12 text-white/30 mx-auto mb-4" />
             <p className="text-white/70">Меню для этого ресторана пока не создано</p>
-          </div>
-        )}
+        </div>
+      )}
       </div>
     </div>
   );
@@ -802,7 +872,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
       return null;
     }
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
         <div className="bg-mariko-secondary rounded-[24px] p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-white font-el-messiri text-2xl font-bold">
@@ -814,13 +884,13 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-white">Название *</Label>
-              <Input
-                value={editingItem.name}
+              <div>
+                <Label className="text-white">Название *</Label>
+                <Input
+                  value={editingItem.name}
                 onChange={(event) => setEditingItem({ ...editingItem, name: event.target.value })}
-                placeholder="Введите название блюда"
-              />
+                  placeholder="Введите название блюда"
+                />
             </div>
             <div>
               <Label className="text-white">Цена (₽) *</Label>
@@ -833,30 +903,30 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
                 placeholder="Например, 450"
               />
             </div>
-          </div>
+              </div>
 
-          <div>
-            <Label className="text-white">Описание *</Label>
-            <Textarea
-              value={editingItem.description}
+              <div>
+                <Label className="text-white">Описание *</Label>
+                <Textarea
+                  value={editingItem.description}
               onChange={(event) =>
                 setEditingItem({ ...editingItem, description: event.target.value })
               }
-              rows={3}
+                  rows={3}
               placeholder="Введите описание блюда"
-            />
-          </div>
+                />
+              </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
+                <div>
               <Label className="text-white">Вес</Label>
-              <Input
+                  <Input
                 value={editingItem.weight ?? ''}
                 onChange={(event) => setEditingItem({ ...editingItem, weight: event.target.value })}
                 placeholder="Например, 320 г"
-              />
-            </div>
-            <div>
+                  />
+                </div>
+                <div>
               <Label className="text-white">Статус блюда</Label>
               <div className="flex items-center gap-2 mt-2">
                 <Switch
@@ -869,10 +939,10 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
                   {editingItem.isActive === false ? 'Скрыто' : 'Активно'}
                 </span>
               </div>
-            </div>
-          </div>
+                </div>
+              </div>
 
-          <div>
+              <div>
             <Label className="text-white">Фото блюда</Label>
             <div className="space-y-2">
               {editingItem.imageUrl && (
@@ -891,6 +961,14 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
                 >
                   {uploadingImage ? 'Загрузка…' : 'Загрузить фото'}
                 </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!selectedRestaurantId || isLoadingLibrary}
+                  onClick={handleOpenLibrary}
+                >
+                  {isLoadingLibrary ? 'Открываем библиотеку…' : 'Выбрать из библиотеки'}
+                </Button>
                 <Input
                   value={editingItem.imageUrl ?? ''}
                   onChange={(event) =>
@@ -908,67 +986,67 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
               </div>
               {uploadError && <p className="text-red-300 text-sm">{uploadError}</p>}
             </div>
-          </div>
+              </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <label className="flex items-center gap-2 text-white cursor-pointer">
-              <Checkbox
-                checked={editingItem.isRecommended}
-                onCheckedChange={(checked) =>
+                  <label className="flex items-center gap-2 text-white cursor-pointer">
+                    <Checkbox
+                      checked={editingItem.isRecommended}
+                      onCheckedChange={(checked) =>
                   setEditingItem({ ...editingItem, isRecommended: Boolean(checked) })
-                }
-              />
+                      }
+                    />
               Рекомендуем
-            </label>
-            <label className="flex items-center gap-2 text-white cursor-pointer">
-              <Checkbox
-                checked={editingItem.isNew}
-                onCheckedChange={(checked) =>
+                  </label>
+                  <label className="flex items-center gap-2 text-white cursor-pointer">
+                    <Checkbox
+                      checked={editingItem.isNew}
+                      onCheckedChange={(checked) =>
                   setEditingItem({ ...editingItem, isNew: Boolean(checked) })
-                }
-              />
+                      }
+                    />
               Новинка
-            </label>
-            <label className="flex items-center gap-2 text-white cursor-pointer">
-              <Checkbox
-                checked={editingItem.isVegetarian}
-                onCheckedChange={(checked) =>
+                  </label>
+                  <label className="flex items-center gap-2 text-white cursor-pointer">
+                    <Checkbox
+                      checked={editingItem.isVegetarian}
+                      onCheckedChange={(checked) =>
                   setEditingItem({ ...editingItem, isVegetarian: Boolean(checked) })
-                }
-              />
+                      }
+                    />
               Вегетарианское
-            </label>
-            <label className="flex items-center gap-2 text-white cursor-pointer">
-              <Checkbox
-                checked={editingItem.isSpicy}
-                onCheckedChange={(checked) =>
+                  </label>
+                  <label className="flex items-center gap-2 text-white cursor-pointer">
+                    <Checkbox
+                      checked={editingItem.isSpicy}
+                      onCheckedChange={(checked) =>
                   setEditingItem({ ...editingItem, isSpicy: Boolean(checked) })
-                }
-              />
+                      }
+                    />
               Острое
-            </label>
-          </div>
+                  </label>
+              </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setEditingItem(null)}>
-              <X className="w-4 h-4 mr-2" />
-              Отмена
-            </Button>
-            <Button
-              variant="default"
+                <Button variant="outline" onClick={() => setEditingItem(null)}>
+                  <X className="w-4 h-4 mr-2" />
+                  Отмена
+                </Button>
+                <Button
+                  variant="default"
               onClick={handleSaveItem}
               disabled={
                 !editingItem.name ||
                 !editingItem.description ||
                 !(editingItem.priceInput ?? '').trim()
               }
-            >
-              <Save className="w-4 h-4 mr-2" />
-              Сохранить
-            </Button>
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Сохранить
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
     );
   };
 
@@ -977,7 +1055,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
       return null;
     }
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
         <div className="bg-mariko-secondary rounded-[24px] p-6 w-full max-w-md space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-white font-el-messiri text-2xl font-bold">
@@ -988,26 +1066,26 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
             </Button>
           </div>
 
-          <div>
-            <Label className="text-white">Название *</Label>
-            <Input
-              value={editingCategory.name}
+              <div>
+                <Label className="text-white">Название *</Label>
+                <Input
+                  value={editingCategory.name}
               onChange={(event) => setEditingCategory({ ...editingCategory, name: event.target.value })}
-              placeholder="Введите название категории"
-            />
-          </div>
+                  placeholder="Введите название категории"
+                />
+              </div>
 
-          <div>
-            <Label className="text-white">Описание</Label>
-            <Textarea
+              <div>
+                <Label className="text-white">Описание</Label>
+                <Textarea
               value={editingCategory.description ?? ''}
               onChange={(event) =>
                 setEditingCategory({ ...editingCategory, description: event.target.value })
               }
               rows={3}
               placeholder="Краткое описание категории"
-            />
-          </div>
+                />
+              </div>
 
           <div className="flex items-center gap-2">
             <Switch
@@ -1022,21 +1100,21 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setEditingCategory(null)}>
-              <X className="w-4 h-4 mr-2" />
-              Отмена
-            </Button>
-            <Button
-              variant="default"
-              onClick={handleSaveCategory}
+                <Button variant="outline" onClick={() => setEditingCategory(null)}>
+                  <X className="w-4 h-4 mr-2" />
+                  Отмена
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={handleSaveCategory}
               disabled={!editingCategory.name.trim()}
-            >
-              <Save className="w-4 h-4 mr-2" />
-              Сохранить
-            </Button>
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Сохранить
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
     );
   };
 
@@ -1156,8 +1234,8 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            )}
+        </div>
+      )}
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
@@ -1181,6 +1259,66 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     );
   };
 
+  const renderLibraryModal = () => {
+    if (!isLibraryOpen) {
+      return null;
+    }
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div className="bg-mariko-secondary rounded-[24px] p-6 w-full max-w-3xl space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-white font-el-messiri text-2xl font-bold">Выбор фото</h3>
+            <Button variant="ghost" onClick={() => setIsLibraryOpen(false)}>
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+
+          {libraryError && (
+            <div className="p-3 rounded-xl bg-red-500/10 text-red-200 text-sm">{libraryError}</div>
+          )}
+
+          {isLoadingLibrary ? (
+            <div className="flex items-center justify-center py-10">
+              <div className="w-12 h-12 border-4 border-mariko-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : libraryImages.length ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto pr-1">
+              {libraryImages.map((image) => {
+                const isActive = editingItem?.imageUrl === image.url;
+                const displayName = image.path.replace(`${selectedRestaurantId}/`, '');
+                return (
+                  <button
+                    key={image.path}
+                    onClick={() => handleSelectLibraryImage(image.url)}
+                    className={`rounded-2xl overflow-hidden border transition-all ${
+                      isActive ? 'border-mariko-primary ring-2 ring-mariko-primary/40' : 'border-white/10'
+                    }`}
+                  >
+                    <img src={image.url} alt={displayName} className="w-full h-32 object-cover" loading="lazy" />
+                    <div className="p-2 text-left">
+                      <p className="text-white text-sm truncate">{displayName}</p>
+                      <p className="text-white/60 text-xs">{formatFileSize(image.size)}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="bg-white/5 rounded-2xl p-8 text-center text-white/70">
+              Пока нет загруженных изображений. Добавьте фото через кнопку «Загрузить фото».
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setIsLibraryOpen(false)}>
+              Закрыть
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {currentStep === 'city' && renderCitySelection()}
@@ -1190,6 +1328,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
       {renderEditItemModal()}
       {renderEditCategoryModal()}
       {renderCopyModal()}
+      {renderLibraryModal()}
 
       <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
         <AlertDialogContent>
