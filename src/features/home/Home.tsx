@@ -114,22 +114,7 @@ const Index = () => {
               aspectRatio="aspect-[3/1]"
               imageClassName="object-left translate-x-[2px]"
               className="w-full"
-              onClick={() => {
-                // Для Жуковского открываем внутреннюю страницу меню
-                if (selectedRestaurant.id === 'zhukovsky-myasishcheva') {
-                  navigate('/menu');
-                  return;
-                }
-
-                // Для остальных городов открываем внешние ссылки
-                const menuLink =
-                  selectedCity?.id === 'kaluga'
-                    ? 'https://vhachapuri.ru/kaluga#menu'
-                    : selectedCity?.id === 'penza'
-                    ? 'https://vhachapuri.ru/penza#menu'
-                    : 'https://vhachapuri.ru/zhukovsky/menu';
-                safeOpenLink(menuLink, { try_instant_view: false });
-              }}
+              onClick={() => navigate('/menu')}
             />
           </div>
 
