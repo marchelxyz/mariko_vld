@@ -3,7 +3,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Edit, Trash2, X, Save, ArrowLeft, Copy, UtensilsCrossed } from 'lucide-react';
+import { Plus, Edit, X, Save, ArrowLeft, Copy, UtensilsCrossed } from 'lucide-react';
 import { useAdmin } from '@/shared/hooks/useAdmin';
 import { Permission } from '@/shared/types/admin';
 import { MenuCategory, MenuItem, RestaurantMenu } from '@/shared/data/menuData';
@@ -652,8 +652,18 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
             {renderCategoryTabs()}
             {activeCategory ? (
               <div className="space-y-4 mt-4">
-                <div className="flex flex-col gap-2 rounded-2xl bg-mariko-secondary/60 p-4">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div className="relative flex flex-col gap-2 rounded-2xl bg-mariko-secondary/60 p-4">
+                  {canManage && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-4 right-4 shadow-lg"
+                      onClick={() => setCategoryToDelete(activeCategory.id)}
+                    >
+                      Удалить
+                    </Button>
+                  )}
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:pr-32">
                     <div>
                       <p className="text-white font-el-messiri text-xl font-bold">
                         {activeCategory.name}
@@ -677,7 +687,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
                     )}
                   </div>
                   {canManage && (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 pt-2">
                       <Button variant="outline" size="sm" onClick={() => handleStartEditCategory(activeCategory)}>
                         <Edit className="w-4 h-4 mr-2" />
                         Редактировать
@@ -698,14 +708,6 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
                         <Plus className="w-4 h-4 mr-2" />
                         Добавить блюдо
                       </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => setCategoryToDelete(activeCategory.id)}
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Удалить категорию
-                      </Button>
                     </div>
                   )}
                 </div>
@@ -720,14 +722,28 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
                   {activeCategory.items.map((item) => (
                     <div
                       key={item.id}
-                      className={`bg-mariko-secondary/70 rounded-2xl p-4 flex flex-col gap-3 md:flex-row md:items-center ${
+                      className={`relative bg-mariko-secondary/70 rounded-2xl p-4 space-y-4 ${
                         item.isActive === false ? 'opacity-60' : ''
                       }`}
                     >
-                      <div className="flex-1">
-                        <p className="text-white font-semibold">{item.name}</p>
-                        <p className="text-white/70 text-sm line-clamp-2">{item.description}</p>
-                        <div className="flex flex-wrap gap-3 mt-2 text-sm text-white/80">
+                      {canManage && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-4 right-4 shadow-lg"
+                          onClick={() =>
+                            setItemToDelete({ categoryId: activeCategory.id, itemId: item.id })
+                          }
+                        >
+                          Удалить
+                        </Button>
+                      )}
+                      <div className="flex flex-col gap-3 pr-0 md:pr-28">
+                        <div>
+                          <p className="text-white font-semibold">{item.name}</p>
+                          <p className="text-white/70 text-sm line-clamp-2">{item.description}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-3 text-sm text-white/80">
                           <span>{item.price} ₽</span>
                           {item.weight && <span>{item.weight}</span>}
                           {item.isVegetarian && <span>🌱 Вегетарианское</span>}
@@ -737,34 +753,25 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
                         </div>
                       </div>
                       {canManage && (
-                        <div className="flex flex-col items-start md:items-end gap-2">
-                          <div className="flex items-center gap-2">
+                        <div className="space-y-3 pt-2 border-t border-white/10">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <Switch
                               checked={item.isActive !== false}
                               onCheckedChange={(checked) =>
                                 handleToggleItemActive(activeCategory.id, item.id, Boolean(checked))
                               }
                             />
-                            <span className="text-white/70 text-xs">
+                            <span className="text-white/70 text-sm">
                               {item.isActive === false ? 'Скрыто' : 'Активно'}
                             </span>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex flex-col sm:flex-row gap-3">
                             <Button
                               variant="outline"
-                              size="sm"
+                              className="flex-1 min-w-[160px] justify-center py-3 text-base"
                               onClick={() => handleStartEditItem(activeCategory.id, item)}
                             >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() =>
-                                setItemToDelete({ categoryId: activeCategory.id, itemId: item.id })
-                              }
-                            >
-                              <Trash2 className="w-4 h-4" />
+                              Редактировать
                             </Button>
                           </div>
                         </div>

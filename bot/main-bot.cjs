@@ -473,7 +473,11 @@ const handleUploadMenuImage = async (req, res) => {
       .replace(/[^a-zA-Z0-9_.-]+/g, '_');
 
     const objectPath = `menu-images/${restaurantId}/${Date.now()}_${safeFileName}`;
-    const uploadUrl = `${SUPABASE_BASE_URL}/storage/v1/object/${encodeURIComponent(objectPath)}`;
+    const encodedPath = objectPath
+      .split('/')
+      .map((segment) => encodeURIComponent(segment))
+      .join('/');
+    const uploadUrl = `${SUPABASE_BASE_URL}/storage/v1/object/${encodedPath}`;
 
     const uploadResponse = await fetch(uploadUrl, {
       method: 'POST',
@@ -493,7 +497,7 @@ const handleUploadMenuImage = async (req, res) => {
         .json({ error: 'Не удалось загрузить изображение в Supabase Storage' });
     }
 
-    const publicUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/${objectPath}`;
+    const publicUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/${encodedPath}`;
 
     console.log(
       `✅ ${adminUser.username || adminUser.id} загрузил изображение для ресторана ${restaurantId}: ${publicUrl}`,
