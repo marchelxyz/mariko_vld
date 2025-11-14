@@ -18,7 +18,7 @@ IFS=$'\n\t'
 SERVER_HOST="root@ineedaglokk.ru"
 WEB_ROOT="/var/www/html"
 BOT_NAME="hachapuri-bot"
-REMOTE_BOT_DIR="/root/bot"
+REMOTE_BOT_DIR="/root/HM-projecttt/bot"
 # ======================================================================
 
 log() { printf "\033[1;32m[deploy] %s\033[0m\n" "$*"; }
@@ -36,8 +36,8 @@ log "→ rsync dist → $SERVER_HOST:$WEB_ROOT"
 sshpass -p 'p*R-5KNwyE4XJ.' rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" dist/ "$SERVER_HOST:$WEB_ROOT/"
 
 # 2.1. Загрузка файлов бота на сервер (кроме .env для безопасности)
-log "→ rsync bot → $SERVER_HOST:/root/bot"
-sshpass -p 'p*R-5KNwyE4XJ.' rsync -avz --exclude='node_modules' --exclude='.env' -e "ssh -o StrictHostKeyChecking=no" bot/ "$SERVER_HOST:/root/bot/"
+log "→ rsync bot → $SERVER_HOST:$REMOTE_BOT_DIR"
+sshpass -p 'p*R-5KNwyE4XJ.' rsync -avz --exclude='node_modules' --exclude='.env' -e "ssh -o StrictHostKeyChecking=no" bot/ "$SERVER_HOST:$REMOTE_BOT_DIR/"
 
 # 2.2. Поправить права доступа на статику (чтобы nginx отдавал картинки)
 log "→ fix permissions for $WEB_ROOT"
@@ -59,7 +59,8 @@ sshpass -p 'p*R-5KNwyE4XJ.' ssh -o StrictHostKeyChecking=no "$SERVER_HOST" "
     echo 'npm не найден на сервере' >&2
     exit 1
   fi
-  pm2 restart $BOT_NAME --update-env || pm2 start main-bot.cjs --name $BOT_NAME --cwd $REMOTE_BOT_DIR
+  pm2 delete $BOT_NAME >/dev/null 2>&1 || true
+  pm2 start main-bot.cjs --name $BOT_NAME --cwd $REMOTE_BOT_DIR
   pm2 save
 "
 

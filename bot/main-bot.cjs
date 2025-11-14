@@ -16,7 +16,8 @@ const ADMIN_TELEGRAM_IDS = (process.env.ADMIN_TELEGRAM_IDS || '')
   .filter(Boolean);
 const isProduction = process.env.NODE_ENV === 'production';
 
-const SUPABASE_REST_URL = SUPABASE_URL ? `${SUPABASE_URL.replace(/\/$/, '')}/rest/v1` : null;
+const SUPABASE_BASE_URL = SUPABASE_URL ? SUPABASE_URL.replace(/\/$/, '') : null;
+const SUPABASE_REST_URL = SUPABASE_BASE_URL ? `${SUPABASE_BASE_URL}/rest/v1` : null;
 const supabaseHeaders = SUPABASE_SERVICE_ROLE_KEY
   ? {
       apikey: SUPABASE_SERVICE_ROLE_KEY,
@@ -182,6 +183,132 @@ const updateCityStatus = async (cityId, isActive) => {
   });
 };
 
+// ============================ MENU HELPERS ============================
+const getMenuForRestaurantFromSupabase = async (restaurantId) => {
+  const categoriesUrl = buildRestUrl('menu_categories', {
+    select: '*',
+    order: 'display_order',
+    restaurant_id: `eq.${restaurantId}`,
+  });
+  const categoryRows = await requestJson(categoriesUrl);
+
+  if (!categoryRows.length) {
+    return null;
+  }
+
+  const categoryIds = categoryRows.map((row) => row.id);
+  const itemsUrl = buildRestUrl('menu_items', {
+    select: '*',
+    order: 'display_order',
+  });
+  const quotedIds = categoryIds.map(escapeForInFilter).join(',');
+  itemsUrl.searchParams.append('category_id', `in.(${quotedIds})`);
+
+  const itemRows = await requestJson(itemsUrl);
+
+  const itemsByCategory = new Map();
+  itemRows.forEach((row) => {
+    const list = itemsByCategory.get(row.category_id) || [];
+    list.push({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      price: Number(row.price),
+      weight: row.weight || undefined,
+      imageUrl: row.image_url || undefined,
+      isVegetarian: !!row.is_vegetarian,
+      isSpicy: !!row.is_spicy,
+      isNew: !!row.is_new,
+      isRecommended: !!row.is_recommended,
+      isActive: row.is_active !== false,
+    });
+    itemsByCategory.set(row.category_id, list);
+  });
+
+  return {
+    restaurantId,
+    categories: categoryRows.map((category) => ({
+      id: category.id,
+      name: category.name,
+      description: category.description || undefined,
+      isActive: category.is_active !== false,
+      items: itemsByCategory.get(category.id) || [],
+    })),
+  };
+};
+
+const replaceRestaurantMenu = async (restaurantId, menu) => {
+  const deleteUrl = buildRestUrl('menu_categories', {
+    restaurant_id: `eq.${restaurantId}`,
+  });
+
+  await requestJson(deleteUrl, {
+    method: 'DELETE',
+    headers: {
+      Prefer: 'return=representation',
+    },
+  });
+
+  if (!menu || !Array.isArray(menu.categories)) {
+    return;
+  }
+
+  const categoriesPayload = menu.categories.map((category, index) => ({
+    id: category.id,
+    restaurant_id: restaurantId,
+    name: category.name,
+    description: category.description || null,
+    is_active: category.isActive !== false,
+    display_order: index + 1,
+  }));
+
+  if (categoriesPayload.length) {
+    const categoriesUrl = buildRestUrl('menu_categories');
+    await requestJson(categoriesUrl, {
+      method: 'POST',
+      headers: {
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify(categoriesPayload),
+    });
+  }
+
+  const itemsPayload = [];
+  menu.categories.forEach((category) => {
+    if (!Array.isArray(category.items)) {
+      return;
+    }
+    category.items.forEach((item, index) => {
+      itemsPayload.push({
+        id: item.id,
+        category_id: category.id,
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        weight: item.weight || null,
+        image_url: item.imageUrl || null,
+        is_vegetarian: !!item.isVegetarian,
+        is_spicy: !!item.isSpicy,
+        is_new: !!item.isNew,
+        is_recommended: !!item.isRecommended,
+        is_active: item.isActive !== false,
+        display_order: index + 1,
+      });
+    });
+  });
+
+  if (itemsPayload.length) {
+    const itemsUrl = buildRestUrl('menu_items');
+    await requestJson(itemsUrl, {
+      method: 'POST',
+      headers: {
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify(itemsPayload),
+    });
+  }
+};
+
 // ============================ TELEGRAM WEBAPP AUTH ============================
 const verifyTelegramInitData = (rawData) => {
   if (!rawData || !BOT_TOKEN) {
@@ -237,7 +364,8 @@ const resolveAdminUser = (req) => {
 // ============================ EXPRESS APP ============================
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '1mb' }));
+// Увеличиваем лимит JSON, чтобы передавать изображения в base64 для загрузки в Storage
+app.use(express.json({ limit: '10mb' }));
 
 const ensureSupabaseConfigured = (res) => {
   if (!SUPABASE_REST_URL || !supabaseHeaders) {
@@ -247,8 +375,10 @@ const ensureSupabaseConfigured = (res) => {
   return true;
 };
 
-app.get('/api/health', (req, res) => {
+['/api/health', '/health'].forEach((route) => {
+  app.get(route, (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
+  });
 });
 
 const handleGetActiveCities = async (req, res) => {
@@ -308,6 +438,137 @@ const handleSetCityStatus = async (req, res) => {
 };
 ['/api/admin/cities/status', '/admin/cities/status'].forEach((route) => {
   app.post(route, handleSetCityStatus);
+});
+
+const handleUploadMenuImage = async (req, res) => {
+  if (!SUPABASE_BASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return res.status(500).json({ error: 'Supabase Storage не настроен на сервере' });
+  }
+
+  const adminUser = resolveAdminUser(req);
+  if (!adminUser) {
+    return res.status(401).json({ error: 'Недостаточно прав для выполнения операции' });
+  }
+
+  const { restaurantId, fileName, contentType, dataUrl } = req.body || {};
+
+  if (!restaurantId || !fileName || !contentType || !dataUrl) {
+    return res
+      .status(400)
+      .json({ error: 'Необходимо передать restaurantId, fileName, contentType и dataUrl' });
+  }
+
+  try {
+    const match = /^data:(.+);base64,(.*)$/.exec(dataUrl);
+    if (!match) {
+      return res.status(400).json({ error: 'Некорректный формат dataUrl' });
+    }
+
+    const base64 = match[2];
+    const buffer = Buffer.from(base64, 'base64');
+
+    const safeFileName = String(fileName)
+      .split('/')
+      .pop()
+      .replace(/[^a-zA-Z0-9_.-]+/g, '_');
+
+    const objectPath = `menu-images/${restaurantId}/${Date.now()}_${safeFileName}`;
+    const uploadUrl = `${SUPABASE_BASE_URL}/storage/v1/object/${encodeURIComponent(objectPath)}`;
+
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': contentType || 'application/octet-stream',
+      },
+      body: buffer,
+    });
+
+    if (!uploadResponse.ok) {
+      const text = await uploadResponse.text();
+      console.error('❌ Ошибка загрузки изображения в Supabase Storage:', text);
+      return res
+        .status(500)
+        .json({ error: 'Не удалось загрузить изображение в Supabase Storage' });
+    }
+
+    const publicUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/${objectPath}`;
+
+    console.log(
+      `✅ ${adminUser.username || adminUser.id} загрузил изображение для ресторана ${restaurantId}: ${publicUrl}`,
+    );
+
+    res.json({ url: publicUrl });
+  } catch (error) {
+    console.error('❌ Неожиданная ошибка загрузки изображения меню:', error);
+    res.status(500).json({ error: error.message || 'Не удалось загрузить изображение меню' });
+  }
+};
+
+['/api/admin/menu/upload-image', '/admin/menu/upload-image'].forEach((route) => {
+  app.post(route, handleUploadMenuImage);
+});
+
+const handleGetRestaurantMenu = async (req, res) => {
+  if (!ensureSupabaseConfigured(res)) {
+    return;
+  }
+
+  const restaurantId = req.params.restaurantId;
+  if (!restaurantId) {
+    return res.status(400).json({ error: 'Необходимо передать restaurantId в пути' });
+  }
+
+  try {
+    const menu = await getMenuForRestaurantFromSupabase(restaurantId);
+    if (!menu) {
+      return res.status(200).json(null);
+    }
+    res.json(menu);
+  } catch (error) {
+    console.error('❌ Ошибка загрузки меню ресторана через API:', error);
+    res.status(500).json({ error: error.message || 'Не удалось загрузить меню' });
+  }
+};
+
+['/api/menu/:restaurantId', '/menu/:restaurantId'].forEach((route) => {
+  app.get(route, handleGetRestaurantMenu);
+});
+
+const handleSaveRestaurantMenu = async (req, res) => {
+  if (!ensureSupabaseConfigured(res)) {
+    return;
+  }
+
+  const adminUser = resolveAdminUser(req);
+  if (!adminUser) {
+    return res.status(401).json({ error: 'Недостаточно прав для выполнения операции' });
+  }
+
+  const restaurantId = req.params.restaurantId;
+  const menu = req.body;
+
+  if (!restaurantId || !menu || !Array.isArray(menu.categories)) {
+    return res.status(400).json({ error: 'Некорректный payload меню' });
+  }
+
+  try {
+    await replaceRestaurantMenu(restaurantId, menu);
+    console.log(
+      `✅ ${adminUser.username || adminUser.id} обновил меню ресторана ${restaurantId} (категорий: ${
+        menu.categories.length
+      })`,
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Ошибка сохранения меню ресторана через API:', error);
+    res.status(500).json({ error: error.message || 'Не удалось сохранить меню ресторана' });
+  }
+};
+
+['/api/admin/menu/:restaurantId', '/admin/menu/:restaurantId'].forEach((route) => {
+  app.post(route, handleSaveRestaurantMenu);
 });
 
 app.listen(API_PORT, () => {

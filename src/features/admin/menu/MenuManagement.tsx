@@ -1,30 +1,15 @@
 /**
- * Компонент управления меню ресторанов
+ * Обновлённый интерфейс управления меню ресторанов
  */
 
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { adminApi } from '@/shared/api/adminApi';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, Edit, Trash2, X, Save, ArrowLeft, Copy, UtensilsCrossed } from 'lucide-react';
 import { useAdmin } from '@/shared/hooks/useAdmin';
 import { Permission } from '@/shared/types/admin';
-import { MenuItem, MenuCategory } from '@/shared/data/menuData';
+import { MenuCategory, MenuItem, RestaurantMenu } from '@/shared/data/menuData';
 import { cities } from '@/shared/data/cities';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Save, 
-  X,
-  ChevronDown,
-  ChevronRight,
-  UtensilsCrossed
-} from 'lucide-react';
-import { 
-  Button, 
-  Input, 
-  Label, 
-  Textarea, 
-  Checkbox,
+import { fetchRestaurantMenu, saveRestaurantMenu, uploadMenuImage } from '@/shared/api/menuApi';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -33,633 +18,1172 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  Button,
+  Checkbox,
+  Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Switch,
+  Textarea,
 } from '@shared/ui';
 
 interface MenuManagementProps {
   restaurantId?: string;
 }
 
-/**
- * Компонент управления меню ресторанов
- */
-export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManagementProps): JSX.Element {
-  const navigate = useNavigate();
-  const { userId, hasPermission } = useAdmin();
-  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>(
-    initialRestaurantId || ''
+type EditableMenuItem = MenuItem & { priceInput?: string };
+type CopyContext =
+  | { type: 'category' }
+  | { type: 'item'; targetCategoryId: string };
+
+const createClientId = (prefix: string): string =>
+  `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+const findCityIdByRestaurantId = (restaurantId?: string): string | null => {
+  if (!restaurantId) {
+    return null;
+  }
+  for (const city of cities) {
+    if (city.restaurants.some((restaurant) => restaurant.id === restaurantId)) {
+      return city.id;
+    }
+  }
+  return null;
+};
+
+const buildRestaurantDictionary = () =>
+  cities.flatMap((city) =>
+    city.restaurants.map((restaurant) => ({
+      ...restaurant,
+      cityId: city.id,
+      cityName: city.name,
+    })),
   );
-  const [selectedCityId, setSelectedCityId] = useState<string>('');
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
-  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+
+export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManagementProps): JSX.Element {
+  const { hasPermission } = useAdmin();
+  const canManage = hasPermission(Permission.MANAGE_MENU);
+
+  const allRestaurants = useMemo(buildRestaurantDictionary, []);
+  const initialCityId = findCityIdByRestaurantId(initialRestaurantId);
+
+  const [selectedCityId, setSelectedCityId] = useState<string | null>(initialCityId);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>(initialRestaurantId ?? '');
+  const [menu, setMenu] = useState<RestaurantMenu | null>(null);
+  const [isLoadingMenu, setIsLoadingMenu] = useState<boolean>(false);
+  const [isSavingMenu, setIsSavingMenu] = useState<boolean>(false);
+  const [activeCategoryId, setActiveCategoryId] = useState<string>('');
+
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
+  const [editingItem, setEditingItem] = useState<EditableMenuItem | null>(null);
+  const [editingItemCategoryId, setEditingItemCategoryId] = useState<string | null>(null);
   const [itemToDelete, setItemToDelete] = useState<{ categoryId: string; itemId: string } | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
 
-  // Права доступа
-  const canManage = hasPermission(Permission.MANAGE_MENU);
+  const [uploadingImage, setUploadingImage] = useState<boolean>(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Получаем меню выбранного ресторана
-  const menu = selectedRestaurantId ? adminApi.getRestaurantMenu(selectedRestaurantId) : null;
+  const [copyContext, setCopyContext] = useState<CopyContext | null>(null);
+  const [sourceSelection, setSourceSelection] = useState({
+    cityId: initialCityId,
+    restaurantId: '',
+    categoryId: '',
+    itemId: '',
+  });
+  const [sourceMenu, setSourceMenu] = useState<RestaurantMenu | null>(null);
+  const [isLoadingSourceMenu, setIsLoadingSourceMenu] = useState<boolean>(false);
 
-  // Получаем список ресторанов
-  const allRestaurants = useMemo(() => {
-    return cities.flatMap((city) =>
-      city.restaurants.map((restaurant) => ({
-        ...restaurant,
-        cityName: city.name,
-        cityId: city.id,
-      }))
-    );
-  }, []);
+  const selectedRestaurantMeta = useMemo(
+    () => allRestaurants.find((restaurant) => restaurant.id === selectedRestaurantId) ?? null,
+    [allRestaurants, selectedRestaurantId],
+  );
 
-  // Фильтруем рестораны по городу
-  const filteredRestaurants = useMemo(() => {
-    if (!selectedCityId) return allRestaurants;
-    return allRestaurants.filter((r) => r.cityId === selectedCityId);
-  }, [allRestaurants, selectedCityId]);
+  const currentCityName = useMemo(() => {
+    if (selectedCityId) {
+      return cities.find((city) => city.id === selectedCityId)?.name;
+    }
+    return selectedRestaurantMeta?.cityName ?? null;
+  }, [selectedCityId, selectedRestaurantMeta]);
 
-  /**
-   * Переключить раскрытие категории
-   */
-  const toggleCategory = (categoryId: string) => {
-    setExpandedCategories((prev) => {
-      const next = new Set(prev);
-      if (next.has(categoryId)) {
-        next.delete(categoryId);
-      } else {
-        next.add(categoryId);
+  const currentStep: 'city' | 'restaurant' | 'menu' = !selectedCityId
+    ? 'city'
+    : selectedRestaurantId
+    ? 'menu'
+    : 'restaurant';
+
+  useEffect(() => {
+    if (!selectedRestaurantId) {
+      setMenu(null);
+      setActiveCategoryId('');
+      return;
+    }
+
+    let cancelled = false;
+    async function loadMenu() {
+      setIsLoadingMenu(true);
+      try {
+        const loaded = await fetchRestaurantMenu(selectedRestaurantId);
+        if (cancelled) {
+          return;
+        }
+        const prepared =
+          loaded ?? {
+            restaurantId: selectedRestaurantId,
+            categories: [],
+          };
+        setMenu(prepared);
+        setActiveCategoryId((prev) => {
+          if (prev && prepared.categories.some((category) => category.id === prev)) {
+            return prev;
+          }
+          return prepared.categories[0]?.id ?? '';
+        });
+      } catch (error) {
+        console.error('Ошибка загрузки меню:', error);
+        if (!cancelled) {
+          setMenu({
+            restaurantId: selectedRestaurantId,
+            categories: [],
+          });
+          setActiveCategoryId('');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingMenu(false);
+        }
       }
-      return next;
+    }
+
+    loadMenu();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRestaurantId]);
+
+  const applyMenuChanges = useCallback(
+    async (updater: (previous: RestaurantMenu) => RestaurantMenu, successMessage?: string) => {
+      if (!menu || !selectedRestaurantId) {
+        return false;
+      }
+      const previousMenu = menu;
+      const nextMenu = updater(menu);
+      setMenu(nextMenu);
+      setIsSavingMenu(true);
+      const result = await saveRestaurantMenu(selectedRestaurantId, nextMenu);
+      setIsSavingMenu(false);
+      if (!result.success) {
+        const details = result.errorMessage ? `\n\nДетали: ${result.errorMessage}` : '';
+        alert(`❌ Ошибка сохранения меню${details}`);
+        setMenu(previousMenu);
+        return false;
+      }
+      if (successMessage) {
+        alert(successMessage);
+      }
+      return true;
+    },
+    [menu, selectedRestaurantId],
+  );
+
+  const handleSelectCity = (cityId: string) => {
+    setSelectedCityId(cityId);
+    setSelectedRestaurantId('');
+    setMenu(null);
+    setActiveCategoryId('');
+  };
+
+  const handleSelectRestaurant = (restaurantId: string) => {
+    const cityId = findCityIdByRestaurantId(restaurantId);
+    setSelectedRestaurantId(restaurantId);
+    setSelectedCityId(cityId);
+  };
+
+  const handleBackToCities = () => {
+    setSelectedCityId(null);
+    setSelectedRestaurantId('');
+    setMenu(null);
+    setActiveCategoryId('');
+  };
+
+  const handleBackToRestaurants = () => {
+    setSelectedRestaurantId('');
+    setMenu(null);
+    setActiveCategoryId('');
+  };
+
+  const handleToggleCategoryActive = (categoryId: string, nextValue: boolean) => {
+    void applyMenuChanges((previous) => ({
+      ...previous,
+      categories: previous.categories.map((category) =>
+        category.id === categoryId ? { ...category, isActive: nextValue } : category,
+      ),
+    }));
+  };
+
+  const handleToggleItemActive = (categoryId: string, itemId: string, nextValue: boolean) => {
+    void applyMenuChanges((previous) => ({
+      ...previous,
+      categories: previous.categories.map((category) =>
+        category.id === categoryId
+          ? {
+              ...category,
+              items: category.items.map((item) =>
+                item.id === itemId ? { ...item, isActive: nextValue } : item,
+              ),
+            }
+          : category,
+      ),
+    }));
+  };
+
+  const handleSaveCategory = async () => {
+    if (!editingCategory || !menu) {
+      return;
+    }
+    await applyMenuChanges(
+      (previous) => {
+        const exists = previous.categories.some(
+          (category) => category.id === editingCategory.id,
+        );
+        return {
+          ...previous,
+          categories: exists
+            ? previous.categories.map((category) =>
+                category.id === editingCategory.id ? editingCategory : category,
+              )
+            : [
+                ...previous.categories,
+                {
+                  ...editingCategory,
+                  items: editingCategory.items ?? [],
+                },
+              ],
+        };
+      },
+      '✅ Категория сохранена',
+    );
+    setEditingCategory(null);
+  };
+
+  const handleSaveItem = async () => {
+    if (!editingItem || !menu || !editingItemCategoryId) {
+      return;
+    }
+    const { priceInput = '' } = editingItem;
+    const normalizedPrice = priceInput.replace(',', '.').trim();
+    const parsedPrice = Number(normalizedPrice);
+    if (!normalizedPrice || Number.isNaN(parsedPrice) || parsedPrice <= 0) {
+      alert('Введите корректную цену, например 450 или 450.5');
+      return;
+    }
+
+    const { priceInput: _ignored, ...rest } = editingItem;
+    const preparedItem: MenuItem = {
+      ...rest,
+      price: Number(parsedPrice.toFixed(2)),
+    };
+
+    await applyMenuChanges((previous) => ({
+      ...previous,
+      categories: previous.categories.map((category) => {
+        if (category.id !== editingItemCategoryId) {
+          return category;
+        }
+        const exists = category.items.some((item) => item.id === preparedItem.id);
+        return {
+          ...category,
+          items: exists
+            ? category.items.map((item) => (item.id === preparedItem.id ? preparedItem : item))
+            : [...category.items, preparedItem],
+        };
+      }),
+    }));
+    setEditingItem(null);
+    setEditingItemCategoryId(null);
+  };
+
+  const handleDeleteCategory = async () => {
+    if (!categoryToDelete || !menu) {
+      return;
+    }
+    await applyMenuChanges(
+      (previous) => ({
+        ...previous,
+        categories: previous.categories.filter((category) => category.id !== categoryToDelete),
+      }),
+      '✅ Категория удалена',
+    );
+    setCategoryToDelete(null);
+    setActiveCategoryId((prev) => {
+      if (prev === categoryToDelete) {
+        return menu.categories.filter((category) => category.id !== categoryToDelete)[0]?.id ?? '';
+      }
+      return prev;
     });
   };
 
-  /**
-   * Сохранить изменения блюда
-   */
-  const handleSaveItem = (categoryId: string) => {
-    if (!editingItem || !selectedRestaurantId || !canManage) return;
-
-    const success = editingItem.id.startsWith('new_')
-      ? adminApi.addMenuItem(selectedRestaurantId, categoryId, editingItem, userId)
-      : adminApi.updateMenuItem(selectedRestaurantId, categoryId, editingItem.id, editingItem, userId);
-
-    if (success) {
-      alert('Блюдо успешно сохранено');
-      setEditingItem(null);
-      // Перезагружаем меню
-      window.location.reload();
-    } else {
-      alert('Ошибка сохранения блюда');
+  const handleDeleteItem = async () => {
+    if (!itemToDelete || !menu) {
+      return;
     }
-  };
-
-  /**
-   * Удалить блюдо
-   */
-  const handleDeleteItem = () => {
-    if (!itemToDelete || !selectedRestaurantId || !canManage) return;
-
-    const success = adminApi.deleteMenuItem(
-      selectedRestaurantId,
-      itemToDelete.categoryId,
-      itemToDelete.itemId,
-      userId
+    await applyMenuChanges(
+      (previous) => ({
+        ...previous,
+        categories: previous.categories.map((category) =>
+          category.id === itemToDelete.categoryId
+            ? {
+                ...category,
+                items: category.items.filter((item) => item.id !== itemToDelete.itemId),
+              }
+            : category,
+        ),
+      }),
+      '✅ Блюдо удалено',
     );
+    setItemToDelete(null);
+  };
 
-    if (success) {
-      alert('Блюдо успешно удалено');
-      setItemToDelete(null);
-      window.location.reload();
-    } else {
-      alert('Ошибка удаления блюда');
+  const handleStartCopy = (context: CopyContext) => {
+    setCopyContext(context);
+    setSourceSelection({
+      cityId: selectedCityId,
+      restaurantId: '',
+      categoryId: '',
+      itemId: '',
+    });
+    setSourceMenu(null);
+    setIsLoadingSourceMenu(false);
+  };
+
+  const handleSourceRestaurantChange = async (restaurantId: string) => {
+    setSourceSelection((prev) => ({
+      ...prev,
+      restaurantId,
+      categoryId: '',
+      itemId: '',
+    }));
+    if (!restaurantId) {
+      setSourceMenu(null);
+      return;
+    }
+    setIsLoadingSourceMenu(true);
+    try {
+      const loaded = await fetchRestaurantMenu(restaurantId);
+      setSourceMenu(loaded);
+    } catch (error) {
+      console.error('Не удалось загрузить меню для копирования:', error);
+      setSourceMenu(null);
+    } finally {
+      setIsLoadingSourceMenu(false);
     }
   };
 
-  /**
-   * Сохранить изменения категории
-   */
-  const handleSaveCategory = () => {
-    if (!editingCategory || !selectedRestaurantId || !canManage) return;
+  const cloneCategory = (category: MenuCategory): MenuCategory => ({
+    ...category,
+    id: createClientId('category'),
+    items: category.items.map((item) => ({
+      ...item,
+      id: createClientId('item'),
+    })),
+  });
 
-    const success = editingCategory.id.startsWith('new_')
-      ? adminApi.addMenuCategory(selectedRestaurantId, editingCategory, userId)
-      : adminApi.updateMenuCategory(selectedRestaurantId, editingCategory.id, editingCategory, userId);
+  const cloneItem = (item: MenuItem): MenuItem => ({
+    ...item,
+    id: createClientId('item'),
+  });
 
-    if (success) {
-      alert('Категория успешно сохранена');
-      setEditingCategory(null);
-      window.location.reload();
+  const handleConfirmCopy = async () => {
+    if (!copyContext || !sourceMenu) {
+      return;
+    }
+    if (copyContext.type === 'category') {
+      const category = sourceMenu.categories.find(
+        (candidate) => candidate.id === sourceSelection.categoryId,
+      );
+      if (!category) {
+        alert('Выберите категорию для копирования');
+        return;
+      }
+      await applyMenuChanges(
+        (previous) => ({
+          ...previous,
+          categories: [...previous.categories, cloneCategory(category)],
+        }),
+        '✅ Категория импортирована',
+      );
+      setCopyContext(null);
+      return;
+    }
+
+    const sourceCategory = sourceMenu.categories.find(
+      (candidate) => candidate.id === sourceSelection.categoryId,
+    );
+    const sourceItem = sourceCategory?.items.find(
+      (candidate) => candidate.id === sourceSelection.itemId,
+    );
+    if (!sourceCategory || !sourceItem) {
+      alert('Выберите блюдо для копирования');
+      return;
+    }
+    await applyMenuChanges(
+      (previous) => ({
+        ...previous,
+        categories: previous.categories.map((category) =>
+          category.id === copyContext.targetCategoryId
+            ? {
+                ...category,
+                items: [...category.items, cloneItem(sourceItem)],
+              }
+            : category,
+        ),
+      }),
+      '✅ Блюдо импортировано',
+    );
+    setCopyContext(null);
+  };
+
+  const handleStartEditItem = (categoryId: string, item?: MenuItem) => {
+    if (item) {
+      setEditingItem({ ...item, priceInput: String(item.price ?? '') });
     } else {
-      alert('Ошибка сохранения категории');
+      setEditingItem({
+        id: createClientId('item'),
+        name: '',
+        description: '',
+        price: 0,
+        priceInput: '',
+        isVegetarian: false,
+        isSpicy: false,
+        isNew: false,
+        isRecommended: false,
+        isActive: true,
+      });
+    }
+    setEditingItemCategoryId(categoryId);
+    setUploadError(null);
+  };
+
+  const handleStartEditCategory = (category?: MenuCategory) => {
+    if (category) {
+      setEditingCategory(category);
+    } else {
+      setEditingCategory({
+        id: createClientId('category'),
+        name: '',
+        description: '',
+        isActive: true,
+        items: [],
+      });
     }
   };
 
-  /**
-   * Удалить категорию
-   */
-  const handleDeleteCategory = () => {
-    if (!categoryToDelete || !selectedRestaurantId || !canManage) return;
-
-    const success = adminApi.deleteMenuCategory(selectedRestaurantId, categoryToDelete, userId);
-
-    if (success) {
-      alert('Категория успешно удалена');
-      setCategoryToDelete(null);
-      window.location.reload();
-    } else {
-      alert('Ошибка удаления категории');
+  const handleUploadImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !editingItem || !selectedRestaurantId) {
+      return;
+    }
+    setUploadError(null);
+    setUploadingImage(true);
+    try {
+      const uploaded = await uploadMenuImage(selectedRestaurantId, file);
+      setEditingItem({ ...editingItem, imageUrl: uploaded.url });
+    } catch (error: any) {
+      console.error('Ошибка загрузки изображения:', error);
+      setUploadError(error?.message ?? 'Не удалось загрузить изображение. Попробуйте ещё раз.');
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
-  // Если ресторан не выбран
-  if (!selectedRestaurantId) {
-    return (
-      <div className="space-y-6">
+  const filteredRestaurants = useMemo(() => {
+    if (!selectedCityId) {
+      return allRestaurants;
+    }
+    return allRestaurants.filter((restaurant) => restaurant.cityId === selectedCityId);
+  }, [allRestaurants, selectedCityId]);
+
+  const viewHeader = (
+    <div className="flex items-center justify-between gap-2">
+      <div>
         <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold">
           Управление меню
         </h2>
+        {currentCityName && (
+          <p className="text-white/70 text-sm mt-1">
+            {currentCityName}
+            {selectedRestaurantMeta ? ` • ${selectedRestaurantMeta.address}` : ''}
+          </p>
+        )}
+      </div>
+      {isSavingMenu && (
+        <div className="px-3 py-1 rounded-full bg-white/10 text-white text-xs">
+          Сохраняем…
+        </div>
+      )}
+    </div>
+  );
 
-        <div className="bg-mariko-secondary rounded-[24px] p-8">
-          <div className="max-w-md mx-auto space-y-4">
-            <div>
-              <Label className="text-white mb-2">Выберите город</Label>
-              <Select value={selectedCityId} onValueChange={setSelectedCityId}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Выберите город..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Все города</SelectItem>
-                  {cities.map((city) => (
-                    <SelectItem key={city.id} value={city.id}>
-                      {city.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+  const renderCitySelection = () => (
+    <div className="space-y-4">
+      {viewHeader}
+      <p className="text-white/70">Выберите город, чтобы редактировать меню ресторанов.</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {cities.map((city) => (
+          <button
+            key={city.id}
+            onClick={() => handleSelectCity(city.id)}
+            className="bg-mariko-secondary hover:bg-mariko-secondary/80 rounded-2xl p-4 text-left transition-all active:scale-95"
+          >
+            <h3 className="text-white font-el-messiri text-xl font-bold">{city.name}</h3>
+            <p className="text-white/60 text-sm mt-1">
+              {city.restaurants.length} {city.restaurants.length === 1 ? 'ресторан' : 'ресторанов'}
+            </p>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
-            <div>
-              <Label className="text-white mb-2">Выберите ресторан</Label>
-              <Select value={selectedRestaurantId} onValueChange={setSelectedRestaurantId}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Выберите ресторан..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredRestaurants.map((restaurant) => (
-                    <SelectItem key={restaurant.id} value={restaurant.id}>
-                      {restaurant.cityName} - {restaurant.address}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+  const renderRestaurantSelection = () => (
+    <div className="space-y-4">
+      {viewHeader}
+      <Button
+        variant="ghost"
+        className="text-white/80 w-fit"
+        onClick={handleBackToCities}
+      >
+        <ArrowLeft className="w-4 h-4 mr-2" />
+        Изменить город
+      </Button>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {filteredRestaurants.map((restaurant) => (
+          <button
+            key={restaurant.id}
+            onClick={() => handleSelectRestaurant(restaurant.id)}
+            className="bg-mariko-secondary hover:bg-mariko-secondary/80 rounded-2xl p-4 text-left transition-all active:scale-95"
+          >
+            <h3 className="text-white font-el-messiri text-xl font-bold">{restaurant.name}</h3>
+            <p className="text-white/70 text-sm mt-1">{restaurant.address}</p>
+          </button>
+        ))}
+      </div>
+      {filteredRestaurants.length === 0 && (
+        <div className="bg-mariko-secondary rounded-[24px] p-8 text-white/70 text-center">
+          В выбранном городе пока нет ресторанов в конфигурации.
+        </div>
+      )}
+    </div>
+  );
+
+  const activeCategory = menu?.categories.find((category) => category.id === activeCategoryId) ?? null;
+
+  const renderCategoryTabs = () => {
+    if (!menu) {
+      return null;
+    }
+    return (
+      <div className="overflow-x-auto scrollbar-hide pb-2">
+        <div className="flex gap-2">
+          {menu.categories.map((category) => {
+            const isActiveTab = category.id === activeCategoryId;
+            const isDisabled = category.isActive === false;
+            return (
+              <button
+                key={category.id}
+                onClick={() => setActiveCategoryId(category.id)}
+                className={`
+                  px-4 py-2 rounded-full text-sm font-semibold transition-all
+                  ${isActiveTab ? 'bg-white text-mariko-primary shadow-lg' : 'bg-white/10 text-white/80'}
+                  ${isDisabled ? 'opacity-50' : ''}
+                `}
+              >
+                {category.name}
+              </button>
+            );
+          })}
+          {menu.categories.length === 0 && (
+            <div className="text-white/60 text-sm">Категорий пока нет</div>
+          )}
         </div>
       </div>
     );
-  }
+  };
 
-  // Находим выбранный ресторан
-  const selectedRestaurant = allRestaurants.find((r) => r.id === selectedRestaurantId);
-
-  return (
-    <div className="space-y-4 md:space-y-6">
-      {/* Заголовок и выбор ресторана */}
-      <div className="flex flex-col gap-3 md:gap-4">
-        <h2 className="text-white font-el-messiri text-xl md:text-2xl font-bold">
-          Управление меню
-        </h2>
-
-        <div className="bg-mariko-secondary rounded-2xl md:rounded-[24px] p-3 md:p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <Label className="text-white mb-2">Город</Label>
-              <Select value={selectedCityId} onValueChange={setSelectedCityId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Все города" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Все города</SelectItem>
-                  {cities.map((city) => (
-                    <SelectItem key={city.id} value={city.id}>
-                      {city.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex-1">
-              <Label className="text-white mb-2">Ресторан</Label>
-              <Select value={selectedRestaurantId} onValueChange={setSelectedRestaurantId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите ресторан" />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredRestaurants.map((restaurant) => (
-                    <SelectItem key={restaurant.id} value={restaurant.id}>
-                      {restaurant.cityName} - {restaurant.address}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {selectedRestaurant && (
-            <div className="mt-4 p-3 bg-white/5 rounded-xl">
-              <p className="text-white font-medium">
-                {selectedRestaurant.name} - {selectedRestaurant.address}
-              </p>
-              <p className="text-white/60 text-sm">
-                {selectedRestaurant.cityName}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Меню */}
-      {menu ? (
-        <div className="space-y-4">
-          {/* Кнопка добавления категории */}
-          {canManage && (
-            <Button
-              variant="default"
-              onClick={() => {
-                setEditingCategory({
-                  id: `new_${Date.now()}`,
-                  name: '',
-                  description: '',
-                  items: [],
-                });
-              }}
-            >
+  const renderMenuView = () => (
+    <div className="space-y-4">
+      {viewHeader}
+      <div className="flex flex-wrap gap-2">
+        <Button variant="ghost" className="text-white/80" onClick={handleBackToRestaurants}>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Изменить ресторан
+        </Button>
+        <Button variant="ghost" className="text-white/80" onClick={handleBackToCities}>
+          Изменить город
+        </Button>
+        {canManage && (
+          <>
+            <Button variant="outline" onClick={() => handleStartEditCategory()}>
               <Plus className="w-4 h-4 mr-2" />
               Добавить категорию
             </Button>
-          )}
+            <Button variant="outline" onClick={() => handleStartCopy({ type: 'category' })}>
+              <Copy className="w-4 h-4 mr-2" />
+              Импорт категории
+            </Button>
+          </>
+        )}
+      </div>
 
-          {/* Список категорий */}
-          {menu.categories.map((category) => (
-            <div key={category.id} className="bg-mariko-secondary rounded-[24px] overflow-hidden">
-              {/* Заголовок категории */}
-              <div className="p-4 flex items-center justify-between">
-                <button
-                  onClick={() => toggleCategory(category.id)}
-                  className="flex items-center gap-2 flex-1 text-left"
-                >
-                  {expandedCategories.has(category.id) ? (
-                    <ChevronDown className="w-5 h-5 text-white" />
-                  ) : (
-                    <ChevronRight className="w-5 h-5 text-white" />
-                  )}
-                  <div>
-                    <h3 className="text-white font-el-messiri text-xl font-bold">
-                      {category.name}
-                    </h3>
-                    {category.description && (
-                      <p className="text-white/70 text-sm">{category.description}</p>
+      <div className="bg-mariko-secondary/40 rounded-[24px] p-4">
+        {isLoadingMenu ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="w-12 h-12 border-4 border-mariko-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : menu ? (
+          <>
+            {renderCategoryTabs()}
+            {activeCategory ? (
+              <div className="space-y-4 mt-4">
+                <div className="flex flex-col gap-2 rounded-2xl bg-mariko-secondary/60 p-4">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div>
+                      <p className="text-white font-el-messiri text-xl font-bold">
+                        {activeCategory.name}
+                      </p>
+                      {activeCategory.description && (
+                        <p className="text-white/70 text-sm mt-1">{activeCategory.description}</p>
+                      )}
+                    </div>
+                    {canManage && (
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={activeCategory.isActive !== false}
+                          onCheckedChange={(checked) =>
+                            handleToggleCategoryActive(activeCategory.id, Boolean(checked))
+                          }
+                        />
+                        <span className="text-white/80 text-sm">
+                          {activeCategory.isActive === false ? 'Категория скрыта' : 'Категория активна'}
+                        </span>
+                      </div>
                     )}
-                    <p className="text-white/50 text-sm">
-                      {category.items.length} {category.items.length === 1 ? 'блюдо' : 'блюд'}
-                    </p>
                   </div>
-                </button>
-
-                {canManage && (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditingCategory(category)}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setCategoryToDelete(category.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {/* Список блюд */}
-              {expandedCategories.has(category.id) && (
-                <div className="border-t border-white/10 p-4 space-y-3">
                   {canManage && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setEditingItem({
-                          id: `new_${Date.now()}`,
-                          name: '',
-                          description: '',
-                          price: 0,
-                          weight: '',
-                          imageUrl: '',
-                          isVegetarian: false,
-                          isSpicy: false,
-                          isNew: false,
-                          isRecommended: false,
-                        });
-                      }}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Добавить блюдо
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm" onClick={() => handleStartEditCategory(activeCategory)}>
+                        <Edit className="w-4 h-4 mr-2" />
+                        Редактировать
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleStartCopy({ type: 'item', targetCategoryId: activeCategory.id })}
+                      >
+                        <Copy className="w-4 h-4 mr-2" />
+                        Импорт блюда
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleStartEditItem(activeCategory.id)}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Добавить блюдо
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setCategoryToDelete(activeCategory.id)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Удалить категорию
+                      </Button>
+                    </div>
                   )}
+                </div>
 
-                  {category.items.map((item) => (
+                <div className="space-y-3">
+                  {activeCategory.items.length === 0 && (
+                    <div className="bg-mariko-secondary/50 rounded-[24px] p-12 text-center">
+                      <UtensilsCrossed className="w-12 h-12 text-white/30 mx-auto mb-4" />
+                      <p className="text-white/70">В этой категории пока нет блюд</p>
+                    </div>
+                  )}
+                  {activeCategory.items.map((item) => (
                     <div
                       key={item.id}
-                      className="p-4 bg-white/5 rounded-xl hover:bg-white/10 transition-colors"
+                      className={`bg-mariko-secondary/70 rounded-2xl p-4 flex flex-col gap-3 md:flex-row md:items-center ${
+                        item.isActive === false ? 'opacity-60' : ''
+                      }`}
                     >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-white font-medium truncate">{item.name}</h4>
-                          <p className="text-white/60 text-sm line-clamp-2">{item.description}</p>
-                          <div className="flex items-center gap-3 mt-2">
-                            <span className="text-white font-bold">{item.price}₽</span>
-                            {item.weight && (
-                              <span className="text-white/60 text-sm">{item.weight}</span>
-                            )}
-                          </div>
-                          <div className="flex gap-2 mt-2 flex-wrap">
-                            {item.isRecommended && (
-                              <span className="px-2 py-1 bg-mariko-primary/20 text-mariko-primary rounded text-xs">
-                                Рекомендуем
-                              </span>
-                            )}
-                            {item.isNew && (
-                              <span className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs">
-                                Новинка
-                              </span>
-                            )}
-                            {item.isVegetarian && (
-                              <span className="px-2 py-1 bg-green-500/20 text-green-300 rounded text-xs">
-                                Вегетарианское
-                              </span>
-                            )}
-                            {item.isSpicy && (
-                              <span className="px-2 py-1 bg-red-500/20 text-red-300 rounded text-xs">
-                                Острое
-                              </span>
-                            )}
-                          </div>
+                      <div className="flex-1">
+                        <p className="text-white font-semibold">{item.name}</p>
+                        <p className="text-white/70 text-sm line-clamp-2">{item.description}</p>
+                        <div className="flex flex-wrap gap-3 mt-2 text-sm text-white/80">
+                          <span>{item.price} ₽</span>
+                          {item.weight && <span>{item.weight}</span>}
+                          {item.isVegetarian && <span>🌱 Вегетарианское</span>}
+                          {item.isSpicy && <span>🌶️ Острое</span>}
+                          {item.isRecommended && <span>👑 Рекомендуем</span>}
+                          {item.isNew && <span>✨ Новинка</span>}
                         </div>
-
-                        {canManage && (
+                      </div>
+                      {canManage && (
+                        <div className="flex flex-col items-start md:items-end gap-2">
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={item.isActive !== false}
+                              onCheckedChange={(checked) =>
+                                handleToggleItemActive(activeCategory.id, item.id, Boolean(checked))
+                              }
+                            />
+                            <span className="text-white/70 text-xs">
+                              {item.isActive === false ? 'Скрыто' : 'Активно'}
+                            </span>
+                          </div>
                           <div className="flex gap-2">
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setEditingItem(item)}
+                              onClick={() => handleStartEditItem(activeCategory.id, item)}
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
                             <Button
                               variant="destructive"
                               size="sm"
-                              onClick={() => setItemToDelete({ categoryId: category.id, itemId: item.id })}
+                              onClick={() =>
+                                setItemToDelete({ categoryId: activeCategory.id, itemId: item.id })
+                              }
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   ))}
-
-                  {category.items.length === 0 && (
-                    <div className="text-center py-8 text-white/50">
-                      В этой категории пока нет блюд
-                    </div>
-                  )}
                 </div>
-              )}
-            </div>
-          ))}
+              </div>
+            ) : (
+              <div className="bg-mariko-secondary/50 rounded-[24px] p-12 text-center">
+                <UtensilsCrossed className="w-12 h-12 text-white/30 mx-auto mb-4" />
+                <p className="text-white/70">Выберите категорию, чтобы увидеть блюда</p>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="bg-mariko-secondary/50 rounded-[24px] p-12 text-center">
+            <UtensilsCrossed className="w-12 h-12 text-white/30 mx-auto mb-4" />
+            <p className="text-white/70">Меню для этого ресторана пока не создано</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
-          {menu.categories.length === 0 && (
-            <div className="bg-mariko-secondary rounded-[24px] p-12 text-center">
-              <UtensilsCrossed className="w-12 h-12 text-white/30 mx-auto mb-4" />
-              <p className="text-white/70 font-el-messiri text-lg">
-                У этого ресторана пока нет меню
-              </p>
+  const renderEditItemModal = () => {
+    if (!editingItem) {
+      return null;
+    }
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div className="bg-mariko-secondary rounded-[24px] p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-white font-el-messiri text-2xl font-bold">
+              {editingItem.id.startsWith('item_') ? 'Добавить блюдо' : 'Редактировать блюдо'}
+            </h3>
+            <Button variant="ghost" onClick={() => setEditingItem(null)}>
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-white">Название *</Label>
+              <Input
+                value={editingItem.name}
+                onChange={(event) => setEditingItem({ ...editingItem, name: event.target.value })}
+                placeholder="Введите название блюда"
+              />
             </div>
-          )}
-        </div>
-      ) : (
-        <div className="bg-mariko-secondary rounded-[24px] p-12 text-center">
-          <UtensilsCrossed className="w-12 h-12 text-white/30 mx-auto mb-4" />
-          <p className="text-white/70 font-el-messiri text-lg mb-4">
-            Меню для этого ресторана пока не создано
-          </p>
-          {canManage && (
+            <div>
+              <Label className="text-white">Цена (₽) *</Label>
+              <Input
+                value={editingItem.priceInput ?? ''}
+                inputMode="decimal"
+                onChange={(event) =>
+                  setEditingItem({ ...editingItem, priceInput: event.target.value })
+                }
+                placeholder="Например, 450"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-white">Описание *</Label>
+            <Textarea
+              value={editingItem.description}
+              onChange={(event) =>
+                setEditingItem({ ...editingItem, description: event.target.value })
+              }
+              rows={3}
+              placeholder="Введите описание блюда"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-white">Вес</Label>
+              <Input
+                value={editingItem.weight ?? ''}
+                onChange={(event) => setEditingItem({ ...editingItem, weight: event.target.value })}
+                placeholder="Например, 320 г"
+              />
+            </div>
+            <div>
+              <Label className="text-white">Статус блюда</Label>
+              <div className="flex items-center gap-2 mt-2">
+                <Switch
+                  checked={editingItem.isActive !== false}
+                  onCheckedChange={(checked) =>
+                    setEditingItem({ ...editingItem, isActive: Boolean(checked) })
+                  }
+                />
+                <span className="text-white/80 text-sm">
+                  {editingItem.isActive === false ? 'Скрыто' : 'Активно'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-white">Фото блюда</Label>
+            <div className="space-y-2">
+              {editingItem.imageUrl && (
+                <img
+                  src={editingItem.imageUrl}
+                  alt={editingItem.name}
+                  className="w-full max-h-64 object-cover rounded-2xl"
+                />
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={uploadingImage}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {uploadingImage ? 'Загрузка…' : 'Загрузить фото'}
+                </Button>
+                <Input
+                  value={editingItem.imageUrl ?? ''}
+                  onChange={(event) =>
+                    setEditingItem({ ...editingItem, imageUrl: event.target.value })
+                  }
+                  placeholder="Можно вставить ссылку вручную"
+                />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleUploadImage}
+                />
+              </div>
+              {uploadError && <p className="text-red-300 text-sm">{uploadError}</p>}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <label className="flex items-center gap-2 text-white cursor-pointer">
+              <Checkbox
+                checked={editingItem.isRecommended}
+                onCheckedChange={(checked) =>
+                  setEditingItem({ ...editingItem, isRecommended: Boolean(checked) })
+                }
+              />
+              Рекомендуем
+            </label>
+            <label className="flex items-center gap-2 text-white cursor-pointer">
+              <Checkbox
+                checked={editingItem.isNew}
+                onCheckedChange={(checked) =>
+                  setEditingItem({ ...editingItem, isNew: Boolean(checked) })
+                }
+              />
+              Новинка
+            </label>
+            <label className="flex items-center gap-2 text-white cursor-pointer">
+              <Checkbox
+                checked={editingItem.isVegetarian}
+                onCheckedChange={(checked) =>
+                  setEditingItem({ ...editingItem, isVegetarian: Boolean(checked) })
+                }
+              />
+              Вегетарианское
+            </label>
+            <label className="flex items-center gap-2 text-white cursor-pointer">
+              <Checkbox
+                checked={editingItem.isSpicy}
+                onCheckedChange={(checked) =>
+                  setEditingItem({ ...editingItem, isSpicy: Boolean(checked) })
+                }
+              />
+              Острое
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setEditingItem(null)}>
+              <X className="w-4 h-4 mr-2" />
+              Отмена
+            </Button>
             <Button
               variant="default"
-              onClick={() => {
-                setEditingCategory({
-                  id: `new_${Date.now()}`,
-                  name: '',
-                  description: '',
-                  items: [],
-                });
-              }}
+              onClick={handleSaveItem}
+              disabled={
+                !editingItem.name ||
+                !editingItem.description ||
+                !(editingItem.priceInput ?? '').trim()
+              }
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Создать первую категорию
+              <Save className="w-4 h-4 mr-2" />
+              Сохранить
             </Button>
-          )}
-        </div>
-      )}
-
-      {/* Диалог редактирования блюда */}
-      {editingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-mariko-secondary rounded-[24px] p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <h3 className="text-white font-el-messiri text-2xl font-bold mb-4">
-              {editingItem.id.startsWith('new_') ? 'Добавить блюдо' : 'Редактировать блюдо'}
-            </h3>
-
-            <div className="space-y-4">
-              <div>
-                <Label className="text-white">Название *</Label>
-                <Input
-                  value={editingItem.name}
-                  onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
-                  placeholder="Введите название блюда"
-                />
-              </div>
-
-              <div>
-                <Label className="text-white">Описание *</Label>
-                <Textarea
-                  value={editingItem.description}
-                  onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })}
-                  placeholder="Введите описание блюда"
-                  rows={3}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-white">Цена (₽) *</Label>
-                  <Input
-                    type="number"
-                    value={editingItem.price}
-                    onChange={(e) => setEditingItem({ ...editingItem, price: Number(e.target.value) })}
-                    placeholder="0"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-white">Вес</Label>
-                  <Input
-                    value={editingItem.weight || ''}
-                    onChange={(e) => setEditingItem({ ...editingItem, weight: e.target.value })}
-                    placeholder="300г"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-white">URL изображения</Label>
-                <Input
-                  value={editingItem.imageUrl || ''}
-                  onChange={(e) => setEditingItem({ ...editingItem, imageUrl: e.target.value })}
-                  placeholder="/images/menu/..."
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-white">Свойства блюда</Label>
-                <div className="flex flex-wrap gap-4">
-                  <label className="flex items-center gap-2 text-white cursor-pointer">
-                    <Checkbox
-                      checked={editingItem.isRecommended}
-                      onCheckedChange={(checked) =>
-                        setEditingItem({ ...editingItem, isRecommended: checked as boolean })
-                      }
-                    />
-                    <span>Рекомендуем</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 text-white cursor-pointer">
-                    <Checkbox
-                      checked={editingItem.isNew}
-                      onCheckedChange={(checked) =>
-                        setEditingItem({ ...editingItem, isNew: checked as boolean })
-                      }
-                    />
-                    <span>Новинка</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 text-white cursor-pointer">
-                    <Checkbox
-                      checked={editingItem.isVegetarian}
-                      onCheckedChange={(checked) =>
-                        setEditingItem({ ...editingItem, isVegetarian: checked as boolean })
-                      }
-                    />
-                    <span>Вегетарианское</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 text-white cursor-pointer">
-                    <Checkbox
-                      checked={editingItem.isSpicy}
-                      onCheckedChange={(checked) =>
-                        setEditingItem({ ...editingItem, isSpicy: checked as boolean })
-                      }
-                    />
-                    <span>Острое</span>
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex gap-2 justify-end pt-4">
-                <Button variant="outline" onClick={() => setEditingItem(null)}>
-                  <X className="w-4 h-4 mr-2" />
-                  Отмена
-                </Button>
-                <Button
-                  variant="default"
-                  onClick={() => {
-                    // Находим категорию для сохранения
-                    const category = menu?.categories[0];
-                    if (category) {
-                      handleSaveItem(category.id);
-                    }
-                  }}
-                  disabled={!editingItem.name || !editingItem.description || !editingItem.price}
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  Сохранить
-                </Button>
-              </div>
-            </div>
           </div>
         </div>
-      )}
+      </div>
+    );
+  };
 
-      {/* Диалог редактирования категории */}
-      {editingCategory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-mariko-secondary rounded-[24px] p-6 max-w-md w-full">
-            <h3 className="text-white font-el-messiri text-2xl font-bold mb-4">
-              {editingCategory.id.startsWith('new_') ? 'Добавить категорию' : 'Редактировать категорию'}
+  const renderEditCategoryModal = () => {
+    if (!editingCategory) {
+      return null;
+    }
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div className="bg-mariko-secondary rounded-[24px] p-6 w-full max-w-md space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-white font-el-messiri text-2xl font-bold">
+              {editingCategory.id.startsWith('category_') ? 'Добавить категорию' : 'Редактировать категорию'}
             </h3>
+            <Button variant="ghost" onClick={() => setEditingCategory(null)}>
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
 
-            <div className="space-y-4">
-              <div>
-                <Label className="text-white">Название *</Label>
-                <Input
-                  value={editingCategory.name}
-                  onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
-                  placeholder="Введите название категории"
-                />
-              </div>
+          <div>
+            <Label className="text-white">Название *</Label>
+            <Input
+              value={editingCategory.name}
+              onChange={(event) => setEditingCategory({ ...editingCategory, name: event.target.value })}
+              placeholder="Введите название категории"
+            />
+          </div>
 
-              <div>
-                <Label className="text-white">Описание</Label>
-                <Textarea
-                  value={editingCategory.description || ''}
-                  onChange={(e) => setEditingCategory({ ...editingCategory, description: e.target.value })}
-                  placeholder="Введите описание категории"
-                  rows={2}
-                />
-              </div>
+          <div>
+            <Label className="text-white">Описание</Label>
+            <Textarea
+              value={editingCategory.description ?? ''}
+              onChange={(event) =>
+                setEditingCategory({ ...editingCategory, description: event.target.value })
+              }
+              rows={3}
+              placeholder="Краткое описание категории"
+            />
+          </div>
 
-              <div className="flex gap-2 justify-end pt-4">
-                <Button variant="outline" onClick={() => setEditingCategory(null)}>
-                  <X className="w-4 h-4 mr-2" />
-                  Отмена
-                </Button>
-                <Button
-                  variant="default"
-                  onClick={handleSaveCategory}
-                  disabled={!editingCategory.name}
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  Сохранить
-                </Button>
-              </div>
-            </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={editingCategory.isActive !== false}
+              onCheckedChange={(checked) =>
+                setEditingCategory({ ...editingCategory, isActive: Boolean(checked) })
+              }
+            />
+            <span className="text-white/80 text-sm">
+              {editingCategory.isActive === false ? 'Категория скрыта' : 'Категория активна'}
+            </span>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setEditingCategory(null)}>
+              <X className="w-4 h-4 mr-2" />
+              Отмена
+            </Button>
+            <Button
+              variant="default"
+              onClick={handleSaveCategory}
+              disabled={!editingCategory.name.trim()}
+            >
+              <Save className="w-4 h-4 mr-2" />
+              Сохранить
+            </Button>
           </div>
         </div>
-      )}
+      </div>
+    );
+  };
 
-      {/* Диалог подтверждения удаления блюда */}
+  const renderCopyModal = () => {
+    if (!copyContext) {
+      return null;
+    }
+    const availableCities = cities;
+    const availableRestaurants = sourceSelection.cityId
+      ? allRestaurants.filter((restaurant) => restaurant.cityId === sourceSelection.cityId)
+      : allRestaurants;
+    const availableCategories = sourceMenu?.categories ?? [];
+    const availableItems =
+      availableCategories.find((category) => category.id === sourceSelection.categoryId)?.items ??
+      [];
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div className="bg-mariko-secondary rounded-[24px] p-6 w-full max-w-lg space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-white font-el-messiri text-2xl font-bold">
+              {copyContext.type === 'category' ? 'Импорт категории' : 'Импорт блюда'}
+            </h3>
+            <Button variant="ghost" onClick={() => setCopyContext(null)}>
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <Label className="text-white">Город</Label>
+              <Select
+                value={sourceSelection.cityId ?? 'all'}
+                onValueChange={(value) => {
+                  setSourceSelection({
+                    cityId: value === 'all' ? null : value,
+                    restaurantId: '',
+                    categoryId: '',
+                    itemId: '',
+                  });
+                  setSourceMenu(null);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Все города" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Все города</SelectItem>
+                  {availableCities.map((city) => (
+                    <SelectItem key={city.id} value={city.id}>
+                      {city.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-white">Ресторан</Label>
+              <Select
+                value={sourceSelection.restaurantId}
+                onValueChange={(value) => handleSourceRestaurantChange(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите ресторан" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableRestaurants.map((restaurant) => (
+                    <SelectItem key={restaurant.id} value={restaurant.id}>
+                      {restaurant.cityName} — {restaurant.address}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-white">Категория</Label>
+              <Select
+                disabled={!sourceMenu || isLoadingSourceMenu}
+                value={sourceSelection.categoryId}
+                onValueChange={(value) =>
+                  setSourceSelection((prev) => ({ ...prev, categoryId: value, itemId: '' }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите категорию" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableCategories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {copyContext.type === 'item' && (
+              <div>
+                <Label className="text-white">Блюдо</Label>
+                <Select
+                  disabled={!sourceSelection.categoryId || !availableItems.length}
+                  value={sourceSelection.itemId}
+                  onValueChange={(value) =>
+                    setSourceSelection((prev) => ({ ...prev, itemId: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите блюдо" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableItems.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name} — {item.price} ₽
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setCopyContext(null)}>
+              Отмена
+            </Button>
+            <Button
+              variant="default"
+              disabled={
+                !sourceSelection.restaurantId ||
+                !sourceSelection.categoryId ||
+                (copyContext.type === 'item' && !sourceSelection.itemId)
+              }
+              onClick={handleConfirmCopy}
+            >
+              Импортировать
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {currentStep === 'city' && renderCitySelection()}
+      {currentStep === 'restaurant' && renderRestaurantSelection()}
+      {currentStep === 'menu' && renderMenuView()}
+
+      {renderEditItemModal()}
+      {renderEditCategoryModal()}
+      {renderCopyModal()}
+
       <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -677,19 +1201,23 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Диалог подтверждения удаления категории */}
-      <AlertDialog open={!!categoryToDelete} onOpenChange={(open) => !open && setCategoryToDelete(null)}>
+      <AlertDialog
+        open={!!categoryToDelete}
+        onOpenChange={(open) => !open && setCategoryToDelete(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Удалить категорию?</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить эту категорию? Все блюда в ней также будут удалены.
-              Это действие нельзя отменить.
+              Все блюда внутри категории также будут удалены. Продолжить?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteCategory} className="bg-red-600 hover:bg-red-700">
+            <AlertDialogAction
+              onClick={handleDeleteCategory}
+              className="bg-red-600 hover:bg-red-700"
+            >
               Удалить
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -698,4 +1226,3 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     </div>
   );
 }
-

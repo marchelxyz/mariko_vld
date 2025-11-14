@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { MenuItemComponent } from "@shared/ui";
 import { useCityContext } from "@/contexts/CityContext";
-import { getMenuByRestaurantId, MenuItem } from "@/shared/data/menuData";
+import { MenuItem, RestaurantMenu, getMenuByRestaurantId } from "@/shared/data/menuData";
+import { fetchRestaurantMenu } from "@/shared/api/menuApi";
 
 /**
  * Отображает меню выбранного ресторана с навигацией по категориям и карточками блюд.
@@ -13,27 +14,113 @@ import { getMenuByRestaurantId, MenuItem } from "@/shared/data/menuData";
 const Menu = (): JSX.Element => {
   const navigate = useNavigate();
   const { selectedRestaurant } = useCityContext();
+  const [menu, setMenu] = useState<RestaurantMenu | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>("");
 
-  // Получаем меню для выбранного ресторана
-  const menu = getMenuByRestaurantId(selectedRestaurant.id);
-
-  // Устанавливаем первую категорию по умолчанию
+  // Загружаем меню для выбранного ресторана
   useEffect(() => {
-    if (!menu?.categories?.length) {
+    let isCancelled = false;
+
+    async function loadMenu() {
+      if (!selectedRestaurant?.id) {
+        setMenu(null);
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setMenu(null);
+      setActiveDish(null);
+      setActiveCategory("");
+
+      try {
+        const loadedMenu = await fetchRestaurantMenu(selectedRestaurant.id);
+        if (isCancelled) return;
+
+        // Fallback на статичные данные, если сервер не вернул меню
+        const finalMenu =
+          loadedMenu ?? getMenuByRestaurantId(selectedRestaurant.id) ?? null;
+
+        setMenu(finalMenu);
+
+        if (finalMenu?.categories?.length) {
+          setActiveCategory(finalMenu.categories[0].id);
+        }
+      } catch (error) {
+        console.error("Ошибка загрузки меню:", error);
+        if (isCancelled) return;
+
+        const staticMenu = getMenuByRestaurantId(selectedRestaurant.id) ?? null;
+        setMenu(staticMenu);
+        if (staticMenu?.categories?.length) {
+          setActiveCategory(staticMenu.categories[0].id);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadMenu();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedRestaurant?.id]);
+
+  const visibleMenu = useMemo(() => {
+    if (!menu) {
+      return null;
+    }
+
+    const categories = menu.categories
+      .filter((category) => category.isActive !== false)
+      .map((category) => ({
+        ...category,
+        items: category.items.filter((item) => item.isActive !== false),
+      }))
+      .filter((category) => category.items.length > 0);
+
+    if (!categories.length) {
+      return null;
+    }
+
+    return {
+      ...menu,
+      categories,
+    };
+  }, [menu]);
+
+  useEffect(() => {
+    if (!visibleMenu?.categories?.length) {
       setActiveCategory("");
       return;
     }
 
-    const categoryExists = menu.categories.some((category) => category.id === activeCategory);
+    const categoryExists = visibleMenu.categories.some((category) => category.id === activeCategory);
     if (!activeCategory || !categoryExists) {
-      setActiveCategory(menu.categories[0].id);
+      setActiveCategory(visibleMenu.categories[0].id);
     }
-  }, [menu, activeCategory]);
+  }, [visibleMenu, activeCategory]);
+
+  // Индикатор загрузки
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-transparent overflow-hidden flex flex-col">
+        <Header />
+        <div className="flex-1 px-4 md:px-6 max-w-4xl mx-auto w-full flex items-center justify-center">
+          <div className="w-12 h-12 border-4 border-mariko-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+        <BottomNavigation currentPage="home" />
+      </div>
+    );
+  }
 
   // Если нет меню для этого ресторана, показываем заглушку
-  if (!menu) {
+  if (!menu || !visibleMenu) {
     return (
       <div className="min-h-screen bg-transparent overflow-hidden flex flex-col">
         <Header />
@@ -74,9 +161,9 @@ const Menu = (): JSX.Element => {
     }
   };
 
-  const activeCategoryId = activeCategory || menu.categories[0]?.id || "";
+  const activeCategoryId = activeCategory || visibleMenu.categories[0]?.id || "";
   const currentCategory =
-    menu.categories.find((category) => category.id === activeCategoryId) ?? null;
+    visibleMenu.categories.find((category) => category.id === activeCategoryId) ?? null;
   const itemsToRender = currentCategory?.items ?? [];
 
   return (
@@ -102,7 +189,7 @@ const Menu = (): JSX.Element => {
         {/* Category Tabs */}
         <div className="mb-6 overflow-x-auto scrollbar-hide">
           <div className="flex gap-2 pb-2">
-            {menu.categories.map((category) => (
+            {visibleMenu.categories.map((category) => (
               <button
                 key={category.id}
                 onClick={() => setActiveCategory(category.id)}
