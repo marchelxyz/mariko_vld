@@ -3,7 +3,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Edit, X, Save, ArrowLeft, Copy, UtensilsCrossed } from 'lucide-react';
+import { Plus, Edit, ArrowLeft, Copy, UtensilsCrossed } from 'lucide-react';
 import { useAdmin } from '@/shared/hooks/useAdmin';
 import { Permission } from '@/shared/types/admin';
 import { MenuCategory, MenuItem, RestaurantMenu } from '@/shared/data/menuData';
@@ -36,15 +36,15 @@ import {
   Switch,
   Textarea,
 } from '@shared/ui';
+import type { EditableMenuItem, CopyContext, CopySourceSelection } from './model/types';
+import { EditCategoryModal } from './ui/EditCategoryModal';
+import { EditItemModal } from './ui/EditItemModal';
+import { CopyModal } from './ui/CopyModal';
+import { ImageLibraryModal } from './ui/ImageLibraryModal';
 
 interface MenuManagementProps {
   restaurantId?: string;
 }
-
-type EditableMenuItem = MenuItem & { priceInput?: string };
-type CopyContext =
-  | { type: 'category' }
-  | { type: 'item'; targetCategoryId: string };
 
 const createClientId = (prefix: string): string =>
   `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -70,19 +70,6 @@ const buildRestaurantDictionary = () =>
     })),
   );
 
-const formatFileSize = (size: number): string => {
-  if (!size || Number.isNaN(size)) {
-    return '—';
-  }
-  if (size < 1024) {
-    return `${size} Б`;
-  }
-  if (size < 1024 * 1024) {
-    return `${(size / 1024).toFixed(1)} КБ`;
-  }
-  return `${(size / (1024 * 1024)).toFixed(1)} МБ`;
-};
-
 export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManagementProps): JSX.Element {
   const { hasPermission } = useAdmin();
   const canManage = hasPermission(Permission.MANAGE_MENU);
@@ -107,19 +94,34 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-const [copyContext, setCopyContext] = useState<CopyContext | null>(null);
-  const [sourceSelection, setSourceSelection] = useState({
-    cityId: initialCityId,
+  const [copyContext, setCopyContext] = useState<CopyContext | null>(null);
+  const [sourceSelection, setSourceSelection] = useState<CopySourceSelection>({
+    cityId: initialCityId ?? null,
     restaurantId: '',
     categoryId: '',
     itemId: '',
   });
   const [sourceMenu, setSourceMenu] = useState<RestaurantMenu | null>(null);
   const [isLoadingSourceMenu, setIsLoadingSourceMenu] = useState<boolean>(false);
-const [isLibraryOpen, setIsLibraryOpen] = useState<boolean>(false);
-const [libraryImages, setLibraryImages] = useState<MenuImageAsset[]>([]);
-const [isLoadingLibrary, setIsLoadingLibrary] = useState<boolean>(false);
-const [libraryError, setLibraryError] = useState<string | null>(null);
+  const [isLibraryOpen, setIsLibraryOpen] = useState<boolean>(false);
+  const [libraryImages, setLibraryImages] = useState<MenuImageAsset[]>([]);
+  const [isLoadingLibrary, setIsLoadingLibrary] = useState<boolean>(false);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
+
+  const updateEditingCategory = (changes: Partial<MenuCategory>) => {
+    setEditingCategory((prev) => (prev ? { ...prev, ...changes } : prev));
+  };
+
+  const updateEditingItem = (changes: Partial<EditableMenuItem>) => {
+    setEditingItem((prev) => (prev ? { ...prev, ...changes } : prev));
+  };
+
+  const handleChangeSourceSelection = (changes: Partial<CopySourceSelection>) => {
+    setSourceSelection((prev) => ({ ...prev, ...changes }));
+    if (Object.prototype.hasOwnProperty.call(changes, 'cityId')) {
+      setSourceMenu(null);
+    }
+  };
 
   const selectedRestaurantMeta = useMemo(
     () => allRestaurants.find((restaurant) => restaurant.id === selectedRestaurantId) ?? null,
@@ -138,6 +140,18 @@ const [libraryError, setLibraryError] = useState<string | null>(null);
     : selectedRestaurantId
     ? 'menu'
     : 'restaurant';
+
+  const cityOptions = useMemo(
+    () => cities.map((city) => ({ id: city.id, name: city.name })),
+    [],
+  );
+
+  const copyRestaurantOptions = useMemo(() => {
+    if (sourceSelection.cityId) {
+      return allRestaurants.filter((restaurant) => restaurant.cityId === sourceSelection.cityId);
+    }
+    return allRestaurants;
+  }, [allRestaurants, sourceSelection.cityId]);
 
   useEffect(() => {
     if (!selectedRestaurantId) {
@@ -421,7 +435,7 @@ const [libraryError, setLibraryError] = useState<string | null>(null);
     setLibraryError(null);
     setIsLoadingLibrary(true);
     try {
-      const images = await fetchMenuImageLibrary(selectedRestaurantId);
+      const images = await fetchMenuImageLibrary(selectedRestaurantId, 'global');
       setLibraryImages(images);
     } catch (error: any) {
       console.error('Не удалось получить список изображений меню:', error);
@@ -435,7 +449,7 @@ const [libraryError, setLibraryError] = useState<string | null>(null);
     if (!editingItem) {
       return;
     }
-    setEditingItem({ ...editingItem, imageUrl: url });
+    updateEditingItem({ imageUrl: url });
     setIsLibraryOpen(false);
   };
 
@@ -547,7 +561,7 @@ const [libraryError, setLibraryError] = useState<string | null>(null);
     setUploadingImage(true);
     try {
       const uploaded = await uploadMenuImage(selectedRestaurantId, file);
-      setEditingItem({ ...editingItem, imageUrl: uploaded.url });
+      updateEditingItem({ imageUrl: uploaded.url });
     } catch (error: any) {
       console.error('Ошибка загрузки изображения:', error);
       setUploadError(error?.message ?? 'Не удалось загрузить изображение. Попробуйте ещё раз.');
@@ -867,457 +881,59 @@ const [libraryError, setLibraryError] = useState<string | null>(null);
     </div>
   );
 
-  const renderEditItemModal = () => {
-    if (!editingItem) {
-      return null;
-    }
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-        <div className="bg-mariko-secondary rounded-[24px] p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-white font-el-messiri text-2xl font-bold">
-              {editingItem.id.startsWith('item_') ? 'Добавить блюдо' : 'Редактировать блюдо'}
-            </h3>
-            <Button variant="ghost" onClick={() => setEditingItem(null)}>
-              <X className="w-5 h-5" />
-            </Button>
-          </div>
+  const renderEditItemModal = () => (
+    <EditItemModal
+      item={editingItem}
+      isOpen={Boolean(editingItem)}
+      restaurantId={selectedRestaurantId || null}
+      uploadingImage={uploadingImage}
+      uploadError={uploadError}
+      isLibraryLoading={isLoadingLibrary}
+      fileInputRef={fileInputRef}
+      onChange={updateEditingItem}
+      onClose={() => setEditingItem(null)}
+      onSave={handleSaveItem}
+      onUploadImage={handleUploadImage}
+      onOpenLibrary={handleOpenLibrary}
+    />
+  );
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-white">Название *</Label>
-                <Input
-                  value={editingItem.name}
-                onChange={(event) => setEditingItem({ ...editingItem, name: event.target.value })}
-                  placeholder="Введите название блюда"
-                />
-            </div>
-            <div>
-              <Label className="text-white">Цена (₽) *</Label>
-              <Input
-                value={editingItem.priceInput ?? ''}
-                inputMode="decimal"
-                onChange={(event) =>
-                  setEditingItem({ ...editingItem, priceInput: event.target.value })
-                }
-                placeholder="Например, 450"
-              />
-            </div>
-              </div>
+  const renderEditCategoryModal = () => (
+    <EditCategoryModal
+      category={editingCategory}
+      isOpen={Boolean(editingCategory)}
+      onChange={updateEditingCategory}
+      onCancel={() => setEditingCategory(null)}
+      onSave={handleSaveCategory}
+    />
+  );
 
-              <div>
-                <Label className="text-white">Описание *</Label>
-                <Textarea
-                  value={editingItem.description}
-              onChange={(event) =>
-                setEditingItem({ ...editingItem, description: event.target.value })
-              }
-                  rows={3}
-              placeholder="Введите описание блюда"
-                />
-              </div>
+  const renderCopyModal = () => (
+    <CopyModal
+      context={copyContext}
+      cities={cityOptions}
+      restaurants={copyRestaurantOptions}
+      selection={sourceSelection}
+      sourceMenu={sourceMenu}
+      isLoadingMenu={isLoadingSourceMenu}
+      onChangeSelection={handleChangeSourceSelection}
+      onSelectRestaurant={handleSourceRestaurantChange}
+      onConfirm={handleConfirmCopy}
+      onClose={() => setCopyContext(null)}
+    />
+  );
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-              <Label className="text-white">Вес</Label>
-                  <Input
-                value={editingItem.weight ?? ''}
-                onChange={(event) => setEditingItem({ ...editingItem, weight: event.target.value })}
-                placeholder="Например, 320 г"
-                  />
-                </div>
-                <div>
-              <Label className="text-white">Статус блюда</Label>
-              <div className="flex items-center gap-2 mt-2">
-                <Switch
-                  checked={editingItem.isActive !== false}
-                  onCheckedChange={(checked) =>
-                    setEditingItem({ ...editingItem, isActive: Boolean(checked) })
-                  }
-                />
-                <span className="text-white/80 text-sm">
-                  {editingItem.isActive === false ? 'Скрыто' : 'Активно'}
-                </span>
-              </div>
-                </div>
-              </div>
-
-              <div>
-            <Label className="text-white">Фото блюда</Label>
-            <div className="space-y-2">
-              {editingItem.imageUrl && (
-                <img
-                  src={editingItem.imageUrl}
-                  alt={editingItem.name}
-                  className="w-full max-h-64 object-cover rounded-2xl"
-                />
-              )}
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={uploadingImage}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  {uploadingImage ? 'Загрузка…' : 'Загрузить фото'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={!selectedRestaurantId || isLoadingLibrary}
-                  onClick={handleOpenLibrary}
-                >
-                  {isLoadingLibrary ? 'Открываем библиотеку…' : 'Выбрать из библиотеки'}
-                </Button>
-                <Input
-                  value={editingItem.imageUrl ?? ''}
-                  onChange={(event) =>
-                    setEditingItem({ ...editingItem, imageUrl: event.target.value })
-                  }
-                  placeholder="Можно вставить ссылку вручную"
-                />
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleUploadImage}
-                />
-              </div>
-              {uploadError && <p className="text-red-300 text-sm">{uploadError}</p>}
-            </div>
-              </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <label className="flex items-center gap-2 text-white cursor-pointer">
-                    <Checkbox
-                      checked={editingItem.isRecommended}
-                      onCheckedChange={(checked) =>
-                  setEditingItem({ ...editingItem, isRecommended: Boolean(checked) })
-                      }
-                    />
-              Рекомендуем
-                  </label>
-                  <label className="flex items-center gap-2 text-white cursor-pointer">
-                    <Checkbox
-                      checked={editingItem.isNew}
-                      onCheckedChange={(checked) =>
-                  setEditingItem({ ...editingItem, isNew: Boolean(checked) })
-                      }
-                    />
-              Новинка
-                  </label>
-                  <label className="flex items-center gap-2 text-white cursor-pointer">
-                    <Checkbox
-                      checked={editingItem.isVegetarian}
-                      onCheckedChange={(checked) =>
-                  setEditingItem({ ...editingItem, isVegetarian: Boolean(checked) })
-                      }
-                    />
-              Вегетарианское
-                  </label>
-                  <label className="flex items-center gap-2 text-white cursor-pointer">
-                    <Checkbox
-                      checked={editingItem.isSpicy}
-                      onCheckedChange={(checked) =>
-                  setEditingItem({ ...editingItem, isSpicy: Boolean(checked) })
-                      }
-                    />
-              Острое
-                  </label>
-              </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setEditingItem(null)}>
-                  <X className="w-4 h-4 mr-2" />
-                  Отмена
-                </Button>
-                <Button
-                  variant="default"
-              onClick={handleSaveItem}
-              disabled={
-                !editingItem.name ||
-                !editingItem.description ||
-                !(editingItem.priceInput ?? '').trim()
-              }
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  Сохранить
-                </Button>
-              </div>
-            </div>
-          </div>
-    );
-  };
-
-  const renderEditCategoryModal = () => {
-    if (!editingCategory) {
-      return null;
-    }
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-        <div className="bg-mariko-secondary rounded-[24px] p-6 w-full max-w-md space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-white font-el-messiri text-2xl font-bold">
-              {editingCategory.id.startsWith('category_') ? 'Добавить категорию' : 'Редактировать категорию'}
-            </h3>
-            <Button variant="ghost" onClick={() => setEditingCategory(null)}>
-              <X className="w-5 h-5" />
-            </Button>
-          </div>
-
-              <div>
-                <Label className="text-white">Название *</Label>
-                <Input
-                  value={editingCategory.name}
-              onChange={(event) => setEditingCategory({ ...editingCategory, name: event.target.value })}
-                  placeholder="Введите название категории"
-                />
-              </div>
-
-              <div>
-                <Label className="text-white">Описание</Label>
-                <Textarea
-              value={editingCategory.description ?? ''}
-              onChange={(event) =>
-                setEditingCategory({ ...editingCategory, description: event.target.value })
-              }
-              rows={3}
-              placeholder="Краткое описание категории"
-                />
-              </div>
-
-          <div className="flex items-center gap-2">
-            <Switch
-              checked={editingCategory.isActive !== false}
-              onCheckedChange={(checked) =>
-                setEditingCategory({ ...editingCategory, isActive: Boolean(checked) })
-              }
-            />
-            <span className="text-white/80 text-sm">
-              {editingCategory.isActive === false ? 'Категория скрыта' : 'Категория активна'}
-            </span>
-          </div>
-
-          <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setEditingCategory(null)}>
-                  <X className="w-4 h-4 mr-2" />
-                  Отмена
-                </Button>
-                <Button
-                  variant="default"
-                  onClick={handleSaveCategory}
-              disabled={!editingCategory.name.trim()}
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  Сохранить
-                </Button>
-              </div>
-            </div>
-          </div>
-    );
-  };
-
-  const renderCopyModal = () => {
-    if (!copyContext) {
-      return null;
-    }
-    const availableCities = cities;
-    const availableRestaurants = sourceSelection.cityId
-      ? allRestaurants.filter((restaurant) => restaurant.cityId === sourceSelection.cityId)
-      : allRestaurants;
-    const availableCategories = sourceMenu?.categories ?? [];
-    const availableItems =
-      availableCategories.find((category) => category.id === sourceSelection.categoryId)?.items ??
-      [];
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-        <div className="bg-mariko-secondary rounded-[24px] p-6 w-full max-w-lg space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-white font-el-messiri text-2xl font-bold">
-              {copyContext.type === 'category' ? 'Импорт категории' : 'Импорт блюда'}
-            </h3>
-            <Button variant="ghost" onClick={() => setCopyContext(null)}>
-              <X className="w-5 h-5" />
-            </Button>
-          </div>
-
-          <div className="space-y-3">
-            <div>
-              <Label className="text-white">Город</Label>
-              <Select
-                value={sourceSelection.cityId ?? 'all'}
-                onValueChange={(value) => {
-                  setSourceSelection({
-                    cityId: value === 'all' ? null : value,
-                    restaurantId: '',
-                    categoryId: '',
-                    itemId: '',
-                  });
-                  setSourceMenu(null);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Все города" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Все города</SelectItem>
-                  {availableCities.map((city) => (
-                    <SelectItem key={city.id} value={city.id}>
-                      {city.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label className="text-white">Ресторан</Label>
-              <Select
-                value={sourceSelection.restaurantId}
-                onValueChange={(value) => handleSourceRestaurantChange(value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите ресторан" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableRestaurants.map((restaurant) => (
-                    <SelectItem key={restaurant.id} value={restaurant.id}>
-                      {restaurant.cityName} — {restaurant.address}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label className="text-white">Категория</Label>
-              <Select
-                disabled={!sourceMenu || isLoadingSourceMenu}
-                value={sourceSelection.categoryId}
-                onValueChange={(value) =>
-                  setSourceSelection((prev) => ({ ...prev, categoryId: value, itemId: '' }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите категорию" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableCategories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {copyContext.type === 'item' && (
-              <div>
-                <Label className="text-white">Блюдо</Label>
-                <Select
-                  disabled={!sourceSelection.categoryId || !availableItems.length}
-                  value={sourceSelection.itemId}
-                  onValueChange={(value) =>
-                    setSourceSelection((prev) => ({ ...prev, itemId: value }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Выберите блюдо" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableItems.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {item.name} — {item.price} ₽
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-        </div>
-      )}
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setCopyContext(null)}>
-              Отмена
-            </Button>
-            <Button
-              variant="default"
-              disabled={
-                !sourceSelection.restaurantId ||
-                !sourceSelection.categoryId ||
-                (copyContext.type === 'item' && !sourceSelection.itemId)
-              }
-              onClick={handleConfirmCopy}
-            >
-              Импортировать
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderLibraryModal = () => {
-    if (!isLibraryOpen) {
-      return null;
-    }
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-        <div className="bg-mariko-secondary rounded-[24px] p-6 w-full max-w-3xl space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-white font-el-messiri text-2xl font-bold">Выбор фото</h3>
-            <Button variant="ghost" onClick={() => setIsLibraryOpen(false)}>
-              <X className="w-5 h-5" />
-            </Button>
-          </div>
-
-          {libraryError && (
-            <div className="p-3 rounded-xl bg-red-500/10 text-red-200 text-sm">{libraryError}</div>
-          )}
-
-          {isLoadingLibrary ? (
-            <div className="flex items-center justify-center py-10">
-              <div className="w-12 h-12 border-4 border-mariko-primary border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : libraryImages.length ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto pr-1">
-              {libraryImages.map((image) => {
-                const isActive = editingItem?.imageUrl === image.url;
-                const displayName = image.path.replace(`${selectedRestaurantId}/`, '');
-                return (
-                  <button
-                    key={image.path}
-                    onClick={() => handleSelectLibraryImage(image.url)}
-                    className={`rounded-2xl overflow-hidden border transition-all ${
-                      isActive ? 'border-mariko-primary ring-2 ring-mariko-primary/40' : 'border-white/10'
-                    }`}
-                  >
-                    <img src={image.url} alt={displayName} className="w-full h-32 object-cover" loading="lazy" />
-                    <div className="p-2 text-left">
-                      <p className="text-white text-sm truncate">{displayName}</p>
-                      <p className="text-white/60 text-xs">{formatFileSize(image.size)}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="bg-white/5 rounded-2xl p-8 text-center text-white/70">
-              Пока нет загруженных изображений. Добавьте фото через кнопку «Загрузить фото».
-            </div>
-          )}
-
-          <div className="flex justify-end">
-            <Button variant="outline" onClick={() => setIsLibraryOpen(false)}>
-              Закрыть
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  const renderLibraryModal = () => (
+    <ImageLibraryModal
+      isOpen={isLibraryOpen}
+      images={libraryImages}
+      isLoading={isLoadingLibrary}
+      error={libraryError}
+      selectedUrl={editingItem?.imageUrl}
+      onSelect={handleSelectLibraryImage}
+      onClose={() => setIsLibraryOpen(false)}
+    />
+  );
 
   return (
     <div className="space-y-6">
