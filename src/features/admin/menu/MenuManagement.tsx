@@ -434,6 +434,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     if (!selectedRestaurantId) {
       return;
     }
+    setLibrarySearch('');
     setIsLibraryOpen(true);
     setLibraryImages([]);
     setLibraryError(null);
@@ -949,10 +950,12 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     <ImageLibraryModal
       isOpen={isLibraryOpen}
       images={libraryImages}
+      searchQuery={librarySearch}
       isLoading={isLoadingLibrary}
       error={libraryError}
       selectedUrl={editingItem?.imageUrl}
       onSelect={handleSelectLibraryImage}
+      onSearchChange={setLibrarySearch}
       onClose={() => setIsLibraryOpen(false)}
     />
   );

@@ -1,14 +1,16 @@
-import { Button } from '@shared/ui';
+import { Button, Input } from '@shared/ui';
 import { X } from 'lucide-react';
 import type { MenuImageAsset } from '@/shared/api/menuApi';
 
 type ImageLibraryModalProps = {
   isOpen: boolean;
   images: MenuImageAsset[];
+  searchQuery: string;
   isLoading: boolean;
   error: string | null;
   selectedUrl?: string | null;
   onSelect: (url: string) => void;
+  onSearchChange: (value: string) => void;
   onClose: () => void;
 };
 
@@ -28,15 +30,25 @@ const formatFileSize = (size: number): string => {
 export function ImageLibraryModal({
   isOpen,
   images,
+  searchQuery,
   isLoading,
   error,
   selectedUrl,
   onSelect,
+  onSearchChange,
   onClose,
 }: ImageLibraryModalProps): JSX.Element | null {
   if (!isOpen) {
     return null;
   }
+
+  const filteredImages = images.filter((image) => {
+    if (!searchQuery.trim()) {
+      return true;
+    }
+    const displayName = image.path.split('/').pop() ?? image.path;
+    return displayName.toLowerCase().includes(searchQuery.trim().toLowerCase());
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
@@ -48,15 +60,22 @@ export function ImageLibraryModal({
           </Button>
         </div>
 
+        <Input
+          value={searchQuery}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder="Поиск по названию файла"
+          className="bg-white/10 border-white/10 text-white placeholder:text-white/60"
+        />
+
         {error && <div className="p-3 rounded-xl bg-red-500/10 text-red-200 text-sm">{error}</div>}
 
         {isLoading ? (
           <div className="flex items-center justify-center py-10">
             <div className="w-12 h-12 border-4 border-mariko-primary border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : images.length ? (
+        ) : filteredImages.length ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto pr-1">
-            {images.map((image) => {
+            {filteredImages.map((image) => {
               const isActive = selectedUrl === image.url;
               const displayName = image.path.split('/').pop() ?? image.path;
               return (
@@ -91,4 +110,3 @@ export function ImageLibraryModal({
     </div>
   );
 }
-
