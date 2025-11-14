@@ -17,6 +17,13 @@ type UploadImageResult = {
   url: string;
 };
 
+export type MenuImageAsset = {
+  path: string;
+  url: string;
+  size: number;
+  updatedAt: string | null;
+};
+
 function normalizeBaseUrl(base: string): string {
   if (!base || base === '/') {
     return '';
@@ -43,6 +50,21 @@ function resolveServerUrl(path: string): string {
     return normalizedPath;
   }
   return `${RAW_SERVER_API_BASE}${normalizedPath}`;
+}
+
+function buildAdminHeaders(initial?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = {
+    ...(initial ?? {}),
+  };
+
+  const initData = getTg()?.initData;
+  if (initData) {
+    headers['X-Telegram-Init-Data'] = initData;
+  } else if (import.meta.env.DEV && DEV_ADMIN_TOKEN) {
+    headers['X-Admin-Token'] = DEV_ADMIN_TOKEN;
+  }
+
+  return headers;
 }
 
 async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<T> {
@@ -103,16 +125,9 @@ export async function saveRestaurantMenu(
     return { success: false, errorMessage: message };
   }
 
-  const headers: Record<string, string> = {
+  const headers = buildAdminHeaders({
     'Content-Type': 'application/json',
-  };
-
-  const initData = getTg()?.initData;
-  if (initData) {
-    headers['X-Telegram-Init-Data'] = initData;
-  } else if (import.meta.env.DEV && DEV_ADMIN_TOKEN) {
-    headers['X-Admin-Token'] = DEV_ADMIN_TOKEN;
-  }
+  });
 
   try {
     const response = await fetch(resolveServerUrl(`/admin/menu/${encodeURIComponent(restaurantId)}`), {
@@ -150,16 +165,9 @@ export async function uploadMenuImage(
 
   const dataUrl = await readFileAsDataUrl(file);
 
-  const headers: Record<string, string> = {
+  const headers = buildAdminHeaders({
     'Content-Type': 'application/json',
-  };
-
-  const initData = getTg()?.initData;
-  if (initData) {
-    headers['X-Telegram-Init-Data'] = initData;
-  } else if (import.meta.env.DEV && DEV_ADMIN_TOKEN) {
-    headers['X-Admin-Token'] = DEV_ADMIN_TOKEN;
-  }
+  });
 
   const payload = {
     restaurantId,
@@ -174,6 +182,25 @@ export async function uploadMenuImage(
     headers,
     body: JSON.stringify(payload),
   });
+}
+
+export async function fetchMenuImageLibrary(restaurantId: string): Promise<MenuImageAsset[]> {
+  if (!shouldUseServerApi()) {
+    return [];
+  }
+
+  const headers = buildAdminHeaders();
+
+  const result = await fetchFromServer<{ images: MenuImageAsset[] }>(
+    `/admin/menu/images?restaurantId=${encodeURIComponent(restaurantId)}`,
+    {
+      method: 'GET',
+      credentials: 'include',
+      headers,
+    },
+  );
+
+  return result?.images ?? [];
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {
