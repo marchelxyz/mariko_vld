@@ -184,15 +184,23 @@ export async function uploadMenuImage(
   });
 }
 
-export async function fetchMenuImageLibrary(restaurantId: string): Promise<MenuImageAsset[]> {
+export async function fetchMenuImageLibrary(
+  restaurantId: string,
+  scope: 'global' | 'restaurant' = 'global',
+): Promise<MenuImageAsset[]> {
   if (!shouldUseServerApi()) {
     return [];
   }
 
   const headers = buildAdminHeaders();
+  const params = new URLSearchParams();
+  if (restaurantId) {
+    params.set('restaurantId', restaurantId);
+  }
+  params.set('scope', scope);
 
   const result = await fetchFromServer<{ images: MenuImageAsset[] }>(
-    `/admin/menu/images?restaurantId=${encodeURIComponent(restaurantId)}`,
+    `/admin/menu/images?${params.toString()}`,
     {
       method: 'GET',
       credentials: 'include',
