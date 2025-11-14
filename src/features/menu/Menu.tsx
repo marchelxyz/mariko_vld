@@ -188,20 +188,25 @@ const Menu = (): JSX.Element => {
 
         {/* Category Tabs */}
         <div className="mb-6 overflow-x-auto scrollbar-hide">
-          <div className="flex gap-2 pb-2">
-            {visibleMenu.categories.map((category) => (
-              <button
-                key={category.id}
-                onClick={() => setActiveCategory(category.id)}
-                className={`px-5 py-3 rounded-full font-el-messiri font-semibold whitespace-nowrap transition-all ${
-                  activeCategoryId === category.id
-                    ? "bg-white text-mariko-primary shadow-lg scale-105"
-                    : "bg-mariko-secondary text-white hover:bg-mariko-secondary/80"
-                }`}
-              >
-                {category.name}
-              </button>
-            ))}
+          <div className="flex gap-2.5 pb-3 flex-wrap md:flex-nowrap">
+            {visibleMenu.categories.map((category) => {
+              const isActive = activeCategoryId === category.id;
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  aria-pressed={isActive}
+                  onClick={() => setActiveCategory(category.id)}
+                  className={`relative inline-flex items-center justify-center rounded-full border font-el-messiri font-semibold whitespace-nowrap tracking-wide transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:ring-white/70 px-3.5 py-2 md:px-6 md:py-3 text-xs md:text-base ${
+                    isActive
+                      ? "bg-white text-mariko-primary border-white/60 shadow-[0_8px_24px_rgba(15,23,42,0.2)]"
+                      : "bg-white/10 text-white/80 border-white/10 hover:border-white/30 hover:bg-white/15"
+                  }`}
+                >
+                  <span className="leading-none">{category.name}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -359,4 +364,3 @@ const Menu = (): JSX.Element => {
 };
 
 export default Menu;
-
