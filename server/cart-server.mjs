@@ -7,6 +7,7 @@ import { PORT } from "./config.mjs";
 import { supabase } from "./supabaseClient.mjs";
 import { registerCartRoutes } from "./routes/cartRoutes.mjs";
 import { createAdminRouter } from "./routes/adminRoutes.mjs";
+import { createPaymentRouter } from "./routes/paymentRoutes.mjs";
 
 const app = express();
 app.use(cors());
@@ -17,6 +18,7 @@ registerCartRoutes(app);
 const adminRouter = createAdminRouter();
 app.use("/api/admin", adminRouter);
 app.use("/api/cart/admin", adminRouter);
+app.use("/api/payments", createPaymentRouter());
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: "Not Found" });
