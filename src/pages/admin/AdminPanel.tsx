@@ -2,19 +2,41 @@
  * Главная страница админ-панели
  */
 
-import { useState } from 'react';
+import { useState, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck } from 'lucide-react';
 import { useAdmin } from '@/shared/hooks/useAdmin';
 import { Header } from '@/widgets/header';
 import { BottomNavigation } from '@/widgets/bottomNavigation';
-import { CitiesManagement } from '@/features/admin/cities/CitiesManagement';
-import { MenuManagement } from '@/features/admin/menu/MenuManagement';
-import { RolesManagement } from '@/features/admin/roles/RolesManagement';
-import { DeliveryManagement } from '@/features/admin/deliveries/DeliveryManagement';
+const CitiesManagementLazy = lazy(() =>
+  import("@/features/admin/cities/CitiesManagement").then((module) => ({
+    default: module.CitiesManagement,
+  })),
+);
+const MenuManagementLazy = lazy(() =>
+  import("@/features/admin/menu/MenuManagement").then((module) => ({
+    default: module.MenuManagement,
+  })),
+);
+const RolesManagementLazy = lazy(() =>
+  import("@/features/admin/roles/RolesManagement").then((module) => ({
+    default: module.RolesManagement,
+  })),
+);
+const DeliveryManagementLazy = lazy(() =>
+  import("@/features/admin/deliveries/DeliveryManagement").then((module) => ({
+    default: module.DeliveryManagement,
+  })),
+);
 import { Button } from '@shared/ui';
 
 type AdminSection = 'cities' | 'menu' | 'roles' | 'deliveries' | null;
+
+const SectionLoader = () => (
+  <div className="min-h-[40vh] flex items-center justify-center">
+    <div className="text-white/80 font-el-messiri text-lg animate-pulse">Загрузка раздела...</div>
+  </div>
+);
 
 /**
  * Админ-панель для управления ресторанами, меню и ролями
@@ -132,10 +154,26 @@ export default function AdminPanel(): JSX.Element {
           </div>
         ) : (
           <div>
-            {activeSection === 'cities' && isSuperAdmin() && <CitiesManagement />}
-            {activeSection === 'menu' && <MenuManagement />}
-            {activeSection === 'deliveries' && <DeliveryManagement />}
-            {activeSection === 'roles' && <RolesManagement />}
+            {activeSection === 'cities' && isSuperAdmin() && (
+              <Suspense fallback={<SectionLoader />}>
+                <CitiesManagementLazy />
+              </Suspense>
+            )}
+            {activeSection === 'menu' && (
+              <Suspense fallback={<SectionLoader />}>
+                <MenuManagementLazy />
+              </Suspense>
+            )}
+            {activeSection === 'deliveries' && (
+              <Suspense fallback={<SectionLoader />}>
+                <DeliveryManagementLazy />
+              </Suspense>
+            )}
+            {activeSection === 'roles' && isSuperAdmin() && (
+              <Suspense fallback={<SectionLoader />}>
+                <RolesManagementLazy />
+              </Suspense>
+            )}
           </div>
         )}
       </div>
