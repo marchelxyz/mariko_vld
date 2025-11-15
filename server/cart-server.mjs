@@ -13,7 +13,7 @@ import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 
-const PORT = Number(process.env.CART_SERVER_PORT ?? 4000);
+const PORT = Number(process.env.CART_SERVER_PORT ?? 4010);
 const CART_ORDERS_TABLE = process.env.CART_ORDERS_TABLE ?? "cart_orders";
 
 const supabaseUrl = process.env.SUPABASE_URL;
