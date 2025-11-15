@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ShoppingBag } from "lucide-react";
+import { ArrowLeft, ShoppingBag, ListOrdered } from "lucide-react";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { MenuItemComponent } from "@shared/ui";
@@ -174,6 +174,9 @@ const Menu = (): JSX.Element => {
     }
     setIsCartOpen(true);
   };
+  const handleOrdersButtonClick = () => {
+    navigate("/orders");
+  };
   const handleAddToCart = (dish: MenuItem) => {
     if (!canUseCartFeatures) {
       return;
@@ -211,14 +214,24 @@ const Menu = (): JSX.Element => {
             Меню
           </h1>
           {canUseCartFeatures && (
-            <button
-              type="button"
-              onClick={handleCartButtonClick}
-              aria-label="Открыть корзину"
-              className="p-2.5 rounded-full border border-white/20 text-white hover:bg-white/10 transition-colors"
-            >
-              <ShoppingBag className="w-6 h-6" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleOrdersButtonClick}
+                className="inline-flex items-center gap-2 rounded-full border border-white/25 px-3.5 py-2 text-white font-semibold text-sm hover:bg-white/10 transition-colors"
+              >
+                <ListOrdered className="w-4 h-4" />
+                Мои заказы
+              </button>
+              <button
+                type="button"
+                onClick={handleCartButtonClick}
+                aria-label="Открыть корзину"
+                className="p-2.5 rounded-full border border-white/20 text-white hover:bg-white/10 transition-colors"
+              >
+                <ShoppingBag className="w-6 h-6" />
+              </button>
+            </div>
           )}
         </div>
 

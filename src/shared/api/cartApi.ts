@@ -2,13 +2,22 @@ import type { CartItem } from "@/contexts/CartContext";
 
 export type CartOrderPayload = {
   restaurantId: string | null;
+  cityId: string | null;
   orderType: "delivery" | "pickup";
   customerName: string;
   customerPhone: string;
+  customerTelegramId?: string;
+  customerTelegramUsername?: string;
+  customerTelegramName?: string;
   deliveryAddress?: string;
   comment?: string;
   items: CartItem[];
+  subtotal?: number;
+  deliveryFee?: number;
+  total?: number;
   totalSum: number;
+  warnings?: string[];
+  meta?: Record<string, unknown>;
 };
 
 export type CartOrderResponse = {
@@ -36,11 +45,15 @@ export type CartRecalcResponse = {
 
 const CART_SUBMIT_ENDPOINT = import.meta.env.VITE_CART_API_URL ?? "/api/cart/submit";
 
+export function getCartApiBaseUrl(): string {
+  return CART_SUBMIT_ENDPOINT.replace(/\/cart\/submit\/?$/, "");
+}
+
 function resolveRecalcUrl(): string {
   if (import.meta.env.VITE_CART_RECALC_URL) {
     return import.meta.env.VITE_CART_RECALC_URL;
   }
-  const base = CART_SUBMIT_ENDPOINT.replace(/\/cart\/submit\/?$/, "");
+  const base = getCartApiBaseUrl();
   return `${base}/cart/recalculate`;
 }
 

@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Minus, Plus, Trash2 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useCityContext } from "@/contexts/CityContext";
 import { recalculateCart, submitCartOrder } from "@/shared/api/cartApi";
+import { useNavigate } from "react-router-dom";
+import { getUser } from "@/lib/telegram";
 
 type CartDrawerProps = {
   isOpen: boolean;
@@ -11,7 +13,21 @@ type CartDrawerProps = {
 
 export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | null => {
   const { items, totalCount, totalPrice, removeItem, increaseItem, clearCart } = useCart();
-  const { selectedRestaurant } = useCityContext();
+  const { selectedRestaurant, selectedCity } = useCityContext();
+  const navigate = useNavigate();
+  const telegramUser = getUser();
+  const telegramUserId = telegramUser?.id?.toString() || "demo_user";
+  const telegramUsername = telegramUser?.username ?? undefined;
+  const telegramFullName = (() => {
+    const parts = [telegramUser?.first_name, telegramUser?.last_name].filter(
+      (value): value is string => Boolean(value && value.trim()),
+    );
+    if (!parts.length) {
+      return undefined;
+    }
+    const joined = parts.join(" ").trim();
+    return joined.length ? joined : undefined;
+  })();
   const [isCheckoutMode, setIsCheckoutMode] = useState(false);
   const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
   const [customerName, setCustomerName] = useState("");
@@ -31,10 +47,7 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   } | null>(null);
   const [calcError, setCalcError] = useState<string | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
-
-  if (!isOpen) {
-    return null;
-  }
+  const [successInfo, setSuccessInfo] = useState<{ orderId: string; message?: string } | null>(null);
 
   const handleDecrease = (id: string) => {
     removeItem(id);
@@ -93,19 +106,51 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
     setIsSubmitting(true);
     setLastSubmitStatus("idle");
     setLastSubmitMessage(null);
+    const normalizedTelegramId = telegramUserId === "demo_user" ? undefined : telegramUserId;
+    const orderMeta = {
+      clientApp: "mini-app",
+      telegramUserId,
+      telegramUsername,
+      telegramFullName,
+      restaurantName: selectedRestaurant?.name,
+      restaurantAddress: selectedRestaurant?.address,
+      cityName: selectedCity?.name,
+    };
+
     try {
-      await submitCartOrder({
+      const response = await submitCartOrder({
         restaurantId: selectedRestaurant?.id ?? null,
+        cityId: selectedCity?.id ?? null,
         orderType,
         customerName: customerName.trim(),
         customerPhone: formattedPhone,
+        customerTelegramId: normalizedTelegramId,
+        customerTelegramUsername: telegramUsername,
+        customerTelegramName: telegramFullName,
         deliveryAddress: orderType === "delivery" ? deliveryAddress.trim() : undefined,
         comment: comment.trim() || undefined,
         items,
+        subtotal: calculation?.subtotal ?? totalPrice,
+        deliveryFee:
+          calculation?.deliveryFee ??
+          (orderType === "delivery" ? Math.max(0, 199) : 0),
+        total: calculation?.total ?? totalPrice,
         totalSum: totalPrice,
+        warnings: calculation?.warnings ?? [],
+        meta: orderMeta,
       });
+      const resolvedOrderId = response.orderId ?? `draft-${Date.now()}`;
       setLastSubmitStatus("success");
-      setLastSubmitMessage("Заказ отправлен (черновик). Подключение iiko скоро.");
+      setLastSubmitMessage(response.message ?? "Заказ отправлен, ожидайте звонка менеджера.");
+      setSuccessInfo({
+        orderId: resolvedOrderId,
+        message: response.message,
+      });
+      clearCart();
+      setPhoneDigits("");
+      setCustomerName("");
+      setDeliveryAddress("");
+      setComment("");
     } catch (error: any) {
       setLastSubmitStatus("error");
       setLastSubmitMessage(error?.message || "Не удалось отправить заказ");
@@ -120,7 +165,7 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   };
 
   useEffect(() => {
-    if (!isCheckoutMode || items.length === 0) {
+    if (!isCheckoutMode || items.length === 0 || !isOpen) {
       setCalculation(null);
       setCalcError(null);
       setIsCalculating(false);
@@ -159,6 +204,10 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
     return () => controller.abort();
   }, [isCheckoutMode, items, orderType, deliveryAddress]);
 
+  if (!isOpen) {
+    return null;
+  }
+
   return (
     <div className="fixed inset-0 z-[100] flex">
       <button
@@ -193,7 +242,53 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
           </div>
         </div>
 
-        {!isCheckoutMode && (
+        {successInfo && (
+          <div className="p-6 border-t border-mariko-field space-y-4">
+            <div className="text-center space-y-2">
+              <p className="text-sm text-green-600 font-semibold">Заказ успешно отправлен</p>
+              <p className="text-2xl font-el-messiri font-bold">№ {successInfo.orderId}</p>
+              <p className="text-sm text-mariko-dark/70">
+                {successInfo.message ?? "Мы уже получили ваш заказ. Менеджер вскоре свяжется с вами."}
+              </p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                className="w-full rounded-full bg-mariko-primary text-white py-3 font-el-messiri text-lg font-semibold"
+                onClick={() => {
+                  setSuccessInfo(null);
+                  resetAndClose();
+                  navigate("/");
+                }}
+              >
+                На главную
+              </button>
+              <button
+                type="button"
+                className="w-full rounded-full border border-mariko-primary/60 text-mariko-primary py-3 font-semibold bg-white hover:bg-mariko-field/40 transition-colors"
+                onClick={() => {
+                  setSuccessInfo(null);
+                  resetAndClose();
+                  navigate("/orders");
+                }}
+              >
+                Мои заказы
+              </button>
+              <button
+                type="button"
+                className="w-full rounded-full border border-mariko-field text-mariko-primary py-3 font-semibold hover:bg-mariko-field/30 transition-colors"
+                onClick={() => {
+                  setSuccessInfo(null);
+                  resetAndClose();
+                }}
+              >
+                Закрыть корзину
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!successInfo && !isCheckoutMode && (
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {items.length === 0 ? (
               <p className="text-mariko-dark/70">Корзина пуста.</p>
@@ -331,7 +426,7 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
               )}
               <div className="flex items-center justify-between">
                 <span className="text-mariko-dark/70">Итого</span>
-                <span className="font-el-messири text-2xl font-bold">
+                <span className="font-el-messiri text-2xl font-bold">
                   {calculation?.total ?? totalPrice}₽
                 </span>
               </div>
@@ -357,7 +452,7 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
               <button
                 type="submit"
                 disabled={!isFormValid || isSubmitting || isCalculating}
-                className="flex-1 rounded-full bg-mariko-primary text-white py-3 font-el-messири text-lg font-semibold disabled:bg-mariko-primary/40 disabled:cursor-not-allowed"
+                className="flex-1 rounded-full bg-mariko-primary text-white py-3 font-el-messiri text-lg font-semibold disabled:bg-mariko-primary/40 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? "Отправляем..." : isCalculating ? "Ждём расчёт…" : "Отправить заказ"}
               </button>
@@ -382,12 +477,12 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
           <div className="p-4 border-t border-mariko-field space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-mariko-dark/70">Итого</span>
-              <span className="font-el-messири text-2xl font-bold">{totalPrice}₽</span>
+              <span className="font-el-messiri text-2xl font-bold">{totalPrice}₽</span>
             </div>
             <button
               type="button"
               disabled={items.length === 0}
-              className="w-full rounded-full border border-mariko-primary bg-gradient-to-r from-mariko-primary to-mariko-primary/90 text-white py-3 font-el-messири text-lg font-semibold shadow-[0_6px_20px_rgba(145,30,30,0.35)] transition-all disabled:border-mariko-primary/40 disabled:bg-mariko-primary/20 disabled:text-white/70 disabled:shadow-none disabled:cursor-not-allowed"
+              className="w-full rounded-full border border-mariko-primary bg-gradient-to-r from-mariko-primary to-mariko-primary/90 text-white py-3 font-el-messiri text-lg font-semibold shadow-[0_6px_20px_rgba(145,30,30,0.35)] transition-all disabled:border-mariko-primary/40 disabled:bg-mariko-primary/20 disabled:text-white/70 disabled:shadow-none disabled:cursor-not-allowed"
               onClick={() => setIsCheckoutMode(true)}
             >
               Перейти к оформлению
