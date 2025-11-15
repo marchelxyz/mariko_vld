@@ -236,28 +236,7 @@ export function registerCartRoutes(app) {
         }
         console.log(`✅ Order ${orderId} saved to Supabase`);
 
-        if (orderPayload.restaurantId) {
-          const integrationConfig = await fetchRestaurantIntegrationConfig(orderPayload.restaurantId);
-          if (integrationConfig) {
-            const orderRecord = {
-              id: insertedOrder?.id ?? null,
-              external_id: orderId,
-              restaurant_id: orderPayload.restaurantId,
-              city_id: orderPayload.cityId,
-              order_type: orderPayload.orderType,
-              customer_name: orderPayload.customerName,
-              customer_phone: orderPayload.customerPhone,
-              delivery_address: orderPayload.deliveryAddress ?? null,
-              comment: orderPayload.comment ?? null,
-              subtotal,
-              delivery_fee: deliveryFee,
-              total,
-              items: orderPayload.items ?? [],
-              meta: composedMeta,
-            };
-            enqueueIikoOrder(integrationConfig, orderRecord);
-          }
-        }
+        // ⚠️ Не отправляем в iiko до оплаты. Интеграция будет запущена после webhook оплаты.
       } catch (error) {
         console.error("Ошибка записи в Supabase:", error);
         return res

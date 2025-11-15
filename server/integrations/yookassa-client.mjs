@@ -18,13 +18,18 @@ export async function createSbpPayment({
   callbackUrl,
   metadata = {},
 }) {
-  // Заглушка: в бою здесь делаем fetch к ЮKassa API
+  // Пока используем заглушку: в бою здесь должен быть запрос к https://api.yookassa.ru/v3/payments
   if (!shopId || !secretKey) {
     throw new Error("YuKassa credentials are missing");
   }
 
+  // TODO: заменить на реальный HTTP запрос к ЮKassa (sandbox/production)
   const fakeId = `yk_${Date.now()}`;
-  const paymentUrl = returnUrl || "https://yookassa.ru/pay/mock";
+  const paymentUrl =
+    returnUrl ||
+    "https://yookassa.ru/checkout/pay?payment_id=" +
+      encodeURIComponent(fakeId) +
+      "&mode=test_sbp=true";
 
   return {
     success: true,

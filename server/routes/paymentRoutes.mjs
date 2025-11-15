@@ -5,12 +5,17 @@ import {
   findOrderById,
   createPaymentRecord,
   updatePaymentStatus,
-  updatePaymentByProviderId,
   findPaymentById,
   findPaymentByProviderPaymentId,
 } from "../services/paymentService.mjs";
 import { createSbpPayment } from "../integrations/yookassa-client.mjs";
-import { CART_ORDERS_TABLE } from "../config.mjs";
+import {
+  CART_ORDERS_TABLE,
+  YOOKASSA_TEST_SHOP_ID,
+  YOOKASSA_TEST_SECRET_KEY,
+  YOOKASSA_TEST_CALLBACK_URL,
+} from "../config.mjs";
+import { fetchRestaurantIntegrationConfig, enqueueIikoOrder } from "../services/integrationService.mjs";
 
 const router = express.Router();
 
@@ -33,7 +38,17 @@ router.post("/yookassa/create", async (req, res) => {
       return res.status(400).json({ success: false, message: "У заказа нет restaurantId" });
     }
 
-    const paymentConfig = await findRestaurantPaymentConfig(restaurantId);
+    const paymentConfig =
+      (await findRestaurantPaymentConfig(restaurantId)) ||
+      (YOOKASSA_TEST_SHOP_ID && YOOKASSA_TEST_SECRET_KEY
+        ? {
+            provider_code: "yookassa_sbp",
+            shop_id: YOOKASSA_TEST_SHOP_ID,
+            secret_key: YOOKASSA_TEST_SECRET_KEY,
+            callback_url: YOOKASSA_TEST_CALLBACK_URL,
+            is_enabled: true,
+          }
+        : null);
     if (!paymentConfig || !paymentConfig.is_enabled) {
       return res.status(400).json({ success: false, message: "Оплата для ресторана не настроена" });
     }
@@ -127,6 +142,24 @@ router.post("/yookassa/webhook", express.json(), async (req, res) => {
       providerPaymentId,
       metadata: body,
     });
+
+    // Если оплата прошла — отправляем заказ в iiko (по возможности)
+    if (updated?.status === "paid" && updated.order_id && updated.restaurant_id) {
+      const order = await findOrderById(updated.order_id);
+      if (order) {
+        const integrationConfig = await fetchRestaurantIntegrationConfig(updated.restaurant_id);
+        if (integrationConfig) {
+          const orderRecord = {
+            ...order,
+            id: order.id,
+            external_id: order.external_id,
+            items: order.items ?? [],
+            meta: order.meta ?? {},
+          };
+          enqueueIikoOrder(integrationConfig, orderRecord);
+        }
+      }
+    }
 
     return res.status(200).json({ success: true, paymentId: updated?.id, status: updated?.status });
   } catch (error) {

@@ -6,3 +6,4 @@ export * from "./profile";
 export * from "./cities";
 export * from "./admin";
 export * from "./cart";
+export * from "./payments";

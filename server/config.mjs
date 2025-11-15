@@ -38,3 +38,9 @@ export const INTEGRATION_CACHE_TTL_MS = Number.parseInt(
 export const SUPABASE_URL = process.env.SUPABASE_URL;
 export const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 export const CART_SERVER_LOG_LEVEL = process.env.CART_SERVER_LOG_LEVEL ?? "info";
+
+// Тестовые креды ЮKassa (sandbox) — можно использовать, если нет записей в restaurant_payments
+export const YOOKASSA_TEST_SHOP_ID = process.env.YOOKASSA_TEST_SHOP_ID ?? null;
+export const YOOKASSA_TEST_SECRET_KEY = process.env.YOOKASSA_TEST_SECRET_KEY ?? null;
+export const YOOKASSA_TEST_CALLBACK_URL =
+  process.env.YOOKASSA_TEST_CALLBACK_URL ?? "https://example.com/yookassa/webhook";
