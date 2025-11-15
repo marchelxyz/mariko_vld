@@ -1,14 +1,28 @@
 import { Badge } from "./badge";
+import { Minus, Plus } from "lucide-react";
 import type { MenuItem } from "@/shared/data/menuData";
 
 interface MenuItemProps {
   item: MenuItem;
   onClick?: (item: MenuItem) => void;
   onAdd?: (item: MenuItem) => void;
+  onIncrease?: (item: MenuItem) => void;
+  onDecrease?: (item: MenuItem) => void;
+  quantity?: number;
+  showAddButton?: boolean;
   variant?: 'default' | 'compact' | 'mobile'; // добавляем мобильный вариант
 }
 
-export function MenuItemComponent({ item, onClick, onAdd: _onAdd, variant = 'default' }: MenuItemProps): JSX.Element {
+export function MenuItemComponent({
+  item,
+  onClick,
+  onAdd,
+  onIncrease,
+  onDecrease,
+  quantity = 0,
+  showAddButton = false,
+  variant = 'default',
+}: MenuItemProps): JSX.Element {
   // Временные иконки для блюд до загрузки фотографий
   const getDefaultIcon = (itemName: string): string => {
     const name = itemName.toLowerCase();
@@ -123,6 +137,46 @@ export function MenuItemComponent({ item, onClick, onAdd: _onAdd, variant = 'def
               {item.price}₽
             </span>
           </div>
+          {showAddButton && (
+            quantity > 0 ? (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDecrease?.(item);
+                  }}
+                  className="p-1.5 rounded-full border border-mariko-primary text-mariko-primary hover:bg-mariko-primary/10 transition-colors"
+                  aria-label="Уменьшить количество"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                <span className="min-w-[24px] text-center font-semibold">{quantity}</span>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    (onIncrease ?? onAdd)?.(item);
+                  }}
+                  className="p-1.5 rounded-full border border-mariko-primary text-mariko-primary hover:bg-mariko-primary/10 transition-colors"
+                  aria-label="Увеличить количество"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onAdd?.(item);
+                }}
+                className="inline-flex items-center justify-center rounded-full bg-mariko-primary text-white text-xs md:text-sm font-semibold px-3 py-1 hover:bg-mariko-primary/90 transition-colors"
+              >
+                В корзину
+              </button>
+            )
+          )}
         </div>
         
         {/* Дополнительные маркеры */}

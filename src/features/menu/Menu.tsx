@@ -1,12 +1,15 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ShoppingBag } from "lucide-react";
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { MenuItemComponent } from "@shared/ui";
 import { useCityContext } from "@/contexts/CityContext";
 import { MenuItem, RestaurantMenu, getMenuByRestaurantId } from "@/shared/data/menuData";
 import { fetchRestaurantMenu } from "@/shared/api/menuApi";
+import { useCart } from "@/contexts/CartContext";
+import { CartDrawer } from "@/features/cart/CartDrawer";
+import { useAdmin } from "@/shared/hooks/useAdmin";
 
 /**
  * Отображает меню выбранного ресторана с навигацией по категориям и карточками блюд.
@@ -14,10 +17,14 @@ import { fetchRestaurantMenu } from "@/shared/api/menuApi";
 const Menu = (): JSX.Element => {
   const navigate = useNavigate();
   const { selectedRestaurant } = useCityContext();
+  const { addItem: addCartItem, removeItem: removeCartItem, getItemCount } = useCart();
+  const { isSuperAdmin } = useAdmin();
+  const canUseCartFeatures = isSuperAdmin();
   const [menu, setMenu] = useState<RestaurantMenu | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>("");
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
   // Загружаем меню для выбранного ресторана
   useEffect(() => {
@@ -161,6 +168,25 @@ const Menu = (): JSX.Element => {
     }
   };
 
+  const handleCartButtonClick = () => {
+    if (!canUseCartFeatures) {
+      return;
+    }
+    setIsCartOpen(true);
+  };
+  const handleAddToCart = (dish: MenuItem) => {
+    if (!canUseCartFeatures) {
+      return;
+    }
+    addCartItem(dish);
+  };
+  const handleRemoveFromCart = (dishId: string) => {
+    if (!canUseCartFeatures) {
+      return;
+    }
+    removeCartItem(dishId);
+  };
+
   const activeCategoryId = activeCategory || visibleMenu.categories[0]?.id || "";
   const currentCategory =
     visibleMenu.categories.find((category) => category.id === activeCategoryId) ?? null;
@@ -184,6 +210,16 @@ const Menu = (): JSX.Element => {
           <h1 className="text-white font-el-messiri text-3xl md:text-4xl font-bold flex-1">
             Меню
           </h1>
+          {canUseCartFeatures && (
+            <button
+              type="button"
+              onClick={handleCartButtonClick}
+              aria-label="Открыть корзину"
+              className="p-2.5 rounded-full border border-white/20 text-white hover:bg-white/10 transition-colors"
+            >
+              <ShoppingBag className="w-6 h-6" />
+            </button>
+          )}
         </div>
 
         {/* Category Tabs */}
@@ -228,14 +264,22 @@ const Menu = (): JSX.Element => {
         <div>
           {itemsToRender.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-              {itemsToRender.map((item: MenuItem) => (
-                <MenuItemComponent
-                  key={item.id}
-                  item={item}
-                  variant="default"
-                  onClick={() => handleDishClick(item)}
-                />
-              ))}
+              {itemsToRender.map((item: MenuItem) => {
+                const quantity = getItemCount(item.id);
+                return (
+                  <MenuItemComponent
+                    key={item.id}
+                    item={item}
+                    variant="default"
+                    onClick={() => handleDishClick(item)}
+                    onAdd={() => handleAddToCart(item)}
+                    onIncrease={() => handleAddToCart(item)}
+                    onDecrease={() => handleRemoveFromCart(item.id)}
+                    quantity={quantity}
+                    showAddButton={canUseCartFeatures}
+                  />
+                );
+              })}
             </div>
           ) : (
             <div className="bg-mariko-secondary rounded-[24px] p-8 text-center">
@@ -249,6 +293,11 @@ const Menu = (): JSX.Element => {
 
       {/* Bottom Navigation */}
       <BottomNavigation currentPage="home" />
+
+      {/* Cart Drawer */}
+      {canUseCartFeatures && (
+        <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
+      )}
 
       {/* Dish Modal */}
       {activeDish && (
