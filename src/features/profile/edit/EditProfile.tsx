@@ -104,7 +104,7 @@ const EditProfile = () => {
 
   // Нережим редактирования – просто вывод значения
   const renderViewField = (label: string, value: string) => (
-    <div className="bg-mariko-field rounded-[90px] px-5 md:px-7 py-3 md:py-4">
+    <div className="bg-mariko-field rounded-[16px] px-5 md:px-7 py-3 md:py-4">
       <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-1 block">
         {label}
       </Label>
@@ -122,7 +122,7 @@ const EditProfile = () => {
 
         {/* Greeting */}
         <div className="px-4 md:px-6 max-w-6xl mx-auto mt-4">
-          <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6">
+          <div className="bg-mariko-secondary rounded-[16px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6">
             <ProfileAvatar photo={profile.photo} size="medium" />
             <div className="flex-1">
               <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold tracking-tight">
@@ -161,17 +161,17 @@ const EditProfile = () => {
             </div>
           ) : (
             <div className="mt-10 md:mt-12 space-y-4 md:space-y-6">
-              <div className="bg-mariko-field rounded-[90px] px-5 md:px-7 py-3 md:py-4">
+              <div className="bg-mariko-field rounded-[16px] px-5 md:px-7 py-3 md:py-4">
                 <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2 block">ФИО</Label>
                 <Input value={nameValue} onChange={(e) => setNameValue(e.target.value)} className="bg-white/10 border-white/20 text-mariko-dark font-el-messiri text-base md:text-lg h-10 md:h-11" />
               </div>
 
-              <div className="bg-mariko-field rounded-[90px] px-5 md:px-7 py-3 md:py-4">
+              <div className="bg-mariko-field rounded-[16px] px-5 md:px-7 py-3 md:py-4">
                 <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2 block">Дата рождения</Label>
                 <Input value={birthDateValue} onChange={(e) => setBirthDateValue(formatDateInput(e.target.value))} placeholder="дд.мм.гггг" maxLength={10} className="bg-white/10 border-white/20 text-mariko-dark font-el-messiri text-base md:text-lg h-10 md:h-11" />
               </div>
 
-              <div className="bg-mariko-field rounded-[90px] px-5 md:px-7 py-3 md:py-4">
+              <div className="bg-mariko-field rounded-[16px] px-5 md:px-7 py-3 md:py-4">
                 <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2 block">Пол</Label>
                 <select value={genderValue} onChange={(e) => setGenderValue(e.target.value)} className="flex-1 bg-white/10 border border-white/20 text-mariko-dark font-el-messiri text-base md:text-lg rounded-lg px-3 py-2 h-10 md:h-11">
                   <option value="Женский" className="bg-mariko-secondary text-white">Женский</option>
@@ -179,7 +179,7 @@ const EditProfile = () => {
                 </select>
               </div>
 
-              <div className="bg-mariko-field rounded-[90px] px-5 md:px-7 py-3 md:py-4">
+              <div className="bg-mariko-field rounded-[16px] px-5 md:px-7 py-3 md:py-4">
                 <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2 block">Телефон</Label>
                 <Input type="tel" value={phoneInput.value} onChange={phoneInput.onChange} placeholder="+7 (999) 123-45-67" className="bg-white/10 border-white/20 text-mariko-dark font-el-messiri text-base md:text-lg h-10 md:h-11" />
               </div>

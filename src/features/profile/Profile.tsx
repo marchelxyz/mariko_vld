@@ -33,7 +33,7 @@ const Profile = () => {
           
           {/* Profile Header */}
           <div className="mt-6 md:mt-8">
-            <div className="bg-mariko-secondary rounded-[90px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6">
+            <div className="bg-mariko-secondary rounded-[16px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6">
               <ProfileAvatar 
                 photo={profile.photo}
                 size="medium"

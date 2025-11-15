@@ -146,20 +146,23 @@ const Delivery = () => {
           </div>
         </div>
 
-        {/* Delivery Truck Illustration - Грузовик: идеальное позиционирование */}
-        <div className="absolute z-10 pointer-events-none" style={{ bottom: '80px', left: '-7%' }}>
-          <div className="relative flex justify-start items-end">
-            <img
-              src="/images/delivery/delivery-restaurant.png"
-              alt="Грузовик доставки Марико"
-              className="w-auto h-auto max-w-sm md:max-w-lg"
-              style={{
-                objectFit: "contain",
-                // Дополнительные трансформации для масштаба и позиции
-                transform: "translateY(-3%) scale(0.9) md:translateY(-2%) md:scale(1.1)",
-              }}
-            />
-          </div>
+        {/* Delivery Illustration */}
+        <div
+          className="absolute z-10 pointer-events-none w-full flex justify-center"
+          style={{
+            bottom: '70px',
+            left: '60%',
+            transform: 'translateX(-35%)',
+          }}
+        >
+          <img
+            src="/images/delivery/delivery_mariko.png"
+            alt="Доставка Марико"
+            className="w-auto h-auto max-w-sm md:max-w-lg"
+            style={{
+              objectFit: "contain",
+            }}
+          />
         </div>
 
         {/* НАВИГАЦИЯ: позиционирована поверх белого фона */}
