@@ -1,5 +1,6 @@
 import { getUser } from "@/lib/telegram";
 import type { CartOrderRecord } from "@/shared/api/ordersApi";
+import type { UserRole } from "@/shared/types/admin";
 
 function normalizeBaseUrl(base: string | undefined): string {
   if (!base || base === "/") {
@@ -17,14 +18,14 @@ const ADMIN_API_BASE = `${customBase || cartBase}/admin`;
 const DEV_ADMIN_TELEGRAM_ID = import.meta.env.VITE_DEV_ADMIN_TELEGRAM_ID;
 const DEV_ADMIN_TOKEN = import.meta.env.VITE_DEV_ADMIN_TOKEN;
 
-export type AdminRole = "super_admin" | "admin" | "user";
+export type AdminRole = UserRole;
 
 export type AdminPanelUser = {
   id: string;
   telegramId: string | null;
   name: string;
   phone: string | null;
-  role: AdminRole;
+  role: UserRole;
   allowedRestaurants: string[];
   createdAt: string | null;
   updatedAt: string | null;
@@ -37,12 +38,12 @@ export type AdminOrdersResponse = {
 
 type AdminMeResponse = {
   success: boolean;
-  role: AdminRole;
+  role: UserRole;
   allowedRestaurants: string[];
 };
 
 type UpdateRolePayload = {
-  role: AdminRole;
+  role: UserRole;
   allowedRestaurants?: string[];
   name?: string;
 };

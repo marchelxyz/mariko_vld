@@ -6,12 +6,14 @@ import { PageHeader } from "@widgets/pageHeader";
 import { safeOpenLink } from "@/lib/telegram";
 import { useCityContext } from "@/contexts/CityContext";
 import { useAdmin } from "@/shared/hooks/useAdmin";
+import { isMarikoDeliveryEnabledForCity } from "@/shared/config/marikoDelivery";
 
 const Delivery = () => {
   const navigate = useNavigate();
   const { selectedCity, selectedRestaurant } = useCityContext();
   const { isSuperAdmin } = useAdmin();
-  const canShowInternalDelivery = isSuperAdmin();
+  const canShowInternalDelivery =
+    isSuperAdmin() && isMarikoDeliveryEnabledForCity(selectedCity?.id);
 
   // 🔧 ВРЕМЕННОЕ СКРЫТИЕ: измените на true чтобы показать кнопку "Самовывоз"
   const showPickupOption = false;
@@ -22,17 +24,6 @@ const Delivery = () => {
    * где доступен собственный сервис доставки.
    */
   const getDeliveryOptions = () => {
-    // Города, в которых работает «Доставка Марико» (id из shared/data/cities.ts)
-    const marikoDeliveryCityIds = [
-      "kazan",
-      "nizhny-novgorod",
-      "balakhna",
-      "saint-petersburg",
-      "kemerovo",
-      "odintsovo",
-      "zhukovsky",
-    ];
-
     const options = [] as {
       icon: JSX.Element;
       title: string;
@@ -40,7 +31,7 @@ const Delivery = () => {
     }[];
 
     // 1. Собственная доставка Марико (условная)
-    if (canShowInternalDelivery && marikoDeliveryCityIds.includes(selectedCity.id)) {
+    if (canShowInternalDelivery) {
       options.push({
         icon: (
           <img

@@ -1,6 +1,8 @@
 import { botApi } from "./botApiService";
 import { profileRemoteApi } from "./profile.remote";
 import { profileSupabaseApi } from "./profile.supabase";
+import { profileServerApi } from "./profile.server";
+import { getCartApiBaseUrl } from "./cartApi";
 
 function isSupabaseEnabled(): boolean {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -14,7 +16,18 @@ function isRestEnabled(): boolean {
   return !!env?.VITE_API_BASE_URL;
 }
 
-export const profileApi = isSupabaseEnabled()
+const FORCE_SERVER_API = (import.meta.env.VITE_FORCE_SERVER_API ?? "false") === "true";
+const USE_SERVER_API = (import.meta.env.VITE_USE_SERVER_API ?? "true") !== "false";
+const hasCartApiBase = Boolean(getCartApiBaseUrl());
+
+const shouldUseServerProfileApi = (FORCE_SERVER_API || USE_SERVER_API) && hasCartApiBase;
+
+export const profileApi = shouldUseServerProfileApi
+  ? {
+      getUserProfile: profileServerApi.getUserProfile,
+      updateUserProfile: profileServerApi.updateUserProfile,
+    }
+  : isSupabaseEnabled()
   ? {
       getUserProfile: profileSupabaseApi.getUserProfile,
       updateUserProfile: profileSupabaseApi.updateUserProfile,

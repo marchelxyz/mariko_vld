@@ -31,10 +31,11 @@ export function RolesManagement(): JSX.Element {
   const [selectedUser, setSelectedUser] = useState<AdminPanelUser | null>(null);
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.USER);
   const [selectedRestaurants, setSelectedRestaurants] = useState<string[]>([]);
+  const [restaurantSearch, setRestaurantSearch] = useState("");
   const [showDialog, setShowDialog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [restaurantOptions, setRestaurantOptions] = useState<
-    { id: string; label: string; cityName: string }[]
+    { id: string; label: string; cityName: string; address: string }[]
   >([]);
 
   const { data: users = [], isLoading, refetch } = useQuery({
@@ -52,12 +53,19 @@ export function RolesManagement(): JSX.Element {
             id: restaurant.id,
             label: restaurant.name,
             cityName: city.name,
+            address: restaurant.address || "",
           })),
         ) ?? [];
       setRestaurantOptions(options);
     };
     void loadRestaurants();
   }, []);
+
+  useEffect(() => {
+    if (!showDialog) {
+      setRestaurantSearch("");
+    }
+  }, [showDialog]);
 
   const filteredUsers = useMemo(() => {
     if (!searchQuery) return users;
@@ -71,6 +79,21 @@ export function RolesManagement(): JSX.Element {
       );
     });
   }, [users, searchQuery]);
+
+  const filteredRestaurants = useMemo(() => {
+    if (!restaurantSearch.trim()) {
+      return restaurantOptions;
+    }
+    const query = restaurantSearch.toLowerCase();
+    return restaurantOptions.filter((restaurant) => {
+      const address = restaurant.address?.toLowerCase() ?? "";
+      return (
+        restaurant.label.toLowerCase().includes(query) ||
+        restaurant.cityName.toLowerCase().includes(query) ||
+        address.includes(query)
+      );
+    });
+  }, [restaurantOptions, restaurantSearch]);
 
   const getRoleLabel = (role: UserRole): string => {
     switch (role) {
@@ -151,14 +174,16 @@ export function RolesManagement(): JSX.Element {
           <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold">Управление ролями</h2>
           <p className="text-white/70 mt-1">Всего пользователей: {users.length}</p>
         </div>
-        <Input
-          type="text"
-          placeholder="Поиск по имени, ID или телефону..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full sm:w-72"
-          icon={<Search className="w-4 h-4" />}
-        />
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60 pointer-events-none" />
+          <Input
+            type="text"
+            placeholder="Поиск по имени, ID или телефону..."
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            className="w-full bg-white/10 border-white/20 text-white placeholder:text-white/60 pl-9"
+          />
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -178,10 +203,10 @@ export function RolesManagement(): JSX.Element {
               <span
                 className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
                   user.role === UserRole.SUPER_ADMIN
-                    ? "bg-red-500/20 text-red-200"
+                    ? "bg-red-600/70 text-white"
                     : user.role === UserRole.ADMIN
-                      ? "bg-mariko-primary/20 text-mariko-primary"
-                      : "bg-blue-500/20 text-blue-200"
+                      ? "bg-mariko-primary text-white"
+                      : "bg-blue-500 text-white"
                 }`}
               >
                 {user.role === UserRole.SUPER_ADMIN ? <Shield className="w-4 h-4 mr-1" /> : user.role === UserRole.ADMIN ? <UserCheck className="w-4 h-4 mr-1" /> : <UserX className="w-4 h-4 mr-1" />}
@@ -204,7 +229,7 @@ export function RolesManagement(): JSX.Element {
       </div>
 
       <AlertDialog open={showDialog} onOpenChange={setShowDialog}>
-        <AlertDialogContent className="max-h-[90vh] overflow-y-auto">
+        <AlertDialogContent className="max-h-[90vh] overflow-y-auto text-mariko-dark">
           <AlertDialogHeader>
             <AlertDialogTitle>Изменение ролей</AlertDialogTitle>
             <AlertDialogDescription>
@@ -227,29 +252,49 @@ export function RolesManagement(): JSX.Element {
 
             {selectedRole === UserRole.ADMIN && (
               <div className="space-y-2">
-                <Label>Доступные рестораны</Label>
-                <div className="max-h-64 overflow-y-auto rounded-2xl border border-white/10 p-3 space-y-2">
-                  {restaurantOptions.map((restaurant) => (
+                <div className="flex items-center justify-between">
+                  <Label>Доступные рестораны</Label>
+                  <span className="text-mariko-dark/60 text-xs">
+                    Выбрано: {selectedRestaurants.length}
+                  </span>
+                </div>
+                <Input
+                  placeholder="Поиск по названию или городу"
+                  value={restaurantSearch}
+                  onChange={(event) => setRestaurantSearch(event.target.value)}
+                  className="bg-white border-mariko-dark/10 text-mariko-dark placeholder:text-mariko-dark/60"
+                />
+                <div className="max-h-64 overflow-y-auto rounded-2xl border border-mariko-dark/10 p-3 space-y-2 bg-white">
+                  {filteredRestaurants.map((restaurant) => (
                     <label
                       key={restaurant.id}
-                      className="flex items-center gap-2 text-white/80 text-sm"
+                      className="flex items-center gap-3 text-mariko-dark/90 text-sm hover:bg-mariko-dark/5 rounded-xl px-2 py-2 transition"
                     >
                       <Checkbox
                         checked={selectedRestaurants.includes(restaurant.id)}
                         onCheckedChange={() => toggleRestaurant(restaurant.id)}
+                        className="border-mariko-dark/40 data-[state=checked]:bg-mariko-primary data-[state=checked]:border-mariko-primary"
                       />
-                      <span>
-                        {restaurant.label}
-                        <span className="text-white/50"> · {restaurant.cityName}</span>
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="font-medium text-mariko-dark">{restaurant.label}</span>
+                        <span className="text-mariko-dark/60 text-xs">
+                          {restaurant.cityName}
+                          {restaurant.address ? ` · ${restaurant.address}` : ""}
+                        </span>
+                      </div>
                     </label>
                   ))}
-                  {!restaurantOptions.length && (
-                    <p className="text-white/50 text-sm">
-                      Список ресторанов пуст. Добавьте их в справочнике.
+                  {!filteredRestaurants.length && (
+                    <p className="text-mariko-dark/60 text-sm text-center py-4">
+                      {restaurantOptions.length
+                        ? "Ничего не найдено"
+                        : "Список ресторанов пуст. Добавьте их в справочнике."}
                     </p>
                   )}
                 </div>
+                <p className="text-mariko-dark/60 text-xs">
+                  Администратор увидит и сможет управлять только выбранными ресторанами.
+                </p>
               </div>
             )}
           </div>

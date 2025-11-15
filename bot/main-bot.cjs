@@ -360,8 +360,17 @@ const resolveAdminUser = (req) => {
   if (rawInitData) {
     const user = verifyTelegramInitData(rawInitData);
     if (user) {
-      if (!ADMIN_TELEGRAM_IDS.length || ADMIN_TELEGRAM_IDS.includes(String(user.id))) {
-        return user;
+      const telegramId = String(user.id);
+      if (!ADMIN_TELEGRAM_IDS.length || ADMIN_TELEGRAM_IDS.includes(telegramId)) {
+        return { ...user, role: 'super_admin', allowedRestaurants: [] };
+      }
+      const cached = adminAccessCache.get(telegramId);
+      if (cached && cached.role && cached.role !== 'user') {
+        return {
+          ...user,
+          role: cached.role,
+          allowedRestaurants: cached.allowedRestaurants ?? [],
+        };
       }
       console.warn(`🚫 Пользователь ${user.id} пытается обратиться к админ API без прав`);
       return null;
@@ -369,7 +378,7 @@ const resolveAdminUser = (req) => {
   }
 
   if (!isProduction && ADMIN_PANEL_TOKEN && req.get('x-admin-token') === ADMIN_PANEL_TOKEN) {
-    return { id: 'dev-token', username: 'dev' };
+    return { id: 'dev-token', username: 'dev', role: 'super_admin', allowedRestaurants: [] };
   }
 
   return null;
@@ -473,6 +482,14 @@ const handleUploadMenuImage = async (req, res) => {
   }
 
   try {
+    if (
+      adminUser.role !== 'super_admin' &&
+      (!Array.isArray(adminUser.allowedRestaurants) ||
+        !adminUser.allowedRestaurants.includes(restaurantId))
+    ) {
+      return res.status(403).json({ error: 'Недостаточно прав для загрузки изображений ресторана' });
+    }
+
     const match = /^data:(.+);base64,(.*)$/.exec(dataUrl);
     if (!match) {
       return res.status(400).json({ error: 'Некорректный формат dataUrl' });
@@ -559,6 +576,18 @@ const handleListMenuImages = async (req, res) => {
     scope === 'restaurant' && restaurantId ? `${restaurantId}/` : '';
 
   try {
+    if (
+      scope === 'restaurant' &&
+      restaurantId &&
+      adminUser.role !== 'super_admin' &&
+      (!Array.isArray(adminUser.allowedRestaurants) ||
+        !adminUser.allowedRestaurants.includes(restaurantId))
+    ) {
+      return res
+        .status(403)
+        .json({ error: 'Недостаточно прав для просмотра изображений этого ресторана' });
+    }
+
     const listUrl = `${SUPABASE_BASE_URL}/storage/v1/object/list/menu-images`;
     const response = await fetch(listUrl, {
       method: 'POST',
@@ -653,6 +682,14 @@ const handleSaveRestaurantMenu = async (req, res) => {
   }
 
   try {
+    if (
+      adminUser.role !== 'super_admin' &&
+      (!Array.isArray(adminUser.allowedRestaurants) ||
+        !adminUser.allowedRestaurants.includes(restaurantId))
+    ) {
+      return res.status(403).json({ error: 'Недостаточно прав для редактирования меню ресторана' });
+    }
+
     await replaceRestaurantMenu(restaurantId, menu);
     console.log(
       `✅ ${adminUser.username || adminUser.id} обновил меню ресторана ${restaurantId} (категорий: ${
@@ -785,3 +822,49 @@ const gracefulShutdown = (signal) => {
 
 process.once("SIGINT", () => gracefulShutdown("SIGINT"));
 process.once("SIGTERM", () => gracefulShutdown("SIGTERM"));
+const parseRestaurantPermissions = (permissions) => {
+  if (!permissions) {
+    return [];
+  }
+  if (Array.isArray(permissions.restaurants)) {
+    return permissions.restaurants.map((id) => String(id)).filter(Boolean);
+  }
+  if (Array.isArray(permissions.allowedRestaurants)) {
+    return permissions.allowedRestaurants.map((id) => String(id)).filter(Boolean);
+  }
+  return [];
+};
+
+const adminAccessCache = new Map();
+
+const refreshAdminAccessCache = async () => {
+  if (!SUPABASE_REST_URL || !supabaseHeaders) {
+    return;
+  }
+  try {
+    const url = new URL(`${SUPABASE_REST_URL}/admin_users`);
+    url.searchParams.set('select', 'telegram_id,role,permissions');
+    const response = await fetch(url, { headers: supabaseHeaders });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch admin_users (${response.status})`);
+    }
+    const rows = await response.json();
+    adminAccessCache.clear();
+    rows.forEach((row) => {
+      if (!row?.telegram_id) {
+        return;
+      }
+      adminAccessCache.set(String(row.telegram_id), {
+        role: row.role,
+        allowedRestaurants: parseRestaurantPermissions(row.permissions),
+      });
+    });
+  } catch (error) {
+    console.error('❌ Не удалось обновить кэш admin_users из Supabase:', error);
+  }
+};
+
+if (SUPABASE_REST_URL && supabaseHeaders) {
+  refreshAdminAccessCache();
+  setInterval(refreshAdminAccessCache, 60 * 1000).unref?.();
+}

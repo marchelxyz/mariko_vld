@@ -92,13 +92,16 @@ export default function AdminPanel(): JSX.Element {
         {/* Контент */}
         {!activeSection ? (
           <div className="grid gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {/* Управление городами */}
-            <AdminCard
-              icon={<Building2 className="w-8 h-8" />}
-              title="Управление ресторанами"
-              description="Добавляйте города и рестораны, активируйте и деактивируйте их"
-              onClick={() => setActiveSection('cities')}
-            />
+            {/* Управление городами (только супер-админ) */}
+            {isSuperAdmin() && (
+              <AdminCard
+                icon={<Building2 className="w-8 h-8" />}
+                title="Управление ресторанами"
+                description="Добавляйте города и рестораны, активируйте и деактивируйте их"
+                onClick={() => setActiveSection('cities')}
+                highlighted
+              />
+            )}
 
             {/* Управление меню */}
             <AdminCard
@@ -129,7 +132,7 @@ export default function AdminPanel(): JSX.Element {
           </div>
         ) : (
           <div>
-            {activeSection === 'cities' && <CitiesManagement />}
+            {activeSection === 'cities' && isSuperAdmin() && <CitiesManagement />}
             {activeSection === 'menu' && <MenuManagement />}
             {activeSection === 'deliveries' && <DeliveryManagement />}
             {activeSection === 'roles' && <RolesManagement />}
