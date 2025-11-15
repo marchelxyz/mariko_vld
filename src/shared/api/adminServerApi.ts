@@ -12,8 +12,8 @@ import { getCartApiBaseUrl } from "./cartApi";
 
 const rawServerBase = import.meta.env.VITE_SERVER_API_URL;
 const customBase = normalizeBaseUrl(rawServerBase || "");
-const fallbackBase = `${getCartApiBaseUrl()}/cart`;
-const ADMIN_API_BASE = `${customBase || fallbackBase}/admin`;
+const cartBase = normalizeBaseUrl(`${getCartApiBaseUrl()}/cart`);
+const ADMIN_API_BASE = `${customBase || cartBase}/admin`;
 const DEV_ADMIN_TELEGRAM_ID = import.meta.env.VITE_DEV_ADMIN_TELEGRAM_ID;
 const DEV_ADMIN_TOKEN = import.meta.env.VITE_DEV_ADMIN_TOKEN;
 

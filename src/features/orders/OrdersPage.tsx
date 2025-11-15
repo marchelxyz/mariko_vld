@@ -270,7 +270,9 @@ const OrdersPage = () => {
     queryKey: ["cart-orders", telegramUserId],
     queryFn: ({ signal }) => fetchMyOrders({ telegramId: telegramUserId, limit: 40, signal }),
     enabled: Boolean(telegramUserId),
-    staleTime: 30 * 1000,
+    staleTime: 10 * 1000,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
   });
 
   const sortedOrders = useMemo(

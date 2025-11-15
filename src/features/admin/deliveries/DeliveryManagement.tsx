@@ -13,6 +13,14 @@ import {
   SelectItem,
   SelectValue,
   Badge,
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
 } from "@shared/ui";
 
 const statusLabels: Record<string, string> = {
@@ -27,6 +35,7 @@ const statusLabels: Record<string, string> = {
 };
 
 const activeStatuses = ["processing", "kitchen", "packed", "delivery"];
+const historyStatuses = ["completed", "cancelled", "failed"];
 const editableStatuses = ["processing", "kitchen", "packed", "delivery", "completed", "cancelled"];
 
 const formatDate = (value: string) => {
@@ -42,12 +51,23 @@ const formatDate = (value: string) => {
   });
 };
 
+const formatPrice = (value?: number | null) => {
+  if (typeof value !== "number") {
+    return null;
+  }
+  return `${value.toLocaleString("ru-RU")} ₽`;
+};
+
 export function DeliveryManagement(): JSX.Element {
   const { isSuperAdmin, allowedRestaurants } = useAdmin();
+  const [pendingChange, setPendingChange] = useState<{ orderId: string; status: string } | null>(
+    null,
+  );
   const [restaurantOptions, setRestaurantOptions] = useState<
     { id: string; label: string; cityName: string }[]
   >([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"active" | "history">("active");
 
   useEffect(() => {
     const loadRestaurants = async () => {
@@ -78,12 +98,12 @@ export function DeliveryManagement(): JSX.Element {
     selectedRestaurant === "all" ? undefined : selectedRestaurant;
 
   const {
-    data: orders = [],
+    data: activeOrders = [],
     isLoading,
     isFetching,
-    refetch,
+    refetch: refetchActive,
   } = useQuery({
-    queryKey: ["admin-orders", currentRestaurantFilter],
+    queryKey: ["admin-orders-active", currentRestaurantFilter],
     queryFn: () =>
       adminServerApi.getOrders({
         restaurantId: currentRestaurantFilter,
@@ -91,14 +111,34 @@ export function DeliveryManagement(): JSX.Element {
       }),
   });
 
+  const {
+    data: historyOrders = [],
+    isLoading: isHistoryLoading,
+    isFetching: isHistoryFetching,
+    refetch: refetchHistory,
+  } = useQuery({
+    queryKey: ["admin-orders-history", currentRestaurantFilter],
+    queryFn: () =>
+      adminServerApi.getOrders({
+        restaurantId: currentRestaurantFilter,
+        status: historyStatuses,
+      }),
+  });
+
   const handleStatusChange = async (orderId: string, status: string) => {
     try {
       await adminServerApi.updateOrderStatus(orderId, status);
-      await refetch();
+      await Promise.all([refetchActive(), refetchHistory()]);
     } catch (error) {
       console.error(error);
       alert("Не удалось обновить статус заказа");
     }
+  };
+
+  const confirmPendingChange = async () => {
+    if (!pendingChange) return;
+    await handleStatusChange(pendingChange.orderId, pendingChange.status);
+    setPendingChange(null);
   };
 
   return (
@@ -126,45 +166,103 @@ export function DeliveryManagement(): JSX.Element {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              void refetchActive();
+              void refetchHistory();
+            }}
+            disabled={isFetching || isHistoryFetching}
+          >
             <RefreshCcw className={`w-4 h-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />
             Обновить
           </Button>
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 text-white animate-spin" />
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {orders.map((order) => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              onStatusChange={handleStatusChange}
-              isSuperAdmin={isSuperAdmin()}
-            />
-          ))}
-          {!orders.length && (
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-center text-white/70">
-              Нет активных заказов
+      <div className="flex gap-2">
+        <Button
+          variant={viewMode === "active" ? "default" : "outline"}
+          onClick={() => setViewMode("active")}
+        >
+          Активные
+        </Button>
+        <Button
+          variant={viewMode === "history" ? "default" : "outline"}
+          onClick={() => setViewMode("history")}
+        >
+          История
+        </Button>
+      </div>
+
+      {viewMode === "active"
+        ? isLoading
+          ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 text-white animate-spin" />
             </div>
-          )}
-        </div>
-      )}
+            )
+          : (
+            <div className="space-y-4">
+              {activeOrders.map((order) => (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  onRequestStatusChange={(orderId, status) =>
+                    setPendingChange({ orderId, status })
+                  }
+                />
+              ))}
+              {!activeOrders.length && (
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-center text-white/70">
+                  Нет активных заказов
+                </div>
+              )}
+            </div>
+            )
+        : isHistoryLoading
+          ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 text-white animate-spin" />
+            </div>
+            )
+          : (
+            <div className="space-y-4">
+              {historyOrders.map((order) => (
+                <HistoryCard key={order.id} order={order} />
+              ))}
+              {!historyOrders.length && (
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-center text-white/70">
+                  История пуста
+                </div>
+              )}
+            </div>
+            )}
+
+      <AlertDialog open={Boolean(pendingChange)} onOpenChange={(open) => !open && setPendingChange(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Изменить статус заказа?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingChange ? `Вы уверены, что хотите установить статус «${statusLabels[pendingChange.status] || pendingChange.status}»?` : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingChange(null)}>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmPendingChange}>Подтвердить</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
 type OrderCardProps = {
   order: CartOrderRecord;
-  onStatusChange: (orderId: string, status: string) => void;
-  isSuperAdmin: boolean;
+  onRequestStatusChange: (orderId: string, status: string) => void;
 };
 
-function OrderCard({ order, onStatusChange }: OrderCardProps) {
+function OrderCard({ order, onRequestStatusChange }: OrderCardProps) {
   const icon =
     order.status === "delivery" ? (
       <Truck className="w-5 h-5" />
@@ -216,13 +314,92 @@ function OrderCard({ order, onStatusChange }: OrderCardProps) {
             key={status}
             variant={order.status === status ? "default" : "outline"}
             size="sm"
-            onClick={() => onStatusChange(order.id, status)}
+            onClick={() => onRequestStatusChange(order.id, status)}
             disabled={order.status === status}
           >
             {statusLabels[status] || status}
           </Button>
         ))}
       </div>
+    </div>
+  );
+}
+
+function HistoryCard({ order }: { order: CartOrderRecord }) {
+  const [expanded, setExpanded] = useState(false);
+  const subtotal = formatPrice(order.subtotal);
+  const deliveryFee = formatPrice(order.delivery_fee);
+  const total = formatPrice(order.total);
+
+  return (
+    <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-white font-semibold">
+            Заказ № {order.external_id || order.id.slice(0, 8)}
+          </p>
+          <p className="text-white/70 text-sm">{formatDate(order.created_at)}</p>
+        </div>
+        <Badge className="bg-white/10 text-white">
+          {statusLabels[order.status] || order.status}
+        </Badge>
+      </div>
+
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <p className="text-white/80 text-sm">
+          {order.customer_name} · {order.customer_phone}
+        </p>
+        <Button variant="outline" size="sm" onClick={() => setExpanded((prev) => !prev)}>
+          {expanded ? "Скрыть" : "Подробнее"}
+        </Button>
+      </div>
+
+      {expanded && (
+        <div className="space-y-3 text-white/80 text-sm">
+          {order.delivery_address && (
+            <p>
+              <span className="text-white/60">Адрес: </span>
+              {order.delivery_address}
+            </p>
+          )}
+          {order.comment && (
+            <p>
+              <span className="text-white/60">Комментарий: </span>
+              {order.comment}
+            </p>
+          )}
+          {order.items?.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-white font-semibold text-base">Состав заказа</p>
+              {order.items.map((item) => (
+                <p key={`${item.id}-${item.name}`} className="text-white/70">
+                  {item.name} × {item.amount}
+                </p>
+              ))}
+            </div>
+          )}
+          <div className="grid sm:grid-cols-3 gap-2">
+            {subtotal && (
+              <p>
+                <span className="text-white/60">Сумма: </span>
+                {subtotal}
+              </p>
+            )}
+            {deliveryFee && (
+              <p>
+                <span className="text-white/60">Доставка: </span>
+                {deliveryFee}
+              </p>
+            )}
+            {total && (
+              <p>
+                <span className="text-white/60">Итого: </span>
+                {total}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
