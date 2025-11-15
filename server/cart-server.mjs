@@ -15,6 +15,7 @@ import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { iikoClient } from "./integrations/iiko-client.mjs";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({
@@ -43,6 +44,8 @@ const ORDER_STATUS_VALUES = new Set([
   "cancelled",
   "failed",
 ]);
+const INTEGRATION_PROVIDER = "iiko";
+const INTEGRATION_CACHE_TTL_MS = Number.parseInt(process.env.INTEGRATION_CACHE_TTL_MS ?? "", 10) || 5 * 60 * 1000;
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -123,6 +126,23 @@ const isListedSuperAdmin = (telegramId) => {
   return ADMIN_SUPER_IDS.includes(telegramId.trim());
 };
 
+const integrationConfigCache = new Map();
+
+const getCachedIntegrationConfig = (restaurantId) => {
+  const entry = integrationConfigCache.get(restaurantId);
+  if (entry && entry.expiresAt > Date.now()) {
+    return entry.value;
+  }
+  return null;
+};
+
+const setCachedIntegrationConfig = (restaurantId, value) => {
+  integrationConfigCache.set(restaurantId, {
+    value,
+    expiresAt: Date.now() + INTEGRATION_CACHE_TTL_MS,
+  });
+};
+
 const PROFILE_SELECT_FIELDS =
   "id,name,phone,birth_date,gender,photo,telegram_id,notifications_enabled,created_at,updated_at";
 
@@ -201,6 +221,146 @@ const upsertUserProfileRecord = async (input) => {
     throw error;
   }
   return data;
+};
+
+const fetchRestaurantIntegrationConfig = async (restaurantId) => {
+  if (!restaurantId || !supabase) {
+    return null;
+  }
+  const cached = getCachedIntegrationConfig(restaurantId);
+  if (cached !== null) {
+    return cached;
+  }
+  try {
+    const { data, error } = await supabase
+      .from("restaurant_integrations")
+      .select("*")
+      .eq("restaurant_id", restaurantId)
+      .eq("provider", INTEGRATION_PROVIDER)
+      .maybeSingle();
+    if (error) {
+      console.error("Ошибка загрузки restaurant_integrations:", error);
+      setCachedIntegrationConfig(restaurantId, null);
+      return null;
+    }
+    const result = data?.is_enabled ? data : null;
+    setCachedIntegrationConfig(restaurantId, result);
+    return result;
+  } catch (error) {
+    console.error("Ошибка обращения к restaurant_integrations:", error);
+    return null;
+  }
+};
+
+const logIntegrationJob = async ({ provider, restaurantId, orderId, action, status, payload, error }) => {
+  if (!supabase) {
+    return;
+  }
+  try {
+    await supabase.from("integration_job_logs").insert({
+      provider,
+      restaurant_id: restaurantId ?? null,
+      order_id: orderId ?? null,
+      action,
+      status,
+      payload: payload ?? {},
+      error: error ?? null,
+    });
+  } catch (logError) {
+    console.error("Ошибка записи integration_job_logs:", logError);
+  }
+};
+
+const updateOrderIntegrationStatus = async (externalId, fields = {}) => {
+  if (!supabase || !externalId) {
+    return;
+  }
+  try {
+    await supabase
+      .from(CART_ORDERS_TABLE)
+      .update({
+        integration_provider: INTEGRATION_PROVIDER,
+        provider_status: fields.provider_status ?? null,
+        provider_order_id: fields.provider_order_id ?? null,
+        provider_payload: fields.provider_payload ?? null,
+        provider_error: fields.provider_error ?? null,
+        provider_synced_at: fields.provider_synced_at ?? new Date().toISOString(),
+      })
+      .eq("external_id", externalId);
+  } catch (error) {
+    console.error("Ошибка обновления статуса интеграции заказа:", error);
+  }
+};
+
+const enqueueIikoOrder = (integrationConfig, orderRecord) => {
+  if (!integrationConfig) {
+    return;
+  }
+  const safeOrderRecord = {
+    ...orderRecord,
+    items: orderRecord.items ?? [],
+  };
+  logIntegrationJob({
+    provider: INTEGRATION_PROVIDER,
+    restaurantId: integrationConfig.restaurant_id,
+    orderId: orderRecord.id ?? null,
+    action: "create_order",
+    status: "pending",
+    payload: { externalId: orderRecord.external_id },
+  }).catch((error) => console.error("Ошибка логирования интеграции:", error));
+  updateOrderIntegrationStatus(orderRecord.external_id, {
+    provider_status: "pending",
+    provider_error: null,
+    provider_payload: null,
+  });
+
+  (async () => {
+    const result = await iikoClient.createOrder(integrationConfig, safeOrderRecord);
+    if (result.success) {
+      await updateOrderIntegrationStatus(orderRecord.external_id, {
+        provider_status: result.status ?? "sent",
+        provider_order_id: result.orderId ?? null,
+        provider_payload: result.response ?? {},
+      });
+      await logIntegrationJob({
+        provider: INTEGRATION_PROVIDER,
+        restaurantId: integrationConfig.restaurant_id,
+        orderId: orderRecord.id ?? null,
+        action: "create_order",
+        status: "success",
+        payload: result.response ?? {},
+      });
+    } else {
+      await updateOrderIntegrationStatus(orderRecord.external_id, {
+        provider_status: "error",
+        provider_error: result.error ?? "iiko: неизвестная ошибка",
+        provider_payload: result.response ?? null,
+      });
+      await logIntegrationJob({
+        provider: INTEGRATION_PROVIDER,
+        restaurantId: integrationConfig.restaurant_id,
+        orderId: orderRecord.id ?? null,
+        action: "create_order",
+        status: "error",
+        payload: result.response ?? {},
+        error: result.error ?? "iiko: неизвестная ошибка",
+      });
+    }
+  })().catch((error) => {
+    console.error("iiko integration error:", error);
+    logIntegrationJob({
+      provider: INTEGRATION_PROVIDER,
+      restaurantId: integrationConfig.restaurant_id,
+      orderId: orderRecord.id ?? null,
+      action: "create_order",
+      status: "error",
+      error: error.message,
+    }).catch(() => {});
+    updateOrderIntegrationStatus(orderRecord.external_id, {
+      provider_status: "error",
+      provider_error: error.message,
+    });
+  });
 };
 
 const fetchAdminRecordByTelegram = async (telegramId) => {
@@ -539,14 +699,16 @@ app.post("/api/cart/submit", async (req, res) => {
   };
 
 if (supabase) {
+  const subtotal = Number(orderPayload.subtotal ?? orderPayload.totalSum ?? 0);
+  const deliveryFee = Number(orderPayload.deliveryFee ?? 0);
+  const total = Number(orderPayload.total ?? orderPayload.totalSum ?? subtotal + deliveryFee);
+  const warnings = Array.isArray(orderPayload.warnings) ? orderPayload.warnings : [];
+
   try {
     console.log(`💾 Saving order ${orderId} to Supabase`);
-    const subtotal = Number(orderPayload.subtotal ?? orderPayload.totalSum ?? 0);
-      const deliveryFee = Number(orderPayload.deliveryFee ?? 0);
-      const total = Number(orderPayload.total ?? orderPayload.totalSum ?? subtotal + deliveryFee);
-      const warnings = Array.isArray(orderPayload.warnings) ? orderPayload.warnings : [];
-
-      const { error } = await supabase.from(CART_ORDERS_TABLE).insert({
+    const { data: insertedOrder, error } = await supabase
+      .from(CART_ORDERS_TABLE)
+      .insert({
         external_id: orderId,
         restaurant_id: orderPayload.restaurantId ?? null,
         city_id: orderPayload.cityId ?? null,
@@ -562,23 +724,48 @@ if (supabase) {
         items: orderPayload.items ?? [],
         warnings,
         meta: composedMeta,
-      });
-      if (error) {
-        console.error("Ошибка записи в Supabase:", error);
-        return res
-          .status(500)
-          .json({ success: false, message: "Не удалось сохранить заказ. Попробуйте позже." });
-      }
-      console.log(`✅ Order ${orderId} saved to Supabase`);
-    } catch (error) {
+      })
+      .select("id")
+      .single();
+    if (error) {
       console.error("Ошибка записи в Supabase:", error);
       return res
         .status(500)
         .json({ success: false, message: "Не удалось сохранить заказ. Попробуйте позже." });
     }
-  } else {
-    console.log("🧾 Получен заказ (mock):", JSON.stringify(orderPayload, null, 2));
+    console.log(`✅ Order ${orderId} saved to Supabase`);
+
+    if (orderPayload.restaurantId) {
+      const integrationConfig = await fetchRestaurantIntegrationConfig(orderPayload.restaurantId);
+      if (integrationConfig) {
+        const orderRecord = {
+          id: insertedOrder?.id ?? null,
+          external_id: orderId,
+          restaurant_id: orderPayload.restaurantId,
+          city_id: orderPayload.cityId,
+          order_type: orderPayload.orderType,
+          customer_name: orderPayload.customerName,
+          customer_phone: orderPayload.customerPhone,
+          delivery_address: orderPayload.deliveryAddress ?? null,
+          comment: orderPayload.comment ?? null,
+          subtotal,
+          delivery_fee: deliveryFee,
+          total,
+          items: orderPayload.items ?? [],
+          meta: composedMeta,
+        };
+        enqueueIikoOrder(integrationConfig, orderRecord);
+      }
+    }
+  } catch (error) {
+    console.error("Ошибка записи в Supabase:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Не удалось сохранить заказ. Попробуйте позже." });
   }
+} else {
+  console.log("🧾 Получен заказ (mock):", JSON.stringify(orderPayload, null, 2));
+}
 
   res.json({
     success: true,
