@@ -9,15 +9,26 @@
  * Replace with full-featured backend once iiko integration is ready.
  */
 
+import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({
+  path: path.join(currentDir, ".env"),
+});
 
 const PORT = Number(process.env.CART_SERVER_PORT ?? 4010);
 const CART_ORDERS_TABLE = process.env.CART_ORDERS_TABLE ?? "cart_orders";
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.warn("⚠️  SUPABASE env vars not found. Orders will only be logged.");
+}
 const supabase =
   supabaseUrl && supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey) : null;
 

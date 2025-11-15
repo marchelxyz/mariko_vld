@@ -40,6 +40,7 @@
     "cmdk": "^1.0.0",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "framer-motion": "^12.23.12",
     "lucide-react": "^0.462.0",
