@@ -32,6 +32,11 @@ const buildEmptyProfile = (userId: string): UserProfile => ({
   photo: "",
   notificationsEnabled: true,
   telegramId: Number.isFinite(Number(userId)) ? Number(userId) : undefined,
+  favoriteCityId: null,
+  favoriteCityName: null,
+  favoriteRestaurantId: null,
+  favoriteRestaurantName: null,
+  favoriteRestaurantAddress: null,
 });
 
 export const profileServerApi = {

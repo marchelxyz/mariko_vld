@@ -1,13 +1,8 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  ReactNode,
-} from "react";
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import { type City, type Restaurant, getAvailableCitiesAsync } from "@/shared/data/cities";
 import { storage } from "@/lib/telegram";
 import { useCities } from "@/shared/hooks/useCities";
+import { useProfile } from "@entities/user";
 
 // Создаем плоский список всех ресторанов для удобного поиска
 const getAllRestaurants = (cities: City[]): Restaurant[] => {
@@ -61,31 +56,87 @@ interface RestaurantProviderProps {
 export const RestaurantProvider = ({ children }: RestaurantProviderProps) => {
   const { cities: availableCities, isLoading } = useCities();
   const [selectedRestaurant, setSelectedRestaurantState] = useState<Restaurant | null>(null);
+  const { profile, isInitialized: isProfileReady } = useProfile();
+  const initialSelectionAppliedRef = useRef(false);
+  const favoriteAppliedRef = useRef(false);
 
   // Инициализируем первый ресторан когда города загрузятся
   useEffect(() => {
-    if (!isLoading && availableCities.length > 0 && !selectedRestaurant) {
-      const allRestaurants = getAllRestaurants(availableCities);
-      if (allRestaurants.length > 0) {
-        // Пытаемся загрузить сохраненный ресторан
-        try {
-          const savedRestaurant = storage.getItem("selectedRestaurant");
-          if (savedRestaurant) {
-            const restaurantData = JSON.parse(savedRestaurant);
-            const restaurant = allRestaurants.find((r) => r.id === restaurantData.id);
-            if (restaurant) {
-              setSelectedRestaurantState(restaurant);
-              return;
-            }
-          }
-        } catch (error) {
-          console.error("Ошибка загрузки сохраненного ресторана:", error);
-        }
-        // Устанавливаем первый ресторан по умолчанию
-        setSelectedRestaurantState(allRestaurants[0]);
-      }
+    if (isLoading || availableCities.length === 0) {
+      return;
     }
-  }, [availableCities, isLoading, selectedRestaurant]);
+    const allRestaurants = getAllRestaurants(availableCities);
+    if (allRestaurants.length === 0) {
+      return;
+    }
+
+    const applyRestaurant = (restaurant: Restaurant) => {
+      setSelectedRestaurantState(restaurant);
+      storage.setItem(
+        "selectedRestaurant",
+        JSON.stringify({
+          id: restaurant.id,
+          name: restaurant.name,
+          address: restaurant.address,
+          city: restaurant.city,
+        }),
+      );
+      initialSelectionAppliedRef.current = true;
+    };
+
+    if (
+      isProfileReady &&
+      !favoriteAppliedRef.current &&
+      (profile.favoriteRestaurantId || profile.favoriteCityId)
+    ) {
+      const favoriteRestaurant =
+        profile.favoriteRestaurantId &&
+        allRestaurants.find((restaurant) => restaurant.id === profile.favoriteRestaurantId);
+
+      if (favoriteRestaurant) {
+        applyRestaurant(favoriteRestaurant);
+        favoriteAppliedRef.current = true;
+        return;
+      }
+
+      if (profile.favoriteCityId) {
+        const favoriteCity = availableCities.find((city) => city.id === profile.favoriteCityId);
+        const cityRestaurant = favoriteCity?.restaurants?.[0];
+        if (cityRestaurant) {
+          applyRestaurant(cityRestaurant);
+          favoriteAppliedRef.current = true;
+          return;
+        }
+      }
+
+      favoriteAppliedRef.current = true;
+    }
+
+    if (!initialSelectionAppliedRef.current && !selectedRestaurant) {
+      try {
+        const savedRestaurant = storage.getItem("selectedRestaurant");
+        if (savedRestaurant) {
+          const restaurantData = JSON.parse(savedRestaurant);
+          const restaurant = allRestaurants.find((r) => r.id === restaurantData.id);
+          if (restaurant) {
+            applyRestaurant(restaurant);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("Ошибка загрузки сохраненного ресторана:", error);
+      }
+
+      applyRestaurant(allRestaurants[0]);
+    }
+  }, [
+    availableCities,
+    isLoading,
+    selectedRestaurant,
+    isProfileReady,
+    profile.favoriteRestaurantId,
+    profile.favoriteCityId,
+  ]);
 
   // Функция для получения города выбранного ресторана
   const getSelectedCity = (): City => {

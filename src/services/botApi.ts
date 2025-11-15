@@ -13,6 +13,11 @@ export interface UserProfile {
   photo: string;
   notificationsEnabled: boolean;
   telegramId?: number;
+  favoriteCityId?: string | null;
+  favoriteCityName?: string | null;
+  favoriteRestaurantId?: string | null;
+  favoriteRestaurantName?: string | null;
+  favoriteRestaurantAddress?: string | null;
 }
 
 export interface ReviewData {
@@ -101,6 +106,11 @@ export const botApi = {
         photo: profile.photo,
         notificationsEnabled: profile.notificationsEnabled,
         telegramId: profile.telegramId,
+        favoriteCityId: profile.favoriteCityId ?? null,
+        favoriteCityName: profile.favoriteCityName ?? null,
+        favoriteRestaurantId: profile.favoriteRestaurantId ?? null,
+        favoriteRestaurantName: profile.favoriteRestaurantName ?? null,
+        favoriteRestaurantAddress: profile.favoriteRestaurantAddress ?? null,
       };
     } catch (error) {
       console.error("Ошибка получения профиля:", error);
@@ -115,6 +125,11 @@ export const botApi = {
         photo: "",
         notificationsEnabled: true,
         telegramId: Number.isFinite(parseInt(telegramUserId)) ? parseInt(telegramUserId) : undefined,
+        favoriteCityId: null,
+        favoriteCityName: null,
+        favoriteRestaurantId: null,
+        favoriteRestaurantName: null,
+        favoriteRestaurantAddress: null,
       };
     }
   },

@@ -12,6 +12,11 @@ export interface UserProfile {
   gender: string;
   photo: string;
   notificationsEnabled: boolean;
+  favoriteCityId?: string | null;
+  favoriteCityName?: string | null;
+  favoriteRestaurantId?: string | null;
+  favoriteRestaurantName?: string | null;
+  favoriteRestaurantAddress?: string | null;
   createdAt: string;
   updatedAt: string;
   lastLogin: string;
@@ -236,6 +241,11 @@ class ProfileDatabase {
       photo: "",
 
       notificationsEnabled: true,
+      favoriteCityId: null,
+      favoriteCityName: null,
+      favoriteRestaurantId: null,
+      favoriteRestaurantName: null,
+      favoriteRestaurantAddress: null,
       createdAt: now,
       updatedAt: now,
       lastLogin: now,

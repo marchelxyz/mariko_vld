@@ -144,7 +144,7 @@ const setCachedIntegrationConfig = (restaurantId, value) => {
 };
 
 const PROFILE_SELECT_FIELDS =
-  "id,name,phone,birth_date,gender,photo,telegram_id,notifications_enabled,created_at,updated_at";
+  "id,name,phone,birth_date,gender,photo,telegram_id,notifications_enabled,favorite_city_id,favorite_city_name,favorite_restaurant_id,favorite_restaurant_name,favorite_restaurant_address,created_at,updated_at";
 
 const mapProfileRowToClient = (row, fallbackId = "") => ({
   id: row?.id ?? fallbackId,
@@ -153,6 +153,11 @@ const mapProfileRowToClient = (row, fallbackId = "") => ({
   birthDate: row?.birth_date ?? "",
   gender: row?.gender ?? "Не указан",
   photo: row?.photo ?? "",
+  favoriteCityId: row?.favorite_city_id ?? null,
+  favoriteCityName: row?.favorite_city_name ?? null,
+  favoriteRestaurantId: row?.favorite_restaurant_id ?? null,
+  favoriteRestaurantName: row?.favorite_restaurant_name ?? null,
+  favoriteRestaurantAddress: row?.favorite_restaurant_address ?? null,
   notificationsEnabled:
     typeof row?.notifications_enabled === "boolean" ? row.notifications_enabled : true,
   telegramId:
@@ -195,6 +200,21 @@ const buildProfileUpsertPayload = (input) => {
   }
   if (input.notificationsEnabled !== undefined) {
     payload.notifications_enabled = Boolean(input.notificationsEnabled);
+  }
+  if (input.favoriteCityId !== undefined) {
+    payload.favorite_city_id = normaliseNullableString(input.favoriteCityId);
+  }
+  if (input.favoriteCityName !== undefined) {
+    payload.favorite_city_name = normaliseNullableString(input.favoriteCityName);
+  }
+  if (input.favoriteRestaurantId !== undefined) {
+    payload.favorite_restaurant_id = normaliseNullableString(input.favoriteRestaurantId);
+  }
+  if (input.favoriteRestaurantName !== undefined) {
+    payload.favorite_restaurant_name = normaliseNullableString(input.favoriteRestaurantName);
+  }
+  if (input.favoriteRestaurantAddress !== undefined) {
+    payload.favorite_restaurant_address = normaliseNullableString(input.favoriteRestaurantAddress);
   }
   const telegramId =
     input.telegramId !== undefined
@@ -595,6 +615,12 @@ app.post("/api/cart/profile/sync", async (req, res) => {
       gender: body.gender,
       photo: body.photo,
       notificationsEnabled: body.notificationsEnabled,
+      favoriteCityId: body.favoriteCityId ?? body.favorite_city_id,
+      favoriteCityName: body.favoriteCityName ?? body.favorite_city_name,
+      favoriteRestaurantId: body.favoriteRestaurantId ?? body.favorite_restaurant_id,
+      favoriteRestaurantName: body.favoriteRestaurantName ?? body.favorite_restaurant_name,
+      favoriteRestaurantAddress:
+        body.favoriteRestaurantAddress ?? body.favorite_restaurant_address,
     });
     return res.json({ success: true, profile: mapProfileRowToClient(row, resolvedId) });
   } catch (error) {
@@ -658,6 +684,12 @@ app.patch("/api/cart/profile/me", async (req, res) => {
       gender: body.gender,
       photo: body.photo,
       notificationsEnabled: body.notificationsEnabled,
+      favoriteCityId: body.favoriteCityId ?? body.favorite_city_id,
+      favoriteCityName: body.favoriteCityName ?? body.favorite_city_name,
+      favoriteRestaurantId: body.favoriteRestaurantId ?? body.favorite_restaurant_id,
+      favoriteRestaurantName: body.favoriteRestaurantName ?? body.favorite_restaurant_name,
+      favoriteRestaurantAddress:
+        body.favoriteRestaurantAddress ?? body.favorite_restaurant_address,
     });
     return res.json({ success: true, profile: mapProfileRowToClient(row, resolvedId) });
   } catch (error) {

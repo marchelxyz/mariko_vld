@@ -1,16 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { profileApi } from "@shared/api";
 import { getUser, storage } from "@/lib/telegram";
-
-export interface UserProfile {
-  id: string;
-  name: string;
-  phone: string;
-  birthDate: string;
-  gender: string;
-  photo: string;
-  notificationsEnabled: boolean;
-}
+import type { UserProfile } from "@/services/botApi";
 
 const defaultProfile: UserProfile = {
   id: "default",
@@ -20,6 +11,11 @@ const defaultProfile: UserProfile = {
   gender: "Не указан",
   photo: "",
   notificationsEnabled: true,
+  favoriteCityId: null,
+  favoriteCityName: null,
+  favoriteRestaurantId: null,
+  favoriteRestaurantName: null,
+  favoriteRestaurantAddress: null,
 };
 
 export const useProfile = () => {

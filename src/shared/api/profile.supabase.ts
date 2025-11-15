@@ -31,6 +31,11 @@ function mapDbToProfile(row: any): UserProfile {
     photo: row.photo ?? "",
     notificationsEnabled: row.notifications_enabled ?? true,
     telegramId: Number.isFinite(telegramId) ? telegramId : undefined,
+    favoriteCityId: row.favorite_city_id ?? null,
+    favoriteCityName: row.favorite_city_name ?? null,
+    favoriteRestaurantId: row.favorite_restaurant_id ?? null,
+    favoriteRestaurantName: row.favorite_restaurant_name ?? null,
+    favoriteRestaurantAddress: row.favorite_restaurant_address ?? null,
   };
 }
 
@@ -73,6 +78,11 @@ export const profileSupabaseApi = {
       photo: "",
       notificationsEnabled: true,
       telegramId: Number.isFinite(Number(userId)) ? Number(userId) : undefined,
+      favoriteCityId: null,
+      favoriteCityName: null,
+      favoriteRestaurantId: null,
+      favoriteRestaurantName: null,
+      favoriteRestaurantAddress: null,
     };
   },
 
@@ -95,6 +105,11 @@ export const profileSupabaseApi = {
     if (profile.gender !== undefined) payload.gender = profile.gender;
     if (profile.photo !== undefined) payload.photo = profile.photo;
     if (profile.notificationsEnabled !== undefined) payload.notifications_enabled = profile.notificationsEnabled;
+    if (profile.favoriteCityId !== undefined) payload.favorite_city_id = profile.favoriteCityId;
+    if (profile.favoriteCityName !== undefined) payload.favorite_city_name = profile.favoriteCityName;
+    if (profile.favoriteRestaurantId !== undefined) payload.favorite_restaurant_id = profile.favoriteRestaurantId;
+    if (profile.favoriteRestaurantName !== undefined) payload.favorite_restaurant_name = profile.favoriteRestaurantName;
+    if (profile.favoriteRestaurantAddress !== undefined) payload.favorite_restaurant_address = profile.favoriteRestaurantAddress;
     if (profile.telegramId !== undefined) {
       const value =
         typeof profile.telegramId === "string" ? Number(profile.telegramId) : profile.telegramId;
