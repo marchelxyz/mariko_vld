@@ -5,6 +5,7 @@ import { Toaster as SonnerToaster } from "@shared/ui/sonner";
 import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { RestaurantProvider } from "@/contexts/CityContext";
+import { CartProvider } from "@/contexts/CartContext";
 import { isActive, onActivated, onDeactivated } from "@/lib/telegram";
 
 // Lazy load pages for better code splitting
@@ -59,29 +60,31 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <RestaurantProvider>
-          <HashRouter>
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/edit-profile" element={<EditProfile />} />
+          <CartProvider>
+            <HashRouter>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/edit-profile" element={<EditProfile />} />
 
-                <Route path="/restaurants/:id" element={<Restaurants />} />
-                <Route path="/restaurants" element={<Restaurants />} />
-                <Route path="/delivery" element={<Delivery />} />
-                <Route path="/menu" element={<Menu />} />
-                <Route path="/review" element={<Review />} />
-                <Route path="/select-restaurant-review" element={<SelectRestaurantForReview />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/admin" element={<AdminPanel />} />
-                {/* 404 → домой, чтобы избежать белого экрана в WebView */}
-                <Route path="/404" element={<NotFound />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </Suspense>
-          </HashRouter>
-          <Toaster />
-          <SonnerToaster />
+                  <Route path="/restaurants/:id" element={<Restaurants />} />
+                  <Route path="/restaurants" element={<Restaurants />} />
+                  <Route path="/delivery" element={<Delivery />} />
+                  <Route path="/menu" element={<Menu />} />
+                  <Route path="/review" element={<Review />} />
+                  <Route path="/select-restaurant-review" element={<SelectRestaurantForReview />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/admin" element={<AdminPanel />} />
+                  {/* 404 → домой, чтобы избежать белого экрана в WebView */}
+                  <Route path="/404" element={<NotFound />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Suspense>
+            </HashRouter>
+            <Toaster />
+            <SonnerToaster />
+          </CartProvider>
         </RestaurantProvider>
       </TooltipProvider>
     </QueryClientProvider>

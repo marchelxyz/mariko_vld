@@ -1,13 +1,17 @@
-import { CircleDot } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Header } from "@widgets/header";
 import { ActionButton } from "@shared/ui";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { PageHeader } from "@widgets/pageHeader";
 import { safeOpenLink } from "@/lib/telegram";
 import { useCityContext } from "@/contexts/CityContext";
+import { useAdmin } from "@/shared/hooks/useAdmin";
 
 const Delivery = () => {
+  const navigate = useNavigate();
   const { selectedCity, selectedRestaurant } = useCityContext();
+  const { isSuperAdmin } = useAdmin();
+  const canShowInternalDelivery = isSuperAdmin();
 
   // 🔧 ВРЕМЕННОЕ СКРЫТИЕ: измените на true чтобы показать кнопку "Самовывоз"
   const showPickupOption = false;
@@ -26,6 +30,7 @@ const Delivery = () => {
       "saint-petersburg",
       "kemerovo",
       "odintsovo",
+      "zhukovsky",
     ];
 
     const options = [] as {
@@ -35,7 +40,7 @@ const Delivery = () => {
     }[];
 
     // 1. Собственная доставка Марико (условная)
-    if (marikoDeliveryCityIds.includes(selectedCity.id)) {
+    if (canShowInternalDelivery && marikoDeliveryCityIds.includes(selectedCity.id)) {
       options.push({
         icon: (
           <img
@@ -45,7 +50,7 @@ const Delivery = () => {
           />
         ),
         title: "Доставка Марико",
-        onClick: () => safeOpenLink("https://marikodostavka.ru", { try_instant_view: false }),
+        onClick: () => navigate("/menu"),
       });
     }
 
