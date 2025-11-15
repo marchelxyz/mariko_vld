@@ -2,7 +2,7 @@ import { useState } from "react";
 import { X, Minus, Plus, Trash2 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useCityContext } from "@/contexts/CityContext";
-import { submitCartOrder } from "@/shared/api/cartApi";
+import { recalculateCart, submitCartOrder } from "@/shared/api/cartApi";
 
 type CartDrawerProps = {
   isOpen: boolean;
@@ -21,6 +21,16 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastSubmitStatus, setLastSubmitStatus] = useState<"idle" | "success" | "error">("idle");
   const [lastSubmitMessage, setLastSubmitMessage] = useState<string | null>(null);
+  const [calculation, setCalculation] = useState<{
+    subtotal: number;
+    deliveryFee: number;
+    total: number;
+    minOrder?: number;
+    canSubmit?: boolean;
+    warnings?: string[];
+  } | null>(null);
+  const [calcError, setCalcError] = useState<string | null>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
 
   if (!isOpen) {
     return null;
@@ -72,7 +82,8 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
     items.length > 0 &&
     Boolean(customerName.trim()) &&
     isPhoneComplete &&
-    (orderType === "pickup" || Boolean(deliveryAddress.trim()));
+    (orderType === "pickup" || Boolean(deliveryAddress.trim())) &&
+    (calculation?.canSubmit ?? true);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -107,6 +118,46 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
     setIsCheckoutMode(false);
     onClose();
   };
+
+  useEffect(() => {
+    if (!isCheckoutMode || items.length === 0) {
+      setCalculation(null);
+      setCalcError(null);
+      setIsCalculating(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setIsCalculating(true);
+    setCalcError(null);
+
+    recalculateCart(
+      {
+        items,
+        orderType,
+        deliveryAddress: orderType === "delivery" ? deliveryAddress.trim() || undefined : undefined,
+      },
+      controller.signal,
+    )
+      .then((result) => {
+        setCalculation(result);
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        console.error("Ошибка расчёта корзины:", error);
+        setCalcError(error?.message ?? "Не удалось рассчитать заказ");
+        setCalculation(null);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setIsCalculating(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [isCheckoutMode, items, orderType, deliveryAddress]);
 
   return (
     <div className="fixed inset-0 z-[100] flex">
@@ -263,9 +314,37 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
               </label>
             </div>
 
-            <div className="flex items-center justify-between">
-              <span className="text-mariko-dark/70">Итого</span>
-              <span className="font-el-messири text-2xl font-bold">{totalPrice}₽</span>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-mariko-dark/70">Блюда</span>
+                <span className="font-semibold">{calculation?.subtotal ?? totalPrice}₽</span>
+              </div>
+              {orderType === "delivery" && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-mariko-dark/70">Доставка</span>
+                  <span className="font-semibold">
+                    {isCalculating
+                      ? "…"
+                      : `${calculation ? calculation.deliveryFee : "—"}₽`}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-mariko-dark/70">Итого</span>
+                <span className="font-el-messири text-2xl font-bold">
+                  {calculation?.total ?? totalPrice}₽
+                </span>
+              </div>
+              {calculation?.warnings?.map((warning) => (
+                <p key={warning} className="text-xs text-amber-600">
+                  {warning}
+                </p>
+              ))}
+              {calcError && (
+                <p className="text-xs text-red-600">
+                  {calcError}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -277,10 +356,10 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
               </button>
               <button
                 type="submit"
-                disabled={!isFormValid || isSubmitting}
+                disabled={!isFormValid || isSubmitting || isCalculating}
                 className="flex-1 rounded-full bg-mariko-primary text-white py-3 font-el-messири text-lg font-semibold disabled:bg-mariko-primary/40 disabled:cursor-not-allowed"
               >
-                {isSubmitting ? "Отправляем..." : "Отправить заказ (черновик)"}
+                {isSubmitting ? "Отправляем..." : isCalculating ? "Ждём расчёт…" : "Отправить заказ"}
               </button>
             </div>
             <p className="text-xs text-mariko-dark/60">
