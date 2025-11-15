@@ -28,13 +28,13 @@ export const findRestaurantPaymentConfig = async (restaurantId) => {
   return data;
 };
 
+const UUID_REGEXP = /^[0-9a-fA-F-]{36}$/;
+
 export const findOrderById = async (orderId) => {
   if (!supabase || !orderId) return null;
-  const { data, error } = await supabase
-    .from(CART_ORDERS_TABLE)
-    .select("*")
-    .eq("id", orderId)
-    .maybeSingle();
+  const isUuid = UUID_REGEXP.test(orderId);
+  const query = supabase.from(CART_ORDERS_TABLE).select("*").limit(1);
+  const { data, error } = await (isUuid ? query.eq("id", orderId) : query.eq("external_id", orderId)).maybeSingle();
   if (error) {
     console.error("Ошибка загрузки заказа:", error);
     return null;
@@ -49,6 +49,7 @@ export const createPaymentRecord = async ({
   amount,
   currency = "RUB",
   description,
+  metadata = {},
 }) => {
   if (!supabase) throw new Error("Supabase is not configured");
   const payload = {
@@ -59,6 +60,7 @@ export const createPaymentRecord = async ({
     currency,
     status: "pending",
     description: description ?? null,
+    metadata: metadata ?? {},
   };
   const { data, error } = await supabase
     .from("payments")

@@ -4,7 +4,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useCityContext } from "@/contexts/CityContext";
 import { recalculateCart, submitCartOrder } from "@/shared/api/cart";
 import { useNavigate } from "react-router-dom";
-import { getUser } from "@/lib/telegram";
+import { getUser, safeOpenLink } from "@/lib/telegram";
 import { createYookassaPayment, fetchPaymentStatus } from "@/shared/api/payments";
 
 type CartDrawerProps = {
@@ -76,7 +76,6 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
       const result = await createYookassaPayment({
         orderId: successInfo.orderId,
         restaurantId: successInfo.restaurantId,
-        returnUrl: typeof window !== "undefined" ? window.location.href : undefined,
       });
       if (!result?.success) {
         setPaymentError(result?.message ?? "Не удалось создать оплату");
@@ -95,13 +94,12 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
 
       const urlToOpen = result.confirmationUrl;
       if (urlToOpen) {
-        // @ts-ignore
-        if (window?.Telegram?.WebApp?.openLink) {
-          // @ts-ignore
-          window.Telegram.WebApp.openLink(urlToOpen, { try_instant_view: true });
-        } else {
-          window.open(urlToOpen, "_blank");
+        const opened = safeOpenLink(urlToOpen, { try_instant_view: false });
+        if (!opened) {
+          setPaymentError("Не удалось открыть ссылку на оплату, попробуйте вручную");
         }
+      } else {
+        setPaymentError("Ссылка на оплату не получена");
       }
     } catch (error: any) {
       setPaymentError(error?.message || "Не удалось создать оплату");
@@ -378,6 +376,20 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
                 >
                   <CreditCard className="w-5 h-5" />
                   Оплатить по СБП
+                </button>
+              )}
+              {successInfo.paymentUrl && (
+                <button
+                  type="button"
+                  className="w-full rounded-full border border-green-600 text-green-700 py-3 font-semibold text-center bg-white hover:bg-green-50 transition-colors"
+                  onClick={() => {
+                    const opened = safeOpenLink(successInfo.paymentUrl!, { try_instant_view: false });
+                    if (!opened) {
+                      window.location.href = successInfo.paymentUrl!;
+                    }
+                  }}
+                >
+                  Открыть ссылку оплаты
                 </button>
               )}
               <button

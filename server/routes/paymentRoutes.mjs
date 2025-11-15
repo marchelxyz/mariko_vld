@@ -23,7 +23,10 @@ const router = express.Router();
 router.post("/yookassa/create", async (req, res) => {
   if (!ensureSupabase(res)) return;
 
-  const { orderId, restaurantId: restaurantIdBody, returnUrl } = req.body ?? {};
+  const { orderId, restaurantId: restaurantIdBody, returnUrl, mode: rawMode } = req.body ?? {};
+  const mode = typeof rawMode === "string" ? rawMode.toLowerCase() : "test";
+  const useTest = mode !== "prod" && mode !== "real";
+
   if (!orderId) {
     return res.status(400).json({ success: false, message: "Нужен orderId" });
   }
@@ -38,9 +41,9 @@ router.post("/yookassa/create", async (req, res) => {
       return res.status(400).json({ success: false, message: "У заказа нет restaurantId" });
     }
 
-    const paymentConfig =
-      (await findRestaurantPaymentConfig(restaurantId)) ||
-      (YOOKASSA_TEST_SHOP_ID && YOOKASSA_TEST_SECRET_KEY
+    const dbConfig = await findRestaurantPaymentConfig(restaurantId);
+    const testConfig =
+      YOOKASSA_TEST_SHOP_ID && YOOKASSA_TEST_SECRET_KEY
         ? {
             provider_code: "yookassa_sbp",
             shop_id: YOOKASSA_TEST_SHOP_ID,
@@ -48,9 +51,21 @@ router.post("/yookassa/create", async (req, res) => {
             callback_url: YOOKASSA_TEST_CALLBACK_URL,
             is_enabled: true,
           }
-        : null);
+        : null;
+
+    const paymentConfig = useTest
+      ? testConfig
+      : dbConfig && dbConfig.is_enabled && dbConfig.shop_id && dbConfig.secret_key
+        ? dbConfig
+        : null;
+
     if (!paymentConfig || !paymentConfig.is_enabled) {
-      return res.status(400).json({ success: false, message: "Оплата для ресторана не настроена" });
+      return res.status(400).json({
+        success: false,
+        message: useTest
+          ? "Тестовая оплата не настроена (проверьте YOOKASSA_TEST_* в .env)"
+          : "Оплата для ресторана не настроена",
+      });
     }
 
     const amount = Number(order.total ?? 0);
@@ -65,6 +80,7 @@ router.post("/yookassa/create", async (req, res) => {
       amount,
       currency: "RUB",
       description: `Оплата заказа ${order.external_id ?? order.id}`,
+      metadata: { mode: useTest ? "test" : "prod" },
     });
 
     const ykResponse = await createSbpPayment({
@@ -80,6 +96,7 @@ router.post("/yookassa/create", async (req, res) => {
         paymentId: paymentRecord.id,
         restaurantId,
       },
+      isTest: useTest,
     });
 
     await updatePaymentStatus(paymentRecord.id, ykResponse.status ?? "pending", {
@@ -104,6 +121,7 @@ router.post("/yookassa/create", async (req, res) => {
       providerPaymentId: ykResponse.paymentId,
       confirmationUrl: ykResponse.confirmationUrl,
       status: ykResponse.status ?? "pending",
+      mode: useTest ? "test" : "prod",
     });
   } catch (error) {
     console.error("Ошибка создания платежа ЮKassa:", error);

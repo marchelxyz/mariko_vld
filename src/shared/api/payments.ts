@@ -5,7 +5,7 @@ const PAYMENTS_BASE = import.meta.env.VITE_SERVER_API_URL
 type CreatePaymentRequest = {
   orderId: string;
   restaurantId?: string | null;
-  returnUrl?: string | null;
+  mode?: "test" | "prod" | "real";
 };
 
 type CreatePaymentResponse = {
@@ -35,7 +35,8 @@ export async function createYookassaPayment(payload: CreatePaymentRequest): Prom
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(payload),
+    // По умолчанию принудительно используем тестовый режим, чтобы не трогать боевые ключи
+    body: JSON.stringify({ mode: "test", ...payload }),
   });
   const data = (await res.json().catch(() => ({}))) as CreatePaymentResponse;
   return data;
