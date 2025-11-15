@@ -4,16 +4,17 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck } from 'lucide-react';
 import { useAdmin } from '@/shared/hooks/useAdmin';
 import { Header } from '@/widgets/header';
 import { BottomNavigation } from '@/widgets/bottomNavigation';
 import { CitiesManagement } from '@/features/admin/cities/CitiesManagement';
 import { MenuManagement } from '@/features/admin/menu/MenuManagement';
 import { RolesManagement } from '@/features/admin/roles/RolesManagement';
+import { DeliveryManagement } from '@/features/admin/deliveries/DeliveryManagement';
 import { Button } from '@shared/ui';
 
-type AdminSection = 'cities' | 'menu' | 'roles' | null;
+type AdminSection = 'cities' | 'menu' | 'roles' | 'deliveries' | null;
 
 /**
  * Админ-панель для управления ресторанами, меню и ролями
@@ -107,6 +108,14 @@ export default function AdminPanel(): JSX.Element {
               onClick={() => setActiveSection('menu')}
             />
 
+            {/* Управление доставками */}
+            <AdminCard
+              icon={<Truck className="w-8 h-8" />}
+              title="Управление доставками"
+              description="Следите за заказами, меняйте статусы и детали доставки"
+              onClick={() => setActiveSection('deliveries')}
+            />
+
             {/* Управление ролями (только для супер-админа) */}
             {isSuperAdmin() && (
               <AdminCard
@@ -122,6 +131,7 @@ export default function AdminPanel(): JSX.Element {
           <div>
             {activeSection === 'cities' && <CitiesManagement />}
             {activeSection === 'menu' && <MenuManagement />}
+            {activeSection === 'deliveries' && <DeliveryManagement />}
             {activeSection === 'roles' && <RolesManagement />}
           </div>
         )}
@@ -187,4 +197,3 @@ function AdminCard({ icon, title, description, onClick, highlighted }: AdminCard
     </button>
   );
 }
-

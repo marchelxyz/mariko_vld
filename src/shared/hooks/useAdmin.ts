@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { adminApi } from '@/shared/api/adminApi';
+import { adminServerApi } from '@/shared/api/adminServerApi';
 import { UserRole, Permission } from '@/shared/types/admin';
 import { getUser } from '@/lib/telegram';
 
@@ -16,46 +16,74 @@ export function useAdmin() {
   const [userRole, setUserRole] = useState<UserRole>(UserRole.USER);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [userId, setUserId] = useState<string>('');
+  const [allowedRestaurants, setAllowedRestaurants] = useState<string[]>([]);
+
+  const derivePermissions = (role: UserRole): Permission[] => {
+    switch (role) {
+      case UserRole.SUPER_ADMIN:
+        return Object.values(Permission);
+      case UserRole.ADMIN:
+        return [
+          Permission.MANAGE_CITIES,
+          Permission.VIEW_CITIES,
+          Permission.MANAGE_RESTAURANTS,
+          Permission.VIEW_RESTAURANTS,
+          Permission.MANAGE_MENU,
+          Permission.VIEW_MENU,
+          Permission.VIEW_USERS,
+          Permission.MANAGE_REVIEWS,
+          Permission.VIEW_REVIEWS,
+        ];
+      default:
+        return [];
+    }
+  };
 
   useEffect(() => {
-    const checkAdmin = () => {
+    let disposed = false;
+    const checkAdmin = async () => {
       try {
         setIsLoading(true);
-        
-        // Получаем ID пользователя из Telegram
+
         const user = getUser();
-        const currentUserId = user?.id?.toString() || 'demo_user';
+        const fallbackId = import.meta.env.VITE_DEV_ADMIN_TELEGRAM_ID;
+        const currentUserId = user?.id?.toString() || fallbackId || 'demo_user';
         setUserId(currentUserId);
 
-        // В режиме разработки показываем сообщение
-        if (currentUserId === 'demo_user' && import.meta.env.DEV) {
-          console.log('🔧 Режим разработки активирован');
-          console.log('👤 Вы автоматически получили права супер-администратора');
-          console.log('📱 В продакшене будет использоваться ваш Telegram ID');
+        const response = await adminServerApi.getCurrentAdmin(currentUserId);
+        const mappedRole =
+          response.role === 'super_admin'
+            ? UserRole.SUPER_ADMIN
+            : response.role === 'admin'
+              ? UserRole.ADMIN
+              : UserRole.USER;
+
+        if (disposed) {
+          return;
         }
 
-        // Проверяем роль
-        const role = adminApi.getUserRole(currentUserId);
-        setUserRole(role);
-
-        // Проверяем права
-        const userPermissions = adminApi.getUserPermissions(currentUserId);
-        setPermissions(userPermissions);
-
-        // Проверяем, является ли администратором
-        const admin = adminApi.isAdmin(currentUserId);
-        setIsAdmin(admin);
+        setUserRole(mappedRole);
+        setPermissions(derivePermissions(mappedRole));
+        setAllowedRestaurants(response.allowedRestaurants ?? []);
+        setIsAdmin(mappedRole === UserRole.ADMIN || mappedRole === UserRole.SUPER_ADMIN);
       } catch (error) {
         console.error('Ошибка проверки прав администратора:', error);
         setIsAdmin(false);
         setUserRole(UserRole.USER);
         setPermissions([]);
+        setAllowedRestaurants([]);
       } finally {
-        setIsLoading(false);
+        if (!disposed) {
+          setIsLoading(false);
+        }
       }
     };
 
-    checkAdmin();
+    void checkAdmin();
+
+    return () => {
+      disposed = true;
+    };
   }, []);
 
   /**
@@ -81,8 +109,8 @@ export function useAdmin() {
     userRole,
     permissions,
     userId,
+    allowedRestaurants,
     hasPermission,
     isSuperAdmin,
   };
 }
-

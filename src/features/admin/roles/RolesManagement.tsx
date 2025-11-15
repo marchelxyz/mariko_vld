@@ -1,13 +1,10 @@
-/**
- * Компонент управления ролями пользователей
- */
-
-import { useState, useMemo } from 'react';
-import { adminApi } from '@/shared/api/adminApi';
-import { useAdmin } from '@/shared/hooks/useAdmin';
-import { UserRole, Permission } from '@/shared/types/admin';
-import { profileDB } from '@/services/database';
-import { Shield, UserCheck, UserX, Search } from 'lucide-react';
+import { useEffect, useMemo, useState } from "react";
+import { Shield, UserCheck, UserX, Search, ChevronRight, Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { getAllCitiesAsync } from "@/shared/data/cities";
+import { useAdmin } from "@/shared/hooks/useAdmin";
+import { UserRole } from "@/shared/types/admin";
+import { adminServerApi, type AdminPanelUser } from "@/shared/api/adminServerApi";
 import {
   Button,
   Input,
@@ -25,334 +22,241 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@shared/ui';
+  Checkbox,
+} from "@shared/ui";
 
-interface UserWithRoleData {
-  id: string;
-  telegramId?: number;
-  name: string;
-  phone?: string;
-  currentRole: UserRole;
-}
-
-/**
- * Компонент управления ролями пользователей
- */
 export function RolesManagement(): JSX.Element {
-  const { userId, isSuperAdmin } = useAdmin();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
-  const [newRole, setNewRole] = useState<UserRole>(UserRole.USER);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const { isSuperAdmin } = useAdmin();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedUser, setSelectedUser] = useState<AdminPanelUser | null>(null);
+  const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.USER);
+  const [selectedRestaurants, setSelectedRestaurants] = useState<string[]>([]);
+  const [showDialog, setShowDialog] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [restaurantOptions, setRestaurantOptions] = useState<
+    { id: string; label: string; cityName: string }[]
+  >([]);
 
-  // Получаем всех пользователей из базы данных
-  const allUsers = useMemo(() => {
-    const profiles = profileDB.getAllProfiles();
-    
-    return profiles.map((profile) => ({
-      id: profile.id,
-      telegramId: profile.telegramId,
-      name: profile.name || `Пользователь ${profile.id}`,
-      phone: profile.phone,
-      currentRole: adminApi.getUserRole(profile.id),
-    }));
+  const { data: users = [], isLoading, refetch } = useQuery({
+    queryKey: ["admin-users"],
+    queryFn: () => adminServerApi.getUsers(),
+    enabled: isSuperAdmin(),
+  });
+
+  useEffect(() => {
+    const loadRestaurants = async () => {
+      const cities = await getAllCitiesAsync();
+      const options =
+        cities?.flatMap((city: any) =>
+          (city.restaurants || []).map((restaurant: any) => ({
+            id: restaurant.id,
+            label: restaurant.name,
+            cityName: city.name,
+          })),
+        ) ?? [];
+      setRestaurantOptions(options);
+    };
+    void loadRestaurants();
   }, []);
 
-  // Фильтрация пользователей
   const filteredUsers = useMemo(() => {
-    if (!searchQuery) return allUsers;
-    
+    if (!searchQuery) return users;
     const query = searchQuery.toLowerCase();
-    return allUsers.filter((user) =>
-      user.name.toLowerCase().includes(query) ||
-      user.id.includes(query) ||
-      user.phone?.includes(query) ||
-      user.telegramId?.toString().includes(query)
-    );
-  }, [allUsers, searchQuery]);
+    return users.filter((user) => {
+      return (
+        user.name.toLowerCase().includes(query) ||
+        user.id.includes(query) ||
+        user.phone?.includes(query) ||
+        user.telegramId?.toString().includes(query)
+      );
+    });
+  }, [users, searchQuery]);
 
-  // Группировка по ролям
-  const usersByRole = useMemo(() => {
-    const superAdmins = filteredUsers.filter((u) => u.currentRole === UserRole.SUPER_ADMIN);
-    const admins = filteredUsers.filter((u) => u.currentRole === UserRole.ADMIN);
-    const users = filteredUsers.filter((u) => u.currentRole === UserRole.USER);
-
-    return { superAdmins, admins, users };
-  }, [filteredUsers]);
-
-  /**
-   * Получить описание роли
-   */
   const getRoleLabel = (role: UserRole): string => {
     switch (role) {
       case UserRole.SUPER_ADMIN:
-        return 'Супер-администратор';
+        return "Супер-администратор";
       case UserRole.ADMIN:
-        return 'Администратор';
-      case UserRole.USER:
-        return 'Пользователь';
+        return "Администратор";
       default:
-        return 'Неизвестная роль';
+        return "Пользователь";
     }
   };
 
-  /**
-   * Получить цвет бейджа роли
-   */
-  const getRoleBadgeColor = (role: UserRole): string => {
-    switch (role) {
-      case UserRole.SUPER_ADMIN:
-        return 'bg-red-500/20 text-red-200';
-      case UserRole.ADMIN:
-        return 'bg-mariko-primary/20 text-mariko-primary';
-      case UserRole.USER:
-        return 'bg-blue-500/20 text-blue-200';
-      default:
-        return 'bg-gray-500/20 text-gray-200';
-    }
-  };
-
-  /**
-   * Получить список прав роли
-   */
-  const getRolePermissions = (role: UserRole): string[] => {
-    const permissions = adminApi.getUserPermissions('temp_user_with_role_' + role);
-    
-    return permissions.map((p) => {
-      switch (p) {
-        case Permission.MANAGE_CITIES:
-          return 'Управление городами';
-        case Permission.MANAGE_RESTAURANTS:
-          return 'Управление ресторанами';
-        case Permission.MANAGE_MENU:
-          return 'Управление меню';
-        case Permission.MANAGE_ROLES:
-          return 'Управление ролями';
-        case Permission.MANAGE_REVIEWS:
-          return 'Управление отзывами';
-        case Permission.MANAGE_USERS:
-          return 'Управление пользователями';
-        default:
-          return p;
-      }
-    });
-  };
-
-  /**
-   * Изменить роль пользователя
-   */
-  const handleChangeRole = () => {
-    if (!selectedUserId || !isSuperAdmin()) {
-      alert('Только супер-администратор может изменять роли');
+  const openDialogForUser = (user: AdminPanelUser) => {
+    if (user.role === UserRole.SUPER_ADMIN) {
+      alert("Нельзя изменить роль супер-администратора");
       return;
     }
+    setSelectedUser(user);
+    setSelectedRole(user.role);
+    setSelectedRestaurants(user.allowedRestaurants ?? []);
+    setShowDialog(true);
+  };
 
-    const success = adminApi.setUserRole(selectedUserId, newRole, userId);
-    
-    if (success) {
-      alert('Роль пользователя успешно изменена');
-      setShowConfirmDialog(false);
-      setSelectedUserId('');
-      // Перезагружаем страницу для обновления данных
-      window.location.reload();
-    } else {
-      alert('Ошибка изменения роли');
+  const toggleRestaurant = (restaurantId: string) => {
+    setSelectedRestaurants((prev) =>
+      prev.includes(restaurantId)
+        ? prev.filter((id) => id !== restaurantId)
+        : [...prev, restaurantId],
+    );
+  };
+
+  const handleSaveRole = async () => {
+    if (!selectedUser) return;
+    if (!isSuperAdmin()) {
+      alert("Только супер-администратор может изменять роли");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await adminServerApi.updateUserRole(selectedUser.id || selectedUser.telegramId || "", {
+        role: selectedRole,
+        allowedRestaurants: selectedRole === UserRole.ADMIN ? selectedRestaurants : [],
+      });
+      alert("Роль обновлена");
+      setShowDialog(false);
+      setSelectedUser(null);
+      await refetch();
+    } catch (error) {
+      console.error(error);
+      alert("Не удалось сохранить роль");
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  // Проверяем права доступа
   if (!isSuperAdmin()) {
     return (
       <div className="bg-mariko-secondary rounded-[24px] p-12 text-center">
         <Shield className="w-12 h-12 text-white/30 mx-auto mb-4" />
-        <h3 className="text-white font-el-messiri text-xl font-bold mb-2">
-          Доступ запрещен
-        </h3>
-        <p className="text-white/70">
-          Управление ролями доступно только супер-администратору
-        </p>
+        <h3 className="text-white font-el-messiri text-xl font-bold mb-2">Доступ запрещен</h3>
+        <p className="text-white/70">Управление ролями доступно только супер-администратору</p>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 text-white animate-spin" />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Заголовок и поиск */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div>
-          <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold">
-            Управление ролями
-          </h2>
-          <p className="text-white/70 mt-1">
-            Всего пользователей: {allUsers.length}
-          </p>
+          <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold">Управление ролями</h2>
+          <p className="text-white/70 mt-1">Всего пользователей: {users.length}</p>
         </div>
-
         <Input
           type="text"
           placeholder="Поиск по имени, ID или телефону..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full sm:w-64"
+          className="w-full sm:w-72"
           icon={<Search className="w-4 h-4" />}
         />
       </div>
 
-      {/* Информация о ролях */}
-      <div className="grid md:grid-cols-3 gap-4">
-        <div className="bg-red-500/10 border border-red-500/20 rounded-[20px] p-4">
-          <div className="flex items-center gap-3 mb-2">
-            <Shield className="w-5 h-5 text-red-400" />
-            <h3 className="text-white font-el-messiri font-bold">Супер-администратор</h3>
-          </div>
-          <p className="text-white/70 text-sm mb-3">
-            Полный доступ ко всем функциям системы
-          </p>
-          <div className="text-2xl font-bold text-red-400">
-            {usersByRole.superAdmins.length}
-          </div>
-        </div>
-
-        <div className="bg-mariko-primary/10 border border-mariko-primary/20 rounded-[20px] p-4">
-          <div className="flex items-center gap-3 mb-2">
-            <UserCheck className="w-5 h-5 text-mariko-primary" />
-            <h3 className="text-white font-el-messiri font-bold">Администратор</h3>
-          </div>
-          <p className="text-white/70 text-sm mb-3">
-            Управление содержимым, но не ролями
-          </p>
-          <div className="text-2xl font-bold text-mariko-primary">
-            {usersByRole.admins.length}
-          </div>
-        </div>
-
-        <div className="bg-blue-500/10 border border-blue-500/20 rounded-[20px] p-4">
-          <div className="flex items-center gap-3 mb-2">
-            <UserX className="w-5 h-5 text-blue-400" />
-            <h3 className="text-white font-el-messiri font-bold">Пользователь</h3>
-          </div>
-          <p className="text-white/70 text-sm mb-3">
-            Обычные пользователи без админ-прав
-          </p>
-          <div className="text-2xl font-bold text-blue-400">
-            {usersByRole.users.length}
-          </div>
-        </div>
-      </div>
-
-      {/* Список пользователей */}
-      <div className="space-y-4">
-        {/* Супер-администраторы */}
-        {usersByRole.superAdmins.length > 0 && (
-          <div>
-            <h3 className="text-white font-el-messiri text-lg font-bold mb-3">
-              Супер-администраторы
-            </h3>
-            <div className="space-y-2">
-              {usersByRole.superAdmins.map((user) => (
-                <UserRoleCard
-                  key={user.id}
-                  user={user}
-                  onChangeRole={(newRole) => {
-                    setSelectedUserId(user.id);
-                    setNewRole(newRole);
-                    setShowConfirmDialog(true);
-                  }}
-                  getRoleLabel={getRoleLabel}
-                  getRoleBadgeColor={getRoleBadgeColor}
-                  canEdit={user.id !== userId} // Нельзя изменить свою роль
-                />
-              ))}
+      <div className="space-y-3">
+        {filteredUsers.map((user) => (
+          <div
+            key={user.id}
+            className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+          >
+            <div>
+              <p className="text-white font-semibold">{user.name || "Без имени"}</p>
+              <p className="text-white/70 text-sm">
+                ID: {user.id} {user.telegramId ? `· TG: ${user.telegramId}` : ""}
+              </p>
+              {user.phone && <p className="text-white/70 text-sm">Телефон: {user.phone}</p>}
             </div>
-          </div>
-        )}
-
-        {/* Администраторы */}
-        {usersByRole.admins.length > 0 && (
-          <div>
-            <h3 className="text-white font-el-messiri text-lg font-bold mb-3">
-              Администраторы
-            </h3>
-            <div className="space-y-2">
-              {usersByRole.admins.map((user) => (
-                <UserRoleCard
-                  key={user.id}
-                  user={user}
-                  onChangeRole={(newRole) => {
-                    setSelectedUserId(user.id);
-                    setNewRole(newRole);
-                    setShowConfirmDialog(true);
-                  }}
-                  getRoleLabel={getRoleLabel}
-                  getRoleBadgeColor={getRoleBadgeColor}
-                  canEdit={true}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Обычные пользователи */}
-        {usersByRole.users.length > 0 && (
-          <div>
-            <h3 className="text-white font-el-messiri text-lg font-bold mb-3">
-              Пользователи
-            </h3>
-            <div className="space-y-2">
-              {usersByRole.users.slice(0, 20).map((user) => (
-                <UserRoleCard
-                  key={user.id}
-                  user={user}
-                  onChangeRole={(newRole) => {
-                    setSelectedUserId(user.id);
-                    setNewRole(newRole);
-                    setShowConfirmDialog(true);
-                  }}
-                  getRoleLabel={getRoleLabel}
-                  getRoleBadgeColor={getRoleBadgeColor}
-                  canEdit={true}
-                />
-              ))}
-              {usersByRole.users.length > 20 && (
-                <p className="text-white/50 text-sm text-center py-4">
-                  Показано 20 из {usersByRole.users.length} пользователей
-                </p>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <span
+                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+                  user.role === UserRole.SUPER_ADMIN
+                    ? "bg-red-500/20 text-red-200"
+                    : user.role === UserRole.ADMIN
+                      ? "bg-mariko-primary/20 text-mariko-primary"
+                      : "bg-blue-500/20 text-blue-200"
+                }`}
+              >
+                {user.role === UserRole.SUPER_ADMIN ? <Shield className="w-4 h-4 mr-1" /> : user.role === UserRole.ADMIN ? <UserCheck className="w-4 h-4 mr-1" /> : <UserX className="w-4 h-4 mr-1" />}
+                {getRoleLabel(user.role)}
+              </span>
+              {user.role !== UserRole.SUPER_ADMIN && (
+                <Button variant="outline" className="w-full sm:w-auto" onClick={() => openDialogForUser(user)}>
+                  Настроить
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
               )}
             </div>
           </div>
-        )}
-
-        {filteredUsers.length === 0 && (
-          <div className="bg-mariko-secondary rounded-[24px] p-12 text-center">
-            <Search className="w-12 h-12 text-white/30 mx-auto mb-4" />
-            <p className="text-white/70 font-el-messiri text-lg">
-              Пользователи не найдены
-            </p>
+        ))}
+        {!filteredUsers.length && (
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-center text-white/70">
+            Пользователей по запросу не найдено
           </div>
         )}
       </div>
 
-      {/* Диалог подтверждения изменения роли */}
-      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <AlertDialogContent>
+      <AlertDialog open={showDialog} onOpenChange={setShowDialog}>
+        <AlertDialogContent className="max-h-[90vh] overflow-y-auto">
           <AlertDialogHeader>
-            <AlertDialogTitle>Изменить роль пользователя?</AlertDialogTitle>
+            <AlertDialogTitle>Изменение ролей</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите изменить роль этого пользователя на "{getRoleLabel(newRole)}"?
-              <br />
-              <br />
-              <strong>Права новой роли:</strong>
-              <ul className="list-disc list-inside mt-2">
-                {getRolePermissions(newRole).map((perm, idx) => (
-                  <li key={idx}>{perm}</li>
-                ))}
-              </ul>
+              Пользователь: {selectedUser?.name || selectedUser?.id}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Роль</Label>
+              <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as UserRole)}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Выберите роль" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={UserRole.ADMIN}>Администратор</SelectItem>
+                  <SelectItem value={UserRole.USER}>Пользователь</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedRole === UserRole.ADMIN && (
+              <div className="space-y-2">
+                <Label>Доступные рестораны</Label>
+                <div className="max-h-64 overflow-y-auto rounded-2xl border border-white/10 p-3 space-y-2">
+                  {restaurantOptions.map((restaurant) => (
+                    <label
+                      key={restaurant.id}
+                      className="flex items-center gap-2 text-white/80 text-sm"
+                    >
+                      <Checkbox
+                        checked={selectedRestaurants.includes(restaurant.id)}
+                        onCheckedChange={() => toggleRestaurant(restaurant.id)}
+                      />
+                      <span>
+                        {restaurant.label}
+                        <span className="text-white/50"> · {restaurant.cityName}</span>
+                      </span>
+                    </label>
+                  ))}
+                  {!restaurantOptions.length && (
+                    <p className="text-white/50 text-sm">
+                      Список ресторанов пуст. Добавьте их в справочнике.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={handleChangeRole}>
-              Изменить роль
+            <AlertDialogCancel disabled={isSaving}>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSaveRole} disabled={isSaving}>
+              {isSaving ? "Сохраняем..." : "Сохранить"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -360,59 +264,3 @@ export function RolesManagement(): JSX.Element {
     </div>
   );
 }
-
-/**
- * Карточка пользователя с ролью
- */
-interface UserRoleCardProps {
-  user: UserWithRoleData;
-  onChangeRole: (newRole: UserRole) => void;
-  getRoleLabel: (role: UserRole) => string;
-  getRoleBadgeColor: (role: UserRole) => string;
-  canEdit: boolean;
-}
-
-function UserRoleCard({
-  user,
-  onChangeRole,
-  getRoleLabel,
-  getRoleBadgeColor,
-  canEdit,
-}: UserRoleCardProps): JSX.Element {
-  return (
-    <div className="bg-mariko-secondary rounded-xl p-4 flex items-center justify-between gap-4">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <h4 className="text-white font-medium truncate">{user.name}</h4>
-          <span className={`px-2 py-1 rounded text-xs ${getRoleBadgeColor(user.currentRole)}`}>
-            {getRoleLabel(user.currentRole)}
-          </span>
-        </div>
-        <div className="text-white/60 text-sm">
-          {user.phone && <p>Телефон: {user.phone}</p>}
-          {user.telegramId && <p>Telegram ID: {user.telegramId}</p>}
-          <p className="text-xs">ID: {user.id}</p>
-        </div>
-      </div>
-
-      {canEdit && (
-        <div className="flex gap-2">
-          <Select
-            value={user.currentRole}
-            onValueChange={(value) => onChangeRole(value as UserRole)}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={UserRole.SUPER_ADMIN}>Супер-администратор</SelectItem>
-              <SelectItem value={UserRole.ADMIN}>Администратор</SelectItem>
-              <SelectItem value={UserRole.USER}>Пользователь</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-    </div>
-  );
-}
-

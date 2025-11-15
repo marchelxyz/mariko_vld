@@ -15,10 +15,13 @@ set -euo pipefail
 IFS=$'\n\t'
 
 # === CONFIG ============================================================
-SERVER_HOST="root@ineedaglokk.ru"
+SERVER_HOST="root@YOUR_TIMEWEB_SERVER"
 WEB_ROOT="/var/www/html"
 BOT_NAME="hachapuri-bot"
-REMOTE_BOT_DIR="/opt/mariko-app/bot"
+CART_SERVER_NAME="cart-server"
+REMOTE_PROJECT_ROOT="/opt/mariko-app"
+REMOTE_BOT_DIR="$REMOTE_PROJECT_ROOT/bot"
+REMOTE_SERVER_DIR="$REMOTE_PROJECT_ROOT/server"
 # ======================================================================
 
 log() { printf "\033[1;32m[deploy] %s\033[0m\n" "$*"; }
@@ -39,7 +42,11 @@ sshpass -p 'p*R-5KNwyE4XJ.' rsync -avz --delete -e "ssh -o StrictHostKeyChecking
 log "→ rsync bot → $SERVER_HOST:$REMOTE_BOT_DIR"
 sshpass -p 'p*R-5KNwyE4XJ.' rsync -avz --exclude='node_modules' --exclude='.env' -e "ssh -o StrictHostKeyChecking=no" bot/ "$SERVER_HOST:$REMOTE_BOT_DIR/"
 
-# 2.2. Поправить права доступа на статику (чтобы nginx отдавал картинки)
+# 2.2. Загрузка серверного кода (Express-мост)
+log "→ rsync server → $SERVER_HOST:$REMOTE_SERVER_DIR"
+sshpass -p 'p*R-5KNwyE4XJ.' rsync -avz --exclude='.env' --exclude='.env.local' -e "ssh -o StrictHostKeyChecking=no" server/ "$SERVER_HOST:$REMOTE_SERVER_DIR/"
+
+# 2.3. Поправить права доступа на статику (чтобы nginx отдавал картинки)
 log "→ fix permissions for $WEB_ROOT"
 sshpass -p 'p*R-5KNwyE4XJ.' ssh -o StrictHostKeyChecking=no "$SERVER_HOST" "find $WEB_ROOT -type d -exec chmod 755 {} + && find $WEB_ROOT -type f -exec chmod 644 {} +"
 
@@ -61,6 +68,14 @@ sshpass -p 'p*R-5KNwyE4XJ.' ssh -o StrictHostKeyChecking=no "$SERVER_HOST" "
   fi
   pm2 delete $BOT_NAME >/dev/null 2>&1 || true
   pm2 start main-bot.cjs --name $BOT_NAME --cwd $REMOTE_BOT_DIR
+  pm2 save
+"
+
+# 4. Перезапуск cart-server (Express)
+log "→ restart $CART_SERVER_NAME"
+sshpass -p 'p*R-5KNwyE4XJ.' ssh -o StrictHostKeyChecking=no "$SERVER_HOST" "
+  cd $REMOTE_SERVER_DIR
+  pm2 restart $CART_SERVER_NAME --update-env >/dev/null 2>&1 || pm2 start cart-server.mjs --name $CART_SERVER_NAME --cwd $REMOTE_SERVER_DIR
   pm2 save
 "
 
