@@ -1,4 +1,4 @@
-import { botApi } from "./botApiService";
+import { botApi } from "../botApiService";
 
 export const reviewsApi = {
   createReview: botApi.createReview,

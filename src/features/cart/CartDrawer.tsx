@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { X, Minus, Plus, Trash2 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useCityContext } from "@/contexts/CityContext";
-import { recalculateCart, submitCartOrder } from "@/shared/api/cartApi";
+import { recalculateCart, submitCartOrder } from "@/shared/api/cart";
 import { useNavigate } from "react-router-dom";
 import { getUser } from "@/lib/telegram";
 

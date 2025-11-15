@@ -5,7 +5,7 @@ import { Loader2, RefreshCw, AlertCircle, ChevronDown, ChevronUp } from "lucide-
 import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { PageHeader } from "@widgets/pageHeader";
-import { fetchMyOrders, type CartOrderRecord, type OrderStatus } from "@/shared/api/ordersApi";
+import { fetchMyOrders, type CartOrderRecord, type OrderStatus } from "@/shared/api/cart";
 import { getUser } from "@/lib/telegram";
 import { cn } from "@/lib/utils";
 

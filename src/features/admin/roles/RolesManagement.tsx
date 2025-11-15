@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getAllCitiesAsync } from "@/shared/data/cities";
 import { useAdmin } from "@/shared/hooks/useAdmin";
 import { UserRole } from "@/shared/types/admin";
-import { adminServerApi, type AdminPanelUser } from "@/shared/api/adminServerApi";
+import { adminServerApi, type AdminPanelUser } from "@/shared/api/admin";
 import {
   Button,
   Input,

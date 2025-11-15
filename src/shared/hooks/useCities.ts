@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { City, getAvailableCitiesAsync } from '@/shared/data/cities';
-import { citiesSupabaseApi } from '@/shared/api/citiesSupabaseApi';
+import { citiesSupabaseApi } from '@/shared/api/cities';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
 /**
@@ -56,4 +56,3 @@ export function useCities() {
     error,
   };
 }
-

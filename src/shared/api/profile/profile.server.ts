@@ -1,5 +1,5 @@
 import type { UserProfile } from "@/services/botApi";
-import { getCartApiBaseUrl } from "./cartApi";
+import { getCartApiBaseUrl } from "../cart/cartApi";
 
 const PROFILE_ENDPOINT = `${getCartApiBaseUrl()}/cart/profile/me`;
 

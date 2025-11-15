@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2, RefreshCcw, Bike, PackageCheck, Truck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { getAllCitiesAsync } from "@/shared/data/cities";
-import { adminServerApi } from "@/shared/api/adminServerApi";
-import type { CartOrderRecord } from "@/shared/api/ordersApi";
+import { adminServerApi } from "@/shared/api/admin";
+import type { CartOrderRecord } from "@/shared/api/cart";
 import { useAdmin } from "@/shared/hooks/useAdmin";
 import {
   Button,

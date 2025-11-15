@@ -4,8 +4,8 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { City, getAllCitiesAsync } from '@/shared/data/cities';
-import { citiesSupabaseApi } from '@/shared/api/citiesSupabaseApi';
-import { adminApi } from '@/shared/api/adminApi';
+import { citiesSupabaseApi } from '@/shared/api/cities';
+import { adminApi } from '@/shared/api/admin';
 import { useAdmin } from '@/shared/hooks/useAdmin';
 import { Permission } from '@/shared/types/admin';
 import { isSupabaseConfigured } from '@/lib/supabase';
@@ -336,4 +336,3 @@ export function CitiesManagement(): JSX.Element {
     </div>
   );
 }
-

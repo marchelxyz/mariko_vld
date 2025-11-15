@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { adminServerApi } from '@/shared/api/adminServerApi';
+import { adminServerApi } from '@/shared/api/admin';
 import { UserRole, Permission } from '@/shared/types/admin';
 import { getUser } from '@/lib/telegram';
 

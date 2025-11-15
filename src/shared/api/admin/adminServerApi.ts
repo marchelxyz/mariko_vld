@@ -1,5 +1,5 @@
 import { getUser } from "@/lib/telegram";
-import type { CartOrderRecord } from "@/shared/api/ordersApi";
+import type { CartOrderRecord } from "@/shared/api/cart";
 import type { UserRole } from "@/shared/types/admin";
 
 function normalizeBaseUrl(base: string | undefined): string {
@@ -9,7 +9,7 @@ function normalizeBaseUrl(base: string | undefined): string {
   return base.endsWith("/") ? base.slice(0, -1) : base;
 }
 
-import { getCartApiBaseUrl } from "./cartApi";
+import { getCartApiBaseUrl } from "../cart/cartApi";
 
 const rawServerBase = import.meta.env.VITE_SERVER_API_URL;
 const customBase = normalizeBaseUrl(rawServerBase || "");

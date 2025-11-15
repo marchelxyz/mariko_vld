@@ -1,5 +1,5 @@
 import type { UserProfile } from "@/services/botApi";
-import { httpClient } from "./http";
+import { httpClient } from "../http";
 
 export const profileRemoteApi = {
   async getUserProfile(userId: string): Promise<UserProfile> {
@@ -14,5 +14,4 @@ export const profileRemoteApi = {
     return true;
   },
 };
-
 
