@@ -7,6 +7,7 @@ import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { RestaurantProvider } from "@/contexts/CityContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { isActive, onActivated, onDeactivated } from "@/lib/telegram";
+import { useEnsureUserProfileSync } from "@/hooks/useEnsureUserProfileSync";
 
 // Lazy load pages for better code splitting
 const Index = lazy(() => import("./pages/home"));
@@ -42,6 +43,7 @@ const PageLoader = () => (
 );
 
 function App() {
+  useEnsureUserProfileSync();
   useEffect(() => {
     const updateFocus = (focused: boolean) => {
       focusManager.setFocused(focused);

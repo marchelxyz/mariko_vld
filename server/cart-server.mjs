@@ -100,11 +100,107 @@ const normaliseTelegramId = (value) => {
   return null;
 };
 
+const normaliseNullableString = (value) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const normalisePhone = (value) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const digits = value.replace(/[^\d+]/g, "");
+  return digits.length > 0 ? digits : null;
+};
+
 const isListedSuperAdmin = (telegramId) => {
   if (!telegramId) {
     return false;
   }
   return ADMIN_SUPER_IDS.includes(telegramId.trim());
+};
+
+const PROFILE_SELECT_FIELDS =
+  "id,name,phone,birth_date,gender,photo,telegram_id,notifications_enabled,created_at,updated_at";
+
+const mapProfileRowToClient = (row, fallbackId = "") => ({
+  id: row?.id ?? fallbackId,
+  name: row?.name ?? "",
+  phone: row?.phone ?? "",
+  birthDate: row?.birth_date ?? "",
+  gender: row?.gender ?? "Не указан",
+  photo: row?.photo ?? "",
+  notificationsEnabled:
+    typeof row?.notifications_enabled === "boolean" ? row.notifications_enabled : true,
+  telegramId:
+    typeof row?.telegram_id === "number"
+      ? row.telegram_id
+      : typeof row?.telegram_id === "string"
+        ? Number(row.telegram_id)
+        : undefined,
+  createdAt: row?.created_at ?? null,
+  updatedAt: row?.updated_at ?? null,
+});
+
+const buildDefaultProfile = (id, telegramId) =>
+  mapProfileRowToClient(
+    {
+      id,
+      telegram_id: telegramId ? Number(telegramId) : null,
+    },
+    id,
+  );
+
+const buildProfileUpsertPayload = (input) => {
+  const payload = {
+    id: input.id,
+  };
+  if (input.name !== undefined) {
+    payload.name = normaliseNullableString(input.name) ?? "Пользователь";
+  }
+  if (input.phone !== undefined) {
+    payload.phone = normalisePhone(input.phone);
+  }
+  if (input.birthDate !== undefined) {
+    payload.birth_date = normaliseNullableString(input.birthDate);
+  }
+  if (input.gender !== undefined) {
+    payload.gender = normaliseNullableString(input.gender);
+  }
+  if (input.photo !== undefined) {
+    payload.photo = normaliseNullableString(input.photo);
+  }
+  if (input.notificationsEnabled !== undefined) {
+    payload.notifications_enabled = Boolean(input.notificationsEnabled);
+  }
+  const telegramId =
+    input.telegramId !== undefined
+      ? normaliseTelegramId(input.telegramId)
+      : normaliseTelegramId(input.id);
+  if (telegramId) {
+    const numeric = Number(telegramId);
+    payload.telegram_id = Number.isFinite(numeric) ? numeric : null;
+  }
+  return payload;
+};
+
+const upsertUserProfileRecord = async (input) => {
+  if (!supabase) {
+    throw new Error("Supabase is not configured");
+  }
+  const payload = buildProfileUpsertPayload(input);
+  const { data, error } = await supabase
+    .from("user_profiles")
+    .upsert(payload, { onConflict: "id" })
+    .select(PROFILE_SELECT_FIELDS)
+    .maybeSingle();
+  if (error) {
+    throw error;
+  }
+  return data;
 };
 
 const fetchAdminRecordByTelegram = async (telegramId) => {
@@ -191,7 +287,7 @@ const fetchUserProfile = async (identifier) => {
   }
   let query = supabase
     .from("user_profiles")
-    .select("id,name,phone,telegram_id,created_at")
+    .select(PROFILE_SELECT_FIELDS)
     .eq("id", identifier)
     .maybeSingle();
   let result = await query;
@@ -205,7 +301,7 @@ const fetchUserProfile = async (identifier) => {
   if (Number.isFinite(numeric)) {
     const fallback = await supabase
       .from("user_profiles")
-      .select("id,name,phone,telegram_id,created_at")
+      .select(PROFILE_SELECT_FIELDS)
       .eq("telegram_id", numeric)
       .maybeSingle();
     if (fallback.error && fallback.error.code !== "PGRST116") {
@@ -224,7 +320,7 @@ const listUserProfiles = async () => {
   }
   const { data, error } = await supabase
     .from("user_profiles")
-    .select("id,name,phone,telegram_id,created_at")
+    .select(PROFILE_SELECT_FIELDS)
     .order("created_at", { ascending: false });
   if (error) {
     console.error("Ошибка загрузки списка пользователей:", error);
@@ -311,6 +407,105 @@ app.post("/api/cart/recalculate", (req, res) => {
     canSubmit,
     warnings,
   });
+});
+
+app.post("/api/cart/profile/sync", async (req, res) => {
+  if (!ensureSupabase(res)) {
+    return;
+  }
+
+  const body = req.body ?? {};
+  const headerTelegramId = getTelegramIdFromRequest(req);
+  const resolvedId =
+    (typeof body.id === "string" && body.id.trim()) ||
+    headerTelegramId ||
+    (typeof body.telegramId === "string" && body.telegramId.trim());
+
+  if (!resolvedId) {
+    return res.status(400).json({ success: false, message: "Не удалось определить пользователя" });
+  }
+
+  try {
+    const row = await upsertUserProfileRecord({
+      id: resolvedId,
+      telegramId: body.telegramId ?? headerTelegramId ?? body.id,
+      name: body.name,
+      phone: body.phone ?? body.customerPhone,
+      birthDate: body.birthDate,
+      gender: body.gender,
+      photo: body.photo,
+      notificationsEnabled: body.notificationsEnabled,
+    });
+    return res.json({ success: true, profile: mapProfileRowToClient(row, resolvedId) });
+  } catch (error) {
+    console.error("Ошибка синхронизации профиля:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Не удалось сохранить профиль пользователя" });
+  }
+});
+
+app.get("/api/cart/profile/me", async (req, res) => {
+  if (!ensureSupabase(res)) {
+    return;
+  }
+  const headerTelegramId = getTelegramIdFromRequest(req);
+  const requestedId =
+    normaliseNullableString(req.query?.id) ??
+    normaliseNullableString(req.query?.userId) ??
+    headerTelegramId;
+  if (!requestedId) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Передайте Telegram ID или userId пользователя" });
+  }
+  try {
+    const row = await fetchUserProfile(requestedId);
+    if (row) {
+      return res.json({ success: true, profile: mapProfileRowToClient(row, requestedId) });
+    }
+    return res.json({
+      success: true,
+      profile: buildDefaultProfile(requestedId, headerTelegramId ?? requestedId),
+    });
+  } catch (error) {
+    console.error("Ошибка получения профиля:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Не удалось загрузить профиль пользователя" });
+  }
+});
+
+app.patch("/api/cart/profile/me", async (req, res) => {
+  if (!ensureSupabase(res)) {
+    return;
+  }
+  const body = req.body ?? {};
+  const headerTelegramId = getTelegramIdFromRequest(req);
+  const resolvedId = normaliseNullableString(body.id) ?? headerTelegramId;
+  if (!resolvedId) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Передайте ID пользователя для обновления" });
+  }
+  try {
+    const row = await upsertUserProfileRecord({
+      id: resolvedId,
+      telegramId: body.telegramId ?? headerTelegramId ?? resolvedId,
+      name: body.name,
+      phone: body.phone,
+      birthDate: body.birthDate,
+      gender: body.gender,
+      photo: body.photo,
+      notificationsEnabled: body.notificationsEnabled,
+    });
+    return res.json({ success: true, profile: mapProfileRowToClient(row, resolvedId) });
+  } catch (error) {
+    console.error("Ошибка обновления профиля:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Не удалось обновить профиль пользователя" });
+  }
 });
 
 app.post("/api/cart/submit", async (req, res) => {
@@ -539,7 +734,7 @@ adminRouter.patch("/users/:userId", async (req, res) => {
       .json({ success: false, message: "У пользователя нет Telegram ID в профиле" });
   }
   if (incomingRole === "user") {
-    const { error } = await supabase.from("admin_users").delete().eq("id", profile.id);
+    const { error } = await supabase.from("admin_users").delete().eq("telegram_id", profile.telegram_id);
     if (error) {
       console.error("Ошибка удаления роли:", error);
       return res.status(500).json({ success: false, message: "Не удалось удалить роль" });
@@ -550,8 +745,10 @@ adminRouter.patch("/users/:userId", async (req, res) => {
     });
   }
 
+  const existingRecord = await fetchAdminRecordByTelegram(telegramId);
+
   const payload = {
-    id: profile.id,
+    id: existingRecord?.id ?? undefined,
     telegram_id: profile.telegram_id,
     name: overrideName ?? profile.name ?? null,
     role: incomingRole,
@@ -562,9 +759,13 @@ adminRouter.patch("/users/:userId", async (req, res) => {
     },
   };
 
+  const cleanPayload = Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined),
+  );
+
   const { data, error } = await supabase
     .from("admin_users")
-    .upsert(payload, { onConflict: "id" })
+    .upsert(cleanPayload, { onConflict: "telegram_id" })
     .select()
     .maybeSingle();
 

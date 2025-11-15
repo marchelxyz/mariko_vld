@@ -69,12 +69,49 @@ const buildRestaurantDictionary = () =>
       cityName: city.name,
     })),
   );
+type RestaurantEntry = ReturnType<typeof buildRestaurantDictionary>[number];
 
 export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManagementProps): JSX.Element {
-  const { hasPermission } = useAdmin();
+  const { hasPermission, allowedRestaurants, isSuperAdmin } = useAdmin();
   const canManage = hasPermission(Permission.MANAGE_MENU);
+  const superAdmin = isSuperAdmin();
 
   const allRestaurants = useMemo(buildRestaurantDictionary, []);
+
+  const accessibleRestaurants = useMemo(() => {
+    if (superAdmin) {
+      return allRestaurants;
+    }
+    if (!allowedRestaurants?.length) {
+      return [];
+    }
+    const allowedSet = new Set(allowedRestaurants);
+    return allRestaurants.filter((restaurant) => allowedSet.has(restaurant.id));
+  }, [allRestaurants, allowedRestaurants, superAdmin]);
+
+  const accessibleCityGroups = useMemo(() => {
+    const groups = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        restaurants: RestaurantEntry[];
+      }
+    >();
+    accessibleRestaurants.forEach((restaurant) => {
+      const entry = groups.get(restaurant.cityId);
+      if (entry) {
+        entry.restaurants.push(restaurant);
+      } else {
+        groups.set(restaurant.cityId, {
+          id: restaurant.cityId,
+          name: restaurant.cityName,
+          restaurants: [restaurant],
+        });
+      }
+    });
+    return Array.from(groups.values());
+  }, [accessibleRestaurants]);
   const initialCityId = findCityIdByRestaurantId(initialRestaurantId);
 
   const [selectedCityId, setSelectedCityId] = useState<string | null>(initialCityId);
@@ -126,16 +163,17 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
   };
 
   const selectedRestaurantMeta = useMemo(
-    () => allRestaurants.find((restaurant) => restaurant.id === selectedRestaurantId) ?? null,
-    [allRestaurants, selectedRestaurantId],
+    () =>
+      accessibleRestaurants.find((restaurant) => restaurant.id === selectedRestaurantId) ?? null,
+    [accessibleRestaurants, selectedRestaurantId],
   );
 
   const currentCityName = useMemo(() => {
     if (selectedCityId) {
-      return cities.find((city) => city.id === selectedCityId)?.name;
+      return accessibleCityGroups.find((city) => city.id === selectedCityId)?.name ?? null;
     }
     return selectedRestaurantMeta?.cityName ?? null;
-  }, [selectedCityId, selectedRestaurantMeta]);
+  }, [selectedCityId, accessibleCityGroups, selectedRestaurantMeta]);
 
   const currentStep: 'city' | 'restaurant' | 'menu' = !selectedCityId
     ? 'city'
@@ -144,16 +182,37 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     : 'restaurant';
 
   const cityOptions = useMemo(
-    () => cities.map((city) => ({ id: city.id, name: city.name })),
-    [],
+    () => accessibleCityGroups.map((city) => ({ id: city.id, name: city.name })),
+    [accessibleCityGroups],
   );
 
   const copyRestaurantOptions = useMemo(() => {
-    if (sourceSelection.cityId) {
-      return allRestaurants.filter((restaurant) => restaurant.cityId === sourceSelection.cityId);
+    const list = sourceSelection.cityId
+      ? accessibleRestaurants.filter((restaurant) => restaurant.cityId === sourceSelection.cityId)
+      : accessibleRestaurants;
+    return list;
+  }, [accessibleRestaurants, sourceSelection.cityId]);
+
+  useEffect(() => {
+    if (!accessibleRestaurants.length) {
+      setSelectedCityId(null);
+      setSelectedRestaurantId('');
+      setMenu(null);
+      setActiveCategoryId('');
+      return;
     }
-    return allRestaurants;
-  }, [allRestaurants, sourceSelection.cityId]);
+    if (
+      selectedRestaurantId &&
+      !accessibleRestaurants.some((restaurant) => restaurant.id === selectedRestaurantId)
+    ) {
+      setSelectedRestaurantId('');
+      setMenu(null);
+      setActiveCategoryId('');
+    }
+    if (selectedCityId && !accessibleCityGroups.some((city) => city.id === selectedCityId)) {
+      setSelectedCityId(null);
+    }
+  }, [accessibleRestaurants, accessibleCityGroups, selectedCityId, selectedRestaurantId]);
 
   useEffect(() => {
     if (!selectedRestaurantId) {
@@ -598,10 +657,10 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
 
   const filteredRestaurants = useMemo(() => {
     if (!selectedCityId) {
-      return allRestaurants;
+      return accessibleRestaurants;
     }
-    return allRestaurants.filter((restaurant) => restaurant.cityId === selectedCityId);
-  }, [allRestaurants, selectedCityId]);
+    return accessibleRestaurants.filter((restaurant) => restaurant.cityId === selectedCityId);
+  }, [accessibleRestaurants, selectedCityId]);
 
   const viewHeader = (
     <div className="flex items-center justify-between gap-2">
@@ -627,21 +686,30 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
   const renderCitySelection = () => (
     <div className="space-y-4">
       {viewHeader}
-      <p className="text-white/70">Выберите город, чтобы редактировать меню ресторанов.</p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {cities.map((city) => (
-          <button
-            key={city.id}
-            onClick={() => handleSelectCity(city.id)}
-            className="bg-mariko-secondary hover:bg-mariko-secondary/80 rounded-2xl p-4 text-left transition-all active:scale-95"
-          >
-            <h3 className="text-white font-el-messiri text-xl font-bold">{city.name}</h3>
-            <p className="text-white/60 text-sm mt-1">
-              {city.restaurants.length} {city.restaurants.length === 1 ? 'ресторан' : 'ресторанов'}
-            </p>
-          </button>
-        ))}
-            </div>
+      {accessibleCityGroups.length ? (
+        <>
+          <p className="text-white/70">Выберите город, чтобы редактировать меню ресторанов.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {accessibleCityGroups.map((city) => (
+              <button
+                key={city.id}
+                onClick={() => handleSelectCity(city.id)}
+                className="bg-mariko-secondary hover:bg-mariko-secondary/80 rounded-2xl p-4 text-left transition-all active:scale-95"
+              >
+                <h3 className="text-white font-el-messiri text-xl font-bold">{city.name}</h3>
+                <p className="text-white/60 text-sm mt-1">
+                  {city.restaurants.length}{' '}
+                  {city.restaurants.length === 1 ? 'ресторан' : 'ресторанов'}
+                </p>
+              </button>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="bg-mariko-secondary/60 rounded-[24px] p-8 text-center text-white/70">
+          Вам не назначены рестораны для управления меню.
+        </div>
+      )}
     </div>
   );
 

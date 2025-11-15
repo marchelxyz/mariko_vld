@@ -12,6 +12,7 @@ export interface UserProfile {
   gender: string;
   photo: string;
   notificationsEnabled: boolean;
+  telegramId?: number;
 }
 
 export interface ReviewData {
@@ -93,12 +94,13 @@ export const botApi = {
       // Конвертируем в нужный формат
       return {
         id: profile.id,
-              name: profile.name,
-      phone: profile.phone,
-      birthDate: profile.birthDate,
-      gender: profile.gender,
-      photo: profile.photo,
-      notificationsEnabled: profile.notificationsEnabled,
+        name: profile.name,
+        phone: profile.phone,
+        birthDate: profile.birthDate,
+        gender: profile.gender,
+        photo: profile.photo,
+        notificationsEnabled: profile.notificationsEnabled,
+        telegramId: profile.telegramId,
       };
     } catch (error) {
       console.error("Ошибка получения профиля:", error);
@@ -112,6 +114,7 @@ export const botApi = {
         gender: "Не указан",
         photo: "",
         notificationsEnabled: true,
+        telegramId: Number.isFinite(parseInt(telegramUserId)) ? parseInt(telegramUserId) : undefined,
       };
     }
   },

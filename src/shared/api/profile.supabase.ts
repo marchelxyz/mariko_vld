@@ -15,6 +15,13 @@ function getSupabaseRestBase(): { restUrl: string; anonKey: string } | null {
 }
 
 function mapDbToProfile(row: any): UserProfile {
+  const telegramRaw = row.telegram_id;
+  const telegramId =
+    typeof telegramRaw === "number"
+      ? telegramRaw
+      : typeof telegramRaw === "string"
+        ? Number(telegramRaw)
+        : undefined;
   return {
     id: row.id,
     name: row.name ?? "",
@@ -23,6 +30,7 @@ function mapDbToProfile(row: any): UserProfile {
     gender: row.gender ?? "Не указан",
     photo: row.photo ?? "",
     notificationsEnabled: row.notifications_enabled ?? true,
+    telegramId: Number.isFinite(telegramId) ? telegramId : undefined,
   };
 }
 
@@ -64,6 +72,7 @@ export const profileSupabaseApi = {
       gender: "Не указан",
       photo: "",
       notificationsEnabled: true,
+      telegramId: Number.isFinite(Number(userId)) ? Number(userId) : undefined,
     };
   },
 
@@ -86,6 +95,18 @@ export const profileSupabaseApi = {
     if (profile.gender !== undefined) payload.gender = profile.gender;
     if (profile.photo !== undefined) payload.photo = profile.photo;
     if (profile.notificationsEnabled !== undefined) payload.notifications_enabled = profile.notificationsEnabled;
+    if (profile.telegramId !== undefined) {
+      const value =
+        typeof profile.telegramId === "string" ? Number(profile.telegramId) : profile.telegramId;
+      if (Number.isFinite(value)) {
+        payload.telegram_id = value;
+      }
+    } else {
+      const fallbackTelegramId = Number(userId);
+      if (Number.isFinite(fallbackTelegramId)) {
+        payload.telegram_id = fallbackTelegramId;
+      }
+    }
 
     const url = `${restUrl}/user_profiles?on_conflict=id`;
     const resp = await fetch(url, {
@@ -97,5 +118,3 @@ export const profileSupabaseApi = {
     return true;
   },
 };
-
-
