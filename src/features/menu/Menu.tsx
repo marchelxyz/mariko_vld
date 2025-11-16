@@ -11,6 +11,7 @@ import { useCart } from "@/contexts/CartContext";
 import { CartDrawer } from "@/features/cart/CartDrawer";
 import { useAdmin } from "@/shared/hooks/useAdmin";
 import { isMarikoDeliveryEnabledForCity } from "@/shared/config/marikoDelivery";
+import { VirtuosoGrid } from "react-virtuoso";
 
 /**
  * Отображает меню выбранного ресторана с навигацией по категориям и карточками блюд.
@@ -290,12 +291,15 @@ const Menu = (): JSX.Element => {
         {/* Menu Items Grid */}
         <div>
           {itemsToRender.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-              {itemsToRender.map((item: MenuItem) => {
+            <VirtuosoGrid
+              data={itemsToRender}
+              listClassName="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4"
+              itemClassName="w-full"
+              overscan={200}
+              itemContent={(_index, item) => {
                 const quantity = getItemCount(item.id);
                 return (
                   <MenuItemComponent
-                    key={item.id}
                     item={item}
                     variant="default"
                     onClick={handleDishClick}
@@ -306,8 +310,8 @@ const Menu = (): JSX.Element => {
                     showAddButton={canUseCartFeatures}
                   />
                 );
-              })}
-            </div>
+              }}
+            />
           ) : (
             <div className="bg-mariko-secondary rounded-[24px] p-8 text-center">
               <p className="text-white font-el-messiri text-xl">
