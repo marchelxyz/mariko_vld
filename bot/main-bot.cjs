@@ -734,48 +734,46 @@ const bot = new TelegramBot(BOT_TOKEN, {
 
 console.log('🍴 Хачапури Марико бот запущен!');
 
-const sendInviteMessage = (chatId, message, extraOptions = {}) =>
-  bot.sendMessage(chatId, message, {
-    parse_mode: 'Markdown',
-    reply_markup: {
-      inline_keyboard: [[
-        {
-          text: '🍽️ Открыть меню ресторана',
-          web_app: {
-            url: WEBAPP_URL
-          }
-        }
-      ]]
-    },
-    ...extraOptions
-  });
-
-const sendWebAppInvite = (chatId, extraOptions = {}) =>
-  sendInviteMessage(chatId, INVITE_MESSAGE, extraOptions);
-
-const sendOnboarding = (chatId, firstName) => {
-  const onboardingMessage = [
-    `🇬🇪 Гамарджоба, ${firstName}!`,
-    "Добро пожаловать в *Хачапури Марико*.",
+const sendWelcome = (chatId, firstName) => {
+  const message = [
+    `🇬🇪 Гамарджоба, ${firstName}! Добро пожаловать в *Хачапури Марико*.`,
     "",
-    "Вместе с грузинской душой мы подготовили для вас персональный сервис прямо в Telegram.",
+    "• 📍 Найти любой наш ресторан в вашем городе",
+    "• 📋 Забронировать столик",
+    "• 🎁 Узнать об акциях"  ,
+    "• ⭐ Оставить отзыв"
+    "• 🚀 Заказать доставку (скоро)"
     "",
-    "Нажмите кнопку ниже, чтобы начать пользоваться всеми возможностями."
+    "Оставьте номер, чтобы мы быстрее подобрали под вас лучшие блюда и акции!",
+    "Нажми на «Покушать» и будь вкусно накормлен всегда!",
   ].join("\n");
 
-  return sendInviteMessage(chatId, onboardingMessage);
+  return bot.sendMessage(chatId, message, {
+    parse_mode: 'Markdown',
+    disable_web_page_preview: true,
+    reply_markup: {
+      keyboard: [
+        [
+          { text: "📞 Оставить номер", request_contact: true },
+          { text: "🍽️ Покушать", web_app: { url: WEBAPP_URL } },
+        ],
+      ],
+      resize_keyboard: true,
+      one_time_keyboard: true,
+    },
+  });
 };
 
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   const user = msg.from;
   const firstName = escapeMarkdown(user?.first_name || 'друг');
-  sendOnboarding(chatId, firstName);
+  sendWelcome(chatId, firstName);
 });
 
 bot.onText(/\/webapp/, (msg) => {
   const chatId = msg.chat.id;
-  sendWebAppInvite(chatId);
+  sendWelcome(chatId, escapeMarkdown(msg.from?.first_name || 'друг'));
 });
 
 bot.on('message', (msg) => {
@@ -786,7 +784,7 @@ bot.on('message', (msg) => {
   }
   const user = msg.from;
   const firstName = escapeMarkdown(user?.first_name || 'друг');
-  sendOnboarding(chatId, firstName);
+  sendWelcome(chatId, firstName);
 });
 
 bot.on('error', (error) => {
