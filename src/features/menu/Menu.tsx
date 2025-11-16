@@ -50,7 +50,7 @@ const Menu = (): JSX.Element => {
 
         // Fallback на статичные данные, если сервер не вернул меню
         const finalMenu =
-          loadedMenu ?? getMenuByRestaurantId(selectedRestaurant.id) ?? null;
+          loadedMenu ?? (await getMenuByRestaurantId(selectedRestaurant.id)) ?? null;
 
         setMenu(finalMenu);
 
@@ -61,7 +61,7 @@ const Menu = (): JSX.Element => {
         console.error("Ошибка загрузки меню:", error);
         if (isCancelled) return;
 
-        const staticMenu = getMenuByRestaurantId(selectedRestaurant.id) ?? null;
+        const staticMenu = (await getMenuByRestaurantId(selectedRestaurant.id)) ?? null;
         setMenu(staticMenu);
         if (staticMenu?.categories?.length) {
           setActiveCategory(staticMenu.categories[0].id);

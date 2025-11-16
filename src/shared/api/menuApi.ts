@@ -112,7 +112,7 @@ export async function fetchRestaurantMenu(restaurantId: string): Promise<Restaur
     }
   }
 
-  return getMenuByRestaurantId(restaurantId) ?? null;
+  return (await getMenuByRestaurantId(restaurantId)) ?? null;
 }
 
 export async function saveRestaurantMenu(
@@ -228,5 +228,4 @@ function readFileAsDataUrl(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
-
 
