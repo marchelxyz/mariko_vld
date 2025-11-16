@@ -11,7 +11,6 @@ import { useCart } from "@/contexts/CartContext";
 import { CartDrawer } from "@/features/cart/CartDrawer";
 import { useAdmin } from "@/shared/hooks/useAdmin";
 import { isMarikoDeliveryEnabledForCity } from "@/shared/config/marikoDelivery";
-import { VirtuosoGrid } from "react-virtuoso";
 
 /**
  * Отображает меню выбранного ресторана с навигацией по категориям и карточками блюд.
@@ -116,6 +115,53 @@ const Menu = (): JSX.Element => {
     }
   }, [visibleMenu, activeCategory]);
 
+  const handleDishClick = useCallback((dish: MenuItem) => {
+    setActiveDish((current) => (current?.id === dish.id ? null : dish));
+  }, []);
+
+  const handleCartButtonClick = useCallback(() => {
+    if (!canUseCartFeatures) {
+      return;
+    }
+    setIsCartOpen(true);
+  }, [canUseCartFeatures]);
+
+  const handleOrdersButtonClick = useCallback(() => {
+    navigate("/orders");
+  }, [navigate]);
+
+  const handleAddToCart = useCallback(
+    (dish: MenuItem) => {
+      if (!canUseCartFeatures) {
+        return;
+      }
+      addCartItem(dish);
+    },
+    [addCartItem, canUseCartFeatures],
+  );
+
+  const handleRemoveFromCart = useCallback(
+    (dish: MenuItem) => {
+      if (!canUseCartFeatures) {
+        return;
+      }
+      removeCartItem(dish.id);
+    },
+    [canUseCartFeatures, removeCartItem],
+  );
+
+  const activeCategoryId = useMemo(
+    () => activeCategory || visibleMenu?.categories?.[0]?.id || "",
+    [activeCategory, visibleMenu?.categories],
+  );
+
+  const currentCategory = useMemo(
+    () => visibleMenu?.categories?.find((category) => category.id === activeCategoryId) ?? null,
+    [activeCategoryId, visibleMenu?.categories],
+  );
+
+  const itemsToRender = useMemo(() => currentCategory?.items ?? [], [currentCategory]);
+
   // Индикатор загрузки
   if (isLoading) {
     return (
@@ -162,53 +208,6 @@ const Menu = (): JSX.Element => {
       </div>
     );
   }
-
-  const handleDishClick = useCallback((dish: MenuItem) => {
-    setActiveDish((current) => (current?.id === dish.id ? null : dish));
-  }, []);
-
-  const handleCartButtonClick = useCallback(() => {
-    if (!canUseCartFeatures) {
-      return;
-    }
-    setIsCartOpen(true);
-  }, [canUseCartFeatures]);
-
-  const handleOrdersButtonClick = useCallback(() => {
-    navigate("/orders");
-  }, [navigate]);
-
-  const handleAddToCart = useCallback(
-    (dish: MenuItem) => {
-      if (!canUseCartFeatures) {
-        return;
-      }
-      addCartItem(dish);
-    },
-    [addCartItem, canUseCartFeatures],
-  );
-
-  const handleRemoveFromCart = useCallback(
-    (dish: MenuItem) => {
-      if (!canUseCartFeatures) {
-        return;
-      }
-      removeCartItem(dish.id);
-    },
-    [canUseCartFeatures, removeCartItem],
-  );
-
-  const activeCategoryId = useMemo(
-    () => activeCategory || visibleMenu.categories[0]?.id || "",
-    [activeCategory, visibleMenu.categories],
-  );
-
-  const currentCategory = useMemo(
-    () => visibleMenu.categories.find((category) => category.id === activeCategoryId) ?? null,
-    [activeCategoryId, visibleMenu.categories],
-  );
-
-  const itemsToRender = useMemo(() => currentCategory?.items ?? [], [currentCategory]);
 
   return (
     <div className="min-h-screen bg-transparent overflow-hidden flex flex-col">
@@ -291,15 +290,12 @@ const Menu = (): JSX.Element => {
         {/* Menu Items Grid */}
         <div>
           {itemsToRender.length > 0 ? (
-            <VirtuosoGrid
-              data={itemsToRender}
-              listClassName="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4"
-              itemClassName="w-full"
-              overscan={200}
-              itemContent={(_index, item) => {
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+              {itemsToRender.map((item: MenuItem) => {
                 const quantity = getItemCount(item.id);
                 return (
                   <MenuItemComponent
+                    key={item.id}
                     item={item}
                     variant="default"
                     onClick={handleDishClick}
@@ -310,8 +306,8 @@ const Menu = (): JSX.Element => {
                     showAddButton={canUseCartFeatures}
                   />
                 );
-              }}
-            />
+              })}
+            </div>
           ) : (
             <div className="bg-mariko-secondary rounded-[24px] p-8 text-center">
               <p className="text-white font-el-messiri text-xl">
