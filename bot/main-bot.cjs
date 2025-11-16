@@ -6,6 +6,8 @@ require('dotenv').config();
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL || "https://ineedaglokk.ru";
+const PROFILE_SYNC_URL =
+  process.env.PROFILE_SYNC_URL || `${WEBAPP_URL.replace(/\/$/, "")}/api/cart/profile/sync`;
 const API_PORT = Number(process.env.API_PORT || 4000);
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -734,17 +736,43 @@ const bot = new TelegramBot(BOT_TOKEN, {
 
 console.log('🍴 Хачапури Марико бот запущен!');
 
+const syncProfilePhone = async (user, phone) => {
+  if (!user || !user.id || !phone) return;
+  const fullName =
+    [user.first_name, user.last_name].filter(Boolean).join(" ").trim() ||
+    user.username ||
+    "Пользователь";
+
+  try {
+    await fetch(PROFILE_SYNC_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Telegram-Id": user.id.toString(),
+      },
+      body: JSON.stringify({
+        id: user.id.toString(),
+        telegramId: user.id,
+        name: fullName,
+        phone,
+      }),
+    });
+  } catch (error) {
+    console.warn("Не удалось синхронизировать телефон профиля", error?.message || error);
+  }
+};
+
 const sendWelcome = (chatId, firstName) => {
   const message = [
     `🇬🇪 Гамарджоба, ${firstName}! Добро пожаловать в *Хачапури Марико*.`,
     "",
     "• 📍 Найти любой наш ресторан в вашем городе",
     "• 📋 Забронировать столик",
-    "• 🎁 Узнать об акциях"  ,
-    "• ⭐ Оставить отзыв"
-    "• 🚀 Заказать доставку (скоро)"
+    "• 🎁 Узнать об акциях",
+    "• ⭐ Оставить отзыв",
+    "• 🚀 Заказать доставку (скоро)",
     "",
-    "Оставьте номер, чтобы мы быстрее подобрали под вас лучшие блюда и акции!",
+    "Оставьте номер, чтобы мы быстрее подобрали для вас лучшие блюда и акции!",
     "Нажми на «Покушать» и будь вкусно накормлен всегда!",
   ].join("\n");
 
@@ -755,7 +783,6 @@ const sendWelcome = (chatId, firstName) => {
       keyboard: [
         [
           { text: "📞 Оставить номер", request_contact: true },
-          { text: "🍽️ Покушать", web_app: { url: WEBAPP_URL } },
         ],
       ],
       resize_keyboard: true,
@@ -778,6 +805,11 @@ bot.onText(/\/webapp/, (msg) => {
 
 bot.on('message', (msg) => {
   const chatId = msg.chat.id;
+  if (msg.contact && msg.contact.phone_number) {
+    syncProfilePhone(msg.from, msg.contact.phone_number);
+    bot.sendMessage(chatId, "Спасибо! Номер сохранили в профиле. Теперь мы будем для вас подбирать все самое лучшее!");
+    return;
+  }
   const text = msg.text;
   if (!text || text === '/start' || text === '/webapp') {
     return;
