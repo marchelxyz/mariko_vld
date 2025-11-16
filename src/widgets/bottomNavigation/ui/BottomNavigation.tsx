@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { applySafeAreaTo, setBottomBarColor, getTg } from "@/lib/telegram";
+import { applySafeAreaTo, setBottomBarColor, getTg, safeOpenLink } from "@/lib/telegram";
 import { useAdmin } from "@/shared/hooks/useAdmin";
 import { Shield } from "lucide-react";
 
@@ -85,10 +85,13 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
         isIconComponent: false,
     },
     {
-      id: "about",
-      label: "Как нас найти?",
+      id: "franchise",
+      label: "Франшиза",
       iconPath: "/images/action button/Star.png",
-      onClick: () => navigate("/about"),
+      onClick: () =>
+        safeOpenLink("https://vhachapuri.ru/franshiza", {
+          try_instant_view: true,
+        }),
         isIconComponent: false,
     },
     {

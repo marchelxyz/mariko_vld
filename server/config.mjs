@@ -44,3 +44,4 @@ export const YOOKASSA_TEST_SHOP_ID = process.env.YOOKASSA_TEST_SHOP_ID ?? null;
 export const YOOKASSA_TEST_SECRET_KEY = process.env.YOOKASSA_TEST_SECRET_KEY ?? null;
 export const YOOKASSA_TEST_CALLBACK_URL =
   process.env.YOOKASSA_TEST_CALLBACK_URL ?? "https://example.com/yookassa/webhook";
+export const TELEGRAM_WEBAPP_RETURN_URL = process.env.TELEGRAM_WEBAPP_RETURN_URL ?? null;

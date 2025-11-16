@@ -129,12 +129,8 @@ const OrderCard = ({
   const paymentStatus = (order.payment_status || "").toLowerCase();
   const paymentBadge =
     paymentStatus === "paid" || paymentStatus === "succeeded"
-      ? { label: "Оплачено", className: "bg-emerald-100 text-emerald-900" }
-      : paymentStatus === "failed" || paymentStatus === "cancelled" || paymentStatus === "canceled"
-        ? { label: "Оплата не прошла", className: "bg-red-100 text-red-900" }
-        : paymentStatus
-          ? { label: paymentStatus, className: "bg-amber-100 text-amber-900" }
-          : null;
+      ? { label: "Оплачен", className: "bg-emerald-100 text-emerald-900" }
+      : { label: "Не оплачен", className: "bg-red-100 text-red-900" };
   const orderCode = order.external_id || order.id.slice(0, 8).toUpperCase();
   const totalItems = Array.isArray(order.items)
     ? order.items.reduce((sum, item) => sum + Number(item.amount ?? 0), 0)

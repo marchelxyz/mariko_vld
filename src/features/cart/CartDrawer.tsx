@@ -1,19 +1,15 @@
-import { useState, useEffect, useCallback } from "react";
-import { X, Minus, Plus, Trash2, CreditCard } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Minus, Plus, Trash2 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useCityContext } from "@/contexts/CityContext";
 import { recalculateCart, submitCartOrder } from "@/shared/api/cart";
 import { useNavigate } from "react-router-dom";
-import { toast as sonnerToast } from "sonner";
-import { getUser, safeOpenLink } from "@/lib/telegram";
-import { createYookassaPayment, fetchPaymentStatus } from "@/shared/api/payments";
+import { getUser } from "@/lib/telegram";
 
 type CartDrawerProps = {
   isOpen: boolean;
   onClose: () => void;
 };
-
-const FINAL_PAYMENT_STATUSES = new Set(["paid", "failed", "cancelled"]);
 
 export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | null => {
   const { items, totalCount, totalPrice, removeItem, increaseItem, clearCart } = useCart();
@@ -51,86 +47,6 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   } | null>(null);
   const [calcError, setCalcError] = useState<string | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
-  const [successInfo, setSuccessInfo] = useState<{
-    orderId: string;
-    message?: string;
-    restaurantId?: string | null;
-    paymentId?: string | null;
-    paymentUrl?: string | null;
-    paymentStatus?: string | null;
-  } | null>(null);
-  const [isPaymentStarting, setIsPaymentStarting] = useState(false);
-  const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [paymentAttempted, setPaymentAttempted] = useState(false);
-  const [lastNotifiedPaymentStatus, setLastNotifiedPaymentStatus] = useState<string | null>(null);
-
-  const startPayment = async () => {
-    if (!successInfo) return;
-    if (isPaymentStarting) return;
-    if (!successInfo.restaurantId) {
-      setPaymentError("У заказа нет ресторана — оплата недоступна");
-      return;
-    }
-
-    setPaymentError(null);
-    setIsPaymentStarting(true);
-    setPaymentAttempted(true);
-    try {
-      const result = await createYookassaPayment({
-        orderId: successInfo.orderId,
-        restaurantId: successInfo.restaurantId,
-      });
-      if (!result?.success) {
-        setPaymentError(result?.message ?? "Не удалось создать оплату");
-        return;
-      }
-      setSuccessInfo((prev) =>
-        prev
-          ? {
-              ...prev,
-              paymentId: result.paymentId ?? prev.paymentId ?? null,
-              paymentUrl: result.confirmationUrl ?? prev.paymentUrl ?? null,
-              paymentStatus: result.status ?? prev.paymentStatus ?? "pending",
-            }
-          : prev,
-      );
-
-      const urlToOpen = result.confirmationUrl;
-      if (urlToOpen) {
-        const opened = safeOpenLink(urlToOpen, { try_instant_view: false });
-        if (!opened) {
-          setPaymentError("Не удалось открыть ссылку на оплату, попробуйте вручную");
-        }
-      } else {
-        setPaymentError("Ссылка на оплату не получена");
-      }
-    } catch (error: any) {
-      setPaymentError(error?.message || "Не удалось создать оплату");
-    } finally {
-      setIsPaymentStarting(false);
-    }
-  };
-
-  const pullPaymentStatus = useCallback(async () => {
-    if (!successInfo?.paymentId) return;
-    try {
-      const res = await fetchPaymentStatus(successInfo.paymentId);
-      if (res?.success && res.payment) {
-        setSuccessInfo((prev) =>
-          prev
-            ? {
-                ...prev,
-                paymentStatus: res.payment.status ?? prev.paymentStatus,
-                paymentId: res.payment.id ?? prev.paymentId,
-              }
-            : prev,
-        );
-      }
-    } catch {
-      // тихо игнорируем ошибки polling/focus
-    }
-  }, [successInfo?.paymentId]);
-
   const handleDecrease = (id: string) => {
     removeItem(id);
   };
@@ -224,19 +140,20 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
       const resolvedOrderId = response.orderId ?? `draft-${Date.now()}`;
       setLastSubmitStatus("success");
       setLastSubmitMessage(response.message ?? "Заказ отправлен, ожидайте звонка менеджера.");
-      setSuccessInfo({
-        orderId: resolvedOrderId,
-        message: response.message,
-        restaurantId: selectedRestaurant?.id ?? null,
-      });
-      setPaymentAttempted(false);
       clearCart();
       setPhoneDigits("");
       setCustomerName("");
       setDeliveryAddress("");
       setComment("");
-      // Автоматически предложим оплату после оформления
-      startPayment();
+      // Перенаправляем на отдельную страницу успеха заказа
+      navigate("/order-success", {
+        state: {
+          orderId: resolvedOrderId,
+          message: response.message,
+          restaurantId: selectedRestaurant?.id ?? null,
+        },
+      });
+      resetAndClose();
     } catch (error: any) {
       setLastSubmitStatus("error");
       setLastSubmitMessage(error?.message || "Не удалось отправить заказ");
@@ -290,77 +207,6 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
     return () => controller.abort();
   }, [isCheckoutMode, items, orderType, deliveryAddress]);
 
-  // Если заказ оформлен, ресторан известен и оплаты ещё не было — пробуем создать платеж
-  useEffect(() => {
-    if (
-      successInfo &&
-      successInfo.orderId &&
-      successInfo.restaurantId &&
-      !successInfo.paymentId &&
-      !paymentAttempted
-    ) {
-      startPayment();
-    }
-  }, [successInfo?.orderId, successInfo?.restaurantId, successInfo?.paymentId, paymentAttempted]);
-
-  // Сбрасываем уведомления при новом заказе
-  useEffect(() => {
-    setLastNotifiedPaymentStatus(null);
-  }, [successInfo?.orderId]);
-
-  // Пуллим статус платежа, если существует и не финальный
-  useEffect(() => {
-    if (!successInfo?.paymentId) {
-      return;
-    }
-    if (successInfo.paymentStatus && FINAL_PAYMENT_STATUSES.has(successInfo.paymentStatus)) {
-      return;
-    }
-    const interval = window.setInterval(() => {
-      pullPaymentStatus();
-    }, 5000);
-
-    return () => window.clearInterval(interval);
-  }, [pullPaymentStatus, successInfo?.paymentStatus]);
-
-  // Проверяем статус сразу при возврате в приложение
-  useEffect(() => {
-    if (!successInfo?.paymentId) return;
-    if (successInfo.paymentStatus && FINAL_PAYMENT_STATUSES.has(successInfo.paymentStatus)) return;
-
-    const handleFocus = () => {
-      pullPaymentStatus();
-    };
-
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleFocus);
-
-    return () => {
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleFocus);
-    };
-  }, [pullPaymentStatus, successInfo?.paymentId, successInfo?.paymentStatus]);
-
-  // Показываем уведомление о результате оплаты один раз при смене статуса
-  useEffect(() => {
-    if (!successInfo?.paymentStatus) return;
-    if (successInfo.paymentStatus === lastNotifiedPaymentStatus) return;
-    const isFinal = FINAL_PAYMENT_STATUSES.has(successInfo.paymentStatus);
-    if (!isFinal) return;
-
-    setLastNotifiedPaymentStatus(successInfo.paymentStatus);
-
-    if (successInfo.paymentStatus === "paid") {
-      sonnerToast.success("Оплачено", {
-        description: "Платёж прошёл успешно. Мы готовим заказ.",
-      });
-    } else {
-      sonnerToast.error("Оплата не прошла", {
-        description: "Можно попробовать оплатить ещё раз или выбрать другой способ.",
-      });
-    }
-  }, [lastNotifiedPaymentStatus, successInfo?.paymentStatus]);
-
   if (!isOpen) {
     return null;
   }
@@ -399,105 +245,7 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
           </div>
         </div>
 
-        {successInfo && (
-          <div className="p-6 border-t border-mariko-field space-y-4">
-            <div className="text-center space-y-2">
-              <p className="text-sm text-green-600 font-semibold">Заказ успешно отправлен</p>
-              <p className="text-2xl font-el-messiri font-bold">№ {successInfo.orderId}</p>
-              <p className="text-sm text-mariko-dark/70">
-                {successInfo.message ?? "Мы уже получили ваш заказ. Менеджер вскоре свяжется с вами."}
-              </p>
-              {successInfo.paymentStatus && (
-                <div className="flex items-center justify-center gap-2 text-xs text-mariko-dark/60">
-                  <span>Статус оплаты:</span>
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      successInfo.paymentStatus === "paid"
-                        ? "bg-green-100 text-green-800"
-                        : successInfo.paymentStatus === "failed" || successInfo.paymentStatus === "cancelled"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-amber-100 text-amber-800"
-                    }`}
-                  >
-                    {successInfo.paymentStatus === "paid"
-                      ? "Оплачено"
-                      : successInfo.paymentStatus === "failed"
-                        ? "Не оплачено"
-                        : successInfo.paymentStatus === "cancelled"
-                          ? "Отменено"
-                          : successInfo.paymentStatus}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="flex flex-col gap-3">
-              {paymentError && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
-                  {paymentError}
-                </div>
-              )}
-              {(successInfo.paymentUrl || successInfo.restaurantId) && (
-                <button
-                  type="button"
-                  className="w-full rounded-full bg-green-600 text-white py-3 font-el-messiri text-lg font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
-                  disabled={isPaymentStarting}
-                  onClick={startPayment}
-                >
-                  <CreditCard className="w-5 h-5" />
-                  Оплатить по СБП
-                </button>
-              )}
-              {successInfo.paymentUrl && (
-                <button
-                  type="button"
-                  className="w-full rounded-full border border-green-600 text-green-700 py-3 font-semibold text-center bg-white hover:bg-green-50 transition-colors"
-                  onClick={() => {
-                    const opened = safeOpenLink(successInfo.paymentUrl!, { try_instant_view: false });
-                    if (!opened) {
-                      window.location.href = successInfo.paymentUrl!;
-                    }
-                  }}
-                >
-                  Открыть ссылку оплаты
-                </button>
-              )}
-              <button
-                type="button"
-                className="w-full rounded-full bg-mariko-primary text-white py-3 font-el-messiri text-lg font-semibold"
-                onClick={() => {
-                  setSuccessInfo(null);
-                  resetAndClose();
-                  navigate("/");
-                }}
-              >
-                На главную
-              </button>
-              <button
-                type="button"
-                className="w-full rounded-full border border-mariko-primary/60 text-mariko-primary py-3 font-semibold bg-white hover:bg-mariko-field/40 transition-colors"
-                onClick={() => {
-                  setSuccessInfo(null);
-                  resetAndClose();
-                  navigate("/orders");
-                }}
-              >
-                Мои заказы
-              </button>
-              <button
-                type="button"
-                className="w-full rounded-full border border-mariko-field text-mariko-primary py-3 font-semibold hover:bg-mariko-field/30 transition-colors"
-                onClick={() => {
-                  setSuccessInfo(null);
-                  resetAndClose();
-                }}
-              >
-                Закрыть корзину
-              </button>
-            </div>
-          </div>
-        )}
-
-        {!successInfo && !isCheckoutMode && (
+        {!isCheckoutMode && (
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {items.length === 0 ? (
               <p className="text-mariko-dark/70">Корзина пуста.</p>
@@ -663,7 +411,7 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
                 disabled={!isFormValid || isSubmitting || isCalculating}
                 className="flex-1 rounded-full bg-mariko-primary text-white py-3 font-el-messiri text-lg font-semibold disabled:bg-mariko-primary/40 disabled:cursor-not-allowed"
               >
-                {isSubmitting ? "Отправляем..." : isCalculating ? "Ждём расчёт…" : "Отправить заказ"}
+                {isSubmitting ? "Отправляем..." : isCalculating ? "Ждём расчёт…" : "Оплатить заказ"}
               </button>
             </div>
             <p className="text-xs text-mariko-dark/60">

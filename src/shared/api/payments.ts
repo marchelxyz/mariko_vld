@@ -30,14 +30,13 @@ type PaymentStatusResponse = {
 };
 
 export async function createYookassaPayment(payload: CreatePaymentRequest): Promise<CreatePaymentResponse> {
-  const returnUrl = typeof window !== "undefined" ? `${window.location.origin}/#/orders` : undefined;
   const res = await fetch(`${PAYMENTS_BASE}/yookassa/create`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     // По умолчанию принудительно используем тестовый режим, чтобы не трогать боевые ключи
-    body: JSON.stringify({ mode: "test", returnUrl, ...payload }),
+    body: JSON.stringify({ mode: "test", ...payload }),
   });
   const data = (await res.json().catch(() => ({}))) as CreatePaymentResponse;
   return data;
