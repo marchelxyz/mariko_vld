@@ -40,7 +40,6 @@ const OrderSuccessPage = () => {
   const message = state.message ?? null;
 
   const [paymentId, setPaymentId] = useState<string | null>(null);
-  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
   const [isPaymentStarting, setIsPaymentStarting] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -69,7 +68,6 @@ const OrderSuccessPage = () => {
         return;
       }
       setPaymentId(result.paymentId ?? result.providerPaymentId ?? null);
-      setPaymentUrl(result.confirmationUrl ?? null);
       setPaymentStatus(result.status ?? "pending");
       if (result.confirmationUrl) {
         const opened = safeOpenLink(result.confirmationUrl, { try_instant_view: false });

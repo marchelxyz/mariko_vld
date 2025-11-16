@@ -2,7 +2,7 @@
 // Эти функции будут интегрированы с бэкендом бота
 
 import { getUser } from "@/lib/telegram";
-import { profileDB, type UserProfile as DBUserProfile, type Review } from "./database";
+import { profileDB, type Review } from "./database";
 
 export interface UserProfile {
   id: string;
@@ -44,17 +44,7 @@ export const analyzeSentiment = (rating: number, text: string): 'positive' | 'ne
     'отврат', 'омерзительно', 'гадость', 'мерзко'
   ];
   
-  const positiveWords = [
-    'отлично', 'вкусно', 'прекрасно', 'рекомендую',
-    'быстро', 'вежливый', 'свежий', 'качественно',
-    'замечательно', 'превосходно', 'великолепно', 'шикарно'
-  ];
-
-  const hasNegativeWords = negativeWords.some(word => 
-    text.toLowerCase().includes(word)
-  );
-  
-  const hasPositiveWords = positiveWords.some(word => 
+  const hasNegativeWords = negativeWords.some(word =>
     text.toLowerCase().includes(word)
   );
 
@@ -215,7 +205,7 @@ export const botApi = {
   },
 
   // Уведомление менеджера о негативном отзыве
-  async notifyManager(notification: {
+  async notifyManager(_notification: {
     type: "negative_review";
     data: {
       userName: string;
@@ -237,7 +227,7 @@ export const botApi = {
 
 
   // Получение списка ресторанов по городу
-  async getRestaurantsByCity(city?: string): Promise<any[]> {
+  async getRestaurantsByCity(_city?: string): Promise<any[]> {
     // В реальной интеграции будет запрос к базе данных ресторанов
     // с актуальной информацией о работе, меню, акциях
     // Получение ресторанов для города

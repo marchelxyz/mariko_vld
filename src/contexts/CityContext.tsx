@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
-import { type City, type Restaurant, getAvailableCitiesAsync } from "@/shared/data/cities";
+import { type City, type Restaurant } from "@/shared/data/cities";
 import { storage } from "@/lib/telegram";
 import { useCities } from "@/shared/hooks/useCities";
 import { useProfile } from "@entities/user";

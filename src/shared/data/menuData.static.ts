@@ -1,4 +1,4 @@
-import type { MenuCategory, MenuItem, RestaurantMenu } from "./menuTypes";
+import type { RestaurantMenu } from "./menuTypes";
 
 // Меню для ресторана в Жуковском
 export const zhukovskyMenu: RestaurantMenu = {

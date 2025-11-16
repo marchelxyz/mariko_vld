@@ -22,7 +22,7 @@ export const AddressCitySelector = ({
   className,
 }: AddressCitySelectorProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const { cities: availableCities, isLoading } = useCities();
+  const { cities: availableCities } = useCities();
   const {
     profile,
     loading: profileLoading,

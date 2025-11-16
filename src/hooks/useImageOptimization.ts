@@ -10,7 +10,6 @@ interface UseImageOptimizationOptions {
   src: string;
   fallback?: string;
   webpSrc?: string;
-  sizes?: string;
   loading?: 'lazy' | 'eager';
 }
 
@@ -18,7 +17,6 @@ export function useImageOptimization({
   src,
   fallback,
   webpSrc,
-  sizes,
   loading = 'lazy'
 }: UseImageOptimizationOptions) {
   const [currentSrc, setCurrentSrc] = useState<string>(src);

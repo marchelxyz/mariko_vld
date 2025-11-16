@@ -7,7 +7,7 @@ import { PageHeader } from "@widgets/pageHeader";
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { profile, loading } = useProfile();
+  const { profile } = useProfile();
   const normalizedName = (profile.name || "").trim();
   const hasCustomName = normalizedName.length > 0 && normalizedName !== "Пользователь";
   const greetingText = hasCustomName

@@ -9,16 +9,12 @@ import { adminApi } from '@/shared/api/admin';
 import { useAdmin } from '@/shared/hooks/useAdmin';
 import { Permission } from '@/shared/types/admin';
 import { isSupabaseConfigured } from '@/lib/supabase';
-import { 
-  Building2, 
-  MapPin, 
-  Eye, 
-  EyeOff, 
-  Trash2, 
-  Edit, 
-  Plus,
-  Save,
-  X
+import {
+  Building2,
+  MapPin,
+  Eye,
+  EyeOff,
+  Trash2,
 } from 'lucide-react';
 import {
   Button,
@@ -46,7 +42,7 @@ export function CitiesManagement(): JSX.Element {
   const [searchQuery, setSearchQuery] = useState('');
   const [cityToDelete, setCityToDelete] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [useSupabase, setUseSupabase] = useState(isSupabaseConfigured());
+  const useSupabase = isSupabaseConfigured();
 
   // Права доступа
   const canManage = hasPermission(Permission.MANAGE_CITIES);

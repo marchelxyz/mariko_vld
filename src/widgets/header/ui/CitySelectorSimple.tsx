@@ -2,7 +2,7 @@ import { useState } from "react";
 import { MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-import { type City, type Restaurant } from "@/shared/data/cities";
+import { type City } from "@/shared/data/cities";
 import { useCities } from "@/shared/hooks/useCities";
 
 interface CitySelectorSimpleProps {

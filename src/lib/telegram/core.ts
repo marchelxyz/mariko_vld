@@ -53,9 +53,6 @@ const memoryStorage = new Map<string, string>();
 
 const noop = () => {};
 
-const capitalise = (value: SafeAreaSide) =>
-  value.charAt(0).toUpperCase() + value.slice(1) as "Top" | "Right" | "Bottom" | "Left";
-
 /**
  * Returns the Telegram WebApp instance if available.
  */
@@ -683,11 +680,11 @@ export const storage = {
               if (keys?.length && storage.removeItems) {
                 await storage.removeItems(keys);
               } else if (keys?.length) {
-                await Promise.all(keys.map((key) => storage.removeItem(key)));
+                await Promise.all(keys.map((key: string) => storage.removeItem(key)));
               }
               continue;
             }
-            await Promise.all(existingKeys.map((key) => storage.removeItem(key)));
+            await Promise.all(existingKeys.map((key: string) => storage.removeItem(key)));
           } catch (error) {
             console.warn("[telegram] storage clear failed", error);
           }
