@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { safeOpenLink, storage } from "@/lib/telegram";
 import { Header } from "@widgets/header";
 import { QuickActionButton, ServiceCard, MenuItemComponent } from "@shared/ui";
@@ -15,6 +15,7 @@ const Index = () => {
   const navigate = useNavigate();
   const { selectedRestaurant, selectedCity } = useCityContext();
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
+  const [recommended, setRecommended] = useState<MenuItem[]>([]);
 
   // 🔧 ВРЕМЕННОЕ СКРЫТИЕ: измените на true чтобы показать раздел "Рекомендуем попробовать"
   const showRecommendedSection = false;
@@ -45,16 +46,29 @@ const Index = () => {
   };
 
   // Random recommended menu items
-  const randomRecommended: MenuItem[] = (() => {
-    const menu = getMenuByRestaurantId(selectedRestaurant.id);
-    if (!menu) return [];
-    const allItems: MenuItem[] = menu.categories.flatMap((c: MenuCategory) => c.items);
-    const recommended = allItems.filter((i) => i.isRecommended);
-    if (recommended.length === 0) return [];
-    const shuffled = recommended.sort(() => 0.5 - Math.random());
-    // Показываем 4 блюда на больших экранах, 2 на маленьких
-    return shuffled.slice(0, 4);
-  })();
+  useEffect(() => {
+    let cancelled = false;
+    if (!showRecommendedSection || !selectedRestaurant?.id) {
+      setRecommended([]);
+      return;
+    }
+
+    getMenuByRestaurantId(selectedRestaurant.id).then((menu) => {
+      if (cancelled) return;
+      if (!menu) {
+        setRecommended([]);
+        return;
+      }
+      const allItems: MenuItem[] = menu.categories.flatMap((c: MenuCategory) => c.items);
+      const recommendedItems = allItems.filter((i) => i.isRecommended);
+      const shuffled = recommendedItems.sort(() => 0.5 - Math.random());
+      setRecommended(shuffled.slice(0, 4));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRestaurant?.id, showRecommendedSection]);
 
   return (
     <div className="min-h-screen overflow-hidden flex flex-col bg-transparent">
@@ -172,7 +186,7 @@ const Index = () => {
                 {/* Random recommended menu items grid */}
                 {/* Компактная сетка 2x2 на мобильных, адаптивная на больших экранах */}
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
-                  {randomRecommended.map((item) => (
+                  {recommended.map((item) => (
                     <div key={item.id}>
                       {/* Мобильный вариант для экранов < 768px */}
                       <div className="block md:hidden">
