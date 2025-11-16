@@ -6,7 +6,7 @@ import { QuickActionButton, ServiceCard, MenuItemComponent } from "@shared/ui";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { useCityContext } from "@/contexts/CityContext";
 import { RESTAURANT_REVIEW_LINKS } from "@/shared/data/reviewLinks";
-import { CalendarDays, Truck, Star as StarIcon, RussianRuble, ChevronDown } from "lucide-react";
+import { CalendarDays, Truck, Star as StarIcon, RussianRuble, ChevronDown, MapPin } from "lucide-react";
 import { getMenuByRestaurantId, MenuItem, MenuCategory } from "@/shared/data/menuData";
 import { toast } from "@/hooks/use-toast";
 
@@ -96,13 +96,9 @@ const Index = () => {
             />
 
             <QuickActionButton
-              icon={<RussianRuble className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
-              title="Франшиза"
-              onClick={() =>
-                safeOpenLink('https://vhachapuri.ru/franshiza', {
-                  try_instant_view: true,
-                })
-              }
+              icon={<MapPin className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
+              title="Как нас найти?"
+              onClick={() => navigate("/about")}
             />
           </div>
 

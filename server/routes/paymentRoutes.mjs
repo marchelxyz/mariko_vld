@@ -14,6 +14,7 @@ import {
   YOOKASSA_TEST_SHOP_ID,
   YOOKASSA_TEST_SECRET_KEY,
   YOOKASSA_TEST_CALLBACK_URL,
+  TELEGRAM_WEBAPP_RETURN_URL,
 } from "../config.mjs";
 import { fetchRestaurantIntegrationConfig, enqueueIikoOrder } from "../services/integrationService.mjs";
 
@@ -24,7 +25,7 @@ const FINAL_PAYMENT_STATUSES = new Set(["paid", "succeeded", "failed", "cancelle
 router.post("/yookassa/create", async (req, res) => {
   if (!ensureSupabase(res)) return;
 
-  const { orderId, restaurantId: restaurantIdBody, returnUrl, mode: rawMode } = req.body ?? {};
+  const { orderId, restaurantId: restaurantIdBody, returnUrl: returnUrlFromBody, mode: rawMode } = req.body ?? {};
   const mode = typeof rawMode === "string" ? rawMode.toLowerCase() : "test";
   const useTest = mode !== "prod" && mode !== "real";
 
@@ -84,13 +85,16 @@ router.post("/yookassa/create", async (req, res) => {
       metadata: { mode: useTest ? "test" : "prod" },
     });
 
+    const resolvedReturnUrl =
+      TELEGRAM_WEBAPP_RETURN_URL || returnUrlFromBody || "https://ineedaglokk.ru/#/orders";
+
     const ykResponse = await createSbpPayment({
       shopId: paymentConfig.shop_id,
       secretKey: paymentConfig.secret_key,
       amount,
       currency: "RUB",
       description: paymentRecord.description,
-      returnUrl: returnUrl ?? null,
+      returnUrl: resolvedReturnUrl,
       callbackUrl: paymentConfig.callback_url ?? null,
       metadata: {
         orderId: order.id,
