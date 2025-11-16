@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ArrowLeft, Star, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { safeOpenLink, storage } from "@/lib/telegram";
@@ -71,7 +71,6 @@ const Review = () => {
           photo: "",
 
           notificationsEnabled: true,
-          selectedRestaurant: "",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           lastLogin: new Date().toISOString(),
@@ -118,16 +117,6 @@ const Review = () => {
       alert("Ошибка при отправке отзыва. Попробуйте еще раз.");
       setIsSubmitted(false);
     }
-  };
-
-  const containsNegativeWords = (text: string) => {
-    const negativeWords = [
-      "плохо", "ужас", "отвратительно", "кошмар", 
-      "никому не советую", "отвратительный", "плохой"
-    ];
-    return negativeWords.some(word => 
-      text.toLowerCase().includes(word)
-    );
   };
 
   const handleExternalReview = (platform: string) => {

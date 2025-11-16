@@ -134,7 +134,7 @@ const About = () => {
                     <div className="mb-4 max-w-2xl">
                       <InteractiveLink
                         icon={MapPin}
-                        label={contact.addressLabel}
+                        label={contact.addressLabel ?? contact.restaurantName}
                         href={contact.addressUrl as string}
                         description="Открыть на карте"
                       />
@@ -146,7 +146,7 @@ const About = () => {
                     <div className="max-w-2xl">
                       <InteractiveLink
                         icon={Car}
-                        label={contact.parkingLabel}
+                        label={contact.parkingLabel ?? "Парковка"}
                         href={contact.parkingUrl as string}
                         description="Посмотреть парковку"
                       />
@@ -207,7 +207,7 @@ const About = () => {
                     <div className="mb-4 w-full">
                       <InteractiveLink
                         icon={MapPin}
-                        label={contact.addressLabel}
+                        label={contact.addressLabel ?? contact.restaurantName}
                         href={contact.addressUrl as string}
                         description="Открыть на карте"
                       />
@@ -219,7 +219,7 @@ const About = () => {
                     <div className="mb-6 w-full">
                       <InteractiveLink
                         icon={Car}
-                        label={contact.parkingLabel}
+                        label={contact.parkingLabel ?? "Парковка"}
                         href={contact.parkingUrl as string}
                         description="Посмотреть парковку"
                       />

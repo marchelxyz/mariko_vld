@@ -126,7 +126,7 @@ const OrderCard = ({
 }) => {
   const normalizedStatus = normalizeStatus(order.status);
   const statusPreset = STATUS_PRESET[normalizedStatus] ?? STATUS_PRESET.processing;
-  const paymentStatus = (order.payment_status || "").toLowerCase();
+  const paymentStatus = ((order as { payment_status?: string }).payment_status || "").toLowerCase();
   const paymentBadge =
     paymentStatus === "paid" || paymentStatus === "succeeded"
       ? { label: "Оплачен", className: "bg-emerald-100 text-emerald-900" }

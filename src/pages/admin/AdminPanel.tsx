@@ -43,7 +43,7 @@ const SectionLoader = () => (
  */
 export default function AdminPanel(): JSX.Element {
   const navigate = useNavigate();
-  const { isAdmin, isLoading, userRole, userId, isSuperAdmin } = useAdmin();
+  const { isAdmin, isLoading, userRole, isSuperAdmin } = useAdmin();
   const [activeSection, setActiveSection] = useState<AdminSection>(null);
 
   // Проверка прав доступа

@@ -174,23 +174,6 @@ class ProfileDatabase {
     // Созданы тестовые отзывы для демонстрации функциональности
   }
 
-  private initCleanup(): void {
-    try {
-      // Проверяем, когда последний раз была очистка
-      const lastCleanup = storage.getItem("mariko_last_cleanup");
-      const now = Date.now();
-      const dayAgo = now - 24 * 60 * 60 * 1000; // 24 часа
-
-      if (!lastCleanup || parseInt(lastCleanup) < dayAgo) {
-        // Выполняем автоматическую очистку базы данных
-        this.cleanupOldData();
-        storage.setItem("mariko_last_cleanup", now.toString());
-      }
-    } catch (error) {
-      console.error("Ошибка инициализации очистки:", error);
-    }
-  }
-
   // Получить все профили (для админ панели)
   getAllProfiles(): UserProfile[] {
     return this.safeLocalStorageOperation(
@@ -846,13 +829,6 @@ class ProfileDatabase {
     const random = Math.random().toString(36).substr(2, 9);
     const counter = this.getAllProfiles().length;
     return `user_${timestamp}_${counter}_${random}`;
-  }
-
-  // 🔧 ИСПРАВЛЕНИЕ: Безопасная генерация ID для анонимных пользователей
-  private generateAnonymousId(): string {
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substr(2, 9);
-    return `anonymous_${timestamp}_${random}`;
   }
 
   // Проверка размера локального хранилища

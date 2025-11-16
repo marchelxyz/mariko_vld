@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, MapPin, Car, Star, Search } from "lucide-react";
+import { ArrowLeft, MapPin, Search } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { safeOpenLink, storage } from "@/lib/telegram";
 import { Header } from "@widgets/header";
@@ -27,7 +27,7 @@ const Restaurants = () => {
   const { id: restaurantId } = useParams();
   const [searchQuery, setSearchQuery] = useState("");
   const { selectedCity, setSelectedCity } = useCityContext();
-  const { cities: availableCities, isLoading } = useCities();
+  const { cities: availableCities } = useCities();
 
   // Получаем все рестораны из всех городов для поиска
   const allRestaurants: Restaurant[] = availableCities.flatMap((city) =>
@@ -265,7 +265,7 @@ const Restaurants = () => {
     const cityMapId = getCityMapId(city);
 
     // Попробуем получить примерные координаты для некоторых новых городов
-    const getApproximateCoordinates = (restaurantId: string, address: string) => {
+    const getApproximateCoordinates = (restaurantId: string) => {
       const coordMap: { [key: string]: string } = {
         "zhukovsky-myasishcheva": "38.10658,55.60065",
         "odintsovo-mozhayskoe": "37.22472,55.68028", 
@@ -280,7 +280,7 @@ const Restaurants = () => {
       return coordMap[restaurantId] || null;
     };
 
-    const coordinates = getApproximateCoordinates(restaurantId, address);
+    const coordinates = getApproximateCoordinates(restaurantId);
 
     if (coordinates) {
       // Если есть координаты, используем их для более точного поиска парковок

@@ -25,16 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Button,
-  Checkbox,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Switch,
-  Textarea,
 } from '@shared/ui';
 import type { EditableMenuItem, CopyContext, CopySourceSelection } from './model/types';
 import { EditCategoryModal } from './ui/EditCategoryModal';

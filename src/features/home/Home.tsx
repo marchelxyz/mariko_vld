@@ -6,7 +6,7 @@ import { QuickActionButton, ServiceCard, MenuItemComponent } from "@shared/ui";
 import { BottomNavigation } from "@widgets/bottomNavigation";
 import { useCityContext } from "@/contexts/CityContext";
 import { RESTAURANT_REVIEW_LINKS } from "@/shared/data/reviewLinks";
-import { CalendarDays, Truck, Star as StarIcon, RussianRuble, ChevronDown, MapPin } from "lucide-react";
+import { CalendarDays, Truck, Star as StarIcon, ChevronDown, MapPin } from "lucide-react";
 import { getMenuByRestaurantId, MenuItem, MenuCategory } from "@/shared/data/menuData";
 import { toast } from "@/hooks/use-toast";
 
