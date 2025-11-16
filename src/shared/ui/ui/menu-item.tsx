@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Badge } from "./badge";
 import { Minus, Plus } from "lucide-react";
 import type { MenuItem } from "@/shared/data/menuData";
@@ -13,7 +14,7 @@ interface MenuItemProps {
   variant?: 'default' | 'compact' | 'mobile'; // добавляем мобильный вариант
 }
 
-export function MenuItemComponent({
+function MenuItemComponentBase({
   item,
   onClick,
   onAdd,
@@ -201,4 +202,17 @@ export function MenuItemComponent({
       </div>
     </div>
   );
-} 
+}
+
+export const MenuItemComponent = memo(
+  MenuItemComponentBase,
+  (prev, next) =>
+    prev.item === next.item &&
+    prev.quantity === next.quantity &&
+    prev.showAddButton === next.showAddButton &&
+    prev.variant === next.variant &&
+    prev.onAdd === next.onAdd &&
+    prev.onIncrease === next.onIncrease &&
+    prev.onDecrease === next.onDecrease &&
+    prev.onClick === next.onClick,
+);

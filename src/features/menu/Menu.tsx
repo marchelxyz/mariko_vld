@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ShoppingBag, ListOrdered } from "lucide-react";
 import { Header } from "@widgets/header";
@@ -162,40 +162,52 @@ const Menu = (): JSX.Element => {
     );
   }
 
-  const handleDishClick = (dish: MenuItem) => {
-    if (activeDish && activeDish.id === dish.id) {
-      setActiveDish(null);
-    } else {
-      setActiveDish(dish);
-    }
-  };
+  const handleDishClick = useCallback((dish: MenuItem) => {
+    setActiveDish((current) => (current?.id === dish.id ? null : dish));
+  }, []);
 
-  const handleCartButtonClick = () => {
+  const handleCartButtonClick = useCallback(() => {
     if (!canUseCartFeatures) {
       return;
     }
     setIsCartOpen(true);
-  };
-  const handleOrdersButtonClick = () => {
-    navigate("/orders");
-  };
-  const handleAddToCart = (dish: MenuItem) => {
-    if (!canUseCartFeatures) {
-      return;
-    }
-    addCartItem(dish);
-  };
-  const handleRemoveFromCart = (dishId: string) => {
-    if (!canUseCartFeatures) {
-      return;
-    }
-    removeCartItem(dishId);
-  };
+  }, [canUseCartFeatures]);
 
-  const activeCategoryId = activeCategory || visibleMenu.categories[0]?.id || "";
-  const currentCategory =
-    visibleMenu.categories.find((category) => category.id === activeCategoryId) ?? null;
-  const itemsToRender = currentCategory?.items ?? [];
+  const handleOrdersButtonClick = useCallback(() => {
+    navigate("/orders");
+  }, [navigate]);
+
+  const handleAddToCart = useCallback(
+    (dish: MenuItem) => {
+      if (!canUseCartFeatures) {
+        return;
+      }
+      addCartItem(dish);
+    },
+    [addCartItem, canUseCartFeatures],
+  );
+
+  const handleRemoveFromCart = useCallback(
+    (dish: MenuItem) => {
+      if (!canUseCartFeatures) {
+        return;
+      }
+      removeCartItem(dish.id);
+    },
+    [canUseCartFeatures, removeCartItem],
+  );
+
+  const activeCategoryId = useMemo(
+    () => activeCategory || visibleMenu.categories[0]?.id || "",
+    [activeCategory, visibleMenu.categories],
+  );
+
+  const currentCategory = useMemo(
+    () => visibleMenu.categories.find((category) => category.id === activeCategoryId) ?? null,
+    [activeCategoryId, visibleMenu.categories],
+  );
+
+  const itemsToRender = useMemo(() => currentCategory?.items ?? [], [currentCategory]);
 
   return (
     <div className="min-h-screen bg-transparent overflow-hidden flex flex-col">
@@ -286,10 +298,10 @@ const Menu = (): JSX.Element => {
                     key={item.id}
                     item={item}
                     variant="default"
-                    onClick={() => handleDishClick(item)}
-                    onAdd={() => handleAddToCart(item)}
-                    onIncrease={() => handleAddToCart(item)}
-                    onDecrease={() => handleRemoveFromCart(item.id)}
+                    onClick={handleDishClick}
+                    onAdd={handleAddToCart}
+                    onIncrease={handleAddToCart}
+                    onDecrease={handleRemoveFromCart}
                     quantity={quantity}
                     showAddButton={canUseCartFeatures}
                   />
