@@ -33,7 +33,7 @@ npm run dev
 # Сборка для продакшена
 npm run build
 
-# Проверка типов
+# Проверка типов отдельно
 npm run typecheck
 ```
 
