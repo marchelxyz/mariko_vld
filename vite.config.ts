@@ -53,7 +53,6 @@ export default defineConfig(({ mode }) => ({
           utils: ["class-variance-authority", "clsx", "tailwind-merge"],
           animations: ["framer-motion"],
           charts: ["recharts"],
-          date: ["date-fns"],
         },
         // Оптимизация имен файлов
         entryFileNames: "assets/[name]-[hash].js",
@@ -61,6 +60,7 @@ export default defineConfig(({ mode }) => ({
         assetFileNames: "assets/[name]-[hash].[ext]",
       },
     },
+    chunkSizeWarningLimit: 900,
   },
   optimizeDeps: {
     include: [
