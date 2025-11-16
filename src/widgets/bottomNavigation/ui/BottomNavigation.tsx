@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { applySafeAreaTo, setBottomBarColor, getTg, safeOpenLink } from "@/lib/telegram";
+import { applySafeAreaTo, getTg, safeOpenLink, loadTelegramUI } from "@/lib/telegram";
 import { useAdmin } from "@/shared/hooks/useAdmin";
 import { Shield } from "lucide-react";
 
@@ -24,17 +24,27 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
     const element = containerRef.current;
     const cleanupSafeArea = applySafeAreaTo(element, { property: "padding", sides: ["bottom"] });
     const previousColor = getTg()?.bottomBarColor;
-    const colorApplied = setBottomBarColor("#0b0b0f", true);
+    let restoreColor: (() => void) | null = null;
+    let cancelled = false;
+
+    loadTelegramUI()
+      .then(({ setBottomBarColor }) => {
+        if (cancelled) return;
+        const colorApplied = setBottomBarColor("#0b0b0f", true);
+        if (colorApplied) {
+          restoreColor = () => {
+            setBottomBarColor(previousColor ?? "#000000", false);
+          };
+        }
+      })
+      .catch((error) => {
+        console.warn("[telegram] failed to load UI helpers", error);
+      });
 
     return () => {
       cleanupSafeArea();
-      if (colorApplied) {
-        if (previousColor) {
-          setBottomBarColor(previousColor, false);
-        } else {
-          setBottomBarColor("#000000", false);
-        }
-      }
+      cancelled = true;
+      restoreColor?.();
     };
   }, []);
 
