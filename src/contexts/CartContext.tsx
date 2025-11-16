@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { MenuItem } from "@/shared/data/menuData";
 
 export type CartItem = {
@@ -23,8 +23,61 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
 
+const CART_STORAGE_KEY = "mariko_cart_v1";
+
+const loadCartFromStorage = (): CartItem[] => {
+  if (typeof window === "undefined") {
+    return [];
+  }
+  try {
+    const raw =
+      window.sessionStorage?.getItem(CART_STORAGE_KEY) ??
+      window.localStorage?.getItem(CART_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter(
+      (item): item is CartItem =>
+        item &&
+        typeof item.id === "string" &&
+        typeof item.name === "string" &&
+        typeof item.price === "number" &&
+        typeof item.amount === "number",
+    );
+  } catch (error) {
+    console.warn("[cart] failed to load cart from storage", error);
+    return [];
+  }
+};
+
+const saveCartToStorage = (items: CartItem[]) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    const payload = JSON.stringify(items);
+    // sessionStorage предпочтительнее, но если недоступно — fallback в localStorage
+    try {
+      window.sessionStorage?.setItem(CART_STORAGE_KEY, payload);
+    } catch {
+      window.localStorage?.setItem(CART_STORAGE_KEY, payload);
+    }
+  } catch (error) {
+    console.warn("[cart] failed to save cart to storage", error);
+  }
+};
+
 export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element => {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>(() => loadCartFromStorage());
+
+  // Cинхронизируем корзину с браузерным хранилищем при любых изменениях
+  useEffect(() => {
+    saveCartToStorage(items);
+  }, [items]);
 
   const addItem = useCallback((item: MenuItem) => {
     setItems((prev) => {

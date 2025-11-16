@@ -51,8 +51,6 @@ export default defineConfig(({ mode }) => ({
           icons: ["lucide-react"],
           forms: ["react-hook-form", "@hookform/resolvers", "zod"],
           utils: ["class-variance-authority", "clsx", "tailwind-merge"],
-          animations: ["framer-motion"],
-          charts: ["recharts"],
         },
         // Оптимизация имен файлов
         entryFileNames: "assets/[name]-[hash].js",
