@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { X, Minus, Plus, Trash2, CreditCard } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useCityContext } from "@/contexts/CityContext";
 import { recalculateCart, submitCartOrder } from "@/shared/api/cart";
 import { useNavigate } from "react-router-dom";
+import { toast as sonnerToast } from "sonner";
 import { getUser, safeOpenLink } from "@/lib/telegram";
 import { createYookassaPayment, fetchPaymentStatus } from "@/shared/api/payments";
 
@@ -11,6 +12,8 @@ type CartDrawerProps = {
   isOpen: boolean;
   onClose: () => void;
 };
+
+const FINAL_PAYMENT_STATUSES = new Set(["paid", "failed", "cancelled"]);
 
 export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | null => {
   const { items, totalCount, totalPrice, removeItem, increaseItem, clearCart } = useCart();
@@ -59,7 +62,7 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   const [isPaymentStarting, setIsPaymentStarting] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentAttempted, setPaymentAttempted] = useState(false);
-  const FINAL_PAYMENT_STATUSES = new Set(["paid", "failed", "cancelled"]);
+  const [lastNotifiedPaymentStatus, setLastNotifiedPaymentStatus] = useState<string | null>(null);
 
   const startPayment = async () => {
     if (!successInfo) return;
@@ -107,6 +110,26 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
       setIsPaymentStarting(false);
     }
   };
+
+  const pullPaymentStatus = useCallback(async () => {
+    if (!successInfo?.paymentId) return;
+    try {
+      const res = await fetchPaymentStatus(successInfo.paymentId);
+      if (res?.success && res.payment) {
+        setSuccessInfo((prev) =>
+          prev
+            ? {
+                ...prev,
+                paymentStatus: res.payment.status ?? prev.paymentStatus,
+                paymentId: res.payment.id ?? prev.paymentId,
+              }
+            : prev,
+        );
+      }
+    } catch {
+      // тихо игнорируем ошибки polling/focus
+    }
+  }, [successInfo?.paymentId]);
 
   const handleDecrease = (id: string) => {
     removeItem(id);
@@ -280,6 +303,11 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
     }
   }, [successInfo?.orderId, successInfo?.restaurantId, successInfo?.paymentId, paymentAttempted]);
 
+  // Сбрасываем уведомления при новом заказе
+  useEffect(() => {
+    setLastNotifiedPaymentStatus(null);
+  }, [successInfo?.orderId]);
+
   // Пуллим статус платежа, если существует и не финальный
   useEffect(() => {
     if (!successInfo?.paymentId) {
@@ -289,25 +317,49 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
       return;
     }
     const interval = window.setInterval(() => {
-      fetchPaymentStatus(successInfo.paymentId!)
-        .then((res) => {
-          if (res?.success && res.payment) {
-            setSuccessInfo((prev) =>
-              prev
-                ? {
-                    ...prev,
-                    paymentStatus: res.payment.status ?? prev.paymentStatus,
-                    paymentId: res.payment.id ?? prev.paymentId,
-                  }
-                : prev,
-            );
-          }
-        })
-        .catch(() => {});
+      pullPaymentStatus();
     }, 5000);
 
     return () => window.clearInterval(interval);
-  }, [successInfo?.paymentId, successInfo?.paymentStatus]);
+  }, [pullPaymentStatus, successInfo?.paymentStatus]);
+
+  // Проверяем статус сразу при возврате в приложение
+  useEffect(() => {
+    if (!successInfo?.paymentId) return;
+    if (successInfo.paymentStatus && FINAL_PAYMENT_STATUSES.has(successInfo.paymentStatus)) return;
+
+    const handleFocus = () => {
+      pullPaymentStatus();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleFocus);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleFocus);
+    };
+  }, [pullPaymentStatus, successInfo?.paymentId, successInfo?.paymentStatus]);
+
+  // Показываем уведомление о результате оплаты один раз при смене статуса
+  useEffect(() => {
+    if (!successInfo?.paymentStatus) return;
+    if (successInfo.paymentStatus === lastNotifiedPaymentStatus) return;
+    const isFinal = FINAL_PAYMENT_STATUSES.has(successInfo.paymentStatus);
+    if (!isFinal) return;
+
+    setLastNotifiedPaymentStatus(successInfo.paymentStatus);
+
+    if (successInfo.paymentStatus === "paid") {
+      sonnerToast.success("Оплачено", {
+        description: "Платёж прошёл успешно. Мы готовим заказ.",
+      });
+    } else {
+      sonnerToast.error("Оплата не прошла", {
+        description: "Можно попробовать оплатить ещё раз или выбрать другой способ.",
+      });
+    }
+  }, [lastNotifiedPaymentStatus, successInfo?.paymentStatus]);
 
   if (!isOpen) {
     return null;
@@ -356,9 +408,26 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
                 {successInfo.message ?? "Мы уже получили ваш заказ. Менеджер вскоре свяжется с вами."}
               </p>
               {successInfo.paymentStatus && (
-                <p className="text-xs text-mariko-dark/60">
-                  Статус оплаты: <span className="font-semibold">{successInfo.paymentStatus}</span>
-                </p>
+                <div className="flex items-center justify-center gap-2 text-xs text-mariko-dark/60">
+                  <span>Статус оплаты:</span>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      successInfo.paymentStatus === "paid"
+                        ? "bg-green-100 text-green-800"
+                        : successInfo.paymentStatus === "failed" || successInfo.paymentStatus === "cancelled"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-amber-100 text-amber-800"
+                    }`}
+                  >
+                    {successInfo.paymentStatus === "paid"
+                      ? "Оплачено"
+                      : successInfo.paymentStatus === "failed"
+                        ? "Не оплачено"
+                        : successInfo.paymentStatus === "cancelled"
+                          ? "Отменено"
+                          : successInfo.paymentStatus}
+                  </span>
+                </div>
               )}
             </div>
             <div className="flex flex-col gap-3">

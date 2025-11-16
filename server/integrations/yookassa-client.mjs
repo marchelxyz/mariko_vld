@@ -27,7 +27,8 @@ export async function createSbpPayment({
     description: description ?? undefined,
     confirmation: {
       type: "redirect",
-      return_url: returnUrl || callbackUrl || "https://ineedaglokk.ru",
+      // return_url нужен для UI возврата; если не передали — ведём в приложение
+      return_url: returnUrl || "https://ineedaglokk.ru/#/orders",
     },
     capture: true,
     metadata: {
@@ -110,3 +111,25 @@ export async function createSbpPayment({
     };
   }
 }
+
+/**
+ * Получить платёж по id из ЮKassa (для синхронизации статусов).
+ */
+export async function fetchYookassaPayment({ shopId, secretKey, paymentId }) {
+  if (!shopId || !secretKey) {
+    throw new Error("YuKassa credentials are missing");
+  }
+  const auth = Buffer.from(`${shopId}:${secretKey}`).toString("base64");
+  const response = await fetch(`https://api.yookassa.ru/v3/payments/${paymentId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Basic ${auth}`,
+    },
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`YuKassa fetch failed: ${text || response.status}`);
+  }
+  return response.json();
+}
+

@@ -8,7 +8,7 @@ import {
   findPaymentById,
   findPaymentByProviderPaymentId,
 } from "../services/paymentService.mjs";
-import { createSbpPayment } from "../integrations/yookassa-client.mjs";
+import { createSbpPayment, fetchYookassaPayment } from "../integrations/yookassa-client.mjs";
 import {
   CART_ORDERS_TABLE,
   YOOKASSA_TEST_SHOP_ID,
@@ -18,6 +18,7 @@ import {
 import { fetchRestaurantIntegrationConfig, enqueueIikoOrder } from "../services/integrationService.mjs";
 
 const router = express.Router();
+const FINAL_PAYMENT_STATUSES = new Set(["paid", "succeeded", "failed", "cancelled", "canceled"]);
 
 // Создание платежа ЮKassa (СБП)
 router.post("/yookassa/create", async (req, res) => {
@@ -198,6 +199,48 @@ router.get("/:paymentId", async (req, res) => {
     if (!payment) {
       return res.status(404).json({ success: false, message: "Платеж не найден" });
     }
+
+    // если статус не финальный — пробуем синхронизироваться с ЮKassa
+    const statusLower = (payment.status || "").toLowerCase();
+    const isFinal = FINAL_PAYMENT_STATUSES.has(statusLower);
+
+    if (!isFinal && payment.provider_payment_id) {
+      try {
+        const shopId = YOOKASSA_TEST_SHOP_ID;
+        const secretKey = YOOKASSA_TEST_SECRET_KEY;
+        if (shopId && secretKey) {
+          const remote = await fetchYookassaPayment({
+            shopId,
+            secretKey,
+            paymentId: payment.provider_payment_id,
+          });
+          const remoteStatus = remote?.status;
+          if (remoteStatus && remoteStatus !== payment.status) {
+            await updatePaymentStatus(payment.id, remoteStatus, {
+              providerPaymentId: remote.id,
+              metadata: { synced: true, raw: remote },
+            });
+            const refreshed = await findPaymentById(paymentId);
+            if (refreshed) {
+              if (refreshed.order_id) {
+                await supabase
+                  .from(CART_ORDERS_TABLE)
+                  .update({
+                    payment_id: refreshed.id,
+                    payment_status: refreshed.status,
+                    payment_provider: refreshed.provider_code,
+                  })
+                  .eq("id", refreshed.order_id);
+              }
+              return res.json({ success: true, payment: refreshed, synced: true, source: "yookassa" });
+            }
+          }
+        }
+      } catch (error) {
+        console.warn("YuKassa sync failed", error);
+      }
+    }
+
     return res.json({ success: true, payment });
   } catch (error) {
     console.error("Ошибка получения платежа:", error);

@@ -11,10 +11,10 @@ function normalizeBaseUrl(base: string | undefined): string {
 
 import { getCartApiBaseUrl } from "../cart/cartApi";
 
-const rawServerBase = import.meta.env.VITE_SERVER_API_URL;
-const customBase = normalizeBaseUrl(rawServerBase || "");
+const rawAdminBase = import.meta.env.VITE_ADMIN_API_URL;
 const cartBase = normalizeBaseUrl(`${getCartApiBaseUrl()}/cart`);
-const ADMIN_API_BASE = `${customBase || cartBase}/admin`;
+// Админка всегда идёт на cart-server (4010) — не используем общий SERVER_API, чтобы не улетать на старый бэкенд.
+const ADMIN_API_BASE = normalizeBaseUrl(rawAdminBase || cartBase) + "/admin";
 const DEV_ADMIN_TELEGRAM_ID = import.meta.env.VITE_DEV_ADMIN_TELEGRAM_ID;
 const DEV_ADMIN_TOKEN = import.meta.env.VITE_DEV_ADMIN_TOKEN;
 

@@ -126,6 +126,15 @@ const OrderCard = ({
 }) => {
   const normalizedStatus = normalizeStatus(order.status);
   const statusPreset = STATUS_PRESET[normalizedStatus] ?? STATUS_PRESET.processing;
+  const paymentStatus = (order.payment_status || "").toLowerCase();
+  const paymentBadge =
+    paymentStatus === "paid" || paymentStatus === "succeeded"
+      ? { label: "Оплачено", className: "bg-emerald-100 text-emerald-900" }
+      : paymentStatus === "failed" || paymentStatus === "cancelled" || paymentStatus === "canceled"
+        ? { label: "Оплата не прошла", className: "bg-red-100 text-red-900" }
+        : paymentStatus
+          ? { label: paymentStatus, className: "bg-amber-100 text-amber-900" }
+          : null;
   const orderCode = order.external_id || order.id.slice(0, 8).toUpperCase();
   const totalItems = Array.isArray(order.items)
     ? order.items.reduce((sum, item) => sum + Number(item.amount ?? 0), 0)
@@ -155,14 +164,26 @@ const OrderCard = ({
             {totalItems} позиций · {totalPrice}₽
           </p>
         </div>
-        <span
-          className={cn(
-            "text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap",
-            statusPreset.badge,
+        <div className="flex flex-col items-end gap-1">
+          <span
+            className={cn(
+              "text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap",
+              statusPreset.badge,
+            )}
+          >
+            {statusPreset.label}
+          </span>
+          {paymentBadge && (
+            <span
+              className={cn(
+                "text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap",
+                paymentBadge.className,
+              )}
+            >
+              {paymentBadge.label}
+            </span>
           )}
-        >
-          {statusPreset.label}
-        </span>
+        </div>
       </div>
 
       <div className="mt-4 flex items-center gap-2">
