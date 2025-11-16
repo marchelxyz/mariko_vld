@@ -267,3 +267,14 @@ interface TelegramWebApp {
   SecureStorage?: TelegramSecureStorage;
 }
 
+
+export type TelegramWebApp = globalThis.TelegramWebApp;
+export type TelegramViewportChangedPayload = globalThis.TelegramViewportChangedPayload;
+export type TelegramInitDataUnsafe = globalThis.TelegramInitDataUnsafe;
+export type TelegramInitUser = globalThis.TelegramInitUser;
+export type TelegramEventCallback = globalThis.TelegramEventCallback;
+export type TelegramShareMessageParams = globalThis.TelegramShareMessageParams;
+export type TelegramDownloadFileParams = globalThis.TelegramDownloadFileParams;
+export type TelegramAsyncKeyValueStorage = globalThis.TelegramAsyncKeyValueStorage;
+export type TelegramMainButton = globalThis.TelegramMainButton;
+export type TelegramMainButtonParams = globalThis.TelegramMainButtonParams;
