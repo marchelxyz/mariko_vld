@@ -19,9 +19,9 @@ const Menu = (): JSX.Element => {
   const navigate = useNavigate();
   const { selectedRestaurant, selectedCity } = useCityContext();
   const { addItem: addCartItem, removeItem: removeCartItem, getItemCount } = useCart();
-  const { isSuperAdmin } = useAdmin();
+  const { isSuperAdmin, isAdmin } = useAdmin();
   const canUseCartFeatures =
-    isSuperAdmin() && isMarikoDeliveryEnabledForCity(selectedCity?.id);
+    (isSuperAdmin() || isAdmin) && isMarikoDeliveryEnabledForCity(selectedCity?.id);
   const [menu, setMenu] = useState<RestaurantMenu | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);

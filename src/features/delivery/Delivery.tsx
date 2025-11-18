@@ -11,9 +11,9 @@ import { isMarikoDeliveryEnabledForCity } from "@/shared/config/marikoDelivery";
 const Delivery = () => {
   const navigate = useNavigate();
   const { selectedCity, selectedRestaurant } = useCityContext();
-  const { isSuperAdmin } = useAdmin();
+  const { isSuperAdmin, isAdmin } = useAdmin();
   const canShowInternalDelivery =
-    isSuperAdmin() && isMarikoDeliveryEnabledForCity(selectedCity?.id);
+    (isSuperAdmin() || isAdmin) && isMarikoDeliveryEnabledForCity(selectedCity?.id);
 
   // 🔧 ВРЕМЕННОЕ СКРЫТИЕ: измените на true чтобы показать кнопку "Самовывоз"
   const showPickupOption = false;
