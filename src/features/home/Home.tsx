@@ -23,6 +23,11 @@ const Index = () => {
   const handleReviewClick = () => {
     const externalReviewLink = RESTAURANT_REVIEW_LINKS[selectedRestaurant.id];
 
+    if (selectedCity?.id === "zhukovsky" && externalReviewLink) {
+      navigate("/webview/zhukovsky-review");
+      return;
+    }
+
     if (externalReviewLink) {
       // Открываем внешнюю ссылку без подтверждения
       safeOpenLink(externalReviewLink, { try_instant_view: false });
@@ -87,12 +92,19 @@ const Index = () => {
               icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Бронь столика"
               onClick={() => {
+                const defaultLink = 'https://remarked.online/marico/#openReMarkedWidget';
                 const bookingLink =
                   selectedCity?.id === 'kaluga'
                     ? 'https://remarked.online/marico-kaluga/#openReMarkedWidget'
                     : selectedCity?.id === 'penza'
                     ? 'https://remarked.online/marico-zacechnoe/#openReMarkedWidget'
-                    : 'https://remarked.online/marico/#openReMarkedWidget';
+                    : defaultLink;
+
+                if (selectedCity?.id === 'zhukovsky') {
+                  navigate('/booking');
+                  return;
+                }
+
                 safeOpenLink(bookingLink, { try_instant_view: true });
               }}
             />
@@ -146,6 +158,11 @@ const Index = () => {
                     ? 'https://vhachapuri.ru/zhukovsky/special'
                     : null;
 
+                if (selectedCity?.id === 'zhukovsky') {
+                  navigate('/webview/zhukovsky-promotions');
+                  return;
+                }
+
                 if (!promoLink) {
                   toast({
                     title: 'Акции скоро появятся',
@@ -163,11 +180,16 @@ const Index = () => {
               aspectRatio="aspect-[4/3]"
               imageClassName="object-left translate-x-[2px]"
               className="max-w-[180px] md:max-w-[220px] mx-auto"
-              onClick={() =>
+              onClick={() => {
+                if (selectedCity?.id === 'zhukovsky') {
+                  navigate('/webview/zhukovsky-vacancies');
+                  return;
+                }
+
                 safeOpenLink('https://vhachapuri.ru/work', {
                   try_instant_view: true,
-                })
-              }
+                });
+              }}
             />
           </div>
 
