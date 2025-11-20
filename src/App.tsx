@@ -22,6 +22,8 @@ const OrderSuccess = lazy(() => import("./pages/orderSuccess"));
 const Review = lazy(() => import("./pages/review"));
 const SelectRestaurantForReview = lazy(() => import("./pages/selectRestaurantReview"));
 const About = lazy(() => import("./pages/about"));
+const Booking = lazy(() => import("./pages/booking"));
+const WebViewPage = lazy(() => import("./pages/webview"));
 const NotFound = lazy(() => import("./pages/notFound"));
 const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
 
@@ -80,6 +82,8 @@ function App() {
                   <Route path="/order-success" element={<OrderSuccess />} />
                   <Route path="/review" element={<Review />} />
                   <Route path="/select-restaurant-review" element={<SelectRestaurantForReview />} />
+                  <Route path="/booking" element={<Booking />} />
+                  <Route path="/webview/:slug" element={<WebViewPage />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/admin" element={<AdminPanel />} />
                   {/* 404 → домой, чтобы избежать белого экрана в WebView */}
