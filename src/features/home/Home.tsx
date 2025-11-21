@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { safeOpenLink, storage } from "@/lib/telegram";
 import { Header } from "@widgets/header";
@@ -9,10 +9,18 @@ import { RESTAURANT_REVIEW_LINKS } from "@/shared/data/reviewLinks";
 import { CalendarDays, Truck, Star as StarIcon, ChevronDown, MapPin } from "lucide-react";
 import { getMenuByRestaurantId, MenuItem, MenuCategory } from "@/shared/data/menuData";
 import { toast } from "@/hooks/use-toast";
+import { EmbeddedPageConfig } from "@/shared/config/webviewPages";
+import {
+  CITY_BOOKING_LINKS,
+  CITY_PROMOTION_LINKS,
+  DEFAULT_BOOKING_LINK,
+  VACANCIES_LINK,
+} from "@/shared/data/cityLinks";
 
 
 const Index = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { selectedRestaurant, selectedCity } = useCityContext();
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
   const [recommended, setRecommended] = useState<MenuItem[]>([]);
@@ -20,16 +28,39 @@ const Index = () => {
   // 🔧 ВРЕМЕННОЕ СКРЫТИЕ: измените на true чтобы показать раздел "Рекомендуем попробовать"
   const showRecommendedSection = false;
 
+  const openEmbeddedPage = (slug: string, config: EmbeddedPageConfig) => {
+    navigate(`/webview/${slug}`, {
+      state: {
+        from: location.pathname,
+        embeddedPage: config,
+      },
+    });
+  };
+
+  const openBookingPage = (config: EmbeddedPageConfig) => {
+    navigate("/booking", {
+      state: {
+        from: location.pathname,
+        bookingConfig: config,
+      },
+    });
+  };
+
   const handleReviewClick = () => {
     const externalReviewLink = RESTAURANT_REVIEW_LINKS[selectedRestaurant.id];
 
-    if (selectedCity?.id === "zhukovsky" && externalReviewLink) {
-      navigate("/webview/zhukovsky-review");
+    if (externalReviewLink && selectedCity?.id && selectedCity?.name) {
+      openEmbeddedPage(`review-${selectedRestaurant.id}`, {
+        title: `Отзывы — ${selectedCity.name}`,
+        url: externalReviewLink,
+        allowedCityId: selectedCity.id,
+        description: `Здесь вы можете оставить отзыв о ресторане в ${selectedCity.name}.`,
+        fallbackLabel: "Открыть отзывы во внешнем окне",
+      });
       return;
     }
 
     if (externalReviewLink) {
-      // Открываем внешнюю ссылку без подтверждения
       safeOpenLink(externalReviewLink, { try_instant_view: false });
       return;
     }
@@ -92,20 +123,21 @@ const Index = () => {
               icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Бронь столика"
               onClick={() => {
-                const defaultLink = 'https://remarked.online/marico/#openReMarkedWidget';
-                const bookingLink =
-                  selectedCity?.id === 'kaluga'
-                    ? 'https://remarked.online/marico-kaluga/#openReMarkedWidget'
-                    : selectedCity?.id === 'penza'
-                    ? 'https://remarked.online/marico-zacechnoe/#openReMarkedWidget'
-                    : defaultLink;
-
-                if (selectedCity?.id === 'zhukovsky') {
-                  navigate('/booking');
+                if (!selectedCity?.id || !selectedCity?.name) {
+                  safeOpenLink(DEFAULT_BOOKING_LINK, { try_instant_view: true });
                   return;
                 }
 
-                safeOpenLink(bookingLink, { try_instant_view: true });
+                const bookingLink =
+                  CITY_BOOKING_LINKS[selectedCity.id] ?? DEFAULT_BOOKING_LINK;
+
+                openBookingPage({
+                  title: `Бронь — ${selectedCity.name}`,
+                  url: bookingLink,
+                  allowedCityId: selectedCity.id,
+                  description: `Забронируйте столик в ресторане ${selectedCity.name}.`,
+                  fallbackLabel: "Открыть форму бронирования",
+                });
               }}
             />
 
@@ -149,17 +181,16 @@ const Index = () => {
               imageClassName="object-left translate-x-[2px]"
               className="max-w-[180px] md:max-w-[220px] mx-auto"
               onClick={() => {
-                const promoLink =
-                  selectedCity?.id === 'kaluga'
-                    ? 'https://vhachapuri.ru/kaluga#rec814439827'
-                    : selectedCity?.id === 'penza'
-                    ? 'https://vhachapuri.ru/penza#rec755133606'
-                    : selectedCity?.id === 'zhukovsky'
-                    ? 'https://vhachapuri.ru/zhukovsky/special'
-                    : null;
+                const promoLink = selectedCity?.id ? CITY_PROMOTION_LINKS[selectedCity.id] : null;
 
-                if (selectedCity?.id === 'zhukovsky') {
-                  navigate('/webview/zhukovsky-promotions');
+                if (promoLink && selectedCity?.id && selectedCity?.name) {
+                  openEmbeddedPage(`promotions-${selectedCity.id}`, {
+                    title: `Акции — ${selectedCity.name}`,
+                    url: promoLink,
+                    allowedCityId: selectedCity.id,
+                    description: `Специальные предложения для гостей ресторана в ${selectedCity.name}.`,
+                    fallbackLabel: "Открыть акции во внешнем окне",
+                  });
                   return;
                 }
 
@@ -181,12 +212,18 @@ const Index = () => {
               imageClassName="object-left translate-x-[2px]"
               className="max-w-[180px] md:max-w-[220px] mx-auto"
               onClick={() => {
-                if (selectedCity?.id === 'zhukovsky') {
-                  navigate('/webview/zhukovsky-vacancies');
+                if (selectedCity?.id && selectedCity?.name) {
+                  openEmbeddedPage(`vacancies-${selectedCity.id}`, {
+                    title: `Вакансии — ${selectedCity.name}`,
+                    url: VACANCIES_LINK,
+                    allowedCityId: selectedCity.id,
+                    description: "Актуальные вакансии сети «Хачапури Марико».",
+                    fallbackLabel: "Открыть вакансии во внешнем окне",
+                  });
                   return;
                 }
 
-                safeOpenLink('https://vhachapuri.ru/work', {
+                safeOpenLink(VACANCIES_LINK, {
                   try_instant_view: true,
                 });
               }}
