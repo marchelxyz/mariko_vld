@@ -278,6 +278,7 @@ export async function fetchAllCitiesViaSupabase(): Promise<Array<City & { is_act
           name: r.name,
           address: r.address,
           city: cityRow.name,
+          isActive: r.is_active,
         })),
     }));
   } catch (error) {

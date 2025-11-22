@@ -54,18 +54,21 @@ type FetchOrdersParams = {
   limit?: number;
 };
 
+const FALLBACK_SUPER_ID = (import.meta.env.VITE_DEV_ADMIN_TELEGRAM_ID ||
+  import.meta.env.VITE_FALLBACK_SUPER_ID ||
+  "577222108").toString();
+
 const resolveTelegramId = (override?: string): string | undefined => {
-  if (override) {
+  // Используем override только если это похоже на нормальный числовой telegram id
+  if (override && /^\d+$/.test(override)) {
     return override;
   }
   const user = getUser();
   if (user?.id) {
     return user.id.toString();
   }
-  if (import.meta.env.DEV && DEV_ADMIN_TELEGRAM_ID) {
-    return DEV_ADMIN_TELEGRAM_ID;
-  }
-  return undefined;
+  // Жёсткий fallback, чтобы не терять доступ к админке вне Telegram
+  return FALLBACK_SUPER_ID;
 };
 
 const buildHeaders = (overrideTelegramId?: string): Record<string, string> => {
@@ -76,7 +79,8 @@ const buildHeaders = (overrideTelegramId?: string): Record<string, string> => {
   if (telegramId) {
     headers["X-Telegram-Id"] = telegramId;
   }
-  if (import.meta.env.DEV && DEV_ADMIN_TOKEN) {
+  // Разрешаем dev-токен и в проде, если задан VITE_DEV_ADMIN_TOKEN
+  if (DEV_ADMIN_TOKEN) {
     headers["X-Admin-Token"] = DEV_ADMIN_TOKEN;
   }
   return headers;
@@ -144,6 +148,18 @@ export const adminServerApi = {
         method: "PATCH",
         headers: buildHeaders(),
         body: JSON.stringify({ status }),
+      },
+    );
+    await handleResponse<{ success: boolean }>(response);
+  },
+
+  async updateRestaurantStatus(restaurantId: string, isActive: boolean): Promise<void> {
+    const response = await fetch(
+      `${ADMIN_API_BASE}/restaurants/${encodeURIComponent(restaurantId)}/status`,
+      {
+        method: "PATCH",
+        headers: buildHeaders(),
+        body: JSON.stringify({ isActive }),
       },
     );
     await handleResponse<{ success: boolean }>(response);

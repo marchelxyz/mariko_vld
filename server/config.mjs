@@ -18,6 +18,7 @@ const adminIdsFromEnv = (process.env.ADMIN_SUPER_IDS ?? "")
   .filter((value) => value.length > 0);
 export const ADMIN_SUPER_IDS = adminIdsFromEnv.length > 0 ? adminIdsFromEnv : DEFAULT_SUPER_ADMINS;
 export const ADMIN_DEV_TOKEN = process.env.ADMIN_DEV_TOKEN;
+export const ADMIN_DEV_TELEGRAM_ID = process.env.ADMIN_DEV_TELEGRAM_ID || null;
 export const ADMIN_ROLE_VALUES = new Set(["super_admin", "admin", "user"]);
 export const ORDER_STATUS_VALUES = new Set([
   "draft",

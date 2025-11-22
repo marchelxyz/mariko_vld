@@ -29,8 +29,11 @@ import {
   AlertDialogTitle,
 } from '@shared/ui';
 
+type RestaurantWithStatus = City['restaurants'][number] & { isActive: boolean };
+
 interface CityWithStatus extends City {
   isActive: boolean;
+  restaurants: RestaurantWithStatus[];
 }
 
 /**
@@ -58,6 +61,10 @@ export function CitiesManagement(): JSX.Element {
         const citiesWithStatus = cities.map((city: any) => ({
           ...city,
           isActive: city.is_active !== undefined ? city.is_active : true,
+          restaurants: (city.restaurants || []).map((r: any) => ({
+            ...r,
+            isActive: r.is_active !== undefined ? r.is_active : r.isActive ?? true,
+          })),
         }));
 
         console.log('📊 Загружено городов:', citiesWithStatus.length);
@@ -174,6 +181,48 @@ export function CitiesManagement(): JSX.Element {
     setCityToDelete(null);
   };
 
+  /**
+   * Переключить активность ресторана
+   */
+  const handleToggleRestaurantActive = async (restaurantId: string, cityId: string) => {
+    if (!canManage) {
+      alert('У вас нет прав для изменения статуса ресторанов');
+      return;
+    }
+
+    const city = citiesWithStatus.find((c) => c.id === cityId);
+    const restaurant = city?.restaurants.find((r) => r.id === restaurantId);
+    if (!restaurant) return;
+
+    const newStatus = !restaurant.isActive;
+
+    if (!confirm(`${newStatus ? 'Активировать' : 'Деактивировать'} ресторан "${restaurant.name}"?`)) {
+      return;
+    }
+
+    const result = await citiesSupabaseApi.updateRestaurant(restaurantId, {
+      isActive: newStatus,
+    });
+
+    if (result) {
+      setCitiesWithStatus((prev) =>
+        prev.map((c) =>
+          c.id === cityId
+            ? {
+                ...c,
+                restaurants: c.restaurants.map((r) =>
+                  r.id === restaurantId ? { ...r, isActive: newStatus } : r,
+                ),
+              }
+            : c,
+        ),
+      );
+      alert(`✅ Готово! Ресторан ${newStatus ? 'активирован' : 'деактивирован'}`);
+    } else {
+      alert('❌ Ошибка изменения статуса ресторана');
+    }
+  };
+
   // Индикатор загрузки
   if (isLoading) {
     return (
@@ -284,7 +333,7 @@ export function CitiesManagement(): JSX.Element {
               {city.restaurants.map((restaurant) => (
                 <div
                   key={restaurant.id}
-                  className="flex items-center gap-2 md:gap-3 p-2 md:p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors"
+                  className={`flex items-center gap-2 md:gap-3 p-2 md:p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors ${restaurant.isActive ? '' : 'opacity-60'}`}
                 >
                   <Building2 className="w-3.5 h-3.5 md:w-4 md:h-4 text-white/50 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
@@ -295,6 +344,21 @@ export function CitiesManagement(): JSX.Element {
                       {restaurant.address}
                     </p>
                   </div>
+                  {canManage && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleToggleRestaurantActive(restaurant.id, city.id)}
+                      title={restaurant.isActive ? 'Деактивировать ресторан' : 'Активировать ресторан'}
+                      className="h-8 w-8 md:h-9 md:w-9 p-0"
+                    >
+                      {restaurant.isActive ? (
+                        <EyeOff className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                      ) : (
+                        <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                      )}
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
