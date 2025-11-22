@@ -22,6 +22,8 @@ import {
   subscribeToSupabaseCitiesChanges,
   syncStaticDataToSupabase,
 } from './supabaseStore';
+import { adminServerApi } from '../admin/adminServerApi';
+import { shouldUseServerProxy } from './config';
 
 class CitiesApi {
   async getActiveCities(): Promise<City[]> {
@@ -64,7 +66,21 @@ class CitiesApi {
   addCity = addCityToSupabase;
   deleteCity = deleteCityFromSupabase;
   addRestaurant = addRestaurantToSupabase;
-  updateRestaurant = updateRestaurantInSupabase;
+  updateRestaurant = async (restaurantId: string, updates: { name?: string; address?: string; isActive?: boolean }): Promise<boolean> => {
+    // Если есть серверный прокси — обновляем через него (service key, гарантированное подтверждение)
+    if (shouldUseServerProxy()) {
+      try {
+        if (updates.isActive !== undefined) {
+          await adminServerApi.updateRestaurantStatus(restaurantId, updates.isActive);
+        }
+        // Если требуется name/address — можно расширить payload; пока проксируем только статус
+        return true;
+      } catch (error) {
+        console.error('❌ Ошибка серверного API при обновлении ресторана, fallback на Supabase:', error);
+      }
+    }
+    return await updateRestaurantInSupabase(restaurantId, updates);
+  };
   deleteRestaurant = deleteRestaurantFromSupabase;
 
   subscribeToCitiesChanges(callback: (cities: City[]) => void): () => void {

@@ -1,4 +1,5 @@
-const TelegramBot = require('node-telegram-bot-api');
+const { Telegraf, Markup } = require('telegraf');
+const { message } = require('telegraf/filters');
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
@@ -717,21 +718,8 @@ app.listen(API_PORT, () => {
 console.log(`🔑 Bot token: ${maskToken(BOT_TOKEN)}`);
 
 // ============================ TELEGRAM BOT ============================
-const bot = new TelegramBot(BOT_TOKEN, {
-  polling: {
-    interval: 300,
-    autoStart: true,
-    params: {
-      timeout: 10
-    }
-  },
-  request: {
-    agentOptions: {
-      family: 4,
-      keepAlive: true,
-      maxSockets: 1
-    }
-  }
+const bot = new Telegraf(BOT_TOKEN, {
+  handlerTimeout: 10_000,
 });
 
 console.log('🍴 Хачапури Марико бот запущен!');
@@ -776,63 +764,65 @@ const sendWelcome = (chatId, firstName) => {
     "Нажми на «Покушать» и будь вкусно накормлен всегда!",
   ].join("\n");
 
-  return bot.sendMessage(chatId, message, {
-    parse_mode: 'Markdown',
-    disable_web_page_preview: true,
-    reply_markup: {
-      keyboard: [
-        [
-          { text: "📞 Оставить номер", request_contact: true },
-        ],
-      ],
-      resize_keyboard: true,
-      one_time_keyboard: true,
+  return bot.telegram.sendMessage(
+    chatId,
+    message,
+    {
+      parse_mode: 'Markdown',
+      disable_web_page_preview: true,
+      ...Markup.keyboard([
+        [{ text: "📞 Оставить номер", request_contact: true }],
+      ])
+        .oneTime()
+        .resize(),
     },
-  });
+  );
 };
 
-bot.onText(/\/start/, (msg) => {
-  const chatId = msg.chat.id;
-  const user = msg.from;
+bot.start((ctx) => {
+  const chatId = ctx.chat.id;
+  const user = ctx.from;
   const firstName = escapeMarkdown(user?.first_name || 'друг');
   sendWelcome(chatId, firstName);
 });
 
-bot.onText(/\/webapp/, (msg) => {
-  const chatId = msg.chat.id;
-  sendWelcome(chatId, escapeMarkdown(msg.from?.first_name || 'друг'));
+bot.command('webapp', (ctx) => {
+  const chatId = ctx.chat.id;
+  sendWelcome(chatId, escapeMarkdown(ctx.from?.first_name || 'друг'));
 });
 
-bot.on('message', (msg) => {
-  const chatId = msg.chat.id;
-  if (msg.contact && msg.contact.phone_number) {
-    syncProfilePhone(msg.from, msg.contact.phone_number);
-    bot.sendMessage(chatId, "Спасибо! Номер сохранили в профиле. Теперь мы будем для вас подбирать все самое лучшее!");
-    return;
+bot.on(message('contact'), (ctx) => {
+  const chatId = ctx.chat.id;
+  const contact = ctx.message?.contact;
+  if (contact?.phone_number) {
+    syncProfilePhone(ctx.from, contact.phone_number);
+    ctx.reply("Спасибо! Номер сохранили в профиле. Теперь мы будем для вас подбирать все самое лучшее!");
   }
-  const text = msg.text;
+});
+
+bot.on(message('text'), (ctx) => {
+  const text = ctx.message?.text;
   if (!text || text === '/start' || text === '/webapp') {
     return;
   }
-  const user = msg.from;
+  const chatId = ctx.chat.id;
+  const user = ctx.from;
   const firstName = escapeMarkdown(user?.first_name || 'друг');
   sendWelcome(chatId, firstName);
 });
 
-bot.on('error', (error) => {
+bot.catch((error) => {
   console.error(`❌ Ошибка бота:`, error.message || 'Неизвестная ошибка');
   if (process.env.NODE_ENV === 'development') {
     console.error('Детали ошибки:', error);
   }
 });
 
-bot.on('polling_error', (error) => {
-  console.error(`❌ Ошибка polling:`, error.message || 'Неизвестная ошибка');
-});
-
-bot.getMe().then((me) => {
-  console.log(`✅ Подключен как: @${me.username} (${me.first_name})`);
-  console.log("✅ Бот успешно запущен в polling режиме!");
+bot.launch().then(() => {
+  bot.telegram.getMe().then((me) => {
+    console.log(`✅ Подключен как: @${me.username} (${me.first_name})`);
+    console.log("✅ Бот успешно запущен в polling режиме!");
+  });
 }).catch((error) => {
   console.error("❌ Ошибка подключения к боту:", error.message);
   process.exit(1);
@@ -841,7 +831,7 @@ bot.getMe().then((me) => {
 const gracefulShutdown = (signal) => {
   console.log(`🛑 Получен сигнал ${signal}, завершение работы...`);
   try {
-    bot.stopPolling();
+    bot.stop(signal);
     console.log("✅ Бот успешно остановлен");
     process.exit(0);
   } catch (error) {

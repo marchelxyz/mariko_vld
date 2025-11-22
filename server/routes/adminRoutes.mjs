@@ -1,6 +1,12 @@
 import express from "express";
 import { supabase, ensureSupabase } from "../supabaseClient.mjs";
-import { CART_ORDERS_TABLE, ORDER_STATUS_VALUES, ADMIN_DEV_TOKEN, ADMIN_SUPER_IDS } from "../config.mjs";
+import {
+  CART_ORDERS_TABLE,
+  ORDER_STATUS_VALUES,
+  ADMIN_DEV_TOKEN,
+  ADMIN_SUPER_IDS,
+  ADMIN_DEV_TELEGRAM_ID,
+} from "../config.mjs";
 import {
   authoriseAdmin,
   authoriseSuperAdmin,
@@ -23,18 +29,31 @@ export function createAdminRouter() {
   });
 
   router.get("/me", async (req, res) => {
+    const telegramId = getTelegramIdFromRequest(req);
+    const devToken = req.get("x-admin-token");
+
+    // Быстрый bypass: если пришёл dev-токен, отдаём супер-админа без обращения к Supabase
+    if (ADMIN_DEV_TOKEN && devToken === ADMIN_DEV_TOKEN) {
+      return res.json({
+        success: true,
+        role: "super_admin",
+        allowedRestaurants: [],
+      });
+    }
+
     if (!ensureSupabase(res)) {
       return;
     }
-    const telegramId = getTelegramIdFromRequest(req);
-    const devToken = req.get("x-admin-token");
-    if (!telegramId && !(ADMIN_DEV_TOKEN && devToken === ADMIN_DEV_TOKEN)) {
+    const devOverrideId =
+      !telegramId && ADMIN_DEV_TOKEN && devToken === ADMIN_DEV_TOKEN
+        ? ADMIN_DEV_TELEGRAM_ID || ADMIN_SUPER_IDS[0] || null
+        : null;
+
+    if (!telegramId && !devOverrideId) {
       return res.status(401).json({ success: false, message: "Не удалось определить администратора" });
     }
-    const context =
-      telegramId || (ADMIN_DEV_TOKEN && devToken === ADMIN_DEV_TOKEN)
-        ? await resolveAdminContext(telegramId || ADMIN_SUPER_IDS[0] || null)
-        : { role: "user", allowedRestaurants: [] };
+
+    const context = await resolveAdminContext(telegramId || devOverrideId);
     return res.json({
       success: true,
       role: context.role,
@@ -231,6 +250,40 @@ export function createAdminRouter() {
       console.error("Ошибка обновления статуса:", error);
       return res.status(500).json({ success: false, message: "Не удалось обновить статус" });
     }
+    return res.json({ success: true });
+  });
+
+  // Toggle restaurant active status
+  router.patch("/restaurants/:restaurantId/status", async (req, res) => {
+    if (!ensureSupabase(res)) {
+      return;
+    }
+    const admin = await authoriseAdmin(req, res);
+    if (!admin) {
+      return;
+    }
+    const restaurantId = req.params.restaurantId;
+    const { isActive } = req.body ?? {};
+    if (typeof isActive !== "boolean") {
+      return res.status(400).json({ success: false, message: "Некорректный статус" });
+    }
+
+    if (admin.role !== "super_admin") {
+      if (!admin.allowedRestaurants?.includes(restaurantId)) {
+        return res.status(403).json({ success: false, message: "Нет доступа к ресторану" });
+      }
+    }
+
+    const { error } = await supabase
+      .from("restaurants")
+      .update({ is_active: isActive })
+      .eq("id", restaurantId);
+
+    if (error) {
+      console.error("Ошибка обновления статуса ресторана:", error);
+      return res.status(500).json({ success: false, message: "Не удалось обновить статус ресторана" });
+    }
+
     return res.json({ success: true });
   });
 

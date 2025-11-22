@@ -6,6 +6,7 @@ export interface Restaurant {
   name: string;
   address: string;
   city: string;
+  isActive?: boolean;
 }
 
 export interface City {
