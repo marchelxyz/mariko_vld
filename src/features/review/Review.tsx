@@ -1,13 +1,9 @@
-import { ArrowLeft, Star, MessageCircle } from "lucide-react";
+import { ArrowLeft, MessageCircle, Star } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useCityContext } from "@/contexts/CityContext";
-import { profileDB } from "@/lib/database";
-import { validateReviewForm, sanitizeText } from "@/lib/validation";
-import { BottomNavigation } from "@widgets/bottomNavigation";
-import { Header } from "@widgets/header";
+import { useCityContext } from "@/contexts";
 import { reviewsApi } from "@shared/api";
-import { safeOpenLink, storage } from "@/lib/telegram";
+import { storage } from "@/lib/telegram";
 
 const Review = () => {
   const navigate = useNavigate();
@@ -16,7 +12,7 @@ const Review = () => {
   const [reviewText, setReviewText] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showExternalReviews, setShowExternalReviews] = useState(false);
-  const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validateForm = () => {
     // 🔒 БЕЗОПАСНОСТЬ: Используем защищенную валидацию
@@ -25,11 +21,13 @@ const Review = () => {
       ? selectedCity.restaurants.find(r => r.id === selectedRestaurantId) || selectedCity.restaurants[0]
       : selectedCity.restaurants[0];
 
-    const validation = validateReviewForm({
-      rating,
-      text: reviewText,
-      restaurantId: restaurant.id
-    });
+    const validation = {
+      isValid: Boolean(rating > 0 && reviewText.trim().length > 5 && restaurant?.id),
+      errors: {
+        rating: rating > 0 ? "" : "Укажите оценку",
+        text: reviewText.trim().length > 5 ? "" : "Введите отзыв от 6 символов",
+      },
+    };
 
     // Преобразуем ошибки в нужный формат
     const newErrors: {[key: string]: string} = {};
@@ -56,28 +54,19 @@ const Review = () => {
     setIsSubmitted(true);
 
     try {
-      // 🔧 ИСПРАВЛЕНИЕ: Безопасное получение пользователя или создание анонимного
-      let userProfile = profileDB.getAllProfiles()[0];
-      
-      if (!userProfile) {
-        // Создаем временный анонимный профиль с уникальным ID
-        const anonymousId = `anonymous_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        userProfile = {
-          id: anonymousId,
-          name: "Гость",
-          phone: "",
-          birthDate: "",
-          gender: "Не указан",
-          photo: "",
-
-          notificationsEnabled: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          lastLogin: new Date().toISOString(),
-        };
-      }
-
-      // Получаем выбранный ресторан из безопасного хранилища или берем первый
+      const anonymousId = `anonymous_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      const userProfile = {
+        id: anonymousId,
+        name: "Гость",
+        phone: "",
+        birthDate: "",
+        gender: "Не указан",
+        photo: "",
+        notificationsEnabled: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
+      };
       const selectedRestaurantId = storage.getItem('selectedRestaurantForReview');
       const restaurant = selectedRestaurantId 
         ? selectedCity.restaurants.find(r => r.id === selectedRestaurantId) || selectedCity.restaurants[0]
