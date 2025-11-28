@@ -1,4 +1,4 @@
-import type { UserProfile } from "@/services/botApi";
+import type { UserProfile } from "@shared/types";
 import { httpClient } from "../http";
 
 export const profileRemoteApi = {
@@ -14,4 +14,3 @@ export const profileRemoteApi = {
     return true;
   },
 };
-

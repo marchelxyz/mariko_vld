@@ -204,7 +204,7 @@ type TelegramEventType =
   | "deactivated"
   | "fullscreen_changed";
 
-type TelegramEventCallback = (...args: any[]) => void;
+type TelegramEventCallback = (...args: unknown[]) => void;
 
 interface TelegramWebApp {
   initData: string;

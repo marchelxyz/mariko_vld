@@ -2,10 +2,21 @@
  * API для работы с админ-панелью
  */
 
-import { City, Restaurant } from '@/shared/data/cities';
-import { RestaurantMenu, MenuCategory, MenuItem } from '@/shared/data/menuData';
-import { UserRole, Permission, UserWithRole, CityStatus, ChangeLog } from '@/shared/types/admin';
-import { storage } from '@/lib/telegram';
+import {
+  type City,
+  type MenuCategory,
+  type MenuItem,
+  type Restaurant,
+  type RestaurantMenu,
+} from "@shared/data";
+import {
+  type ChangeLog,
+  CityStatus,
+  Permission,
+  type UserWithRole,
+  UserRole,
+} from "@shared/types";
+import { storage } from "@/lib/telegram";
 
 /**
  * Ключи для хранения данных
@@ -612,7 +623,7 @@ class AdminApi {
     action: string;
     entityType: ChangeLog['entityType'];
     entityId: string;
-    changes: Record<string, any>;
+    changes: Record<string, unknown>;
   }): void {
     try {
       const logsData = storage.getItem(STORAGE_KEYS.CHANGE_LOG) || '[]';
@@ -678,4 +689,3 @@ export function requireAdmin(userId: string): boolean {
   }
   return true;
 }
-

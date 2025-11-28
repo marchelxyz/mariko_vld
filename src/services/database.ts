@@ -1,51 +1,21 @@
 // База данных профилей пользователей
 // В продакшене это будет заменено на реальную базу данных (PostgreSQL, MongoDB и т.д.)
 
+import type { Review, UserProfile as SharedUserProfile } from "@shared/types";
 import { storage } from "@/lib/telegram";
 
-export interface UserProfile {
-  id: string;
-  telegramId?: number;
-  name: string;
-  phone: string;
-  birthDate: string;
-  gender: string;
-  photo: string;
-  notificationsEnabled: boolean;
-  favoriteCityId?: string | null;
-  favoriteCityName?: string | null;
-  favoriteRestaurantId?: string | null;
-  favoriteRestaurantName?: string | null;
-  favoriteRestaurantAddress?: string | null;
+export type UserProfile = SharedUserProfile & {
   createdAt: string;
   updatedAt: string;
   lastLogin: string;
-}
+};
 
 export interface UserActivity {
   id: string;
   userId: string;
   action: string;
   timestamp: string;
-  data?: any;
-}
-
-export interface Review {
-  id: string;
-  userId: string;
-  userName: string;
-  userPhone: string;
-  restaurantId: string;
-  restaurantName: string;
-  restaurantAddress: string;
-  rating: number;
-  text: string;
-  sentiment: 'positive' | 'negative' | 'neutral';
-  status: 'pending' | 'processed' | 'resolved';
-  isPublic: boolean; // Будет ли показываться в приложении
-  managerResponse?: string;
-  createdAt: string;
-  processedAt?: string;
+  data?: string;
 }
 
 class ProfileDatabase {
@@ -351,7 +321,7 @@ class ProfileDatabase {
   }
 
   // Логирование активности пользователей
-  logActivity(userId: string, action: string, data?: any): void {
+  logActivity(userId: string, action: string, data?: Record<string, unknown> | string): void {
     try {
       const activities = this.getAllActivities();
       const newActivity: UserActivity = {
@@ -595,12 +565,12 @@ class ProfileDatabase {
   }
 
   // Импорт данных
-  importData(data: any): boolean {
+  importData(data: { profiles?: UserProfile[]; activities?: UserActivity[] }): boolean {
     try {
-      if (data.profiles && Array.isArray(data.profiles)) {
+      if (Array.isArray(data.profiles)) {
         this.saveProfiles(data.profiles);
       }
-      if (data.activities && Array.isArray(data.activities)) {
+      if (Array.isArray(data.activities)) {
         storage.setItem(this.activityKey, JSON.stringify(data.activities));
       }
       return true;

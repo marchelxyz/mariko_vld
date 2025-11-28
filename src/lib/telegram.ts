@@ -1,5 +1,5 @@
-import * as core from "./telegram/core";
-import type { TelegramUI } from "./telegram/ui";
+import * as core from "./telegramCore";
+import type { TelegramUI } from "./telegramUI";
 
 /**
  * Public entry point for Telegram helpers.
@@ -11,7 +11,7 @@ let telegramUiPromise: Promise<TelegramUI> | null = null;
 
 export const loadTelegramUI = (): Promise<TelegramUI> => {
   if (!telegramUiPromise) {
-    telegramUiPromise = import("./telegram/ui").then((mod) => mod.telegramUI);
+    telegramUiPromise = import("./telegramUI").then((mod) => mod.telegramUI);
   }
   return telegramUiPromise;
 };
@@ -21,5 +21,5 @@ export const telegram = {
   loadUI: loadTelegramUI,
 };
 
-export * from "./telegram/core";
+export * from "./telegramCore";
 export type { TelegramUI };

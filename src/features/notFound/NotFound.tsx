@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { BottomNavigation } from "@widgets/bottomNavigation";
-import { Header } from "@widgets/header";
+import { BottomNavigation, Header } from "@shared/ui/widgets";
 
 const NotFound = () => {
   const location = useLocation();

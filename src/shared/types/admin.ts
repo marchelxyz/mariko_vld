@@ -90,7 +90,6 @@ export interface ChangeLog {
   action: string;
   entityType: 'city' | 'restaurant' | 'menu' | 'user' | 'role';
   entityId: string;
-  changes: Record<string, any>;
+  changes: Record<string, unknown>;
   timestamp: string;
 }
-

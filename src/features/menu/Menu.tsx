@@ -2,13 +2,12 @@ import { ArrowLeft, ListOrdered, ShoppingBag } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart, useCityContext } from "@/contexts";
-import { CartDrawer } from "@/features/cart/CartDrawer";
+import { BottomNavigation, CartDrawer, Header } from "@shared/ui/widgets";
 import { fetchRestaurantMenu } from "@/shared/api/menuApi";
 import { isMarikoDeliveryEnabledForCity } from "@/shared/config/marikoDelivery";
 import { getMenuByRestaurantId, type MenuItem, type RestaurantMenu } from "@shared/data";
 import { useAdmin } from "@shared/hooks";
 import { MenuItemComponent } from "@shared/ui";
-import { BottomNavigation, Header } from "@shared/ui/widgets";
 
 /**
  * Отображает меню выбранного ресторана с навигацией по категориям и карточками блюд.

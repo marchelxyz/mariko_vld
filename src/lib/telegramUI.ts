@@ -1,5 +1,5 @@
-import type { TelegramMainButton, TelegramMainButtonParams } from "@/types/telegram-webapp";
-import { getTg } from "./core";
+import type { TelegramMainButton, TelegramMainButtonParams } from "@/types";
+import { getTg } from "./telegramCore";
 
 /**
  * Advanced Telegram UI helpers that are loaded on demand to keep

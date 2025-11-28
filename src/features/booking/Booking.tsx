@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useCityContext } from "@/contexts";
+import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { EmbeddedPageConfig } from "@/shared/config/webviewPages";
 import { CITY_BOOKING_LINKS, DEFAULT_BOOKING_LINK } from "@shared/data";
-import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
-import { useCityContext } from "@/contexts";
 import { safeOpenLink } from "@/lib/telegram";
 
 interface BookingLocationState {

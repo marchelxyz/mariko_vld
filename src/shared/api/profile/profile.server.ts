@@ -1,5 +1,5 @@
-import type { UserProfile } from "@/services/botApi";
-import { getCartApiBaseUrl } from "../cart/cartApi";
+import { getCartApiBaseUrl } from "@shared/api/cart";
+import type { UserProfile } from "@shared/types";
 
 const PROFILE_ENDPOINT = `${getCartApiBaseUrl()}/cart/profile/me`;
 

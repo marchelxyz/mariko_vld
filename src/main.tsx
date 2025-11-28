@@ -27,7 +27,7 @@ if (typeof window !== "undefined") {
     }
   });
 
-  window.addEventListener("unhandledrejection", (event: any) => {
+  window.addEventListener("unhandledrejection", (event: PromiseRejectionEvent) => {
     try {
       const reason = event?.reason;
       const message = `Unhandled rejection: ${reason?.message || String(reason)}`;
@@ -45,12 +45,14 @@ if (typeof window !== "undefined") {
 
 try {
   createRoot(document.getElementById("root")!).render(<App />);
-} catch (err: any) {
+} catch (err: unknown) {
   try {
+    const message = err instanceof Error ? err.message : String(err);
     const instance = getTg();
-    instance?.showAlert?.(`Render error: ${err?.message || String(err)}`);
+    instance?.showAlert?.(`Render error: ${message}`);
   } catch (_) {
      
-    alert(`Render error: ${err?.message || String(err)}`);
+    const message = err instanceof Error ? err.message : String(err);
+    alert(`Render error: ${message}`);
   }
 }

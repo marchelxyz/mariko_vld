@@ -5,30 +5,30 @@
 import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck } from 'lucide-react';
 import { useState, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BottomNavigation } from '@/widgets/bottomNavigation';
-import { Header } from '@/widgets/header';
-import { useAdmin } from '@/shared/hooks/useAdmin';
+import { BottomNavigation, Header } from "@shared/ui/widgets";
+import { useAdmin } from "@shared/hooks";
+import { Button } from "@shared/ui";
+
 const CitiesManagementLazy = lazy(() =>
-  import("@/features/admin/cities/CitiesManagement").then((module) => ({
+  import("@features/admin").then((module) => ({
     default: module.CitiesManagement,
   })),
 );
 const MenuManagementLazy = lazy(() =>
-  import("@/features/admin/menu/MenuManagement").then((module) => ({
+  import("@features/admin").then((module) => ({
     default: module.MenuManagement,
   })),
 );
 const RolesManagementLazy = lazy(() =>
-  import("@/features/admin/roles/RolesManagement").then((module) => ({
+  import("@features/admin").then((module) => ({
     default: module.RolesManagement,
   })),
 );
 const DeliveryManagementLazy = lazy(() =>
-  import("@/features/admin/deliveries/DeliveryManagement").then((module) => ({
+  import("@features/admin").then((module) => ({
     default: module.DeliveryManagement,
   })),
 );
-import { Button } from '@shared/ui';
 
 type AdminSection = 'cities' | 'menu' | 'roles' | 'deliveries' | null;
 

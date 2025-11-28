@@ -1,1 +1,1 @@
-export * from "@/services/database"; 
+export { database } from "@/services";

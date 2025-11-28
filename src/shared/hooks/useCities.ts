@@ -4,9 +4,9 @@
  */
 
 import { useState, useEffect } from 'react';
-import { citiesSupabaseApi } from '@/shared/api/cities';
-import { City, getAvailableCitiesAsync } from '@/shared/data/cities';
-import { isSupabaseConfigured } from '@/lib/supabase';
+import { citiesSupabaseApi } from "@shared/api/cities";
+import { getAvailableCitiesAsync, type City } from "@shared/data";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 /**
  * Хук для получения активных городов с real-time обновлениями

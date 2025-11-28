@@ -3,9 +3,9 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { adminServerApi } from '@/shared/api/admin';
-import { UserRole, Permission } from '@/shared/types/admin';
-import { getUser } from '@/lib/telegram';
+import { adminServerApi } from "@shared/api/admin";
+import { Permission, UserRole } from "@shared/types";
+import { getUser } from "@/lib/telegram";
 
 /**
  * Хук для проверки прав администратора

@@ -1,2 +1,2 @@
-export { botApi } from "@/services/botApi";
+export { botApi } from "@/services";
 export { telegram } from "@/lib/telegram";

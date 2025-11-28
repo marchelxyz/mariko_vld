@@ -1,9 +1,9 @@
 import { MapPin, ChevronDown, Star } from "lucide-react";
 import { useState, type MouseEvent } from "react";
-import { cn } from "@/lib/utils";
 import { useProfile } from "@entities/user";
-import { type City, type Restaurant } from "@/shared/data/cities";
-import { useCities } from "@/shared/hooks/useCities";
+import { type City, type Restaurant } from "@shared/data";
+import { useCities } from "@shared/hooks";
+import { cn } from "@shared/utils";
 
 interface AddressCitySelectorProps {
   selectedRestaurant: Restaurant;

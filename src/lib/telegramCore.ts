@@ -1,13 +1,13 @@
 import type {
-  TelegramWebApp,
-  TelegramViewportChangedPayload,
+  TelegramAsyncKeyValueStorage,
+  TelegramDownloadFileParams,
   TelegramEventCallback,
   TelegramInitDataUnsafe,
   TelegramInitUser,
   TelegramShareMessageParams,
-  TelegramDownloadFileParams,
-  TelegramAsyncKeyValueStorage,
-} from "@/types/telegram-webapp";
+  TelegramViewportChangedPayload,
+  TelegramWebApp,
+} from "@/types";
 
 /**
  * Centralised helpers for Telegram Mini App integration.

@@ -1,4 +1,4 @@
-import type { CartItem } from "@/contexts/CartContext";
+import type { CartItem } from "@/contexts";
 
 export type CartOrderPayload = {
   restaurantId: string | null;

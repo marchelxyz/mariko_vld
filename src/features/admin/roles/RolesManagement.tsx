@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { Shield, UserCheck, UserX, Search, ChevronRight, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { adminServerApi, type AdminPanelUser } from "@/shared/api/admin";
-import { getAllCitiesAsync } from "@/shared/data/cities";
-import { useAdmin } from "@/shared/hooks/useAdmin";
-import { UserRole } from "@/shared/types/admin";
+import { adminServerApi, type AdminPanelUser } from "@shared/api/admin";
+import { getAllCitiesAsync, type City } from "@shared/data";
+import { useAdmin } from "@shared/hooks";
+import { UserRole } from "@shared/types";
 import {
   Button,
   Input,
@@ -44,19 +44,22 @@ export function RolesManagement(): JSX.Element {
     enabled: isSuperAdmin(),
   });
 
+  type RestaurantOption = { id: string; label: string; cityName: string; address: string };
+
+  const mapCityRestaurants = (cities: City[]): RestaurantOption[] =>
+    cities.flatMap((city) =>
+      (city.restaurants || []).map((restaurant) => ({
+        id: restaurant.id,
+        label: restaurant.name,
+        cityName: city.name,
+        address: restaurant.address || "",
+      })),
+    );
+
   useEffect(() => {
     const loadRestaurants = async () => {
       const cities = await getAllCitiesAsync();
-      const options =
-        cities?.flatMap((city: any) =>
-          (city.restaurants || []).map((restaurant: any) => ({
-            id: restaurant.id,
-            label: restaurant.name,
-            cityName: city.name,
-            address: restaurant.address || "",
-          })),
-        ) ?? [];
-      setRestaurantOptions(options);
+      setRestaurantOptions(mapCityRestaurants(cities));
     };
     void loadRestaurants();
   }, []);

@@ -1,6 +1,7 @@
+import { getCartApiBaseUrl } from "@shared/api/cart";
+import type { CartOrderRecord } from "@shared/api/cart";
+import type { UserRole } from "@shared/types";
 import { getUser } from "@/lib/telegram";
-import type { CartOrderRecord } from "@/shared/api/cart";
-import type { UserRole } from "@/shared/types/admin";
 
 function normalizeBaseUrl(base: string | undefined): string {
   if (!base || base === "/") {
@@ -9,13 +10,10 @@ function normalizeBaseUrl(base: string | undefined): string {
   return base.endsWith("/") ? base.slice(0, -1) : base;
 }
 
-import { getCartApiBaseUrl } from "../cart/cartApi";
-
 const rawAdminBase = import.meta.env.VITE_ADMIN_API_URL;
 const cartBase = normalizeBaseUrl(`${getCartApiBaseUrl()}/cart`);
 // Админка всегда идёт на cart-server (4010) — не используем общий SERVER_API, чтобы не улетать на старый бэкенд.
 const ADMIN_API_BASE = normalizeBaseUrl(rawAdminBase || cartBase) + "/admin";
-const DEV_ADMIN_TELEGRAM_ID = import.meta.env.VITE_DEV_ADMIN_TELEGRAM_ID;
 const DEV_ADMIN_TOKEN = import.meta.env.VITE_DEV_ADMIN_TOKEN;
 
 export type AdminRole = UserRole;

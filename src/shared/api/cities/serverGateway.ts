@@ -1,6 +1,6 @@
-import type { City } from '@/shared/data/cities';
-import { DEV_ADMIN_TOKEN, resolveServerUrl } from './config';
-import { getTg } from '@/lib/telegram';
+import type { City } from "@shared/data";
+import { DEV_ADMIN_TOKEN, resolveServerUrl } from "./config";
+import { getTg } from "@/lib/telegram";
 
 function parseErrorPayload(payload?: string): string | null {
   if (!payload) {

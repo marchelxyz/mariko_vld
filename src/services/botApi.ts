@@ -1,29 +1,10 @@
 // Telegram Bot API интеграция
 // Эти функции будут интегрированы с бэкендом бота
 
-import { profileDB, type Review } from "./database";
+import type { Restaurant } from "@shared/data";
+import type { Review, UserProfile } from "@shared/types";
+import { profileDB } from "./database";
 import { getUser } from "@/lib/telegram";
-
-export interface UserProfile {
-  id: string;
-  name: string;
-  phone: string;
-  birthDate: string;
-  gender: string;
-  photo: string;
-  notificationsEnabled: boolean;
-  primaryAddressId?: string | null;
-  lastAddressText?: string | null;
-  lastAddressLat?: number | null;
-  lastAddressLon?: number | null;
-  lastAddressUpdatedAt?: string | null;
-  telegramId?: number;
-  favoriteCityId?: string | null;
-  favoriteCityName?: string | null;
-  favoriteRestaurantId?: string | null;
-  favoriteRestaurantName?: string | null;
-  favoriteRestaurantAddress?: string | null;
-}
 
 export interface ReviewData {
   rating: number;
@@ -220,17 +201,7 @@ export const botApi = {
   },
 
   // Уведомление менеджера о негативном отзыве
-  async notifyManager(_notification: {
-    type: "negative_review";
-    data: {
-      userName: string;
-      userPhone: string;
-      restaurant: string;
-      reviewText: string;
-      rating: number;
-      timestamp: string;
-    };
-  }): Promise<boolean> {
+  async notifyManager(): Promise<boolean> {
     // Уведомление менеджера
 
     // В реальной интеграции отправляем сообщение ответственному лицу
@@ -238,11 +209,9 @@ export const botApi = {
 
     return true;
   },
-
-
-
   // Получение списка ресторанов по городу
-  async getRestaurantsByCity(_city?: string): Promise<any[]> {
+  async getRestaurantsByCity(cityId?: string): Promise<Restaurant[]> {
+    void cityId;
     // В реальной интеграции будет запрос к базе данных ресторанов
     // с актуальной информацией о работе, меню, акциях
     // Получение ресторанов для города
