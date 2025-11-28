@@ -1,9 +1,9 @@
-import { useNavigate } from "react-router-dom";
-import { useEffect, useRef, useState, useMemo } from "react";
-import { cn } from "@/lib/utils";
-import { applySafeAreaTo, getTg, safeOpenLink, loadTelegramUI } from "@/lib/telegram";
-import { useAdmin } from "@/shared/hooks/useAdmin";
 import { Shield } from "lucide-react";
+import { useEffect, useRef, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import { useAdmin } from "@/shared/hooks/useAdmin";
+import { applySafeAreaTo, getTg, safeOpenLink, loadTelegramUI } from "@/lib/telegram";
 
 interface BottomNavigationProps {
   currentPage: "home" | "profile" | "about" | "admin";

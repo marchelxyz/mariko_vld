@@ -1,12 +1,10 @@
 import { useNavigate } from "react-router-dom";
-import { Header } from "@widgets/header";
-import { ActionButton } from "@shared/ui";
-import { BottomNavigation } from "@widgets/bottomNavigation";
-import { PageHeader } from "@widgets/pageHeader";
-import { safeOpenLink } from "@/lib/telegram";
-import { useCityContext } from "@/contexts/CityContext";
-import { useAdmin } from "@/shared/hooks/useAdmin";
+import { useCityContext } from "@/contexts";
 import { isMarikoDeliveryEnabledForCity } from "@/shared/config/marikoDelivery";
+import { useAdmin } from "@shared/hooks";
+import { ActionButton } from "@shared/ui";
+import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
+import { safeOpenLink } from "@/lib/telegram";
 
 const Delivery = () => {
   const navigate = useNavigate();

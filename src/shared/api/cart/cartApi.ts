@@ -10,6 +10,12 @@ export type CartOrderPayload = {
   customerTelegramUsername?: string;
   customerTelegramName?: string;
   deliveryAddress?: string;
+  deliveryLatitude?: number;
+  deliveryLongitude?: number;
+  deliveryGeoAccuracy?: number;
+  deliveryStreet?: string;
+  deliveryHouse?: string;
+  deliveryApartment?: string;
   comment?: string;
   items: CartItem[];
   subtotal?: number;

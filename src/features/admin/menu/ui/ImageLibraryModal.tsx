@@ -1,6 +1,6 @@
-import { Button, Input } from '@shared/ui';
 import { X } from 'lucide-react';
 import type { MenuImageAsset } from '@/shared/api/menuApi';
+import { Button, Input } from '@shared/ui';
 
 type ImageLibraryModalProps = {
   isOpen: boolean;

@@ -1,13 +1,13 @@
-import { useState } from "react";
 import { ArrowLeft, Star, MessageCircle } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { safeOpenLink, storage } from "@/lib/telegram";
-import { Header } from "@widgets/header";
-import { BottomNavigation } from "@widgets/bottomNavigation";
 import { useCityContext } from "@/contexts/CityContext";
-import { reviewsApi } from "@shared/api";
 import { profileDB } from "@/lib/database";
 import { validateReviewForm, sanitizeText } from "@/lib/validation";
+import { BottomNavigation } from "@widgets/bottomNavigation";
+import { Header } from "@widgets/header";
+import { reviewsApi } from "@shared/api";
+import { safeOpenLink, storage } from "@/lib/telegram";
 
 const Review = () => {
   const navigate = useNavigate();

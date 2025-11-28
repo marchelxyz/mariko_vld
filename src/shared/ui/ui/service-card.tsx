@@ -1,5 +1,5 @@
-import { cn } from "@/lib/utils";
 import { useState, ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 interface ServiceCardProps {
   /** Заголовок карточки */

@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
 import { MapPin } from "lucide-react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { type City } from "@/shared/data/cities";
 import { useCities } from "@/shared/hooks/useCities";

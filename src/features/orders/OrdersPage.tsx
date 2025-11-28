@@ -1,13 +1,11 @@
+import { useQuery } from "@tanstack/react-query";
+import { AlertCircle, ChevronDown, ChevronUp, Loader2, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Loader2, RefreshCw, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
-import { Header } from "@widgets/header";
-import { BottomNavigation } from "@widgets/bottomNavigation";
-import { PageHeader } from "@widgets/pageHeader";
 import { fetchMyOrders, type CartOrderRecord, type OrderStatus } from "@/shared/api/cart";
 import { getUser } from "@/lib/telegram";
-import { cn } from "@/lib/utils";
+import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
+import { cn } from "@shared/utils";
 
 const KNOWN_STATUS_SET = new Set<OrderStatus>([
   "processing",

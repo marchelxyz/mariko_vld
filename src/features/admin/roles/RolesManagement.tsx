@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
-import { Shield, UserCheck, UserX, Search, ChevronRight, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { Shield, UserCheck, UserX, Search, ChevronRight, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { adminServerApi, type AdminPanelUser } from "@/shared/api/admin";
 import { getAllCitiesAsync } from "@/shared/data/cities";
 import { useAdmin } from "@/shared/hooks/useAdmin";
 import { UserRole } from "@/shared/types/admin";
-import { adminServerApi, type AdminPanelUser } from "@/shared/api/admin";
 import {
   Button,
   Input,

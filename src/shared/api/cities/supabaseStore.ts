@@ -1,6 +1,6 @@
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { City } from '@/shared/data/cities';
 import { cities as staticCities } from '@/shared/data/cities';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 export async function getCityStatusFromSupabase(cityId: string): Promise<boolean> {
   if (!isSupabaseConfigured()) {

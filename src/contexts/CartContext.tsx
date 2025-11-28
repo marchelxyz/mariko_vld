@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { MenuItem } from "@/shared/data/menuData";
 
 export type CartItem = {
   id: string;
@@ -14,7 +13,13 @@ type CartContextValue = {
   items: CartItem[];
   totalCount: number;
   totalPrice: number;
-  addItem: (item: MenuItem) => void;
+  addItem: (item: {
+    id: string;
+    name: string;
+    price: number;
+    weight?: string;
+    imageUrl?: string;
+  }) => void;
   increaseItem: (itemId: string) => void;
   removeItem: (itemId: string) => void;
   getItemCount: (itemId: string) => number;

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
+import type { UserProfile } from "@/services/botApi";
 import { profileApi } from "@shared/api";
 import { getUser, storage } from "@/lib/telegram";
-import type { UserProfile } from "@/services/botApi";
 
 const defaultProfile: UserProfile = {
   id: "default",

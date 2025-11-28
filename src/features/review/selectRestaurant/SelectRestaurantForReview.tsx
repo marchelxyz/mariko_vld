@@ -1,12 +1,12 @@
-import { useState } from "react";
-import { safeOpenLink, storage } from "@/lib/telegram";
 import { MapPin, Star, ExternalLink } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Header } from "@widgets/header";
-import { BottomNavigation } from "@widgets/bottomNavigation";
-import { PageHeader } from "@widgets/pageHeader";
 import { useCityContext } from "@/contexts/CityContext";
+import { BottomNavigation } from "@widgets/bottomNavigation";
+import { Header } from "@widgets/header";
+import { PageHeader } from "@widgets/pageHeader";
 import { RESTAURANT_REVIEW_LINKS } from "@/shared/data/reviewLinks";
+import { safeOpenLink, storage } from "@/lib/telegram";
 
 const SelectRestaurantForReview = () => {
   const navigate = useNavigate();

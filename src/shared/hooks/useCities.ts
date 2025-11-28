@@ -4,8 +4,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { City, getAvailableCitiesAsync } from '@/shared/data/cities';
 import { citiesSupabaseApi } from '@/shared/api/cities';
+import { City, getAvailableCitiesAsync } from '@/shared/data/cities';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
 /**

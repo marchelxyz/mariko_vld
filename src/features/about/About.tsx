@@ -1,14 +1,14 @@
-import { Header } from "@widgets/header";
-import { PageHeader } from "@widgets/pageHeader";
-import { BottomNavigation } from "@widgets/bottomNavigation";
-import { CONTACTS } from "@shared/data/contacts";
 import { Phone, Instagram, Send, MapPin, Car, MessageCircle, ExternalLink } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCityContext } from "@/contexts/CityContext";
-import { safeOpenLink } from "@/lib/telegram";
 import { cn } from "@/lib/utils";
+import { BottomNavigation } from "@widgets/bottomNavigation";
+import { Header } from "@widgets/header";
+import { PageHeader } from "@widgets/pageHeader";
+import { CONTACTS } from "@shared/data/contacts";
+import { safeOpenLink } from "@/lib/telegram";
 
 interface InteractiveLinkProps {
   icon: LucideIcon;

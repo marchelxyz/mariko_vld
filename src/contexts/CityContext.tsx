@@ -1,8 +1,8 @@
-import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
-import { type City, type Restaurant } from "@/shared/data/cities";
-import { storage } from "@/lib/telegram";
-import { useCities } from "@/shared/hooks/useCities";
+import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react";
 import { useProfile } from "@entities/user";
+import { type City, type Restaurant } from "@shared/data";
+import { useCities } from "@shared/hooks";
+import { storage } from "@/lib/telegram";
 
 // Создаем плоский список всех ресторанов для удобного поиска
 const getAllRestaurants = (cities: City[]): Restaurant[] => {
@@ -141,43 +141,44 @@ export const RestaurantProvider = ({ children }: RestaurantProviderProps) => {
   // Функция для получения города выбранного ресторана
   const getSelectedCity = (): City => {
     if (!selectedRestaurant) {
-      return availableCities[0] || { id: '', name: '', restaurants: [] };
+      return availableCities[0] || { id: "", name: "", restaurants: [] };
     }
-    
-    const city = availableCities.find(city => 
-      city.restaurants.some(restaurant => restaurant.id === selectedRestaurant.id)
+
+    const city = availableCities.find((entry) =>
+      entry.restaurants.some((restaurant) => restaurant.id === selectedRestaurant.id),
     );
-    return city || availableCities[0] || { id: '', name: '', restaurants: [] };
+    return city || availableCities[0] || { id: "", name: "", restaurants: [] };
   };
 
 
   const setSelectedRestaurant = (restaurant: Restaurant) => {
     setSelectedRestaurantState(restaurant);
-    storage.setItem(
-      "selectedRestaurant",
-      JSON.stringify({ id: restaurant.id, name: restaurant.name, address: restaurant.address, city: restaurant.city }),
-    );
+    storage.setItem("selectedRestaurant", JSON.stringify(restaurant));
   };
 
   // Показываем загрузку пока города не загрузятся
   if (isLoading || !selectedRestaurant) {
     return (
-      <RestaurantContext.Provider value={{ 
-        selectedRestaurant: { id: '', name: '', address: '', city: '' }, 
-        setSelectedRestaurant: () => {}, 
-        getSelectedCity: () => ({ id: '', name: '', restaurants: [] })
-      }}>
+      <RestaurantContext.Provider
+        value={{
+          selectedRestaurant: { id: "", name: "", address: "", city: "" },
+          setSelectedRestaurant: () => {},
+          getSelectedCity: () => ({ id: "", name: "", restaurants: [] }),
+        }}
+      >
         {children}
       </RestaurantContext.Provider>
     );
   }
 
   return (
-    <RestaurantContext.Provider value={{ 
-      selectedRestaurant, 
-      setSelectedRestaurant, 
-      getSelectedCity 
-    }}>
+    <RestaurantContext.Provider
+      value={{
+        selectedRestaurant,
+        setSelectedRestaurant,
+        getSelectedCity,
+      }}
+    >
       {children}
     </RestaurantContext.Provider>
   );

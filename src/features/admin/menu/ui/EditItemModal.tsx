@@ -1,6 +1,6 @@
-import { Button, Checkbox, Input, Label, Switch, Textarea } from '@shared/ui';
 import { Save, X } from 'lucide-react';
 import type { MutableRefObject } from 'react';
+import { Button, Checkbox, Input, Label, Switch, Textarea } from '@shared/ui';
 import type { EditableMenuItem } from '../model/types';
 
 type EditItemModalProps = {

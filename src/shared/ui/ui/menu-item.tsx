@@ -1,7 +1,7 @@
-import { memo } from "react";
-import { Badge } from "./badge";
 import { Minus, Plus } from "lucide-react";
+import { memo } from "react";
 import type { MenuItem } from "@/shared/data/menuData";
+import { Badge } from "./badge";
 
 interface MenuItemProps {
   item: MenuItem;

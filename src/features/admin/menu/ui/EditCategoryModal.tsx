@@ -1,6 +1,6 @@
-import { Button, Input, Label, Switch, Textarea } from '@shared/ui';
 import { Save, X } from 'lucide-react';
 import type { MenuCategory } from '@/shared/data/menuData';
+import { Button, Input, Label, Switch, Textarea } from '@shared/ui';
 
 type EditCategoryModalProps = {
   category: MenuCategory | null;

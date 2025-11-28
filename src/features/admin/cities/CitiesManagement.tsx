@@ -2,13 +2,6 @@
  * Компонент управления городами
  */
 
-import { useState, useMemo, useEffect } from 'react';
-import { City, getAllCitiesAsync } from '@/shared/data/cities';
-import { citiesSupabaseApi } from '@/shared/api/cities';
-import { adminApi } from '@/shared/api/admin';
-import { useAdmin } from '@/shared/hooks/useAdmin';
-import { Permission } from '@/shared/types/admin';
-import { isSupabaseConfigured } from '@/lib/supabase';
 import {
   Building2,
   MapPin,
@@ -16,6 +9,12 @@ import {
   EyeOff,
   Trash2,
 } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { adminApi } from '@/shared/api/admin';
+import { citiesSupabaseApi } from '@/shared/api/cities';
+import { City, getAllCitiesAsync } from '@/shared/data/cities';
+import { useAdmin } from '@/shared/hooks/useAdmin';
+import { Permission } from '@/shared/types/admin';
 import {
   Button,
   Input,
@@ -28,6 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@shared/ui';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 type RestaurantWithStatus = City['restaurants'][number] & { isActive: boolean };
 
