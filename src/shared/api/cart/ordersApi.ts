@@ -1,5 +1,5 @@
-import { getCartApiBaseUrl } from "./cartApi";
 import type { CartItem } from "@/contexts/CartContext";
+import { getCartApiBaseUrl } from "./cartApi";
 
 export type OrderStatus =
   | "processing"

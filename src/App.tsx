@@ -1,13 +1,12 @@
-import { Suspense, lazy, useEffect } from "react";
-import { TooltipProvider } from "@shared/ui/tooltip";
-import { Toaster } from "@shared/ui/toaster";
-import { Toaster as SonnerToaster } from "@shared/ui/sonner";
 import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
-import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
-import { RestaurantProvider } from "@/contexts/CityContext";
-import { CartProvider } from "@/contexts/CartContext";
+import { Suspense, lazy, useEffect } from "react";
+import { Navigate, HashRouter, Route, Routes } from "react-router-dom";
+import { CartProvider, RestaurantProvider } from "@/contexts";
+import { useEnsureUserProfileSync } from "@/hooks";
+import { Toaster as SonnerToaster } from "@shared/ui/sonner";
+import { Toaster } from "@shared/ui/toaster";
+import { TooltipProvider } from "@shared/ui/tooltip";
 import { isActive, onActivated, onDeactivated } from "@/lib/telegram";
-import { useEnsureUserProfileSync } from "@/hooks/useEnsureUserProfileSync";
 
 // Lazy load pages for better code splitting
 const Index = lazy(() => import("./pages/home"));

@@ -1,7 +1,7 @@
-import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
-import { Header } from "@widgets/header";
+import { useLocation, useNavigate } from "react-router-dom";
 import { BottomNavigation } from "@widgets/bottomNavigation";
+import { Header } from "@widgets/header";
 
 const NotFound = () => {
   const location = useLocation();

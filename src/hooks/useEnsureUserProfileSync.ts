@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { getUser } from "@/lib/telegram";
 import { getCartApiBaseUrl } from "@/shared/api/cart";
+import { getUser } from "@/lib/telegram";
 
 const SIGNATURE_PREFIX = "mariko_profile_signature_v1";
 const PENDING_PREFIX = "mariko_profile_sync_pending_v1";

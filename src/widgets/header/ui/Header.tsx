@@ -1,5 +1,5 @@
-import { AddressCitySelector } from "./AddressCitySelector";
 import { useCityContext } from "@/contexts/CityContext";
+import { AddressCitySelector } from "./AddressCitySelector";
 
 interface HeaderProps {
   showCitySelector?: boolean;

@@ -1,11 +1,11 @@
-import { useState } from "react";
 import { Pencil } from "lucide-react";
-import { Header } from "@widgets/header";
-import { BottomNavigation } from "@widgets/bottomNavigation";
-import { Label, Button, Input } from "@shared/ui";
+import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { BottomNavigation } from "@widgets/bottomNavigation";
+import { Header } from "@widgets/header";
 import { useProfile, ProfileAvatar } from "@entities/user";
 import { usePhoneInput, getCleanPhoneNumber } from "@/shared/hooks/usePhoneInput";
+import { Label, Button, Input } from "@shared/ui";
 
 const EditProfile = () => {
   const { profile, updateProfile } = useProfile();

@@ -18,11 +18,11 @@ if (typeof window !== "undefined") {
       const message = `Runtime error: ${event.error?.message || event.message}`;
       const instance = getTg();
       if (!instance?.showAlert?.(message)) {
-        // eslint-disable-next-line no-alert
+         
         alert(message);
       }
     } catch (_) {
-      // eslint-disable-next-line no-alert
+       
       alert(event?.message ?? "Unknown runtime error");
     }
   });
@@ -33,11 +33,11 @@ if (typeof window !== "undefined") {
       const message = `Unhandled rejection: ${reason?.message || String(reason)}`;
       const instance = getTg();
       if (!instance?.showAlert?.(message)) {
-        // eslint-disable-next-line no-alert
+         
         alert(message);
       }
     } catch (_) {
-      // eslint-disable-next-line no-alert
+       
       alert(`Unhandled rejection`);
     }
   });
@@ -50,7 +50,7 @@ try {
     const instance = getTg();
     instance?.showAlert?.(`Render error: ${err?.message || String(err)}`);
   } catch (_) {
-    // eslint-disable-next-line no-alert
+     
     alert(`Render error: ${err?.message || String(err)}`);
   }
 }

@@ -1,13 +1,13 @@
-import { useState, useEffect } from "react";
 import { ArrowLeft, MapPin, Search } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { safeOpenLink, storage } from "@/lib/telegram";
-import { Header } from "@widgets/header";
-import { BottomNavigation } from "@widgets/bottomNavigation";
-import { CitySelector } from "@shared/ui";
 import { useCityContext } from "@/contexts/CityContext";
-import { useCities } from "@/shared/hooks/useCities";
+import { BottomNavigation } from "@widgets/bottomNavigation";
+import { Header } from "@widgets/header";
 import { RestaurantReviews } from "@entities/restaurant";
+import { useCities } from "@/shared/hooks/useCities";
+import { CitySelector } from "@shared/ui";
+import { safeOpenLink, storage } from "@/lib/telegram";
 
 interface Restaurant {
   id: string;

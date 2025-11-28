@@ -1,9 +1,9 @@
 import { useNavigate } from "react-router-dom";
-import { Header } from "@widgets/header";
-import { ActionButton } from "@shared/ui";
 import { BottomNavigation } from "@widgets/bottomNavigation";
-import { ProfileAvatar, useProfile } from "@entities/user";
+import { Header } from "@widgets/header";
 import { PageHeader } from "@widgets/pageHeader";
+import { ProfileAvatar, useProfile } from "@entities/user";
+import { ActionButton } from "@shared/ui";
 
 const Profile = () => {
   const navigate = useNavigate();

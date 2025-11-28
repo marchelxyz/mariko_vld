@@ -1,16 +1,14 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { ArrowLeft, ListOrdered, ShoppingBag } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ShoppingBag, ListOrdered } from "lucide-react";
-import { Header } from "@widgets/header";
-import { BottomNavigation } from "@widgets/bottomNavigation";
-import { MenuItemComponent } from "@shared/ui";
-import { useCityContext } from "@/contexts/CityContext";
-import { MenuItem, RestaurantMenu, getMenuByRestaurantId } from "@/shared/data/menuData";
-import { fetchRestaurantMenu } from "@/shared/api/menuApi";
-import { useCart } from "@/contexts/CartContext";
+import { useCart, useCityContext } from "@/contexts";
 import { CartDrawer } from "@/features/cart/CartDrawer";
-import { useAdmin } from "@/shared/hooks/useAdmin";
+import { fetchRestaurantMenu } from "@/shared/api/menuApi";
 import { isMarikoDeliveryEnabledForCity } from "@/shared/config/marikoDelivery";
+import { getMenuByRestaurantId, type MenuItem, type RestaurantMenu } from "@shared/data";
+import { useAdmin } from "@shared/hooks";
+import { MenuItemComponent } from "@shared/ui";
+import { BottomNavigation, Header } from "@shared/ui/widgets";
 
 /**
  * Отображает меню выбранного ресторана с навигацией по категориям и карточками блюд.

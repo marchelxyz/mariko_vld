@@ -1,9 +1,9 @@
+import { CreditCard, ListChecks } from "lucide-react";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { CreditCard, ListChecks } from "lucide-react";
-import { PageHeader } from "@widgets/pageHeader";
-import { Header } from "@widgets/header";
 import { BottomNavigation } from "@widgets/bottomNavigation";
+import { Header } from "@widgets/header";
+import { PageHeader } from "@widgets/pageHeader";
 import { createYookassaPayment, fetchPaymentStatus } from "@/shared/api/payments";
 import { safeOpenLink } from "@/lib/telegram";
 

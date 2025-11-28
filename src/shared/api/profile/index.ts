@@ -1,8 +1,8 @@
 import { botApi } from "../botApiService";
-import { profileRemoteApi } from "./profile.remote";
-import { profileSupabaseApi } from "./profile.supabase";
-import { profileServerApi } from "./profile.server";
 import { getCartApiBaseUrl } from "../cart/cartApi";
+import { profileRemoteApi } from "./profile.remote";
+import { profileServerApi } from "./profile.server";
+import { profileSupabaseApi } from "./profile.supabase";
 
 function isSupabaseEnabled(): boolean {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

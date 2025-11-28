@@ -1,8 +1,8 @@
 // Telegram Bot API интеграция
 // Эти функции будут интегрированы с бэкендом бота
 
-import { getUser } from "@/lib/telegram";
 import { profileDB, type Review } from "./database";
+import { getUser } from "@/lib/telegram";
 
 export interface UserProfile {
   id: string;
@@ -12,6 +12,11 @@ export interface UserProfile {
   gender: string;
   photo: string;
   notificationsEnabled: boolean;
+  primaryAddressId?: string | null;
+  lastAddressText?: string | null;
+  lastAddressLat?: number | null;
+  lastAddressLon?: number | null;
+  lastAddressUpdatedAt?: string | null;
   telegramId?: number;
   favoriteCityId?: string | null;
   favoriteCityName?: string | null;
@@ -101,6 +106,11 @@ export const botApi = {
         favoriteRestaurantId: profile.favoriteRestaurantId ?? null,
         favoriteRestaurantName: profile.favoriteRestaurantName ?? null,
         favoriteRestaurantAddress: profile.favoriteRestaurantAddress ?? null,
+        primaryAddressId: profile.primaryAddressId ?? null,
+        lastAddressText: profile.lastAddressText ?? null,
+        lastAddressLat: profile.lastAddressLat ?? null,
+        lastAddressLon: profile.lastAddressLon ?? null,
+        lastAddressUpdatedAt: profile.lastAddressUpdatedAt ?? null,
       };
     } catch (error) {
       console.error("Ошибка получения профиля:", error);
@@ -120,6 +130,11 @@ export const botApi = {
         favoriteRestaurantId: null,
         favoriteRestaurantName: null,
         favoriteRestaurantAddress: null,
+        primaryAddressId: null,
+        lastAddressText: null,
+        lastAddressLat: null,
+        lastAddressLon: null,
+        lastAddressUpdatedAt: null,
       };
     }
   },

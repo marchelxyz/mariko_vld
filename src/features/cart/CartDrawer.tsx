@@ -1,10 +1,28 @@
-import { useState, useEffect } from "react";
-import { X, Minus, Plus, Trash2 } from "lucide-react";
-import { useCart } from "@/contexts/CartContext";
-import { useCityContext } from "@/contexts/CityContext";
-import { recalculateCart, submitCartOrder } from "@/shared/api/cart";
+import { Minus, Plus, Trash2, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getUser } from "@/lib/telegram";
+import { useCart, useCityContext } from "@/contexts";
+import { recalculateCart, submitCartOrder } from "@/shared/api/cart";
+import { profileApi } from "@shared/api/profile";
+import { getUser, telegram } from "@/lib/telegram";
+
+type AddressSuggestion = {
+  id: string;
+  label: string;
+  street?: string;
+  house?: string;
+  city?: string;
+  lat?: number;
+  lon?: number;
+};
+
+const GEO_SUGGEST_URL = import.meta.env.VITE_GEO_SUGGEST_URL ?? "https://photon.komoot.io/api";
+const GEO_REVERSE_URL = import.meta.env.VITE_GEO_REVERSE_URL ?? "https://photon.komoot.io/reverse";
+const MIN_ADDRESS_LENGTH = 3;
+type TelegramLocationManager = {
+  init: () => void;
+  getLocation: () => Promise<{ latitude: number; longitude: number }>;
+};
 
 type CartDrawerProps = {
   isOpen: boolean;
@@ -33,6 +51,21 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   const [customerName, setCustomerName] = useState("");
   const [phoneDigits, setPhoneDigits] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [addressStreet, setAddressStreet] = useState("");
+  const [addressHouse, setAddressHouse] = useState("");
+  const [addressApartment, setAddressApartment] = useState("");
+  const [addressCoords, setAddressCoords] = useState<{
+    lat: number;
+    lon: number;
+    accuracy?: number;
+    source: "telegram" | "browser" | "manual" | "suggest";
+  } | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [isSuggestLoading, setIsSuggestLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
+  const [isSuggestOpen, setIsSuggestOpen] = useState(false);
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastSubmitStatus, setLastSubmitStatus] = useState<"idle" | "success" | "error">("idle");
@@ -47,6 +80,7 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   } | null>(null);
   const [calcError, setCalcError] = useState<string | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [prefillAttempted, setPrefillAttempted] = useState(false);
   const handleDecrease = (id: string) => {
     removeItem(id);
   };
@@ -89,12 +123,198 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   const formattedPhone = formatPhoneDisplay(phoneDigits);
   const isPhoneComplete = phoneDigits.length === 10;
 
+  const resolvedDeliveryAddress = (() => {
+    const combined = [addressStreet, addressHouse, addressApartment]
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .join(", ");
+    const freeForm = deliveryAddress.trim();
+    return freeForm || combined;
+  })();
+
+  const isDeliveryAddressFilled =
+    orderType === "pickup" || Boolean(resolvedDeliveryAddress && resolvedDeliveryAddress.trim());
+
   const isFormValid =
     items.length > 0 &&
     Boolean(customerName.trim()) &&
     isPhoneComplete &&
-    (orderType === "pickup" || Boolean(deliveryAddress.trim())) &&
+    isDeliveryAddressFilled &&
     (calculation?.canSubmit ?? true);
+
+  const buildAddressLabel = (
+    street?: string,
+    house?: string,
+    city?: string,
+    apartment?: string,
+  ) => {
+    const parts = [street, house, apartment, city].filter(Boolean);
+    return parts.join(", ");
+  };
+
+  const applySuggestion = (suggestion: AddressSuggestion) => {
+    setDeliveryAddress(suggestion.label);
+    setAddressStreet(suggestion.street ?? "");
+    setAddressHouse(suggestion.house ?? "");
+    setIsSuggestOpen(false);
+    if (suggestion.lat && suggestion.lon) {
+      setAddressCoords({
+        lat: suggestion.lat,
+        lon: suggestion.lon,
+        source: "suggest",
+      });
+    }
+  };
+
+type PhotonFeature = {
+  properties?: {
+    street?: string;
+    name?: string;
+    road?: string;
+    housenumber?: string;
+    city?: string;
+    town?: string;
+    county?: string;
+    state?: string;
+    osm_id?: string | number;
+  };
+  geometry?: {
+    coordinates?: [number, number];
+  };
+};
+
+const fetchAddressSuggestions = async (query: string, signal: AbortSignal) => {
+    if (query.trim().length < MIN_ADDRESS_LENGTH) {
+      setSuggestions([]);
+      return;
+    }
+    setIsSuggestLoading(true);
+    setSuggestError(null);
+    try {
+      const response = await fetch(
+        `${GEO_SUGGEST_URL}?q=${encodeURIComponent(query)}&limit=5&lang=ru`,
+        { signal },
+      );
+      if (!response.ok) {
+        throw new Error("Не удалось получить подсказки");
+      }
+      const data = await response.json();
+      const features = Array.isArray(data?.features) ? (data.features as PhotonFeature[]) : [];
+      const mapped: AddressSuggestion[] = features.map((feature, index: number) => {
+        const props = feature?.properties ?? {};
+        const street = props.street || props.name || props.road || "";
+        const house = props.housenumber || "";
+        const city = props.city || props.town || props.county || props.state || "";
+        const coords = Array.isArray(feature?.geometry?.coordinates)
+          ? feature.geometry.coordinates
+          : [];
+        const lat = coords[1];
+        const lon = coords[0];
+        const label = buildAddressLabel(street || props.name, house, city) || query;
+        return {
+          id: String(props.osm_id ?? index),
+          label,
+          street: street || undefined,
+          house: house || undefined,
+          city: city || undefined,
+          lat: typeof lat === "number" ? lat : undefined,
+          lon: typeof lon === "number" ? lon : undefined,
+        };
+      });
+      setSuggestions(mapped);
+      setIsSuggestOpen(true);
+    } catch (error) {
+      if (signal.aborted) return;
+      console.error("Ошибка подсказок адреса", error);
+      setSuggestError(error instanceof Error ? error.message : "Не удалось загрузить подсказки");
+      setSuggestions([]);
+    } finally {
+      if (!signal.aborted) {
+        setIsSuggestLoading(false);
+      }
+    }
+  };
+
+  const reverseGeocode = async (
+    lat: number,
+    lon: number,
+    source: "telegram" | "browser" | "manual" | "suggest",
+  ) => {
+    try {
+      const response = await fetch(
+        `${GEO_REVERSE_URL}?lon=${lon}&lat=${lat}&lang=ru&limit=1`,
+      );
+      if (!response.ok) {
+        throw new Error("Не удалось определить адрес");
+      }
+      const data = await response.json();
+      const feature =
+        Array.isArray(data?.features) && data.features.length > 0
+          ? (data.features[0] as PhotonFeature)
+          : (data as PhotonFeature);
+      const props = feature?.properties ?? {};
+      const street = props.street || props.name || props.road || "";
+      const house = props.housenumber || "";
+      const city = props.city || props.town || props.county || props.state || "";
+      const label = buildAddressLabel(street, house, city);
+      setDeliveryAddress(label || `${lat.toFixed(5)}, ${lon.toFixed(5)}`);
+      setAddressStreet(street);
+      setAddressHouse(house);
+      setAddressCoords({
+        lat,
+        lon,
+        accuracy: typeof props.accuracy === "number" ? props.accuracy : undefined,
+        source,
+      });
+      setIsSuggestOpen(false);
+    } catch (error) {
+      console.error("Ошибка обратного геокодирования", error);
+      setLocationError(error instanceof Error ? error.message : "Не удалось определить адрес");
+    }
+  };
+
+  const requestLocation = async () => {
+    setIsLocating(true);
+    setLocationError(null);
+    try {
+      const tg = telegram.getTg?.() as unknown as { LocationManager?: TelegramLocationManager };
+      const locationManager = tg?.LocationManager;
+      if (locationManager?.init && locationManager?.getLocation) {
+        locationManager.init();
+        const coords = await locationManager.getLocation();
+        if (!coords?.latitude || !coords?.longitude) {
+          throw new Error("Телеграм не вернул координаты");
+        }
+        await reverseGeocode(Number(coords.latitude), Number(coords.longitude), "telegram");
+        return;
+      }
+      if (navigator.geolocation) {
+        const geoPosition = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => resolve(pos),
+            (err) => reject(err),
+            { enableHighAccuracy: true, timeout: 15000 },
+          );
+        });
+        const lat = geoPosition.coords.latitude;
+        const lon = geoPosition.coords.longitude;
+        setAddressCoords({
+          lat,
+          lon,
+          accuracy: geoPosition.coords.accuracy,
+          source: "browser",
+        });
+        await reverseGeocode(lat, lon, "browser");
+        return;
+      }
+      throw new Error("Геолокация недоступна");
+    } catch (error) {
+      console.warn("Ошибка геолокации", error);
+      setLocationError(error instanceof Error ? error.message : "Доступ к геолокации запрещён");
+    } finally {
+      setIsLocating(false);
+    }
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -113,6 +333,12 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
       restaurantName: selectedRestaurant?.name,
       restaurantAddress: selectedRestaurant?.address,
       cityName: selectedCity?.name,
+      deliveryAddressParts: {
+        street: addressStreet || undefined,
+        house: addressHouse || undefined,
+        apartment: addressApartment || undefined,
+      },
+      deliveryLocation: addressCoords ?? undefined,
     };
 
     try {
@@ -125,7 +351,13 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
         customerTelegramId: normalizedTelegramId,
         customerTelegramUsername: telegramUsername,
         customerTelegramName: telegramFullName,
-        deliveryAddress: orderType === "delivery" ? deliveryAddress.trim() : undefined,
+        deliveryAddress: orderType === "delivery" ? resolvedDeliveryAddress : undefined,
+        deliveryLatitude: addressCoords?.lat,
+        deliveryLongitude: addressCoords?.lon,
+        deliveryGeoAccuracy: addressCoords?.accuracy,
+        deliveryStreet: addressStreet || undefined,
+        deliveryHouse: addressHouse || undefined,
+        deliveryApartment: addressApartment || undefined,
         comment: comment.trim() || undefined,
         items,
         subtotal: calculation?.subtotal ?? totalPrice,
@@ -144,6 +376,10 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
       setPhoneDigits("");
       setCustomerName("");
       setDeliveryAddress("");
+      setAddressStreet("");
+      setAddressHouse("");
+      setAddressApartment("");
+      setAddressCoords(null);
       setComment("");
       // Перенаправляем на отдельную страницу успеха заказа
       navigate("/order-success", {
@@ -154,9 +390,9 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
         },
       });
       resetAndClose();
-    } catch (error: any) {
+    } catch (error) {
       setLastSubmitStatus("error");
-      setLastSubmitMessage(error?.message || "Не удалось отправить заказ");
+      setLastSubmitMessage(error instanceof Error ? error.message : "Не удалось отправить заказ");
     } finally {
       setIsSubmitting(false);
     }
@@ -183,7 +419,8 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
       {
         items,
         orderType,
-        deliveryAddress: orderType === "delivery" ? deliveryAddress.trim() || undefined : undefined,
+        deliveryAddress:
+          orderType === "delivery" ? resolvedDeliveryAddress?.trim() || undefined : undefined,
       },
       controller.signal,
     )
@@ -205,7 +442,69 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
       });
 
     return () => controller.abort();
-  }, [isCheckoutMode, items, orderType, deliveryAddress]);
+  }, [isCheckoutMode, items, orderType, resolvedDeliveryAddress, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || orderType !== "delivery" || prefillAttempted) {
+      return;
+    }
+    setPrefillAttempted(true);
+    const userId = telegramUserId;
+    setIsPrefilling(true);
+    profileApi
+      .getUserProfile(userId)
+      .then((profile) => {
+        if (!profile) return;
+        if (profile.lastAddressText && !deliveryAddress) {
+          setDeliveryAddress(profile.lastAddressText);
+        }
+        if (profile.lastAddressLat && profile.lastAddressLon && !addressCoords) {
+          setAddressCoords({
+            lat: profile.lastAddressLat,
+            lon: profile.lastAddressLon,
+            source: "manual",
+          });
+        }
+        if (profile.primaryAddressId) {
+          // оставляем возможность в будущем грузить список адресов; пока только кэш
+        }
+      })
+      .catch((error) => {
+        console.warn("Не удалось подставить адрес из профиля", error);
+      })
+      .finally(() => {
+        /* noop */
+      });
+  }, [addressCoords, deliveryAddress, isOpen, orderType, prefillAttempted, telegramUserId]);
+
+  useEffect(() => {
+    if (orderType !== "delivery") {
+      return;
+    }
+    const query = deliveryAddress.trim();
+    if (query.length < MIN_ADDRESS_LENGTH) {
+      setSuggestions([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetchAddressSuggestions(query, controller.signal);
+    }, 250);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [deliveryAddress, orderType]);
+
+  useEffect(() => {
+    if (deliveryAddress.trim()) {
+      return;
+    }
+    const combined = buildAddressLabel(addressStreet, addressHouse, selectedCity?.name, addressApartment);
+    if (combined) {
+      setDeliveryAddress(combined);
+    }
+  }, [addressStreet, addressHouse, addressApartment, selectedCity?.name, deliveryAddress]);
 
   if (!isOpen) {
     return null;
@@ -342,17 +641,118 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
               </span>
             </label>
               {orderType === "delivery" && (
-                <label className="text-sm font-semibold text-mariko-dark/80">
-                  Адрес доставки
-                  <input
-                    type="text"
-                    value={deliveryAddress}
-                    onChange={(event) => setDeliveryAddress(event.target.value)}
-                    className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
-                    placeholder="Улица, дом, квартира"
-                    required
-                  />
-                </label>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={requestLocation}
+                      className="flex-1 rounded-full border border-mariko-primary px-3 py-2 text-sm font-semibold text-mariko-primary hover:bg-mariko-primary/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                      disabled={isLocating}
+                    >
+                      {isLocating ? "Определяем локацию..." : "Моя геолокация"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeliveryAddress("");
+                        setAddressCoords(null);
+                        setAddressStreet("");
+                        setAddressHouse("");
+                      }}
+                      className="rounded-full border border-mariko-field px-3 py-2 text-sm font-semibold text-mariko-dark hover:bg-mariko-field/30 transition-colors"
+                    >
+                      Очистить
+                    </button>
+                  </div>
+                  <label className="text-sm font-semibold text-mariko-dark/80 block">
+                    Адрес доставки
+                    <div className="relative mt-1">
+                      <input
+                        type="text"
+                        value={deliveryAddress}
+                        onFocus={() => setIsSuggestOpen(true)}
+                        onChange={(event) => setDeliveryAddress(event.target.value)}
+                        className="w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
+                        placeholder="Улица, дом, квартира"
+                        required
+                      />
+                      {isSuggestLoading && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-mariko-dark/60">
+                          ...
+                        </span>
+                      )}
+                      {isSuggestOpen && suggestions.length > 0 && (
+                        <div className="absolute z-20 mt-1 w-full rounded-[12px] border border-mariko-field bg-white shadow-lg max-h-48 overflow-y-auto">
+                          {suggestions.map((suggestion) => (
+                            <button
+                              type="button"
+                              key={suggestion.id}
+                              className="w-full text-left px-3 py-2 hover:bg-mariko-field/40 text-sm"
+                              onClick={() => applySuggestion(suggestion)}
+                            >
+                              {suggestion.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <label className="text-sm font-semibold text-mariko-dark/80 col-span-2">
+                      Улица
+                      <input
+                        type="text"
+                        value={addressStreet}
+                        onChange={(event) => setAddressStreet(event.target.value)}
+                        className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
+                        placeholder="Например, Гагарина"
+                      />
+                    </label>
+                    <label className="text-sm font-semibold text-mariko-dark/80">
+                      Дом
+                      <input
+                        type="text"
+                        value={addressHouse}
+                        onChange={(event) => setAddressHouse(event.target.value)}
+                        className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
+                        placeholder="12"
+                      />
+                    </label>
+                    <label className="text-sm font-semibold text-mariko-dark/80 col-span-3">
+                      Квартира / подъезд
+                      <input
+                        type="text"
+                        value={addressApartment}
+                        onChange={(event) => setAddressApartment(event.target.value)}
+                        className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
+                        placeholder="Кв., подъезд, этаж"
+                      />
+                    </label>
+                  </div>
+                  {addressCoords && (
+                    <p className="text-xs text-mariko-dark/60">
+                      Координаты сохранены: {addressCoords.lat.toFixed(5)}, {addressCoords.lon.toFixed(5)}{" "}
+                      ({addressCoords.source})
+                    </p>
+                  )}
+                  {locationError && (
+                    <p className="text-xs text-red-600">
+                      {locationError}{" "}
+                      {telegram.getTg?.()?.openSettings ? (
+                        <button
+                          type="button"
+                          className="underline"
+                          onClick={() => telegram.getTg()?.openSettings?.()}
+                        >
+                          Открыть настройки
+                        </button>
+                      ) : null}
+                    </p>
+                  )}
+                  {suggestError && (
+                    <p className="text-xs text-red-600">{suggestError}</p>
+                  )}
+                </div>
               )}
               <label className="text-sm font-semibold text-mariko-dark/80">
                 Комментарий

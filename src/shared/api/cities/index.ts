@@ -1,9 +1,10 @@
-import { isSupabaseConfigured } from '@/lib/supabase';
 import type { City } from '@/shared/data/cities';
+import { adminServerApi } from '../admin/adminServerApi';
 import {
   shouldUseServerProxy,
   SERVER_POLL_INTERVAL_MS,
 } from './config';
+import { shouldUseServerProxy } from './config';
 import {
   fetchActiveCitiesViaServer,
   fetchAllCitiesViaServer,
@@ -22,8 +23,7 @@ import {
   subscribeToSupabaseCitiesChanges,
   syncStaticDataToSupabase,
 } from './supabaseStore';
-import { adminServerApi } from '../admin/adminServerApi';
-import { shouldUseServerProxy } from './config';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 class CitiesApi {
   async getActiveCities(): Promise<City[]> {

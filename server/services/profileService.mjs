@@ -2,7 +2,7 @@ import { supabase } from "../supabaseClient.mjs";
 import { normaliseNullableString, normalisePhone, normaliseTelegramId } from "../utils.mjs";
 
 export const PROFILE_SELECT_FIELDS =
-  "id,name,phone,birth_date,gender,photo,telegram_id,notifications_enabled,favorite_city_id,favorite_city_name,favorite_restaurant_id,favorite_restaurant_name,favorite_restaurant_address,created_at,updated_at";
+  "id,name,phone,birth_date,gender,photo,telegram_id,notifications_enabled,favorite_city_id,favorite_city_name,favorite_restaurant_id,favorite_restaurant_name,favorite_restaurant_address,primary_address_id,last_address_text,last_address_lat,last_address_lon,last_address_updated_at,created_at,updated_at";
 
 export const mapProfileRowToClient = (row, fallbackId = "") => ({
   id: row?.id ?? fallbackId,
@@ -11,6 +11,11 @@ export const mapProfileRowToClient = (row, fallbackId = "") => ({
   birthDate: row?.birth_date ?? "",
   gender: row?.gender ?? "Не указан",
   photo: row?.photo ?? "",
+  primaryAddressId: row?.primary_address_id ?? null,
+  lastAddressText: row?.last_address_text ?? null,
+  lastAddressLat: row?.last_address_lat ?? null,
+  lastAddressLon: row?.last_address_lon ?? null,
+  lastAddressUpdatedAt: row?.last_address_updated_at ?? null,
   favoriteCityId: row?.favorite_city_id ?? null,
   favoriteCityName: row?.favorite_city_name ?? null,
   favoriteRestaurantId: row?.favorite_restaurant_id ?? null,
@@ -58,6 +63,30 @@ export const buildProfileUpsertPayload = (input) => {
   }
   if (input.notificationsEnabled !== undefined) {
     payload.notifications_enabled = Boolean(input.notificationsEnabled);
+  }
+  if (input.primaryAddressId !== undefined) {
+    payload.primary_address_id = normaliseNullableString(input.primaryAddressId);
+  }
+  const hasLastAddressFields =
+    input.lastAddressText !== undefined ||
+    input.lastAddressLat !== undefined ||
+    input.lastAddressLon !== undefined ||
+    input.lastAddressUpdatedAt !== undefined;
+  if (input.lastAddressText !== undefined) {
+    payload.last_address_text = normaliseNullableString(input.lastAddressText);
+  }
+  if (input.lastAddressLat !== undefined) {
+    const lat = Number(input.lastAddressLat);
+    payload.last_address_lat = Number.isFinite(lat) ? lat : null;
+  }
+  if (input.lastAddressLon !== undefined) {
+    const lon = Number(input.lastAddressLon);
+    payload.last_address_lon = Number.isFinite(lon) ? lon : null;
+  }
+  if (input.lastAddressUpdatedAt !== undefined) {
+    payload.last_address_updated_at = normaliseNullableString(input.lastAddressUpdatedAt);
+  } else if (hasLastAddressFields) {
+    payload.last_address_updated_at = new Date().toISOString();
   }
   if (input.favoriteCityId !== undefined) {
     payload.favorite_city_id = normaliseNullableString(input.favoriteCityId);

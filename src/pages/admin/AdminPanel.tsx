@@ -2,12 +2,12 @@
  * Главная страница админ-панели
  */
 
+import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck } from 'lucide-react';
 import { useState, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck } from 'lucide-react';
-import { useAdmin } from '@/shared/hooks/useAdmin';
-import { Header } from '@/widgets/header';
 import { BottomNavigation } from '@/widgets/bottomNavigation';
+import { Header } from '@/widgets/header';
+import { useAdmin } from '@/shared/hooks/useAdmin';
 const CitiesManagementLazy = lazy(() =>
   import("@/features/admin/cities/CitiesManagement").then((module) => ({
     default: module.CitiesManagement,

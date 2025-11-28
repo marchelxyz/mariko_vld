@@ -30,6 +30,11 @@ function mapDbToProfile(row: any): UserProfile {
     gender: row.gender ?? "Не указан",
     photo: row.photo ?? "",
     notificationsEnabled: row.notifications_enabled ?? true,
+    primaryAddressId: row.primary_address_id ?? null,
+    lastAddressText: row.last_address_text ?? null,
+    lastAddressLat: row.last_address_lat ?? null,
+    lastAddressLon: row.last_address_lon ?? null,
+    lastAddressUpdatedAt: row.last_address_updated_at ?? null,
     telegramId: Number.isFinite(telegramId) ? telegramId : undefined,
     favoriteCityId: row.favorite_city_id ?? null,
     favoriteCityName: row.favorite_city_name ?? null,
@@ -122,6 +127,12 @@ export const profileSupabaseApi = {
         payload.telegram_id = fallbackTelegramId;
       }
     }
+    if (profile.primaryAddressId !== undefined) payload.primary_address_id = profile.primaryAddressId;
+    if (profile.lastAddressText !== undefined) payload.last_address_text = profile.lastAddressText;
+    if (profile.lastAddressLat !== undefined) payload.last_address_lat = profile.lastAddressLat;
+    if (profile.lastAddressLon !== undefined) payload.last_address_lon = profile.lastAddressLon;
+    if (profile.lastAddressUpdatedAt !== undefined)
+      payload.last_address_updated_at = profile.lastAddressUpdatedAt;
 
     const url = `${restUrl}/user_profiles?on_conflict=id`;
     const resp = await fetch(url, {

@@ -8,6 +8,7 @@ import {
 } from "../services/profileService.mjs";
 import { fetchRestaurantIntegrationConfig, enqueueIikoOrder } from "../services/integrationService.mjs";
 import { normaliseNullableString } from "../utils.mjs";
+import { addressService } from "../services/addressService.mjs";
 
 const healthPayload = () => ({ status: "ok", supabase: Boolean(supabase) });
 
@@ -80,6 +81,11 @@ export function registerCartRoutes(app) {
         telegramId: body.telegramId ?? headerTelegramId ?? body.id,
         name: body.name,
         phone: body.phone ?? body.customerPhone,
+        primaryAddressId: body.primaryAddressId,
+        lastAddressText: body.lastAddressText ?? body.deliveryAddress ?? null,
+        lastAddressLat: body.lastAddressLat ?? body.deliveryLatitude ?? null,
+        lastAddressLon: body.lastAddressLon ?? body.deliveryLongitude ?? null,
+        lastAddressUpdatedAt: body.lastAddressUpdatedAt ?? new Date().toISOString(),
         birthDate: body.birthDate,
         gender: body.gender,
         photo: body.photo,
@@ -149,6 +155,11 @@ export function registerCartRoutes(app) {
         telegramId: body.telegramId ?? headerTelegramId ?? resolvedId,
         name: body.name,
         phone: body.phone,
+        primaryAddressId: body.primaryAddressId,
+        lastAddressText: body.lastAddressText ?? body.deliveryAddress ?? null,
+        lastAddressLat: body.lastAddressLat ?? body.deliveryLatitude ?? null,
+        lastAddressLon: body.lastAddressLon ?? body.deliveryLongitude ?? null,
+        lastAddressUpdatedAt: body.lastAddressUpdatedAt ?? new Date().toISOString(),
         birthDate: body.birthDate,
         gender: body.gender,
         photo: body.photo,
@@ -197,6 +208,19 @@ export function registerCartRoutes(app) {
       telegramUserId: resolvedTelegramId ?? orderPayload?.meta?.telegramUserId ?? null,
       telegramUsername: resolvedTelegramUsername,
       telegramFullName: resolvedTelegramName,
+      deliveryLocation:
+        orderPayload?.deliveryLatitude && orderPayload?.deliveryLongitude
+          ? {
+              lat: orderPayload.deliveryLatitude,
+              lon: orderPayload.deliveryLongitude,
+              accuracy: orderPayload.deliveryGeoAccuracy ?? null,
+            }
+          : orderPayload?.meta?.deliveryLocation ?? null,
+      deliveryAddressParts: {
+        street: orderPayload?.deliveryStreet ?? null,
+        house: orderPayload?.deliveryHouse ?? null,
+        apartment: orderPayload?.deliveryApartment ?? null,
+      },
     };
 
     if (supabase) {
@@ -235,6 +259,25 @@ export function registerCartRoutes(app) {
             .json({ success: false, message: "Не удалось сохранить заказ. Попробуйте позже." });
         }
         console.log(`✅ Order ${orderId} saved to Supabase`);
+
+        // Сохраняем последний адрес в профиле (если есть Telegram ID и адрес)
+        if (resolvedTelegramId && orderPayload.orderType === "delivery") {
+          const lastAddressText =
+            orderPayload.deliveryAddress ??
+            composedMeta?.deliveryAddressParts?.street ??
+            null;
+          const profilePayload = {
+            id: resolvedTelegramId,
+            telegramId: resolvedTelegramId,
+            lastAddressText,
+            lastAddressLat: orderPayload.deliveryLatitude ?? composedMeta?.deliveryLocation?.lat,
+            lastAddressLon: orderPayload.deliveryLongitude ?? composedMeta?.deliveryLocation?.lon,
+            lastAddressUpdatedAt: new Date().toISOString(),
+          };
+          upsertUserProfileRecord(profilePayload).catch((profileError) =>
+            console.warn("Не удалось обновить профиль адресом", profileError),
+          );
+        }
 
         // ⚠️ Не отправляем в iiko до оплаты. Интеграция будет запущена после webhook оплаты.
       } catch (error) {
@@ -311,5 +354,91 @@ export function registerCartRoutes(app) {
       success: true,
       orders: Array.isArray(data) ? data : [],
     });
+  });
+
+  // ===== Адреса пользователя (user_addresses) =====
+  app.get("/api/cart/addresses", async (req, res) => {
+    if (!ensureSupabase(res)) {
+      return;
+    }
+    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const userId =
+      normaliseNullableString(req.query?.userId) ??
+      normaliseNullableString(req.query?.id) ??
+      headerTelegramId;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "Нужен userId" });
+    }
+    const addresses = await addressService.listByUser(userId);
+    return res.json({ success: true, addresses });
+  });
+
+  app.post("/api/cart/addresses", async (req, res) => {
+    if (!ensureSupabase(res)) {
+      return;
+    }
+    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const { userId: bodyUserId, ...payload } = req.body ?? {};
+    const userId = normaliseNullableString(bodyUserId) ?? headerTelegramId;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "Нужен userId" });
+    }
+    const created = await addressService.createOrUpdate(userId, payload);
+    if (!created) {
+      return res.status(500).json({ success: false, message: "Не удалось сохранить адрес" });
+    }
+    return res.json({ success: true, address: created });
+  });
+
+  app.patch("/api/cart/addresses/:addressId", async (req, res) => {
+    if (!ensureSupabase(res)) {
+      return;
+    }
+    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const { userId: bodyUserId, ...payload } = req.body ?? {};
+    const userId = normaliseNullableString(bodyUserId) ?? headerTelegramId;
+    const addressId = req.params.addressId;
+    if (!userId || !addressId) {
+      return res.status(400).json({ success: false, message: "Нужны userId и addressId" });
+    }
+    const updated = await addressService.createOrUpdate(userId, { ...payload, id: addressId });
+    if (!updated) {
+      return res.status(500).json({ success: false, message: "Не удалось обновить адрес" });
+    }
+    return res.json({ success: true, address: updated });
+  });
+
+  app.delete("/api/cart/addresses/:addressId", async (req, res) => {
+    if (!ensureSupabase(res)) {
+      return;
+    }
+    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const userId = normaliseNullableString(req.query?.userId) ?? headerTelegramId;
+    const addressId = req.params.addressId;
+    if (!userId || !addressId) {
+      return res.status(400).json({ success: false, message: "Нужны userId и addressId" });
+    }
+    const ok = await addressService.deleteById(userId, addressId);
+    if (!ok) {
+      return res.status(500).json({ success: false, message: "Не удалось удалить адрес" });
+    }
+    return res.json({ success: true });
+  });
+
+  app.post("/api/cart/addresses/:addressId/primary", async (req, res) => {
+    if (!ensureSupabase(res)) {
+      return;
+    }
+    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const userId = normaliseNullableString(req.body?.userId) ?? headerTelegramId;
+    const addressId = req.params.addressId;
+    if (!userId || !addressId) {
+      return res.status(400).json({ success: false, message: "Нужны userId и addressId" });
+    }
+    const ok = await addressService.setPrimary(userId, addressId);
+    if (!ok) {
+      return res.status(500).json({ success: false, message: "Не удалось назначить основной адрес" });
+    }
+    return res.json({ success: true });
   });
 }

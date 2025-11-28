@@ -1,21 +1,20 @@
-import { useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { safeOpenLink, storage } from "@/lib/telegram";
-import { Header } from "@widgets/header";
-import { QuickActionButton, ServiceCard, MenuItemComponent } from "@shared/ui";
-import { BottomNavigation } from "@widgets/bottomNavigation";
-import { useCityContext } from "@/contexts/CityContext";
-import { RESTAURANT_REVIEW_LINKS } from "@/shared/data/reviewLinks";
 import { CalendarDays, Truck, Star as StarIcon, ChevronDown, MapPin } from "lucide-react";
-import { getMenuByRestaurantId, MenuItem, MenuCategory } from "@/shared/data/menuData";
-import { toast } from "@/hooks/use-toast";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useCityContext } from "@/contexts";
+import { useToast } from "@/hooks";
 import { EmbeddedPageConfig } from "@/shared/config/webviewPages";
 import {
   CITY_BOOKING_LINKS,
   CITY_PROMOTION_LINKS,
   DEFAULT_BOOKING_LINK,
   VACANCIES_LINK,
-} from "@/shared/data/cityLinks";
+} from "@shared/data";
+import { getMenuByRestaurantId, MenuItem, MenuCategory } from "@shared/data";
+import { RESTAURANT_REVIEW_LINKS } from "@shared/data";
+import { QuickActionButton, ServiceCard, MenuItemComponent } from "@shared/ui";
+import { BottomNavigation, Header } from "@shared/ui/widgets";
+import { safeOpenLink, storage } from "@/lib/telegram";
 
 
 const Index = () => {

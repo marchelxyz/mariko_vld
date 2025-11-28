@@ -1,5 +1,5 @@
-import { ACTIVE_CITY_IDS, USE_ACTIVE_CITIES_FILTER, isRestaurantActive } from '@/shared/config/activeCities';
 import { citiesSupabaseApi } from '@/shared/api/cities';
+import { ACTIVE_CITY_IDS, USE_ACTIVE_CITIES_FILTER, isRestaurantActive } from '@/shared/config/activeCities';
 
 export interface Restaurant {
   id: string;

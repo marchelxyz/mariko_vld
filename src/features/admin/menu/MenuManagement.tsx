@@ -2,12 +2,8 @@
  * Обновлённый интерфейс управления меню ресторанов
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Edit, ArrowLeft, Copy, UtensilsCrossed } from 'lucide-react';
-import { useAdmin } from '@/shared/hooks/useAdmin';
-import { Permission } from '@/shared/types/admin';
-import { MenuCategory, MenuItem, RestaurantMenu } from '@/shared/data/menuData';
-import { cities } from '@/shared/data/cities';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { 
   fetchRestaurantMenu,
   saveRestaurantMenu,
@@ -15,6 +11,10 @@ import {
   fetchMenuImageLibrary,
   MenuImageAsset,
 } from '@/shared/api/menuApi';
+import { cities } from '@/shared/data/cities';
+import { MenuCategory, MenuItem, RestaurantMenu } from '@/shared/data/menuData';
+import { useAdmin } from '@/shared/hooks/useAdmin';
+import { Permission } from '@/shared/types/admin';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -28,9 +28,9 @@ import {
   Switch,
 } from '@shared/ui';
 import type { EditableMenuItem, CopyContext, CopySourceSelection } from './model/types';
+import { CopyModal } from './ui/CopyModal';
 import { EditCategoryModal } from './ui/EditCategoryModal';
 import { EditItemModal } from './ui/EditItemModal';
-import { CopyModal } from './ui/CopyModal';
 import { ImageLibraryModal } from './ui/ImageLibraryModal';
 
 interface MenuManagementProps {
