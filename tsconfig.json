@@ -13,6 +13,7 @@
       "@/lib/*": ["./src/services/*", "./src/shared/*"],
       "@shared/ui": ["./src/shared/ui/ui/index.ts"],
       "@shared/ui/*": ["./src/shared/ui/ui/*"],
+      "@shared/ui/widgets": ["./src/shared/ui/widgets.ts"],
       "@shared/*": ["./src/shared/*"],
       "@app/*": ["./src/app/*"],
       "@pages/*": ["./src/pages/*"],
