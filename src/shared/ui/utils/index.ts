@@ -1,1 +1,1 @@
-export { cn } from "@/shared/utils";
+export { cn } from "../../utils";
