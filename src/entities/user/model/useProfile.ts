@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
-import type { UserProfile } from "@/services/botApi";
+import { useEffect, useRef, useState } from "react";
 import { profileApi } from "@shared/api";
 import { getUser, storage } from "@/lib/telegram";
+import type { UserProfile } from "../../../services/botApi";
 
 const defaultProfile: UserProfile = {
   id: "default",
@@ -89,6 +89,7 @@ export const useProfile = () => {
       setError(null); // Очищаем предыдущие ошибки
       const telegramPhotoUrl = (getUser()?.photo_url ?? "").trim();
       const resolvedPhoto = telegramPhotoUrl || defaultProfile.photo;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { photo: _ignoredPhoto, ...restUpdates } = updates;
       const updatedProfile = { ...profile, ...restUpdates, photo: resolvedPhoto };
 
