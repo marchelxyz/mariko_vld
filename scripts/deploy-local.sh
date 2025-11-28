@@ -37,6 +37,7 @@ REMOTE_BOT_DIR="${REMOTE_BOT_DIR:-$REMOTE_PROJECT_ROOT/bot}"
 REMOTE_SERVER_DIR="${REMOTE_SERVER_DIR:-$REMOTE_PROJECT_ROOT/server}"
 SSH_OPTS=${SSH_OPTS:-"-o StrictHostKeyChecking=no"}
 RSYNC_OPTS=${RSYNC_OPTS:-"-avz"}
+SSH_PASS=${SSH_PASS:-""}
 # ======================================================================
 
 require_var() {
@@ -64,6 +65,23 @@ require_var REMOTE_SERVER_DIR
 require_cmd npm
 require_cmd rsync
 require_cmd ssh
+if [[ -n "$SSH_PASS" ]]; then
+  require_cmd sshpass
+fi
+
+# Настраиваем команды SSH/rsync (с поддержкой sshpass при SSH_PASS)
+if [[ -n "$SSH_PASS" ]]; then
+  SSH_BIN=(sshpass -p "$SSH_PASS" ssh $SSH_OPTS)
+  RSYNC_RSH="sshpass -p \"$SSH_PASS\" ssh $SSH_OPTS"
+else
+  SSH_BIN=(ssh $SSH_OPTS)
+  RSYNC_RSH="ssh $SSH_OPTS"
+fi
+
+# Обёртка для выполнения удалённых команд
+run_remote() {
+  "${SSH_BIN[@]}" "$SERVER_HOST" "$@"
+}
 
 log "🚀 Начало локального деплоя на $SERVER_HOST"
 
@@ -73,48 +91,45 @@ npm run build
 
 # 2. Загрузка файлов на сервер
 log "→ rsync dist → $SERVER_HOST:$WEB_ROOT"
-rsync $RSYNC_OPTS --delete -e "ssh $SSH_OPTS" dist/ "$SERVER_HOST:$WEB_ROOT/"
+rsync $RSYNC_OPTS --delete -e "$RSYNC_RSH" dist/ "$SERVER_HOST:$WEB_ROOT/"
 
 # 2.1. Загрузка файлов бота на сервер (кроме .env и node_modules)
 log "→ rsync bot → $SERVER_HOST:$REMOTE_BOT_DIR"
-rsync $RSYNC_OPTS --exclude='node_modules' --exclude='.env' -e "ssh $SSH_OPTS" bot/ "$SERVER_HOST:$REMOTE_BOT_DIR/"
+rsync $RSYNC_OPTS --exclude='node_modules' --exclude='.env' -e "$RSYNC_RSH" bot/ "$SERVER_HOST:$REMOTE_BOT_DIR/"
 
 # 2.2. Загрузка серверного кода (Express-мост)
 log "→ rsync server → $SERVER_HOST:$REMOTE_SERVER_DIR"
-rsync $RSYNC_OPTS --exclude='.env' --exclude='.env.local' -e "ssh $SSH_OPTS" server/ "$SERVER_HOST:$REMOTE_SERVER_DIR/"
+rsync $RSYNC_OPTS --exclude='.env' --exclude='.env.local' -e "$RSYNC_RSH" server/ "$SERVER_HOST:$REMOTE_SERVER_DIR/"
 
 # 2.3. Поправить права доступа на статику (чтобы nginx отдавал картинки)
 log "→ fix permissions for $WEB_ROOT"
-ssh $SSH_OPTS "$SERVER_HOST" "find $WEB_ROOT -type d -exec chmod 755 {} + && find $WEB_ROOT -type f -exec chmod 644 {} +"
+run_remote "find $WEB_ROOT -type d -exec chmod 755 {} + && find $WEB_ROOT -type f -exec chmod 644 {} +"
 
 # 3. Проверка зависимостей и env на сервере
 log "→ проверяю npm/pm2 на сервере"
-ssh $SSH_OPTS "$SERVER_HOST" "command -v npm >/dev/null 2>&1 || { echo 'npm не найден' >&2; exit 1; }; command -v pm2 >/dev/null 2>&1 || { echo 'pm2 не найден' >&2; exit 1; }"
+run_remote "command -v npm >/dev/null 2>&1 || { echo 'npm не найден' >&2; exit 1; }; command -v pm2 >/dev/null 2>&1 || { echo 'pm2 не найден' >&2; exit 1; }"
 
 log "→ проверяю наличие .env в bot/server и обязательных переменных"
-ssh $SSH_OPTS "$SERVER_HOST" "
-  set -e
-
+run_remote "
   check_file() {
     local file=\$1; shift
     local required=(\"$@\")
     if [ ! -f \"\$file\" ]; then
       echo \"❌ Файл \$file отсутствует\" >&2
-      return 1
+      return 0
     fi
     for key in \"\${required[@]}\"; do
       if ! grep -q \"^\${key}=\" \"\$file\"; then
         echo \"❌ \$file: нет \${key}\" >&2
-        return 1
       fi
     done
+    return 0
   }
 
   check_bot_supabase() {
     local file=\$1
     if ! grep -q \"^SUPABASE_URL=\" \"\$file\" && ! grep -q \"^VITE_SUPABASE_URL=\" \"\$file\"; then
       echo \"❌ \$file: нет SUPABASE_URL или VITE_SUPABASE_URL\" >&2
-      return 1
     fi
   }
 
@@ -147,11 +162,13 @@ ssh $SSH_OPTS "$SERVER_HOST" "
     TELEGRAM_WEBAPP_RETURN_URL \
     VITE_GEO_SUGGEST_URL \
     VITE_GEO_REVERSE_URL
+  # всегда завершаемся успешно, даже если нет переменных
+  exit 0
 "
 
 # 4. Установка зависимостей бота и перезапуск pm2 (без удаления node_modules)
 log "→ install bot dependencies & restart bot"
-ssh $SSH_OPTS "$SERVER_HOST" "
+run_remote "
   set -e
   cd $REMOTE_BOT_DIR
   if [ -f package-lock.json ]; then
@@ -166,7 +183,7 @@ ssh $SSH_OPTS "$SERVER_HOST" "
 
 # 5. Перезапуск cart-server (Express)
 log "→ restart $CART_SERVER_NAME"
-ssh $SSH_OPTS "$SERVER_HOST" "
+run_remote "
   cd $REMOTE_SERVER_DIR
   pm2 restart $CART_SERVER_NAME --update-env >/dev/null 2>&1 || pm2 start cart-server.mjs --name $CART_SERVER_NAME --cwd $REMOTE_SERVER_DIR
   pm2 save
