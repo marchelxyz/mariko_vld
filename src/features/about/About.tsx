@@ -2,10 +2,10 @@ import { Car, ExternalLink, Instagram, MapPin, MessageCircle, Phone, Send } from
 import type { LucideIcon } from "lucide-react";
 import type { MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { useCityContext } from "@/contexts";
+import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { CONTACTS } from "@shared/data";
 import { cn } from "@shared/utils";
-import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
-import { useCityContext } from "@/contexts";
 import { safeOpenLink } from "@/lib/telegram";
 
 interface InteractiveLinkProps {

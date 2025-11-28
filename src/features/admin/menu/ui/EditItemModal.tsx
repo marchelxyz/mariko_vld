@@ -1,7 +1,7 @@
 import { Save, X } from 'lucide-react';
 import type { MutableRefObject } from 'react';
-import { Button, Checkbox, Input, Label, Switch, Textarea } from '@shared/ui';
-import type { EditableMenuItem } from '../model/types';
+import { Button, Checkbox, Input, Label, Switch, Textarea } from "@shared/ui";
+import type { EditableMenuItem } from "../model";
 
 type EditItemModalProps = {
   item: EditableMenuItem | null;
@@ -194,4 +194,3 @@ export function EditItemModal({
     </div>
   );
 }
-

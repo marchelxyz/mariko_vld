@@ -1,8 +1,7 @@
-import type { UserProfile } from "@/services/botApi";
+import type { UserProfile } from "@shared/types";
 
 function getEnv(key: string): string | undefined {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const env = (import.meta as any).env as Record<string, string | undefined>;
+  const env = import.meta.env as Record<string, string | undefined>;
   return env[key];
 }
 
@@ -14,8 +13,8 @@ function getSupabaseRestBase(): { restUrl: string; anonKey: string } | null {
   return { restUrl, anonKey: anon };
 }
 
-function mapDbToProfile(row: any): UserProfile {
-  const telegramRaw = row.telegram_id;
+function mapDbToProfile(row: Record<string, unknown>): UserProfile {
+  const telegramRaw = row.telegram_id as number | string | undefined;
   const telegramId =
     typeof telegramRaw === "number"
       ? telegramRaw
@@ -23,24 +22,24 @@ function mapDbToProfile(row: any): UserProfile {
         ? Number(telegramRaw)
         : undefined;
   return {
-    id: row.id,
-    name: row.name ?? "",
-    phone: row.phone ?? "",
-    birthDate: row.birth_date ?? "",
-    gender: row.gender ?? "Не указан",
-    photo: row.photo ?? "",
-    notificationsEnabled: row.notifications_enabled ?? true,
-    primaryAddressId: row.primary_address_id ?? null,
-    lastAddressText: row.last_address_text ?? null,
-    lastAddressLat: row.last_address_lat ?? null,
-    lastAddressLon: row.last_address_lon ?? null,
-    lastAddressUpdatedAt: row.last_address_updated_at ?? null,
+    id: (row.id as string) ?? "",
+    name: (row.name as string) ?? "",
+    phone: (row.phone as string) ?? "",
+    birthDate: (row.birth_date as string) ?? "",
+    gender: (row.gender as string) ?? "Не указан",
+    photo: (row.photo as string) ?? "",
+    notificationsEnabled: (row.notifications_enabled as boolean | undefined) ?? true,
+    primaryAddressId: (row.primary_address_id as string | null | undefined) ?? null,
+    lastAddressText: (row.last_address_text as string | null | undefined) ?? null,
+    lastAddressLat: (row.last_address_lat as number | null | undefined) ?? null,
+    lastAddressLon: (row.last_address_lon as number | null | undefined) ?? null,
+    lastAddressUpdatedAt: (row.last_address_updated_at as string | null | undefined) ?? null,
     telegramId: Number.isFinite(telegramId) ? telegramId : undefined,
-    favoriteCityId: row.favorite_city_id ?? null,
-    favoriteCityName: row.favorite_city_name ?? null,
-    favoriteRestaurantId: row.favorite_restaurant_id ?? null,
-    favoriteRestaurantName: row.favorite_restaurant_name ?? null,
-    favoriteRestaurantAddress: row.favorite_restaurant_address ?? null,
+    favoriteCityId: (row.favorite_city_id as string | null | undefined) ?? null,
+    favoriteCityName: (row.favorite_city_name as string | null | undefined) ?? null,
+    favoriteRestaurantId: (row.favorite_restaurant_id as string | null | undefined) ?? null,
+    favoriteRestaurantName: (row.favorite_restaurant_name as string | null | undefined) ?? null,
+    favoriteRestaurantAddress: (row.favorite_restaurant_address as string | null | undefined) ?? null,
   };
 }
 
@@ -61,7 +60,7 @@ export const profileSupabaseApi = {
     const byIdUrl = `${restUrl}/user_profiles?select=*&id=eq.${encodedUserId}&limit=1`;
     const byIdResp = await fetch(byIdUrl, { headers });
     if (!byIdResp.ok) throw new Error(`Supabase error: ${byIdResp.status}`);
-    const byIdData = (await byIdResp.json()) as any[];
+    const byIdData = (await byIdResp.json()) as Record<string, unknown>[];
     if (byIdData.length > 0) return mapDbToProfile(byIdData[0]);
 
     const asNum = Number(userId);
@@ -69,7 +68,7 @@ export const profileSupabaseApi = {
       const byTgUrl = `${restUrl}/user_profiles?select=*&telegram_id=eq.${encodeURIComponent(String(asNum))}&limit=1`;
       const byTgResp = await fetch(byTgUrl, { headers });
       if (!byTgResp.ok) throw new Error(`Supabase error: ${byTgResp.status}`);
-      const byTgData = (await byTgResp.json()) as any[];
+      const byTgData = (await byTgResp.json()) as Record<string, unknown>[];
       if (byTgData.length > 0) return mapDbToProfile(byTgData[0]);
     }
 

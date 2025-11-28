@@ -1,4 +1,4 @@
-import type { MenuItem } from '@/shared/data/menuData';
+import type { MenuItem } from "@shared/data";
 
 export type EditableMenuItem = MenuItem & {
   priceInput?: string;

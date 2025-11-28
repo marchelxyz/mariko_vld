@@ -1,9 +1,8 @@
 import { MapPin } from "lucide-react";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
-
-import { type City } from "@/shared/data/cities";
-import { useCities } from "@/shared/hooks/useCities";
+import { type City } from "@shared/data";
+import { useCities } from "@shared/hooks";
+import { cn } from "@shared/utils";
 
 interface CitySelectorSimpleProps {
   selectedCity: City | null;

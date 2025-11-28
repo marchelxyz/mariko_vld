@@ -1,7 +1,7 @@
 import { X } from 'lucide-react';
-import type { RestaurantMenu } from '@/shared/data/menuData';
-import { Button, Checkbox, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@shared/ui';
-import type { CopyContext, CopySourceSelection } from '../model/types';
+import type { RestaurantMenu } from "@shared/data";
+import { Button, Checkbox, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/ui";
+import type { CopyContext, CopySourceSelection } from "../model";
 
 type CityOption = {
   id: string;

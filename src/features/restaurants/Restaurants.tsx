@@ -1,12 +1,12 @@
 import { ArrowLeft, MapPin, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { RestaurantReviews } from "@entities/restaurant";
 import { useCityContext } from "@/contexts";
-import { safeOpenLink, storage } from "@/lib/telegram";
+import { BottomNavigation, Header } from "@shared/ui/widgets";
+import { RestaurantReviews } from "@entities/restaurant";
 import { useCities } from "@shared/hooks";
 import { CitySelector } from "@shared/ui";
-import { BottomNavigation, Header } from "@shared/ui/widgets";
+import { safeOpenLink, storage } from "@/lib/telegram";
 
 interface Restaurant {
   id: string;
@@ -20,6 +20,16 @@ interface Restaurant {
   yandexReviewUrl: string;
   gisReviewUrl: string;
 }
+
+type RestaurantLinks = Pick<
+  Restaurant,
+  | "yandexMapsUrl"
+  | "gisUrl"
+  | "yandexParkingUrl"
+  | "gisParkingUrl"
+  | "yandexReviewUrl"
+  | "gisReviewUrl"
+>;
 
 const Restaurants = () => {
   const navigate = useNavigate();
@@ -42,7 +52,7 @@ const Restaurants = () => {
   // Функция для получения актуальных ссылок на карты для каждого ресторана
   function getRestaurantLinks(restaurantId: string, city: string, address: string) {
     // Актуальные ссылки для каждого ресторана
-    const restaurantLinksMap: { [key: string]: any } = {
+    const restaurantLinksMap: Record<string, RestaurantLinks> = {
       // Нижний Новгород
       "nn-rozh": {
         yandexMapsUrl: "https://yandex.ru/maps/47/nizhny-novgorod/?ll=44.005986%2C56.326797&mode=poi&poi%5Bpoint%5D=44.005986%2C56.326797&poi%5Buri%5D=ymapsbm1%3A%2F%2Forg%3Foid%3D1076392938&z=17",

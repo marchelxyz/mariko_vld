@@ -1,6 +1,5 @@
-import type { City } from '@/shared/data/cities';
-import { cities as staticCities } from '@/shared/data/cities';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { cities as staticCities, type City } from "@shared/data";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 export async function getCityStatusFromSupabase(cityId: string): Promise<boolean> {
   if (!isSupabaseConfigured()) {
@@ -47,11 +46,13 @@ export async function setCityStatusInSupabase(
     }
 
     return { success: true };
-  } catch (error: any) {
-    console.error('Неожиданная ошибка изменения статуса города:', error);
+  } catch (error: unknown) {
+    console.error("Неожиданная ошибка изменения статуса города:", error);
+    const message =
+      error instanceof Error ? error.message : "Неожиданная ошибка при изменении статуса города";
     return {
       success: false,
-      errorMessage: error?.message ?? 'Неожиданная ошибка при изменении статуса города',
+      errorMessage: message,
     };
   }
 }

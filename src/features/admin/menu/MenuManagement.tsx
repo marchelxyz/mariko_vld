@@ -10,11 +10,11 @@ import {
   uploadMenuImage,
   fetchMenuImageLibrary,
   MenuImageAsset,
-} from '@/shared/api/menuApi';
-import { cities } from '@/shared/data/cities';
-import { MenuCategory, MenuItem, RestaurantMenu } from '@/shared/data/menuData';
-import { useAdmin } from '@/shared/hooks/useAdmin';
-import { Permission } from '@/shared/types/admin';
+} from "@shared/api/menuApi";
+import { cities } from "@shared/data";
+import { type MenuCategory, type MenuItem, type RestaurantMenu } from "@shared/data";
+import { useAdmin } from "@shared/hooks";
+import { Permission } from "@shared/types";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -26,12 +26,9 @@ import {
   AlertDialogTitle,
   Button,
   Switch,
-} from '@shared/ui';
-import type { EditableMenuItem, CopyContext, CopySourceSelection } from './model/types';
-import { CopyModal } from './ui/CopyModal';
-import { EditCategoryModal } from './ui/EditCategoryModal';
-import { EditItemModal } from './ui/EditItemModal';
-import { ImageLibraryModal } from './ui/ImageLibraryModal';
+} from "@shared/ui";
+import type { CopyContext, CopySourceSelection, EditableMenuItem } from "./model";
+import { CopyModal, EditCategoryModal, EditItemModal, ImageLibraryModal } from "./ui";
 
 interface MenuManagementProps {
   restaurantId?: string;
@@ -377,9 +374,8 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
       return;
     }
 
-    const { priceInput: _ignored, ...rest } = editingItem;
     const preparedItem: MenuItem = {
-      ...rest,
+      ...editingItem,
       price: Number(parsedPrice.toFixed(2)),
     };
 
@@ -492,9 +488,11 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     try {
       const images = await fetchMenuImageLibrary(selectedRestaurantId, 'global');
       setLibraryImages(images);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Не удалось получить список изображений меню:', error);
-      setLibraryError(error?.message ?? 'Не удалось загрузить изображения');
+      const message =
+        error instanceof Error ? error.message : 'Не удалось загрузить изображения';
+      setLibraryError(message);
     } finally {
       setIsLoadingLibrary(false);
     }
@@ -635,9 +633,13 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     try {
       const uploaded = await uploadMenuImage(selectedRestaurantId, file);
       updateEditingItem({ imageUrl: uploaded.url });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Ошибка загрузки изображения:', error);
-      setUploadError(error?.message ?? 'Не удалось загрузить изображение. Попробуйте ещё раз.');
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Не удалось загрузить изображение. Попробуйте ещё раз.';
+      setUploadError(message);
     } finally {
       setUploadingImage(false);
       if (fileInputRef.current) {

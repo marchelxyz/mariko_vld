@@ -1,19 +1,20 @@
+import { getCartApiBaseUrl } from "@shared/api/cart";
 import { botApi } from "../botApiService";
-import { getCartApiBaseUrl } from "../cart/cartApi";
 import { profileRemoteApi } from "./profile.remote";
 import { profileServerApi } from "./profile.server";
 import { profileSupabaseApi } from "./profile.supabase";
 
+const getEnv = (): Record<string, string | undefined> =>
+  import.meta.env as Record<string, string | undefined>;
+
 function isSupabaseEnabled(): boolean {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const env = (import.meta as any).env as Record<string, string | undefined>;
-  return !!env?.VITE_SUPABASE_URL && !!env?.VITE_SUPABASE_ANON_KEY;
+  const env = getEnv();
+  return Boolean(env?.VITE_SUPABASE_URL && env?.VITE_SUPABASE_ANON_KEY);
 }
 
 function isRestEnabled(): boolean {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const env = (import.meta as any).env as Record<string, string | undefined>;
-  return !!env?.VITE_API_BASE_URL;
+  const env = getEnv();
+  return Boolean(env?.VITE_API_BASE_URL);
 }
 
 const FORCE_SERVER_API = (import.meta.env.VITE_FORCE_SERVER_API ?? "false") === "true";

@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, RefreshCcw, Bike, PackageCheck, Truck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { adminServerApi } from "@/shared/api/admin";
-import type { CartOrderRecord } from "@/shared/api/cart";
-import { getAllCitiesAsync } from "@/shared/data/cities";
-import { useAdmin } from "@/shared/hooks/useAdmin";
+import { adminServerApi } from "@shared/api/admin";
+import type { CartOrderRecord } from "@shared/api/cart";
+import { getAllCitiesAsync, type City } from "@shared/data";
+import { useAdmin } from "@shared/hooks";
 import {
   Button,
   Select,
@@ -58,29 +58,30 @@ const formatPrice = (value?: number | null) => {
   return `${value.toLocaleString("ru-RU")} ₽`;
 };
 
+type RestaurantOption = { id: string; label: string; cityName: string };
+
+const mapCitiesToRestaurantOptions = (cities: City[]): RestaurantOption[] =>
+  cities.flatMap((city) =>
+    (city.restaurants || []).map((restaurant) => ({
+      id: restaurant.id,
+      label: restaurant.name,
+      cityName: city.name,
+    })),
+  );
+
 export function DeliveryManagement(): JSX.Element {
   const { isSuperAdmin, allowedRestaurants } = useAdmin();
   const [pendingChange, setPendingChange] = useState<{ orderId: string; status: string } | null>(
     null,
   );
-  const [restaurantOptions, setRestaurantOptions] = useState<
-    { id: string; label: string; cityName: string }[]
-  >([]);
+  const [restaurantOptions, setRestaurantOptions] = useState<RestaurantOption[]>([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"active" | "history">("active");
 
   useEffect(() => {
     const loadRestaurants = async () => {
       const cities = await getAllCitiesAsync();
-      const options =
-        cities?.flatMap((city: any) =>
-          (city.restaurants || []).map((restaurant: any) => ({
-            id: restaurant.id,
-            label: restaurant.name,
-            cityName: city.name,
-          })),
-        ) ?? [];
-      setRestaurantOptions(options);
+      setRestaurantOptions(mapCitiesToRestaurantOptions(cities));
     };
     void loadRestaurants();
   }, []);

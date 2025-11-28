@@ -1,18 +1,20 @@
 import { CalendarDays, MapPin, Star as StarIcon, Truck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useCityContext } from "@/contexts";
+import { BottomNavigation, Header } from "@shared/ui/widgets";
 import { EmbeddedPageConfig } from "@/shared/config/webviewPages";
 import {
   CITY_BOOKING_LINKS,
   CITY_PROMOTION_LINKS,
   DEFAULT_BOOKING_LINK,
+  RESTAURANT_REVIEW_LINKS,
   VACANCIES_LINK,
+  getMenuByRestaurantId,
+  MenuCategory,
+  MenuItem,
 } from "@shared/data";
-import { getMenuByRestaurantId, MenuItem, MenuCategory } from "@shared/data";
-import { RESTAURANT_REVIEW_LINKS } from "@shared/data";
 import { QuickActionButton, ServiceCard, MenuItemComponent } from "@shared/ui";
-import { BottomNavigation, Header } from "@shared/ui/widgets";
-import { useCityContext } from "@/contexts";
 import { safeOpenLink, storage } from "@/lib/telegram";
 
 

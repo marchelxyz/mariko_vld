@@ -1,6 +1,6 @@
 import { Minus, Plus } from "lucide-react";
 import { memo } from "react";
-import type { MenuItem } from "@/shared/data/menuData";
+import { type MenuItem } from "@shared/data";
 import { Badge } from "./badge";
 
 interface MenuItemProps {

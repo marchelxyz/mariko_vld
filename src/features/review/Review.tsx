@@ -114,7 +114,7 @@ const Review = () => {
     // Используем те же актуальные ссылки что и в Restaurants.tsx с полной синхронизацией
     const getRestaurantReviewLinks = (restaurantId: string, city: string, address: string) => {
       // Актуальные ссылки для каждого ресторана - точно такие же как в Restaurants.tsx
-      const restaurantLinksMap: { [key: string]: any } = {
+      const restaurantLinksMap: Record<string, { yandex?: string; gis?: string }> = {
         // Нижний Новгород
         "nn-rozh": {
           yandex: "https://yandex.ru/maps/47/nizhny-novgorod/?ll=44.005986%2C56.326797&mode=poi&poi%5Bpoint%5D=44.005986%2C56.326797&poi%5Buri%5D=ymapsbm1%3A%2F%2Forg%3Foid%3D1076392938&z=17&tab=reviews",

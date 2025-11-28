@@ -3,8 +3,8 @@ import { AlertCircle, ChevronDown, ChevronUp, Loader2, RefreshCw } from "lucide-
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
-import { cn } from "@shared/utils";
 import { fetchMyOrders, type CartOrderRecord, type OrderStatus } from "@/shared/api/cart";
+import { cn } from "@shared/utils";
 import { getUser } from "@/lib/telegram";
 
 const KNOWN_STATUS_SET = new Set<OrderStatus>([

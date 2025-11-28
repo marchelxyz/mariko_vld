@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@shared/utils";
 
 interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;

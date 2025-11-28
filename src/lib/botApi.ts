@@ -1,1 +1,1 @@
-export * from "@/services/botApi"; 
+export { botApi } from "@/services";

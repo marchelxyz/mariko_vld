@@ -1,4 +1,4 @@
-import type { CartItem } from "@/contexts/CartContext";
+import type { CartItem } from "@/contexts";
 import { getCartApiBaseUrl } from "./cartApi";
 
 export type OrderStatus =

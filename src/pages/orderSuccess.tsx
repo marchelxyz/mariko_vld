@@ -77,8 +77,9 @@ const OrderSuccessPage = () => {
       } else {
         setPaymentError("Ссылка на оплату не получена");
       }
-    } catch (error: any) {
-      setPaymentError(error?.message || "Не удалось создать оплату");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Не удалось создать оплату";
+      setPaymentError(message);
     } finally {
       setIsPaymentStarting(false);
     }

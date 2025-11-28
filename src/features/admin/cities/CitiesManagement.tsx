@@ -10,11 +10,11 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
-import { adminApi } from '@/shared/api/admin';
-import { citiesSupabaseApi } from '@/shared/api/cities';
-import { City, getAllCitiesAsync } from '@/shared/data/cities';
-import { useAdmin } from '@/shared/hooks/useAdmin';
-import { Permission } from '@/shared/types/admin';
+import { adminApi } from "@shared/api/admin";
+import { citiesSupabaseApi } from "@shared/api/cities";
+import { getAllCitiesAsync, type City } from "@shared/data";
+import { useAdmin } from "@shared/hooks";
+import { Permission } from "@shared/types";
 import {
   Button,
   Input,
@@ -26,8 +26,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@shared/ui';
-import { isSupabaseConfigured } from '@/lib/supabase';
+} from "@shared/ui";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 type RestaurantWithStatus = City['restaurants'][number] & { isActive: boolean };
 
@@ -35,6 +35,17 @@ interface CityWithStatus extends City {
   isActive: boolean;
   restaurants: RestaurantWithStatus[];
 }
+
+const normalizeRestaurant = (restaurant: RestaurantWithStatus | (RestaurantWithStatus & { is_active?: boolean })): RestaurantWithStatus => ({
+  ...restaurant,
+  isActive: restaurant.isActive ?? restaurant.is_active ?? true,
+});
+
+const normalizeCity = (city: City & { is_active?: boolean }): CityWithStatus => ({
+  ...city,
+  isActive: city.is_active ?? true,
+  restaurants: (city.restaurants || []).map((restaurant) => normalizeRestaurant(restaurant as RestaurantWithStatus & { is_active?: boolean })),
+});
 
 /**
  * Компонент управления городами
@@ -56,16 +67,7 @@ export function CitiesManagement(): JSX.Element {
       setIsLoading(true);
       try {
         const cities = await getAllCitiesAsync();
-        
-        // Преобразуем в нужный формат с правильным статусом
-        const citiesWithStatus = cities.map((city: any) => ({
-          ...city,
-          isActive: city.is_active !== undefined ? city.is_active : true,
-          restaurants: (city.restaurants || []).map((r: any) => ({
-            ...r,
-            isActive: r.is_active !== undefined ? r.is_active : r.isActive ?? true,
-          })),
-        }));
+        const citiesWithStatus = cities.map((city) => normalizeCity(city as City & { is_active?: boolean }));
 
         console.log('📊 Загружено городов:', citiesWithStatus.length);
         console.log('✅ Активных:', citiesWithStatus.filter(c => c.isActive).length);
@@ -90,10 +92,7 @@ export function CitiesManagement(): JSX.Element {
     const unsubscribe = citiesSupabaseApi.subscribeToCitiesChanges(async () => {
       // Перезагружаем все города при любом изменении
       const cities = await getAllCitiesAsync();
-      const citiesWithStatus = cities.map((city: any) => ({
-        ...city,
-        isActive: city.is_active !== undefined ? city.is_active : true,
-      }));
+      const citiesWithStatus = cities.map((city) => normalizeCity(city as City & { is_active?: boolean }));
       
       setCitiesWithStatus(citiesWithStatus);
       console.log('✅ Города обновлены в реальном времени');

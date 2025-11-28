@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { useCityContext } from "@/contexts/CityContext";
-import { BottomNavigation } from "@widgets/bottomNavigation";
-import { Header } from "@widgets/header";
-import { PageHeader } from "@widgets/pageHeader";
+import { useCityContext } from "@/contexts";
+import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { EMBEDDED_PAGES, type EmbeddedPageConfig } from "@/shared/config/webviewPages";
 import { safeOpenLink } from "@/lib/telegram";
 

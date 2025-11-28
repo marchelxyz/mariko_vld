@@ -1,7 +1,7 @@
 import { Star, MessageCircle, User } from "lucide-react";
-import { useState, useEffect } from "react";
-import { Review } from "@/lib/database";
+import { useEffect, useState } from "react";
 import { reviewsApi } from "@shared/api";
+import type { Review } from "@shared/types";
 
 interface RestaurantReviewsProps {
   restaurantId: string;

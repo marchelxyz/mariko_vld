@@ -116,7 +116,7 @@ export interface Database {
           telegram_id: number;
           name: string | null;
           role: 'super_admin' | 'admin' | 'user';
-          permissions: any;
+          permissions: string[] | null;
           created_at: string;
           updated_at: string;
         };
@@ -126,4 +126,3 @@ export interface Database {
     };
   };
 }
-

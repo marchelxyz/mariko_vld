@@ -1,4 +1,4 @@
-import { useCityContext } from "@/contexts/CityContext";
+import { useCityContext } from "@/contexts";
 import { AddressCitySelector } from "./AddressCitySelector";
 
 interface HeaderProps {

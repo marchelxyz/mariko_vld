@@ -1,5 +1,5 @@
-import { RestaurantMenu, getMenuByRestaurantId } from '@/shared/data/menuData';
-import { getTg } from '@/lib/telegram';
+import { getMenuByRestaurantId, type RestaurantMenu } from "@shared/data";
+import { getTg } from "@/lib/telegram";
 
 const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
 const RAW_SERVER_API_BASE = normalizeBaseUrl(rawServerEnv || '/api');
@@ -146,11 +146,13 @@ export async function saveRestaurantMenu(
     }
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Неожиданная ошибка сохранения меню через серверный API:', error);
+    const message =
+      error instanceof Error ? error.message : 'Неожиданная ошибка при сохранении меню';
     return {
       success: false,
-      errorMessage: error?.message ?? 'Неожиданная ошибка при сохранении меню',
+      errorMessage: message,
     };
   }
 }
@@ -228,4 +230,3 @@ function readFileAsDataUrl(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
-

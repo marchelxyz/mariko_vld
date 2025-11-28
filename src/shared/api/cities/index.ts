@@ -1,29 +1,25 @@
-import type { City } from '@/shared/data/cities';
-import { adminServerApi } from '../admin/adminServerApi';
-import {
-  shouldUseServerProxy,
-  SERVER_POLL_INTERVAL_MS,
-} from './config';
-import { shouldUseServerProxy } from './config';
+import { adminServerApi } from "@shared/api/admin";
+import type { City } from "@shared/data";
+import { SERVER_POLL_INTERVAL_MS, shouldUseServerProxy } from "./config";
 import {
   fetchActiveCitiesViaServer,
   fetchAllCitiesViaServer,
   setCityStatusViaServer,
-} from './serverGateway';
+} from "./serverGateway";
 import {
+  addCityToSupabase,
+  addRestaurantToSupabase,
+  deleteCityFromSupabase,
+  deleteRestaurantFromSupabase,
   fetchActiveCitiesViaSupabase,
   fetchAllCitiesViaSupabase,
   getCityStatusFromSupabase,
   setCityStatusInSupabase,
-  addCityToSupabase,
-  deleteCityFromSupabase,
-  addRestaurantToSupabase,
-  updateRestaurantInSupabase,
-  deleteRestaurantFromSupabase,
   subscribeToSupabaseCitiesChanges,
   syncStaticDataToSupabase,
-} from './supabaseStore';
-import { isSupabaseConfigured } from '@/lib/supabase';
+  updateRestaurantInSupabase,
+} from "./supabaseStore";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 class CitiesApi {
   async getActiveCities(): Promise<City[]> {
