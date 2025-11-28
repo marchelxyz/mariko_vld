@@ -2,6 +2,7 @@ import { Compass, Home, Shield, User } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { safeOpenLink } from "@/lib/telegram";
+import { useAdmin } from "@shared/hooks";
 import { cn } from "@shared/utils";
 
 type NavKey = "home" | "franchise" | "profile" | "admin";
@@ -20,6 +21,8 @@ const FRANCHISE_URL = import.meta.env.VITE_FRANCHISE_URL ?? "https://vhachapuri.
 export const BottomNavigation = ({ currentPage, className }: BottomNavigationProps) => {
   const navigate = useNavigate();
   const activeKey = useMemo(() => currentPage, [currentPage]);
+  const { isAdmin, isSuperAdmin } = useAdmin();
+  const showAdmin = isAdmin || isSuperAdmin || activeKey === "admin";
 
   const items: NavItem[] = [
     { key: "home", label: "Главная", path: "/", icon: Home },
@@ -27,8 +30,8 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
     { key: "profile", label: "Профиль", path: "/profile", icon: User },
   ];
 
-  if (activeKey === "admin") {
-    items.push({ key: "admin", label: "Админ", path: "/admin", icon: Shield });
+  if (showAdmin) {
+    items.push({ key: "admin", label: "Админ-панель", path: "/admin", icon: Shield });
   }
 
   const handleClick = (item: NavItem) => {
