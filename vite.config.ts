@@ -14,6 +14,7 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
       "@shared/ui": path.resolve(__dirname, "./src/shared/ui/ui"),
+      "@shared/ui/widgets": path.resolve(__dirname, "./src/shared/ui/widgets.ts"),
       "@shared": path.resolve(__dirname, "./src/shared"),
       "@entities": path.resolve(__dirname, "./src/entities"),
       "@widgets": path.resolve(__dirname, "./src/widgets"),

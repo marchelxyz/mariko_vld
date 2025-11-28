@@ -1,1 +1,1 @@
-export { Header, BottomNavigation, PageHeader } from "@/widgets";
+export { Header, BottomNavigation, PageHeader, CartDrawer } from "@/widgets";

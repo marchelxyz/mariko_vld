@@ -1,2 +1,2 @@
 export { botApi } from "./botApi";
-export { database } from "./database";
+export { profileDB as database, profileDB } from "./database";
