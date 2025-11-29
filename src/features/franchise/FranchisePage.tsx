@@ -21,7 +21,7 @@ const FranchisePage = () => {
                 <p className="mt-4 text-sm font-el-messiri opacity-80">Загружаем страницу…</p>
               </div>
             )}
-            <div className="flex-1 rounded-[24px] overflow-hidden shadow-[inset_0_-12px_18px_rgba(0,0,0,0.12)] border border-white/10 bg-transparent">
+            <div className="flex-1 rounded-[24px] overflow-hidden shadow-[inset_0_22px_48px_rgba(0,0,0,0.34),inset_0_-22px_48px_rgba(0,0,0,0.34)] border border-white/10 bg-transparent">
               <iframe
                 title="Франшиза"
                 src={FRANCHISE_URL}
