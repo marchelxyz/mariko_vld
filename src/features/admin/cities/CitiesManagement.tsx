@@ -8,6 +8,7 @@ import {
   Eye,
   EyeOff,
   Trash2,
+  Shield,
 } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { adminApi } from "@shared/api/admin";
@@ -51,7 +52,7 @@ const normalizeCity = (city: City & { is_active?: boolean }): CityWithStatus => 
  * Компонент управления городами
  */
 export function CitiesManagement(): JSX.Element {
-  const { userId, hasPermission } = useAdmin();
+  const { userId, hasPermission, isSuperAdmin } = useAdmin();
   const [citiesWithStatus, setCitiesWithStatus] = useState<CityWithStatus[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [cityToDelete, setCityToDelete] = useState<string | null>(null);
@@ -59,7 +60,7 @@ export function CitiesManagement(): JSX.Element {
   const useSupabase = isSupabaseConfigured();
 
   // Права доступа
-  const canManage = hasPermission(Permission.MANAGE_CITIES);
+  const canManage = isSuperAdmin() && hasPermission(Permission.MANAGE_CITIES);
 
   // Загрузка городов из Supabase
   useEffect(() => {
@@ -221,6 +222,16 @@ export function CitiesManagement(): JSX.Element {
       alert('❌ Ошибка изменения статуса ресторана');
     }
   };
+
+  if (!isSuperAdmin()) {
+    return (
+      <div className="bg-mariko-secondary rounded-[24px] p-12 text-center">
+        <Shield className="w-12 h-12 text-white/30 mx-auto mb-4" />
+        <h3 className="text-white font-el-messiri text-xl font-bold mb-2">Доступ запрещен</h3>
+        <p className="text-white/70">Управление городами доступно только супер-администратору</p>
+      </div>
+    );
+  }
 
   // Индикатор загрузки
   if (isLoading) {

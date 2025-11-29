@@ -1,7 +1,6 @@
 import { Compass, Home, Shield, User } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { safeOpenLink } from "@/lib/telegram";
 import { useAdmin } from "@shared/hooks";
 import { cn } from "@shared/utils";
 
@@ -12,11 +11,9 @@ interface BottomNavigationProps {
   className?: string;
 }
 
-type NavItem =
-  | { key: NavKey; label: string; icon: typeof Home; path: string }
-  | { key: NavKey; label: string; icon: typeof Home; href: string };
+type NavItem = { key: NavKey; label: string; icon: typeof Home; path: string };
 
-const FRANCHISE_URL = import.meta.env.VITE_FRANCHISE_URL ?? "https://vhachapuri.ru/franchise";
+const FRANCHISE_URL = import.meta.env.VITE_FRANCHISE_URL ?? "/franchise";
 
 export const BottomNavigation = ({ currentPage, className }: BottomNavigationProps) => {
   const navigate = useNavigate();
@@ -26,7 +23,7 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
 
   const items: NavItem[] = [
     { key: "home", label: "Главная", path: "/", icon: Home },
-    { key: "franchise", label: "Франшиза", href: FRANCHISE_URL, icon: Compass },
+    { key: "franchise", label: "Франшиза", path: "/franchise", icon: Compass },
     { key: "profile", label: "Профиль", path: "/profile", icon: User },
   ];
 
@@ -35,17 +32,13 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
   }
 
   const handleClick = (item: NavItem) => {
-    if ("href" in item) {
-      safeOpenLink(item.href, { try_instant_view: false });
-      return;
-    }
     navigate(item.path);
   };
 
   return (
     <nav
       className={cn(
-        "fixed bottom-0 left-0 right-0 z-40 bg-mariko-secondary/90 backdrop-blur-md border-t border-white/10",
+        "fixed bottom-0 left-0 right-0 z-40 bg-mariko-secondary/90 backdrop-blur-md border-t border-white/10 rounded-t-2xl",
         "md:static md:rounded-2xl md:mx-auto md:max-w-4xl md:mb-4",
         className,
       )}

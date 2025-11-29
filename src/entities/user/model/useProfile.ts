@@ -16,6 +16,9 @@ const defaultProfile: UserProfile = {
   favoriteRestaurantId: null,
   favoriteRestaurantName: null,
   favoriteRestaurantAddress: null,
+  lastAddressText: "",
+  lastAddressLat: null,
+  lastAddressLon: null,
 };
 
 export const useProfile = () => {

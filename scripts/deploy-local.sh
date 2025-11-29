@@ -8,7 +8,7 @@
 #   2. rsync dist → /var/www/html на сервере
 #   3. rsync bot/server (без .env)
 #   4. Проверка .env на сервере (наличие ключевых переменных)
-#   5. pm2 restart bot/cart-server
+#   5. Установка зависимостей (bot + server) и перезапуск pm2
 # ----------------------------------------------------------------------
 #  Запуск: DEPLOY_ENV_FILE=.env.deploy bash scripts/deploy-local.sh
 # ======================================================================
@@ -37,6 +37,7 @@ REMOTE_BOT_DIR="${REMOTE_BOT_DIR:-$REMOTE_PROJECT_ROOT/bot}"
 REMOTE_SERVER_DIR="${REMOTE_SERVER_DIR:-$REMOTE_PROJECT_ROOT/server}"
 SSH_OPTS=${SSH_OPTS:-"-o StrictHostKeyChecking=no"}
 RSYNC_OPTS=${RSYNC_OPTS:-"-avz"}
+RSYNC_DIST_OPTS=${RSYNC_DIST_OPTS:-"-avz"} # отдельно для статики, по умолчанию без --delete, чтобы не ломать кешированные бандлы
 SSH_PASS=${SSH_PASS:-""}
 # ======================================================================
 
@@ -90,8 +91,8 @@ log "→ npm run build"
 npm run build
 
 # 2. Загрузка файлов на сервер
-log "→ rsync dist → $SERVER_HOST:$WEB_ROOT"
-rsync $RSYNC_OPTS --delete -e "$RSYNC_RSH" dist/ "$SERVER_HOST:$WEB_ROOT/"
+log "→ rsync dist → $SERVER_HOST:$WEB_ROOT (без --delete)"
+rsync $RSYNC_DIST_OPTS -e "$RSYNC_RSH" dist/ "$SERVER_HOST:$WEB_ROOT/"
 
 # 2.1. Загрузка файлов бота на сервер (кроме .env и node_modules)
 log "→ rsync bot → $SERVER_HOST:$REMOTE_BOT_DIR"
@@ -119,6 +120,7 @@ run_remote "
       return 0
     fi
     for key in \"\${required[@]}\"; do
+      [ -z \"\$key\" ] && continue
       if ! grep -q \"^\${key}=\" \"\$file\"; then
         echo \"❌ \$file: нет \${key}\" >&2
       fi
@@ -128,7 +130,11 @@ run_remote "
 
   check_bot_supabase() {
     local file=\$1
-    if ! grep -q \"^SUPABASE_URL=\" \"\$file\" && ! grep -q \"^VITE_SUPABASE_URL=\" \"\$file\"; then
+    local has_url=0
+    if grep -q \"^SUPABASE_URL=\" \"\$file\" || grep -q \"^VITE_SUPABASE_URL=\" \"\$file\"; then
+      has_url=1
+    fi
+    if [ \$has_url -eq 0 ]; then
       echo \"❌ \$file: нет SUPABASE_URL или VITE_SUPABASE_URL\" >&2
     fi
   }
@@ -141,8 +147,7 @@ run_remote "
     ADMIN_TELEGRAM_IDS \
     API_PORT \
     PROFILE_SYNC_URL \
-    VITE_GEO_SUGGEST_URL \
-    VITE_GEO_REVERSE_URL
+    VITE_YANDEX_GEOCODE_API_KEY
   check_bot_supabase \"$REMOTE_BOT_DIR/.env\"
 
   check_file \"$REMOTE_SERVER_DIR/.env\" \
@@ -160,8 +165,7 @@ run_remote "
     INTEGRATION_CACHE_TTL_MS \
     CART_SERVER_LOG_LEVEL \
     TELEGRAM_WEBAPP_RETURN_URL \
-    VITE_GEO_SUGGEST_URL \
-    VITE_GEO_REVERSE_URL
+    VITE_YANDEX_GEOCODE_API_KEY
   # всегда завершаемся успешно, даже если нет переменных
   exit 0
 "
@@ -181,10 +185,15 @@ run_remote "
   pm2 save
 "
 
-# 5. Перезапуск cart-server (Express)
-log "→ restart $CART_SERVER_NAME"
+# 4.1. Установка зависимостей сервера и перезапуск cart-server
+log "→ install server dependencies & restart $CART_SERVER_NAME"
 run_remote "
   cd $REMOTE_SERVER_DIR
+  if [ -f package-lock.json ]; then
+    npm ci --omit=dev
+  else
+    npm install --production
+  fi
   pm2 restart $CART_SERVER_NAME --update-env >/dev/null 2>&1 || pm2 start cart-server.mjs --name $CART_SERVER_NAME --cwd $REMOTE_SERVER_DIR
   pm2 save
 "

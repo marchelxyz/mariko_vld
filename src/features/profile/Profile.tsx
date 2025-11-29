@@ -11,6 +11,7 @@ const Profile = () => {
   const greetingText = hasCustomName
     ? `Сердечно встречаем тебя, ${normalizedName}!`
     : "Сердечно встречаем тебя, генацвале!";
+  const deliveryAddress = (profile.lastAddressText || "").trim();
 
   return (
     <div className="min-h-screen overflow-hidden flex flex-col bg-transparent">
@@ -46,7 +47,15 @@ const Profile = () => {
           </div>
 
           {/* Profile Action Buttons */}
-          <div className="relative z-20 mt-6 md:mt-8 space-y-3 md:space-y-6 pb-[34rem] md:pb-[38rem]">
+          <div className="relative z-20 mt-6 md:mt-8 space-y-3 md:space-y-6 pb-[72rem] md:pb-[84rem]">
+            <div className="bg-mariko-field rounded-[16px] px-5 md:px-7 py-3 md:py-4">
+              <p className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-1">
+                Адрес доставки
+              </p>
+              <p className="text-mariko-dark font-el-messiri text-base md:text-lg">
+                {deliveryAddress || "Не указан"}
+              </p>
+            </div>
             <ActionButton
               icon={<img src="/images/action button/Male User.png" alt="Profile" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
               title="Редактирование профиля"
@@ -55,8 +64,8 @@ const Profile = () => {
           </div>
         </div>
 
-        {/* Decorative Georgian Pottery Image - Позиционируем так, чтобы кувшины были прикрыты обоими нижними блоками */}
-        <div className="absolute bottom-16 md:bottom-20 right-0 z-10 pointer-events-none">
+        {/* Decorative Georgian Pottery Image - Позиционируем ниже, чтобы не перекрывать контент профиля */}
+        <div className="absolute -bottom-20 md:-bottom-24 right-0 z-10 pointer-events-none">
           <img
             src="/images/characters/character-bonus.png"
             alt="Грузинские кувшины"

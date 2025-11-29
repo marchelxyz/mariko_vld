@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useCart, useCityContext } from "@/contexts";
 import { recalculateCart, submitCartOrder } from "@/shared/api/cart";
 import { profileApi } from "@shared/api/profile";
+import type { UserProfile } from "@shared/types";
 import { getUser, telegram } from "@/lib/telegram";
 
 type AddressSuggestion = {
@@ -16,8 +17,9 @@ type AddressSuggestion = {
   lon?: number;
 };
 
-const GEO_SUGGEST_URL = import.meta.env.VITE_GEO_SUGGEST_URL ?? "https://photon.komoot.io/api";
-const GEO_REVERSE_URL = import.meta.env.VITE_GEO_REVERSE_URL ?? "https://photon.komoot.io/reverse";
+// Используем /api/cart/geocode, чтобы гарантированно пройти через существующий /api/cart/* прокси
+const GEO_SUGGEST_URL = "/api/cart/geocode/suggest";
+const GEO_REVERSE_URL = "/api/cart/geocode/reverse";
 const MIN_ADDRESS_LENGTH = 3;
 type TelegramLocationManager = {
   init: () => void;
@@ -50,7 +52,8 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
   const [customerName, setCustomerName] = useState("");
   const [phoneDigits, setPhoneDigits] = useState("");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [addressLine, setAddressLine] = useState("");
+  const [addressCity, setAddressCity] = useState("");
   const [addressStreet, setAddressStreet] = useState("");
   const [addressHouse, setAddressHouse] = useState("");
   const [addressApartment, setAddressApartment] = useState("");
@@ -70,6 +73,7 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastSubmitStatus, setLastSubmitStatus] = useState<"idle" | "success" | "error">("idle");
   const [lastSubmitMessage, setLastSubmitMessage] = useState<string | null>(null);
+  const [isPrefilling, setIsPrefilling] = useState(false);
   const [calculation, setCalculation] = useState<{
     subtotal: number;
     deliveryFee: number;
@@ -81,6 +85,10 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   const [calcError, setCalcError] = useState<string | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
   const [prefillAttempted, setPrefillAttempted] = useState(false);
+  const [addressInitialized, setAddressInitialized] = useState(false);
+  const [autoLocateAttempted, setAutoLocateAttempted] = useState(false);
+  const [profileFromApi, setProfileFromApi] = useState<UserProfile | null>(null);
+  const [profileHasAddress, setProfileHasAddress] = useState(false);
   const handleDecrease = (id: string) => {
     removeItem(id);
   };
@@ -124,12 +132,11 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   const isPhoneComplete = phoneDigits.length === 10;
 
   const resolvedDeliveryAddress = (() => {
-    const combined = [addressStreet, addressHouse, addressApartment]
+    const combined = [addressLine, addressApartment]
       .map((value) => value.trim())
       .filter(Boolean)
       .join(", ");
-    const freeForm = deliveryAddress.trim();
-    return freeForm || combined;
+    return combined;
   })();
 
   const isDeliveryAddressFilled =
@@ -142,21 +149,22 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
     isDeliveryAddressFilled &&
     (calculation?.canSubmit ?? true);
 
-  const buildAddressLabel = (
-    street?: string,
-    house?: string,
-    city?: string,
-    apartment?: string,
-  ) => {
-    const parts = [street, house, apartment, city].filter(Boolean);
+  const buildAddressLabel = (street?: string, house?: string, city?: string) => {
+    const parts = [city, street, house].filter(Boolean);
     return parts.join(", ");
   };
 
   const applySuggestion = (suggestion: AddressSuggestion) => {
-    setDeliveryAddress(suggestion.label);
-    setAddressStreet(suggestion.street ?? "");
-    setAddressHouse(suggestion.house ?? "");
+    const street = suggestion.street ?? "";
+    const house = suggestion.house ?? "";
+    const city = suggestion.city ?? "";
+    const label = suggestion.label || buildAddressLabel(street, house, city);
+    setAddressLine(label);
+    setAddressCity(city);
+    setAddressStreet(street);
+    setAddressHouse(house);
     setIsSuggestOpen(false);
+    setSuggestions([]);
     if (suggestion.lat && suggestion.lon) {
       setAddressCoords({
         lat: suggestion.lat,
@@ -166,24 +174,48 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
     }
   };
 
-type PhotonFeature = {
-  properties?: {
-    street?: string;
-    name?: string;
-    road?: string;
-    housenumber?: string;
-    city?: string;
-    town?: string;
-    county?: string;
-    state?: string;
-    osm_id?: string | number;
+type YandexGeoObject = {
+  Point?: { pos?: string };
+  metaDataProperty?: {
+    GeocoderMetaData?: {
+      Address?: {
+        formatted?: string;
+        Components?: Array<{ kind?: string; name?: string }>;
+      };
+    };
   };
-  geometry?: {
-    coordinates?: [number, number];
+  name?: string;
+  description?: string;
+};
+
+const parseYandexAddress = (geoObject: YandexGeoObject) => {
+  const components = geoObject?.metaDataProperty?.GeocoderMetaData?.Address?.Components ?? [];
+  const getComponent = (kind: string) =>
+    components.find((c) => c.kind === kind)?.name ?? "";
+  const street = getComponent("street") || getComponent("road") || geoObject.name || "";
+  const house = getComponent("house") || getComponent("building") || "";
+  const city =
+    getComponent("locality") ||
+    getComponent("area") ||
+    getComponent("province") ||
+    geoObject.description ||
+    "";
+  const point = geoObject?.Point?.pos?.split(" ").map((v) => Number(v.trim())) ?? [];
+  const lon = point[0];
+  const lat = point[1];
+  // Формируем лаконичный лейбл без страны/области: Город, улица, дом
+  const label = [city, street, house].filter(Boolean).join(", ");
+  return {
+    street,
+    house,
+    city,
+    lat: Number.isFinite(lat) ? lat : undefined,
+    lon: Number.isFinite(lon) ? lon : undefined,
+    label,
   };
 };
 
-const fetchAddressSuggestions = async (query: string, signal: AbortSignal) => {
+  const fetchAddressSuggestions = async (query: string, signal: AbortSignal) => {
     if (query.trim().length < MIN_ADDRESS_LENGTH) {
       setSuggestions([]);
       return;
@@ -191,34 +223,28 @@ const fetchAddressSuggestions = async (query: string, signal: AbortSignal) => {
     setIsSuggestLoading(true);
     setSuggestError(null);
     try {
-      const response = await fetch(
-        `${GEO_SUGGEST_URL}?q=${encodeURIComponent(query)}&limit=5&lang=ru`,
-        { signal },
-      );
+      const params = new URLSearchParams({
+        query,
+      });
+      const response = await fetch(`${GEO_SUGGEST_URL}?${params.toString()}`, { signal });
       if (!response.ok) {
         throw new Error("Не удалось получить подсказки");
       }
       const data = await response.json();
-      const features = Array.isArray(data?.features) ? (data.features as PhotonFeature[]) : [];
-      const mapped: AddressSuggestion[] = features.map((feature, index: number) => {
-        const props = feature?.properties ?? {};
-        const street = props.street || props.name || props.road || "";
-        const house = props.housenumber || "";
-        const city = props.city || props.town || props.county || props.state || "";
-        const coords = Array.isArray(feature?.geometry?.coordinates)
-          ? feature.geometry.coordinates
-          : [];
-        const lat = coords[1];
-        const lon = coords[0];
-        const label = buildAddressLabel(street || props.name, house, city) || query;
+      const members: YandexGeoObject[] =
+        data?.response?.GeoObjectCollection?.featureMember?.map(
+          (m: { GeoObject: YandexGeoObject }) => m.GeoObject,
+        ) ?? [];
+      const mapped: AddressSuggestion[] = members.map((geo, index: number) => {
+        const parsed = parseYandexAddress(geo);
         return {
-          id: String(props.osm_id ?? index),
-          label,
-          street: street || undefined,
-          house: house || undefined,
-          city: city || undefined,
-          lat: typeof lat === "number" ? lat : undefined,
-          lon: typeof lon === "number" ? lon : undefined,
+          id: String(index),
+          label: parsed.label || query,
+          street: parsed.street || undefined,
+          house: parsed.house || undefined,
+          city: parsed.city || undefined,
+          lat: parsed.lat,
+          lon: parsed.lon,
         };
       });
       setSuggestions(mapped);
@@ -241,29 +267,32 @@ const fetchAddressSuggestions = async (query: string, signal: AbortSignal) => {
     source: "telegram" | "browser" | "manual" | "suggest",
   ) => {
     try {
-      const response = await fetch(
-        `${GEO_REVERSE_URL}?lon=${lon}&lat=${lat}&lang=ru&limit=1`,
-      );
+      const params = new URLSearchParams({
+        lat: String(lat),
+        lon: String(lon),
+      });
+      const response = await fetch(`${GEO_REVERSE_URL}?${params.toString()}`);
       if (!response.ok) {
         throw new Error("Не удалось определить адрес");
       }
       const data = await response.json();
-      const feature =
-        Array.isArray(data?.features) && data.features.length > 0
-          ? (data.features[0] as PhotonFeature)
-          : (data as PhotonFeature);
-      const props = feature?.properties ?? {};
-      const street = props.street || props.name || props.road || "";
-      const house = props.housenumber || "";
-      const city = props.city || props.town || props.county || props.state || "";
-      const label = buildAddressLabel(street, house, city);
-      setDeliveryAddress(label || `${lat.toFixed(5)}, ${lon.toFixed(5)}`);
-      setAddressStreet(street);
-      setAddressHouse(house);
+      const geoObj: YandexGeoObject | undefined =
+        data?.response?.GeoObjectCollection?.featureMember?.[0]?.GeoObject;
+      if (!geoObj) {
+        throw new Error("Нет данных адреса");
+      }
+      const parsed = parseYandexAddress(geoObj);
+      const label = parsed.label || `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+      setAddressLine(label);
+      setAddressStreet(parsed.street);
+      setAddressHouse(parsed.house);
+      if (parsed.city && !addressCity) {
+        setAddressCity(parsed.city);
+      }
       setAddressCoords({
         lat,
         lon,
-        accuracy: typeof props.accuracy === "number" ? props.accuracy : undefined,
+        accuracy: undefined,
         source,
       });
       setIsSuggestOpen(false);
@@ -372,10 +401,21 @@ const fetchAddressSuggestions = async (query: string, signal: AbortSignal) => {
       const resolvedOrderId = response.orderId ?? `draft-${Date.now()}`;
       setLastSubmitStatus("success");
       setLastSubmitMessage(response.message ?? "Заказ отправлен, ожидайте звонка менеджера.");
+      // Если в профиле не было адреса, сохраним то, что ввёл пользователь
+      if (!profileHasAddress && normalizedTelegramId && resolvedDeliveryAddress) {
+        profileApi
+          .updateUserProfile(normalizedTelegramId, {
+            lastAddressText: resolvedDeliveryAddress,
+            lastAddressLat: addressCoords?.lat,
+            lastAddressLon: addressCoords?.lon,
+          })
+          .catch((error) => {
+            console.warn("Не удалось сохранить адрес в профиль", error);
+          });
+      }
       clearCart();
       setPhoneDigits("");
       setCustomerName("");
-      setDeliveryAddress("");
       setAddressStreet("");
       setAddressHouse("");
       setAddressApartment("");
@@ -445,7 +485,7 @@ const fetchAddressSuggestions = async (query: string, signal: AbortSignal) => {
   }, [isCheckoutMode, items, orderType, resolvedDeliveryAddress, isOpen]);
 
   useEffect(() => {
-    if (!isOpen || orderType !== "delivery" || prefillAttempted) {
+    if (!isOpen || prefillAttempted) {
       return;
     }
     setPrefillAttempted(true);
@@ -454,34 +494,72 @@ const fetchAddressSuggestions = async (query: string, signal: AbortSignal) => {
     profileApi
       .getUserProfile(userId)
       .then((profile) => {
+        setProfileFromApi(profile);
+        setProfileHasAddress(Boolean(profile?.lastAddressText));
         if (!profile) return;
-        if (profile.lastAddressText && !deliveryAddress) {
-          setDeliveryAddress(profile.lastAddressText);
+        if (!customerName && profile.name) {
+          setCustomerName(profile.name);
         }
-        if (profile.lastAddressLat && profile.lastAddressLon && !addressCoords) {
-          setAddressCoords({
-            lat: profile.lastAddressLat,
-            lon: profile.lastAddressLon,
-            source: "manual",
-          });
+        const phone = (profile.phone || "").replace(/\D/g, "").slice(-10);
+        if (!phoneDigits && phone) {
+          setPhoneDigits(phone);
         }
-        if (profile.primaryAddressId) {
-          // оставляем возможность в будущем грузить список адресов; пока только кэш
+        if (orderType === "delivery") {
+          if (profile.lastAddressLat && profile.lastAddressLon && !addressCoords) {
+            setAddressCoords({
+              lat: profile.lastAddressLat,
+              lon: profile.lastAddressLon,
+              source: "manual",
+            });
+          }
+          if (!addressLine && profile.lastAddressText) {
+            setAddressLine(profile.lastAddressText);
+          } else {
+            const profileCity = profile.favoriteCityName ?? "";
+            const profileStreet = profile.favoriteRestaurantAddress ?? "";
+            if (!addressLine && (profileCity || profileStreet)) {
+              const composed = [profileCity, profileStreet].filter(Boolean).join(", ");
+              setAddressLine(composed);
+              setAddressCity(profileCity);
+              setAddressStreet(profileStreet);
+            }
+          }
         }
       })
       .catch((error) => {
         console.warn("Не удалось подставить адрес из профиля", error);
       })
       .finally(() => {
-        /* noop */
+        setIsPrefilling(false);
       });
-  }, [addressCoords, deliveryAddress, isOpen, orderType, prefillAttempted, telegramUserId]);
+  }, [
+    addressCity,
+    addressCoords,
+    addressStreet,
+    customerName,
+    isOpen,
+    orderType,
+    phoneDigits,
+    prefillAttempted,
+    telegramUserId,
+  ]);
+
+  // Автоопределение локации один раз при открытии оформления доставки
+  useEffect(() => {
+    if (!isOpen || orderType !== "delivery" || autoLocateAttempted) {
+      return;
+    }
+    setAutoLocateAttempted(true);
+    requestLocation().catch(() => {
+      // Ошибку покажет в UI, здесь просто гасим промис
+    });
+  }, [isOpen, orderType, autoLocateAttempted]);
 
   useEffect(() => {
     if (orderType !== "delivery") {
       return;
     }
-    const query = deliveryAddress.trim();
+    const query = addressLine.trim();
     if (query.length < MIN_ADDRESS_LENGTH) {
       setSuggestions([]);
       return;
@@ -489,22 +567,22 @@ const fetchAddressSuggestions = async (query: string, signal: AbortSignal) => {
     const controller = new AbortController();
     const timer = setTimeout(() => {
       fetchAddressSuggestions(query, controller.signal);
-    }, 250);
+    }, 300);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [deliveryAddress, orderType]);
+  }, [addressLine, orderType]);
 
+  // Инициализация города из выбранного ресторана/города при открытии (один раз, без перетирания ручного ввода)
   useEffect(() => {
-    if (deliveryAddress.trim()) {
-      return;
+    if (!isOpen || addressInitialized) return;
+    if (selectedCity?.name) {
+      setAddressLine(selectedCity.name);
+      setAddressCity(selectedCity.name);
+      setAddressInitialized(true);
     }
-    const combined = buildAddressLabel(addressStreet, addressHouse, selectedCity?.name, addressApartment);
-    if (combined) {
-      setDeliveryAddress(combined);
-    }
-  }, [addressStreet, addressHouse, addressApartment, selectedCity?.name, deliveryAddress]);
+  }, [isOpen, addressInitialized, selectedCity?.name]);
 
   if (!isOpen) {
     return null;
@@ -518,8 +596,11 @@ const fetchAddressSuggestions = async (query: string, signal: AbortSignal) => {
         className="flex-1 bg-black/40"
         onClick={resetAndClose}
       />
-      <div className="w-full max-w-md h-full bg-white text-mariko-dark shadow-2xl flex flex-col">
-        <div className="p-4 border-b border-mariko-field flex items-center justify-between">
+      <div
+        className="w-full max-w-md h-full bg-white text-mariko-dark shadow-2xl flex flex-col"
+        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 88px)" }}
+      >
+        <div className="px-4 pb-4 border-b border-mariko-field flex items-center justify-between">
           <div>
             <p className="text-sm text-mariko-dark/70">Корзина</p>
             <p className="font-el-messiri text-2xl font-bold">{totalCount} позиций</p>
@@ -545,7 +626,7 @@ const fetchAddressSuggestions = async (query: string, signal: AbortSignal) => {
         </div>
 
         {!isCheckoutMode && (
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 pt-6 pb-32 space-y-4">
             {items.length === 0 ? (
               <p className="text-mariko-dark/70">Корзина пуста.</p>
             ) : (
@@ -584,8 +665,8 @@ const fetchAddressSuggestions = async (query: string, signal: AbortSignal) => {
         )}
 
         {isCheckoutMode && (
-          <form className="flex-1 overflow-y-auto p-4 space-y-4" onSubmit={handleSubmit}>
-            <div>
+          <form className="flex-1 overflow-y-auto p-4 pt-4 pb-32 space-y-4" onSubmit={handleSubmit}>
+            <div className="pt-2">
               <p className="text-sm font-semibold text-mariko-dark/70 mb-2">Способ получения</p>
               <div className="flex items-center gap-2">
                 <button
@@ -642,39 +723,22 @@ const fetchAddressSuggestions = async (query: string, signal: AbortSignal) => {
             </label>
               {orderType === "delivery" && (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={requestLocation}
-                      className="flex-1 rounded-full border border-mariko-primary px-3 py-2 text-sm font-semibold text-mariko-primary hover:bg-mariko-primary/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                      disabled={isLocating}
-                    >
-                      {isLocating ? "Определяем локацию..." : "Моя геолокация"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDeliveryAddress("");
-                        setAddressCoords(null);
-                        setAddressStreet("");
-                        setAddressHouse("");
-                      }}
-                      className="rounded-full border border-mariko-field px-3 py-2 text-sm font-semibold text-mariko-dark hover:bg-mariko-field/30 transition-colors"
-                    >
-                      Очистить
-                    </button>
-                  </div>
                   <label className="text-sm font-semibold text-mariko-dark/80 block">
                     Адрес доставки
-                    <div className="relative mt-1">
+                    <div className="relative">
                       <input
                         type="text"
-                        value={deliveryAddress}
+                        value={addressLine}
+                        onChange={(event) => {
+                          setAddressLine(event.target.value);
+                          setAddressCity("");
+                          setAddressStreet(event.target.value);
+                          setAddressHouse("");
+                        }}
                         onFocus={() => setIsSuggestOpen(true)}
-                        onChange={(event) => setDeliveryAddress(event.target.value)}
-                        className="w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
-                        placeholder="Улица, дом, квартира"
-                        required
+                        onBlur={() => setTimeout(() => setIsSuggestOpen(false), 100)}
+                        className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
+                        placeholder="Например, Жуковский, Гагарина 12"
                       />
                       {isSuggestLoading && (
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-mariko-dark/60">
@@ -697,61 +761,17 @@ const fetchAddressSuggestions = async (query: string, signal: AbortSignal) => {
                       )}
                     </div>
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <label className="text-sm font-semibold text-mariko-dark/80 col-span-2">
-                      Улица
-                      <input
-                        type="text"
-                        value={addressStreet}
-                        onChange={(event) => setAddressStreet(event.target.value)}
-                        className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
-                        placeholder="Например, Гагарина"
-                      />
-                    </label>
-                    <label className="text-sm font-semibold text-mariko-dark/80">
-                      Дом
-                      <input
-                        type="text"
-                        value={addressHouse}
-                        onChange={(event) => setAddressHouse(event.target.value)}
-                        className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
-                        placeholder="12"
-                      />
-                    </label>
-                    <label className="text-sm font-semibold text-mariko-dark/80 col-span-3">
-                      Квартира / подъезд
-                      <input
-                        type="text"
-                        value={addressApartment}
-                        onChange={(event) => setAddressApartment(event.target.value)}
-                        className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
-                        placeholder="Кв., подъезд, этаж"
-                      />
-                    </label>
-                  </div>
-                  {addressCoords && (
-                    <p className="text-xs text-mariko-dark/60">
-                      Координаты сохранены: {addressCoords.lat.toFixed(5)}, {addressCoords.lon.toFixed(5)}{" "}
-                      ({addressCoords.source})
-                    </p>
-                  )}
-                  {locationError && (
-                    <p className="text-xs text-red-600">
-                      {locationError}{" "}
-                      {telegram.getTg?.()?.openSettings ? (
-                        <button
-                          type="button"
-                          className="underline"
-                          onClick={() => telegram.getTg()?.openSettings?.()}
-                        >
-                          Открыть настройки
-                        </button>
-                      ) : null}
-                    </p>
-                  )}
-                  {suggestError && (
-                    <p className="text-xs text-red-600">{suggestError}</p>
-                  )}
+                  <label className="text-sm font-semibold text-mariko-dark/80">
+                    Квартира / подъезд
+                    <input
+                      type="text"
+                      value={addressApartment}
+                      onChange={(event) => setAddressApartment(event.target.value)}
+                      className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
+                      placeholder="Кв., подъезд, этаж"
+                    />
+                  </label>
+                  {suggestError && <p className="text-xs text-red-600">{suggestError}</p>}
                 </div>
               )}
               <label className="text-sm font-semibold text-mariko-dark/80">

@@ -121,11 +121,9 @@ class AdminApi {
         return Object.values(Permission);
 
       case UserRole.ADMIN:
-        // Админ может управлять всем, кроме ролей
+        // Админ видит справочники, но не управляет городами/ролями
         return [
-          Permission.MANAGE_CITIES,
           Permission.VIEW_CITIES,
-          Permission.MANAGE_RESTAURANTS,
           Permission.VIEW_RESTAURANTS,
           Permission.MANAGE_MENU,
           Permission.VIEW_MENU,

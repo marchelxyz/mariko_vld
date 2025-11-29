@@ -160,7 +160,7 @@ export function createAdminRouter() {
     if (!ensureSupabase(res)) {
       return;
     }
-    const admin = await authoriseAdmin(req, res);
+    const admin = await authoriseSuperAdmin(req, res);
     if (!admin) {
       return;
     }

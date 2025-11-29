@@ -24,10 +24,10 @@ export function useAdmin() {
         return Object.values(Permission);
       case UserRole.ADMIN:
         return [
-          Permission.MANAGE_CITIES,
+          // Админы видят справочники, но не могут ими управлять
           Permission.VIEW_CITIES,
-          Permission.MANAGE_RESTAURANTS,
           Permission.VIEW_RESTAURANTS,
+          // Админы управляют меню и операционными процессами
           Permission.MANAGE_MENU,
           Permission.VIEW_MENU,
           Permission.VIEW_USERS,

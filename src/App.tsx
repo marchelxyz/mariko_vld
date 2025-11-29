@@ -23,6 +23,7 @@ const SelectRestaurantForReview = lazy(() => import("./pages/selectRestaurantRev
 const About = lazy(() => import("./pages/about"));
 const Booking = lazy(() => import("./pages/booking"));
 const WebViewPage = lazy(() => import("./pages/webview"));
+const Franchise = lazy(() => import("./pages/franchise"));
 const NotFound = lazy(() => import("./pages/notFound"));
 const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
 
@@ -82,6 +83,7 @@ function App() {
                   <Route path="/review" element={<Review />} />
                   <Route path="/select-restaurant-review" element={<SelectRestaurantForReview />} />
                   <Route path="/booking" element={<Booking />} />
+                  <Route path="/franchise" element={<Franchise />} />
                   <Route path="/webview/:slug" element={<WebViewPage />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/admin" element={<AdminPanel />} />

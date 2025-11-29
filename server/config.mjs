@@ -39,6 +39,7 @@ export const INTEGRATION_CACHE_TTL_MS = Number.parseInt(
 export const SUPABASE_URL = process.env.SUPABASE_URL;
 export const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 export const CART_SERVER_LOG_LEVEL = process.env.CART_SERVER_LOG_LEVEL ?? "info";
+export const YANDEX_GEOCODE_API_KEY = process.env.VITE_YANDEX_GEOCODE_API_KEY ?? null;
 
 // Тестовые креды ЮKassa (sandbox) — можно использовать, если нет записей в restaurant_payments
 export const YOOKASSA_TEST_SHOP_ID = process.env.YOOKASSA_TEST_SHOP_ID ?? null;

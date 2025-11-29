@@ -405,11 +405,6 @@ const EditProfile = () => {
                     </div>
                   )}
                 </div>
-                {addressCoords && (
-                  <p className="text-xs text-mariko-dark/70 mt-2">
-                    Координаты: {addressCoords.lat.toFixed(5)}, {addressCoords.lon.toFixed(5)}
-                  </p>
-                )}
                 {suggestError && (
                   <p className="text-xs text-red-600 mt-1">{suggestError}</p>
                 )}
