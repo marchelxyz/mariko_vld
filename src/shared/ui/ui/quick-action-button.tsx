@@ -6,6 +6,7 @@ interface QuickActionButtonProps {
   title: string;
   onClick?: () => void;
   className?: string;
+  highlighted?: boolean;
 }
 
 export const QuickActionButton = ({
@@ -13,6 +14,7 @@ export const QuickActionButton = ({
   title,
   onClick,
   className,
+  highlighted = false,
 }: QuickActionButtonProps) => {
   const handleClick = () => {
     try {
@@ -33,7 +35,10 @@ export const QuickActionButton = ({
       )}
     >
       <div
-        className="bg-white rounded-[8px] md:rounded-[12px] flex items-center justify-center shadow-md aspect-square w-14 md:w-16 p-1.5 md:p-2 mx-auto"
+        className={cn(
+          "bg-white rounded-[8px] md:rounded-[12px] flex items-center justify-center shadow-md aspect-square w-14 md:w-16 p-1.5 md:p-2 mx-auto transition-all",
+          highlighted && "animate-city-glow ring-1 ring-mariko-primary/25 shadow-[0_0_12px_rgba(142,26,27,0.18)]",
+        )}
       >
         <div className="w-6 h-6 md:w-8 md:h-8 flex items-center justify-center">
           {icon}

@@ -20,6 +20,8 @@ interface ServiceCardProps {
   loading?: "lazy" | "eager";
   /** Дополнительные классы для тега img */
   imageClassName?: string;
+  /** Подсветить, например при смене города */
+  highlighted?: boolean;
 }
 
 /**
@@ -35,6 +37,7 @@ export const ServiceCard = ({
   aspectRatio = "aspect-[4/3]",
   loading = "lazy",
   imageClassName,
+  highlighted = false,
 }: ServiceCardProps) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -44,7 +47,9 @@ export const ServiceCard = ({
       type="button"
       onClick={onClick}
       className={cn(
-        "bg-white rounded-[16px] overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer w-full flex flex-col",
+        "bg-white rounded-[16px] overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-all cursor-pointer w-full flex flex-col transform-gpu",
+        highlighted &&
+          "ring-1 ring-mariko-primary/25 shadow-[0_0_14px_rgba(142,26,27,0.18)] animate-city-glow",
         className,
       )}
     >

@@ -1,5 +1,5 @@
 import { CalendarDays, MapPin, Star as StarIcon, Truck } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useCityContext } from "@/contexts";
 import { BottomNavigation, Header } from "@shared/ui/widgets";
@@ -24,6 +24,8 @@ const Index = () => {
   const { selectedRestaurant, selectedCity } = useCityContext();
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
   const [recommended, setRecommended] = useState<MenuItem[]>([]);
+  const [cityChangedFlash, setCityChangedFlash] = useState(false);
+  const prevCityIdRef = useRef<string | null>(null);
 
   // 🔧 ВРЕМЕННОЕ СКРЫТИЕ: измените на true чтобы показать раздел "Рекомендуем попробовать"
   const showRecommendedSection = false;
@@ -106,6 +108,22 @@ const Index = () => {
     };
   }, [selectedRestaurant?.id, showRecommendedSection]);
 
+  // Легкая подсветка всех CTA при смене города, чтобы показать изменение контекста
+  useEffect(() => {
+    if (!selectedCity?.id) return;
+    if (prevCityIdRef.current === null) {
+      prevCityIdRef.current = selectedCity.id; // пропускаем подсветку на первый рендер/возврат
+      return;
+    }
+    if (prevCityIdRef.current === selectedCity.id) {
+      return;
+    }
+    prevCityIdRef.current = selectedCity.id;
+    setCityChangedFlash(true);
+    const t = setTimeout(() => setCityChangedFlash(false), 1000);
+    return () => clearTimeout(t);
+  }, [selectedCity?.id]);
+
   return (
     <div className="min-h-screen overflow-hidden flex flex-col bg-transparent">
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
@@ -122,6 +140,7 @@ const Index = () => {
             <QuickActionButton
               icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Бронь столика"
+              highlighted={cityChangedFlash}
               onClick={() => {
                 if (!selectedCity?.id || !selectedCity?.name) {
                   safeOpenLink(DEFAULT_BOOKING_LINK, { try_instant_view: true });
@@ -144,18 +163,21 @@ const Index = () => {
             <QuickActionButton
               icon={<Truck className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Заказать доставку"
+              highlighted={cityChangedFlash}
               onClick={() => navigate("/delivery")}
             />
 
             <QuickActionButton
               icon={<StarIcon className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary fill-none" strokeWidth={2} />}
               title="Оставить отзыв"
+              highlighted={cityChangedFlash}
               onClick={handleReviewClick}
             />
 
             <QuickActionButton
               icon={<MapPin className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Как нас найти?"
+              highlighted={cityChangedFlash}
               onClick={() => navigate("/about")}
             />
           </div>
@@ -168,6 +190,7 @@ const Index = () => {
               aspectRatio="aspect-[3/1]"
               imageClassName="object-left translate-x-[2px]"
               className="w-full"
+              highlighted={cityChangedFlash}
               onClick={() => navigate('/menu')}
             />
           </div>
@@ -180,6 +203,7 @@ const Index = () => {
               aspectRatio="aspect-[4/3]"
               imageClassName="object-left translate-x-[2px]"
               className="max-w-[180px] md:max-w-[220px] mx-auto"
+              highlighted={cityChangedFlash}
               onClick={() => {
                 const promoLink = selectedCity?.id ? CITY_PROMOTION_LINKS[selectedCity.id] : null;
 
@@ -211,6 +235,7 @@ const Index = () => {
               aspectRatio="aspect-[4/3]"
               imageClassName="object-left translate-x-[2px]"
               className="max-w-[180px] md:max-w-[220px] mx-auto"
+              highlighted={cityChangedFlash}
               onClick={() => {
                 if (selectedCity?.id && selectedCity?.name) {
                   openEmbeddedPage(`vacancies-${selectedCity.id}`, {

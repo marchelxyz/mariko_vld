@@ -1,5 +1,5 @@
 import { MapPin } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { type City } from "@shared/data";
 import { useCities } from "@shared/hooks";
 import { cn } from "@shared/utils";
@@ -18,13 +18,25 @@ export const CitySelectorSimple = ({
   openDirection = "down",
 }: CitySelectorSimpleProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [cityChanged, setCityChanged] = useState(false);
   const { cities: availableCities, isLoading } = useCities();
+
+  useEffect(() => {
+    if (!selectedCity?.id) return;
+    setCityChanged(true);
+    const timeout = setTimeout(() => setCityChanged(false), 700);
+    return () => clearTimeout(timeout);
+  }, [selectedCity?.id]);
 
   return (
     <div className={cn("relative", className)}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative flex items-center gap-1 text-white font-el-messiri text-sm md:text-2xl font-semibold tracking-tight hover:bg-white/10 rounded-lg p-1 md:p-2 transition-colors"
+        className={cn(
+          "relative flex items-center gap-1 text-white font-el-messiri text-sm md:text-2xl font-semibold tracking-tight hover:bg-white/10 rounded-lg p-1 md:p-2 transition-colors transition-shadow",
+          cityChanged &&
+            "animate-city-pulse ring-4 ring-white/25 shadow-[0_0_25px_rgba(255,255,255,0.18)] bg-white/5",
+        )}
       >
         {/* Надпись "Выбери город" привязанная к значку */}
         <div className="absolute -top-4 md:-top-6 right-6 md:right-12 flex items-center gap-2">
@@ -66,9 +78,21 @@ export const CitySelectorSimple = ({
           </svg>
         </div>
 
-        <div className="text-right">{selectedCity?.name || "Выберите город"}</div>
+        <div
+          className={cn(
+            "text-right transition-all",
+            cityChanged && "animate-city-fade drop-shadow-[0_0_6px_rgba(255,255,255,0.45)]",
+          )}
+        >
+          {selectedCity?.name || "Выберите город"}
+        </div>
         <div className="flex flex-col items-center">
-          <MapPin className="w-6 h-6 md:w-16 md:h-16 text-white flex-shrink-0" />
+          <MapPin
+            className={cn(
+              "w-6 h-6 md:w-16 md:h-16 text-white flex-shrink-0 transition-transform",
+              cityChanged && "animate-city-pin drop-shadow-[0_0_10px_rgba(255,255,255,0.35)]",
+            )}
+          />
         </div>
       </button>
 
