@@ -13,8 +13,6 @@ interface BottomNavigationProps {
 
 type NavItem = { key: NavKey; label: string; icon: typeof Home; path: string };
 
-const FRANCHISE_URL = import.meta.env.VITE_FRANCHISE_URL ?? "/franchise";
-
 export const BottomNavigation = ({ currentPage, className }: BottomNavigationProps) => {
   const navigate = useNavigate();
   const activeKey = useMemo(() => currentPage, [currentPage]);
