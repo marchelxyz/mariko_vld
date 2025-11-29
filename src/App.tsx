@@ -38,15 +38,9 @@ const queryClient = new QueryClient({
   },
 });
 
-// Loading component for suspense
-const PageLoader = () => (
-  <div className="min-h-screen bg-transparent flex items-center justify-center">
-    <div className="w-12 h-12 border-4 border-mariko-secondary border-t-transparent rounded-full animate-spin"></div>
-  </div>
-);
-
 function App() {
   useEnsureUserProfileSync();
+
   useEffect(() => {
     const updateFocus = (focused: boolean) => {
       focusManager.setFocused(focused);
@@ -68,7 +62,7 @@ function App() {
         <RestaurantProvider>
           <CartProvider>
             <HashRouter>
-              <Suspense fallback={<PageLoader />}>
+              <Suspense fallback={<></>}>
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/profile" element={<Profile />} />
