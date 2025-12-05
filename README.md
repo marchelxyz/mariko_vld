@@ -32,10 +32,10 @@ docs/                  # Документация
 ```
 
 ## Хостинг/деплой
-- **Frontend**: Vercel (static build из `frontend/`).  
+- **Frontend**: Vercel (static build из `frontend/`, конфиг в `vercel.json`).  
 - **Backend**: Railway (сервис из `backend/server`, порт из `$PORT`).  
 - **Bot**: Railway отдельным сервисом из `backend/bot` (порт `$PORT`/`API_PORT`).  
-- **Timeweb**: оставить как зеркало (скрипты `scripts/deploy-local.sh`, `scripts/push-env.sh` обновлены под новую структуру).
+- **Timeweb**: зеркало/фолбэк через `scripts/deploy-local.sh` и `scripts/push-env.sh` (используйте `.env.deploy`).
 
 ## Полезные команды (корень)
 - `npm run env:local` — собрать `.env.local` для фронта/сервера/бота.  

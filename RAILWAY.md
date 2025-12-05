@@ -1,6 +1,6 @@
 # Railway: развертывание фронта, сервера и бота
 
-Проект разделён на `frontend/` (Vite), `backend/server` (Express cart-server) и `backend/bot` (Telegraf). Railway: три сервиса с монорепо-настройками.
+Проект разделён на `frontend/` (Vite), `backend/server` (Express cart-server) и `backend/bot` (Telegraf). Railway: три сервиса с монорепо-настройками. Vercel: статичный фронт из `frontend/` (см. `vercel.json`). Timeweb остаётся зеркалом/фолбэком через `scripts/deploy-local.sh` / `scripts/push-env.sh`.
 
 ## Сервисы и команды
 
@@ -53,5 +53,11 @@
 5) В `VITE_*` указать backend-домен Railway; в боте `WEBAPP_URL` — фронтовой домен.  
 6) Проверить логи, включить redeploy on push.
 
+## Vercel (frontend)
+- Конфиг: `vercel.json` указывает на `frontend/package.json`, билд `npm run build`, dist `dist`, маршрутизация SPA (`/.* -> /index.html`).  
+- Переменные задать в Vercel Dashboard (Project → Settings → Environment Variables) — используйте те же `VITE_*`, что для Railway.
+
 ## Зеркало на Timeweb
-Скрипты `scripts/deploy-local.sh` и `scripts/push-env.sh` обновлены под новую структуру (`frontend/dist`, `backend/server`, `backend/bot`). Можно держать Timeweb как fallback, пока переезд на Railway/Vercel не завершён.***
+- Пока основной хостинг — Timeweb, продолжайте деплой командой `bash scripts/deploy-local.sh` и доставку env `bash scripts/push-env.sh`.  
+- Timeweb будет запасным после переезда: держите `.env.deploy` актуальным, чтобы в любой момент выполнить деплой/горячую замену.  
+- После успешного Railway/Vercel деплоя прогоняйте `deploy-local.sh`, чтобы Timeweb оставался синхронным.***
