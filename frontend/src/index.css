@@ -113,26 +113,27 @@
       url('/backgrounds/patterns/vector-70.svg'),
       url('/backgrounds/patterns/vector-71.svg');
     background-repeat: repeat;
+    /* Увеличили размеры паттернов, чтобы уменьшить плотность */
     background-size:
-      120px,
-      110px,
-      140px,
-      130px,
-      120px,
-      110px,
-      140px,
-      130px,
-      120px;
+      280px,
+      260px,
+      300px,
+      280px,
+      260px,
+      300px,
+      320px,
+      300px,
+      260px;
     background-position:
       0 0,
-      60px 80px,
-      120px 40px,
-      30px 140px,
-      160px 100px,
-      90px 0,
-      10px 200px,
-      180px 40px,
-      80px 170px;
+      140px 160px,
+      60px 260px,
+      180px 120px,
+      40px 200px,
+      200px 40px,
+      20px 320px,
+      260px 80px,
+      120px 280px;
   }
 
   /* Дублируем фон отдельным слоем для WebView */
@@ -153,25 +154,25 @@
       url('/backgrounds/patterns/vector-71.svg');
     background-repeat: repeat;
     background-size:
-      120px,
-      110px,
-      140px,
-      130px,
-      120px,
-      110px,
-      140px,
-      130px,
-      120px;
+      280px,
+      260px,
+      300px,
+      280px,
+      260px,
+      300px,
+      320px,
+      300px,
+      260px;
     background-position:
       0 0,
-      60px 80px,
-      120px 40px,
-      30px 140px,
-      160px 100px,
-      90px 0,
-      10px 200px,
-      180px 40px,
-      80px 170px;
+      140px 160px,
+      60px 260px,
+      180px 120px,
+      40px 200px,
+      200px 40px,
+      20px 320px,
+      260px 80px,
+      120px 280px;
     z-index: -1;
     pointer-events: none;
   }
