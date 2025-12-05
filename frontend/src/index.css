@@ -112,28 +112,14 @@
       url('/backgrounds/patterns/vector-68.svg'),
       url('/backgrounds/patterns/vector-70.svg'),
       url('/backgrounds/patterns/vector-71.svg');
-    background-repeat: repeat;
-    /* Увеличили размеры паттернов, чтобы уменьшить плотность */
-    background-size:
-      280px,
-      260px,
-      300px,
-      280px,
-      260px,
-      300px,
-      320px,
-      300px,
-      260px;
-    background-position:
-      0 0,
-      140px 160px,
-      60px 260px,
-      180px 120px,
-      40px 200px,
-      200px 40px,
-      20px 320px,
-      260px 80px,
-      120px 280px;
+    /* Редкий фон из трёх SVG, без обрезания краёв */
+    background-repeat: space;
+    background-size: 240px, 220px, 260px;
+    background-position: center;
+    background-image:
+      url('/backgrounds/patterns/vector.svg'),
+      url('/backgrounds/patterns/vector-1.svg'),
+      url('/backgrounds/patterns/vector-2.svg');
   }
 
   /* Дублируем фон отдельным слоем для WebView */
@@ -152,27 +138,13 @@
       url('/backgrounds/patterns/vector-68.svg'),
       url('/backgrounds/patterns/vector-70.svg'),
       url('/backgrounds/patterns/vector-71.svg');
-    background-repeat: repeat;
-    background-size:
-      280px,
-      260px,
-      300px,
-      280px,
-      260px,
-      300px,
-      320px,
-      300px,
-      260px;
-    background-position:
-      0 0,
-      140px 160px,
-      60px 260px,
-      180px 120px,
-      40px 200px,
-      200px 40px,
-      20px 320px,
-      260px 80px,
-      120px 280px;
+    background-repeat: space;
+    background-size: 240px, 220px, 260px;
+    background-position: center;
+    background-image:
+      url('/backgrounds/patterns/vector.svg'),
+      url('/backgrounds/patterns/vector-1.svg'),
+      url('/backgrounds/patterns/vector-2.svg');
     z-index: -1;
     pointer-events: none;
   }
