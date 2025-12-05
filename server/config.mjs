@@ -39,7 +39,15 @@ export const INTEGRATION_CACHE_TTL_MS = Number.parseInt(
 export const SUPABASE_URL = process.env.SUPABASE_URL;
 export const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 export const CART_SERVER_LOG_LEVEL = process.env.CART_SERVER_LOG_LEVEL ?? "info";
+export const GEOCODER_PROVIDER =
+  (process.env.GEOCODER_PROVIDER || "photon").trim().toLowerCase();
 export const YANDEX_GEOCODE_API_KEY = process.env.VITE_YANDEX_GEOCODE_API_KEY ?? null;
+export const GEOCODER_CACHE_TTL_MS =
+  Number.parseInt(process.env.GEOCODER_CACHE_TTL_MS ?? "", 10) || 5 * 60 * 1000;
+export const GEOCODER_RATE_LIMIT_PER_IP =
+  Number.parseInt(process.env.GEOCODER_RATE_LIMIT_PER_IP ?? "", 10) || 30;
+export const GEOCODER_RATE_LIMIT_WINDOW_MS =
+  Number.parseInt(process.env.GEOCODER_RATE_LIMIT_WINDOW_MS ?? "", 10) || 5 * 1000;
 
 // Тестовые креды ЮKassa (sandbox) — можно использовать, если нет записей в restaurant_payments
 export const YOOKASSA_TEST_SHOP_ID = process.env.YOOKASSA_TEST_SHOP_ID ?? null;
