@@ -36,3 +36,4 @@ deploy.sh
 .dockerignore
 
 backend/bot/.env
+frontend/.env
