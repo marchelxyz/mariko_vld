@@ -112,14 +112,11 @@
       url('/backgrounds/patterns/vector-68.svg'),
       url('/backgrounds/patterns/vector-70.svg'),
       url('/backgrounds/patterns/vector-71.svg');
-    /* Редкий фон из трёх SVG, без обрезания краёв */
-    background-repeat: space;
-    background-size: 240px, 220px, 260px;
-    background-position: center;
-    background-image:
-      url('/backgrounds/patterns/vector.svg'),
-      url('/backgrounds/patterns/vector-1.svg'),
-      url('/backgrounds/patterns/vector-2.svg');
+    /* Плиточный фон, близкий к исходному BACKGROUND.png */
+    background-image: url('/images/backgrounds/BACKGROUND.png');
+    background-repeat: repeat;
+    background-size: 520px auto;
+    background-position: center top;
   }
 
   /* Дублируем фон отдельным слоем для WebView */
@@ -138,13 +135,10 @@
       url('/backgrounds/patterns/vector-68.svg'),
       url('/backgrounds/patterns/vector-70.svg'),
       url('/backgrounds/patterns/vector-71.svg');
-    background-repeat: space;
-    background-size: 240px, 220px, 260px;
-    background-position: center;
-    background-image:
-      url('/backgrounds/patterns/vector.svg'),
-      url('/backgrounds/patterns/vector-1.svg'),
-      url('/backgrounds/patterns/vector-2.svg');
+    background-image: url('/images/backgrounds/BACKGROUND.png');
+    background-repeat: repeat;
+    background-size: 520px auto;
+    background-position: center top;
     z-index: -1;
     pointer-events: none;
   }
