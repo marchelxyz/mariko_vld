@@ -11,6 +11,7 @@
     "optimize-images": "node scripts/optimize-images.js",
     "build:optimized": "npm run optimize-images && npm run build",
     "cart:server": "node server/cart-server.mjs",
+    "env:local": "node scripts/create-env-local.js",
     "db:migrate:supabase": "node scripts/migrate-supabase-db.js",
     "db:dump:supabase": "node scripts/migrate-supabase-db.js --dump-only"
   },
