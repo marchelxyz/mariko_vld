@@ -103,15 +103,15 @@
     background-color: #751415;
     /* Плиточный фон из SVG — фиксированный размер, многослойный повтор */
     background-image:
-      url('/backgrounds/patterns/Vector.svg'),
-      url('/backgrounds/patterns/Vector-1.svg'),
-      url('/backgrounds/patterns/Vector-2.svg'),
-      url('/backgrounds/patterns/Vector-3.svg'),
-      url('/backgrounds/patterns/Vector-4.svg'),
-      url('/backgrounds/patterns/Vector 67.svg'),
-      url('/backgrounds/patterns/Vector 68.svg'),
-      url('/backgrounds/patterns/Vector 70.svg'),
-      url('/backgrounds/patterns/Vector 71.svg');
+      url('/backgrounds/patterns/vector.svg'),
+      url('/backgrounds/patterns/vector-1.svg'),
+      url('/backgrounds/patterns/vector-2.svg'),
+      url('/backgrounds/patterns/vector-3.svg'),
+      url('/backgrounds/patterns/vector-4.svg'),
+      url('/backgrounds/patterns/vector-67.svg'),
+      url('/backgrounds/patterns/vector-68.svg'),
+      url('/backgrounds/patterns/vector-70.svg'),
+      url('/backgrounds/patterns/vector-71.svg');
     background-repeat: repeat;
     background-size:
       120px,
@@ -142,15 +142,15 @@
     inset: 0;
     background-color: #751415;
     background-image:
-      url('/backgrounds/patterns/Vector.svg'),
-      url('/backgrounds/patterns/Vector-1.svg'),
-      url('/backgrounds/patterns/Vector-2.svg'),
-      url('/backgrounds/patterns/Vector-3.svg'),
-      url('/backgrounds/patterns/Vector-4.svg'),
-      url('/backgrounds/patterns/Vector 67.svg'),
-      url('/backgrounds/patterns/Vector 68.svg'),
-      url('/backgrounds/patterns/Vector 70.svg'),
-      url('/backgrounds/patterns/Vector 71.svg');
+      url('/backgrounds/patterns/vector.svg'),
+      url('/backgrounds/patterns/vector-1.svg'),
+      url('/backgrounds/patterns/vector-2.svg'),
+      url('/backgrounds/patterns/vector-3.svg'),
+      url('/backgrounds/patterns/vector-4.svg'),
+      url('/backgrounds/patterns/vector-67.svg'),
+      url('/backgrounds/patterns/vector-68.svg'),
+      url('/backgrounds/patterns/vector-70.svg'),
+      url('/backgrounds/patterns/vector-71.svg');
     background-repeat: repeat;
     background-size:
       120px,
