@@ -13,19 +13,28 @@ const force = process.argv.includes("--force");
 const targets = [
   {
     name: "frontend",
-    dest: path.join(rootDir, ".env.local"),
-    sources: [path.join(rootDir, ".env"), path.join(rootDir, ".env.example")],
+    dest: path.join(rootDir, "frontend/.env.local"),
+    sources: [
+      path.join(rootDir, "frontend/.env"),
+      path.join(rootDir, "frontend/.env.example"),
+    ],
     transform: addServerApiIfMissing,
   },
   {
     name: "cart-server",
-    dest: path.join(rootDir, "server/.env.local"),
-    sources: [path.join(rootDir, "server/.env"), path.join(rootDir, "server/.env.example")],
+    dest: path.join(rootDir, "backend/server/.env.local"),
+    sources: [
+      path.join(rootDir, "backend/server/.env"),
+      path.join(rootDir, "backend/server/.env.example"),
+    ],
   },
   {
     name: "bot",
-    dest: path.join(rootDir, "bot/.env.local"),
-    sources: [path.join(rootDir, "bot/.env"), path.join(rootDir, "bot/.env.example")],
+    dest: path.join(rootDir, "backend/bot/.env.local"),
+    sources: [
+      path.join(rootDir, "backend/bot/.env"),
+      path.join(rootDir, "backend/bot/.env.example"),
+    ],
   },
 ];
 
