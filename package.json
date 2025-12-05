@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "npm run frontend:dev",
     "env:local": "node scripts/create-env-local.js",
     "optimize-images": "node scripts/optimize-images.js",
     "build:optimized": "npm run build:optimized --prefix frontend",
