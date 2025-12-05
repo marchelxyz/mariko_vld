@@ -1,10 +1,15 @@
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const localEnvPath = path.join(currentDir, ".env.local");
+const defaultEnvPath = path.join(currentDir, ".env");
+const envPath = fs.existsSync(localEnvPath) ? localEnvPath : defaultEnvPath;
+
 dotenv.config({
-  path: path.join(currentDir, ".env"),
+  path: envPath,
 });
 
 export const PORT = Number(process.env.CART_SERVER_PORT ?? 4010);

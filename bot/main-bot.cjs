@@ -3,7 +3,14 @@ const { message } = require('telegraf/filters');
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
-require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
+
+const botEnvPath = fs.existsSync(path.join(__dirname, '.env.local'))
+  ? path.join(__dirname, '.env.local')
+  : path.join(__dirname, '.env');
+
+require('dotenv').config({ path: botEnvPath });
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL || "https://ineedaglokk.ru";
