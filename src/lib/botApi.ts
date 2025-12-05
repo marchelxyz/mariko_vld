@@ -1,1 +1,0 @@
-export { botApi } from "@/services";
