@@ -112,11 +112,27 @@
       url('/backgrounds/patterns/vector-68.svg'),
       url('/backgrounds/patterns/vector-70.svg'),
       url('/backgrounds/patterns/vector-71.svg');
-    /* Плиточный фон, близкий к исходному BACKGROUND.png */
-    background-image: url('/images/backgrounds/BACKGROUND.png');
-    background-repeat: repeat;
-    background-size: 520px auto;
-    background-position: center top;
+    /* Бесшовный фон из SVG-элементов (повтор без стыков) */
+    background-color: #8E1A1B;
+    background-image:
+      url('/backgrounds/patterns/vector.svg'),
+      url('/backgrounds/patterns/vector-1.svg'),
+      url('/backgrounds/patterns/vector-2.svg'),
+      url('/backgrounds/patterns/vector-3.svg'),
+      url('/backgrounds/patterns/vector-4.svg');
+    background-repeat: repeat, repeat, repeat, repeat, repeat;
+    background-size:
+      540px,
+      520px,
+      500px,
+      520px,
+      500px;
+    background-position:
+      center top,
+      40% 160px,
+      70% 320px,
+      10% 240px,
+      85% 80px;
   }
 
   /* Дублируем фон отдельным слоем для WebView */
@@ -135,10 +151,26 @@
       url('/backgrounds/patterns/vector-68.svg'),
       url('/backgrounds/patterns/vector-70.svg'),
       url('/backgrounds/patterns/vector-71.svg');
-    background-image: url('/images/backgrounds/BACKGROUND.png');
-    background-repeat: repeat;
-    background-size: 520px auto;
-    background-position: center top;
+    background-color: #8E1A1B;
+    background-image:
+      url('/backgrounds/patterns/vector.svg'),
+      url('/backgrounds/patterns/vector-1.svg'),
+      url('/backgrounds/patterns/vector-2.svg'),
+      url('/backgrounds/patterns/vector-3.svg'),
+      url('/backgrounds/patterns/vector-4.svg');
+    background-repeat: repeat, repeat, repeat, repeat, repeat;
+    background-size:
+      540px,
+      520px,
+      500px,
+      520px,
+      500px;
+    background-position:
+      center top,
+      40% 160px,
+      70% 320px,
+      10% 240px,
+      85% 80px;
     z-index: -1;
     pointer-events: none;
   }
