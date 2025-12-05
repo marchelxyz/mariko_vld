@@ -121,18 +121,19 @@
       url('/backgrounds/patterns/vector-3.svg'),
       url('/backgrounds/patterns/vector-4.svg');
     background-repeat: repeat, repeat, repeat, repeat, repeat;
+    /* Уменьшили плитку, чтобы элементы были компактнее */
     background-size:
-      540px,
-      520px,
-      500px,
-      520px,
-      500px;
+      260px,
+      240px,
+      220px,
+      240px,
+      220px;
     background-position:
       center top,
-      40% 160px,
-      70% 320px,
-      10% 240px,
-      85% 80px;
+      35% 120px,
+      65% 240px,
+      15% 180px,
+      80% 60px;
   }
 
   /* Дублируем фон отдельным слоем для WebView */
@@ -160,17 +161,17 @@
       url('/backgrounds/patterns/vector-4.svg');
     background-repeat: repeat, repeat, repeat, repeat, repeat;
     background-size:
-      540px,
-      520px,
-      500px,
-      520px,
-      500px;
+      260px,
+      240px,
+      220px,
+      240px,
+      220px;
     background-position:
       center top,
-      40% 160px,
-      70% 320px,
-      10% 240px,
-      85% 80px;
+      35% 120px,
+      65% 240px,
+      15% 180px,
+      80% 60px;
     z-index: -1;
     pointer-events: none;
   }
