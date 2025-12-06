@@ -1,13 +1,18 @@
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const localEnvPath = path.join(currentDir, ".env.local");
+const defaultEnvPath = path.join(currentDir, ".env");
+const envPath = fs.existsSync(localEnvPath) ? localEnvPath : defaultEnvPath;
+
 dotenv.config({
-  path: path.join(currentDir, ".env"),
+  path: envPath,
 });
 
-export const PORT = Number(process.env.CART_SERVER_PORT ?? 4010);
+export const PORT = Number(process.env.CART_SERVER_PORT ?? process.env.PORT ?? 4010);
 export const CART_ORDERS_TABLE = process.env.CART_ORDERS_TABLE ?? "cart_orders";
 const maxOrdersLimitRaw = Number.parseInt(process.env.CART_ORDERS_MAX_LIMIT ?? "", 10);
 export const MAX_ORDERS_LIMIT = Number.isFinite(maxOrdersLimitRaw) ? maxOrdersLimitRaw : 50;

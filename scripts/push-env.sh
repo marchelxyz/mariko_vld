@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 
 # ======================================================================
-#  PUSH ENV FILES TO SERVER (.env, bot/.env, server/.env)
+#  PUSH ENV FILES TO SERVER (frontend/.env, backend/bot/.env, backend/server/.env)
 # ----------------------------------------------------------------------
 #  Использует конфиг из .env.deploy (или DEPLOY_ENV_FILE).
-#  Не хранит секреты в git: копирует локальные bot/.env и server/.env
-#  на сервер в соответствующие директории.
+#  Не хранит секреты в git: копирует локальные env в соответствующие директории.
 #
 #  Запуск:
 #    DEPLOY_ENV_FILE=.env.deploy \
@@ -30,8 +29,9 @@ fi
 # === CONFIG ============================================================
 SERVER_HOST="${SERVER_HOST:-root@85.198.83.72}"
 REMOTE_PROJECT_ROOT="${REMOTE_PROJECT_ROOT:-/root/HM-projecttt}"
-REMOTE_BOT_DIR="${REMOTE_BOT_DIR:-$REMOTE_PROJECT_ROOT/bot}"
-REMOTE_SERVER_DIR="${REMOTE_SERVER_DIR:-$REMOTE_PROJECT_ROOT/server}"
+REMOTE_FRONTEND_DIR="${REMOTE_FRONTEND_DIR:-$REMOTE_PROJECT_ROOT/frontend}"
+REMOTE_BOT_DIR="${REMOTE_BOT_DIR:-$REMOTE_PROJECT_ROOT/backend/bot}"
+REMOTE_SERVER_DIR="${REMOTE_SERVER_DIR:-$REMOTE_PROJECT_ROOT/backend/server}"
 SSH_OPTS=${SSH_OPTS:-"-o StrictHostKeyChecking=no"}
 SSH_PASS=${SSH_PASS:-""}
 # ======================================================================
@@ -51,6 +51,7 @@ require_cmd() {
 }
 
 require_var SERVER_HOST
+require_var REMOTE_FRONTEND_DIR
 require_var REMOTE_BOT_DIR
 require_var REMOTE_SERVER_DIR
 require_cmd scp
@@ -85,11 +86,11 @@ push_file() {
 
 log "🚀 Копируем env-файлы на $SERVER_HOST"
 
-push_file ".env" "$REMOTE_PROJECT_ROOT/.env"
-push_file "bot/.env" "$REMOTE_BOT_DIR/.env"
-push_file "server/.env" "$REMOTE_SERVER_DIR/.env"
+push_file "frontend/.env" "$REMOTE_FRONTEND_DIR/.env"
+push_file "backend/bot/.env" "$REMOTE_BOT_DIR/.env"
+push_file "backend/server/.env" "$REMOTE_SERVER_DIR/.env"
 
 log "→ проверяю наличие файлов на сервере"
-run_remote "ls -l $REMOTE_BOT_DIR/.env $REMOTE_SERVER_DIR/.env"
+run_remote "ls -l $REMOTE_FRONTEND_DIR/.env $REMOTE_BOT_DIR/.env $REMOTE_SERVER_DIR/.env"
 
 log "✅ Готово"

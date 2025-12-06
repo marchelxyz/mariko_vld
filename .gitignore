@@ -35,4 +35,5 @@ _redirects
 deploy.sh
 .dockerignore
 
-bot/.env
+backend/bot/.env
+frontend/.env

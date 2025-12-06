@@ -33,8 +33,8 @@ WEB_ROOT="${WEB_ROOT:-/var/www/html}"
 BOT_NAME="${BOT_NAME:-hachapuri-bot}"
 CART_SERVER_NAME="${CART_SERVER_NAME:-cart-server}"
 REMOTE_PROJECT_ROOT="${REMOTE_PROJECT_ROOT:-/root/HM-projecttt}"
-REMOTE_BOT_DIR="${REMOTE_BOT_DIR:-$REMOTE_PROJECT_ROOT/bot}"
-REMOTE_SERVER_DIR="${REMOTE_SERVER_DIR:-$REMOTE_PROJECT_ROOT/server}"
+REMOTE_BOT_DIR="${REMOTE_BOT_DIR:-$REMOTE_PROJECT_ROOT/backend/bot}"
+REMOTE_SERVER_DIR="${REMOTE_SERVER_DIR:-$REMOTE_PROJECT_ROOT/backend/server}"
 SSH_OPTS=${SSH_OPTS:-"-o StrictHostKeyChecking=no"}
 RSYNC_OPTS=${RSYNC_OPTS:-"-avz"}
 RSYNC_DIST_OPTS=${RSYNC_DIST_OPTS:-"-avz"} # отдельно для статики, по умолчанию без --delete, чтобы не ломать кешированные бандлы
@@ -87,20 +87,20 @@ run_remote() {
 log "🚀 Начало локального деплоя на $SERVER_HOST"
 
 # 1. Локальная сборка проекта
-log "→ npm run build"
-npm run build
+log "→ npm run frontend:build"
+npm run frontend:build
 
 # 2. Загрузка файлов на сервер
 log "→ rsync dist → $SERVER_HOST:$WEB_ROOT (без --delete)"
-rsync $RSYNC_DIST_OPTS -e "$RSYNC_RSH" dist/ "$SERVER_HOST:$WEB_ROOT/"
+rsync $RSYNC_DIST_OPTS -e "$RSYNC_RSH" frontend/dist/ "$SERVER_HOST:$WEB_ROOT/"
 
 # 2.1. Загрузка файлов бота на сервер (кроме .env и node_modules)
 log "→ rsync bot → $SERVER_HOST:$REMOTE_BOT_DIR"
-rsync $RSYNC_OPTS --exclude='node_modules' --exclude='.env' -e "$RSYNC_RSH" bot/ "$SERVER_HOST:$REMOTE_BOT_DIR/"
+rsync $RSYNC_OPTS --exclude='node_modules' --exclude='.env' -e "$RSYNC_RSH" backend/bot/ "$SERVER_HOST:$REMOTE_BOT_DIR/"
 
 # 2.2. Загрузка серверного кода (Express-мост)
 log "→ rsync server → $SERVER_HOST:$REMOTE_SERVER_DIR"
-rsync $RSYNC_OPTS --exclude='.env' --exclude='.env.local' -e "$RSYNC_RSH" server/ "$SERVER_HOST:$REMOTE_SERVER_DIR/"
+rsync $RSYNC_OPTS --exclude='.env' --exclude='.env.local' -e "$RSYNC_RSH" backend/server/ "$SERVER_HOST:$REMOTE_SERVER_DIR/"
 
 # 2.3. Поправить права доступа на статику (чтобы nginx отдавал картинки)
 log "→ fix permissions for $WEB_ROOT"
@@ -154,13 +154,14 @@ run_remote "
     SUPABASE_URL \
     SUPABASE_SERVICE_ROLE_KEY \
     CART_ORDERS_TABLE \
+    CART_SERVER_PORT \
+    PORT \
     ADMIN_SUPER_IDS \
     ADMIN_DEV_TOKEN \
     ADMIN_DEV_TELEGRAM_ID \
     YOOKASSA_TEST_SHOP_ID \
     YOOKASSA_TEST_SECRET_KEY \
     YOOKASSA_TEST_CALLBACK_URL \
-    CART_SERVER_PORT \
     CART_ORDERS_MAX_LIMIT \
     INTEGRATION_CACHE_TTL_MS \
     CART_SERVER_LOG_LEVEL \

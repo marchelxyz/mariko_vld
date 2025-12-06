@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 
 import sharp from 'sharp';
-import { join, dirname } from 'path';
+import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const projectRoot = resolve(__dirname, '..');
+const frontendRoot = join(projectRoot, 'frontend');
 
 // Путь к исходному изображению
-const inputPath = join(__dirname, '../public/images/promotions/zhukovsky/promo self delivery.jpg');
-const outputPath = join(__dirname, '../public/images/services/ACTIONS-CARD.jpg');
+const inputPath = join(frontendRoot, 'public/images/promotions/zhukovsky/promo self delivery.jpg');
+const outputPath = join(frontendRoot, 'public/images/services/ACTIONS-CARD.jpg');
 
 async function createActionsCard() {
   try {
