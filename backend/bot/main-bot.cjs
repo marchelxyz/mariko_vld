@@ -3,13 +3,20 @@ const { message } = require('telegraf/filters');
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
-require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
+
+const botEnvPath = fs.existsSync(path.join(__dirname, '.env.local'))
+  ? path.join(__dirname, '.env.local')
+  : path.join(__dirname, '.env');
+
+require('dotenv').config({ path: botEnvPath });
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL || "https://ineedaglokk.ru";
 const PROFILE_SYNC_URL =
   process.env.PROFILE_SYNC_URL || `${WEBAPP_URL.replace(/\/$/, "")}/api/cart/profile/sync`;
-const API_PORT = Number(process.env.API_PORT || 4000);
+const API_PORT = Number(process.env.API_PORT || process.env.PORT || 4000);
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ADMIN_PANEL_TOKEN = process.env.ADMIN_PANEL_TOKEN;

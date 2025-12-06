@@ -2,11 +2,13 @@
 
 import { createWriteStream, readFileSync, writeFileSync } from 'fs';
 import { execSync } from 'child_process';
-import { join, dirname } from 'path';
+import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const projectRoot = resolve(__dirname, '..');
+const frontendRoot = join(projectRoot, 'frontend');
 
 // Конфигурация оптимизации
 const CONFIG = {
@@ -23,8 +25,8 @@ const CONFIG = {
     small: 800
   },
   // Папки для обработки
-  inputDir: 'public/images',
-  outputDir: 'public/images/optimized'
+  inputDir: join(frontendRoot, 'public/images'),
+  outputDir: join(frontendRoot, 'public/images/optimized')
 };
 
 function logMessage(message) {
@@ -159,7 +161,7 @@ function generateImageConfig() {
   };
 
   writeFileSync(
-    'src/config/images.json',
+    join(frontendRoot, 'src/config/images.json'),
     JSON.stringify(imageConfig, null, 2)
   );
   

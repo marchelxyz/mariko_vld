@@ -1,0 +1,15 @@
+{
+  "name": "hm-backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server/cart-server.mjs",
+    "dev": "node server/cart-server.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.81.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0"
+  }
+}

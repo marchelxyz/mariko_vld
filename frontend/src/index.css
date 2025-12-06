@@ -97,19 +97,17 @@
 
   html, body {
     @apply bg-background text-foreground;
-    /* Глобальный фон приложения */
+    min-height: 100%;
+    padding-top: var(--tg-safe-area-top, 0px);
+    padding-bottom: var(--tg-safe-area-bottom, 0px);
     background-image: url('/images/backgrounds/BACKGROUND.png');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    /* Фолбек цвет под изображением */
     background-color: #8E1A1B;
-    min-height: 100%;
-    padding-top: var(--tg-safe-area-top, 0px);
-    padding-bottom: var(--tg-safe-area-bottom, 0px);
   }
 
-  /* Дублируем фон отдельным слоем, чтобы гарантировать отображение в WebView */
+  /* Дублируем фон отдельным слоем для WebView */
   body::before {
     content: '';
     position: fixed;
@@ -118,6 +116,7 @@
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
+    background-color: #8E1A1B;
     z-index: -1;
     pointer-events: none;
   }
