@@ -21,11 +21,15 @@ export const PromotionsCarousel = ({
 }: PromotionsCarouselProps) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [openedPromotion, setOpenedPromotion] = useState<PromotionSlide | null>(null);
+  const [modalImageFailed, setModalImageFailed] = useState(false);
   const startXRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const isHoveringRef = useRef(false);
 
   const slideCount = promotions.length;
+  const resolvedOpenedImageUrl = openedPromotion
+    ? resolvePromotionImageUrl(openedPromotion.imageUrl)
+    : "";
 
   // Сбрасываем индекс, если коллекция поменялась
   useEffect(() => {
@@ -33,6 +37,10 @@ export const PromotionsCarousel = ({
       setActiveIndex(0);
     }
   }, [activeIndex, slideCount]);
+
+  useEffect(() => {
+    setModalImageFailed(false);
+  }, [openedPromotion]);
 
   // Автовоспроизведение с небольшими паузами при наведении/свайпе
   useEffect(() => {
@@ -194,11 +202,18 @@ export const PromotionsCarousel = ({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="relative aspect-[2/1] w-full">
-              <img
-                src={openedPromotion.imageUrl}
-                alt={openedPromotion.title}
-                className="h-full w-full object-cover"
-              />
+              {resolvedOpenedImageUrl && !modalImageFailed ? (
+                <img
+                  src={resolvedOpenedImageUrl}
+                  alt={openedPromotion.title}
+                  className="h-full w-full object-cover"
+                  onError={() => setModalImageFailed(true)}
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-gray-200 text-gray-600">
+                  Нет изображения
+                </div>
+              )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
               <div className="absolute bottom-3 left-4 right-4 space-y-2 text-white drop-shadow-lg">
                 <p className="font-el-messiri text-2xl font-semibold leading-tight">
@@ -248,18 +263,22 @@ const PromotionSlideCard = ({
   promotion: PromotionSlide;
   onClick?: () => void;
 }) => {
+  const [failed, setFailed] = useState(false);
+  const resolvedUrl = resolvePromotionImageUrl(promotion.imageUrl);
+
   return (
     <button
       type="button"
       onClick={onClick}
       className="relative block aspect-[2/1] w-full overflow-hidden rounded-[18px] text-left"
     >
-      {promotion.imageUrl ? (
+      {resolvedUrl && !failed ? (
         <img
-          src={promotion.imageUrl}
-          alt={promotion.title}
+          src={resolvedUrl}
+          alt=""
           className="h-full w-full object-cover"
           loading="lazy"
+          onError={() => setFailed(true)}
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-white/10 via-white/5 to-white/10 text-white/70">
@@ -268,4 +287,50 @@ const PromotionSlideCard = ({
       )}
     </button>
   );
+};
+
+const resolvePromotionImageUrl = (url?: string | null) => {
+  if (!url) return "";
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      const host = parsed.host.replace(".storage.supabase.", ".supabase.");
+      if (host !== parsed.host) {
+        return `${parsed.protocol}//${host}${parsed.pathname}${parsed.search}${parsed.hash}`;
+      }
+    } catch {
+      // ignore
+    }
+    return trimmed;
+  }
+  const normalizeBase = (raw: string) => {
+    try {
+      const parsed = new URL(raw);
+      const host = parsed.host.replace(".storage.supabase.", ".supabase.");
+      return `${parsed.protocol}//${host}`;
+    } catch {
+      return raw
+        .replace(/\/storage\/v1.*$/, "")
+        .replace(".storage.supabase.", ".supabase.")
+        .replace(/\/$/, "");
+    }
+  };
+  const encodeSegments = (path: string) =>
+    path
+      .split("/")
+      .map((seg) => {
+        try {
+          return encodeURIComponent(decodeURIComponent(seg));
+        } catch {
+          return encodeURIComponent(seg);
+        }
+      })
+      .join("/");
+  const base = normalizeBase(import.meta.env.VITE_SUPABASE_URL || "");
+  if (!base) return trimmed;
+  const clean = trimmed.replace(/^\/+/, "").replace(/^promotion-images\//, "");
+  const encoded = encodeSegments(clean);
+  return `${base}/storage/v1/object/public/promotion-images/${encoded}`;
 };

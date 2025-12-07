@@ -1,23 +1,121 @@
-import { useEffect, useMemo, useState } from "react";
-import { Image as ImageIcon, Megaphone, Plus, RefreshCcw, Save, Trash2, Copy } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Image as ImageIcon, Megaphone, Plus, Save, Trash2, Copy, Upload } from "lucide-react";
 import { useAdmin, useCities } from "@shared/hooks";
+import { type PromotionCardData } from "@shared/data";
 import {
-  defaultPromotions,
-  loadPromotionsFromStorage,
-  savePromotionsToStorage,
-  type PromotionCardData,
-} from "@shared/data";
+  fetchPromotionImageLibrary,
+  fetchPromotions,
+  savePromotions,
+  uploadPromotionImage,
+  type PromotionImageAsset,
+} from "@shared/api/promotionsApi";
 import { Button, Input, Label, Textarea, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@shared/ui";
 import { useToast } from "@/hooks";
+import { ImageLibraryModal } from "../menu/ui";
+
+const isUuid = (id: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id.trim());
+
+const ensureUuid = () => {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  const pattern = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
+  return pattern.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+const resolvePromotionImageUrl = (url?: string | null) => {
+  if (!url) return "";
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      const host = parsed.host.replace(".storage.supabase.", ".supabase.");
+      if (host !== parsed.host) {
+        return `${parsed.protocol}//${host}${parsed.pathname}${parsed.search}${parsed.hash}`;
+      }
+    } catch {
+      // ignore
+    }
+    return trimmed;
+  }
+  const normalizeBase = (raw: string) => {
+    try {
+      const parsed = new URL(raw);
+      const host = parsed.host.replace(".storage.supabase.", ".supabase.");
+      return `${parsed.protocol}//${host}`;
+    } catch {
+      return raw
+        .replace(/\/storage\/v1.*$/, "")
+        .replace(".storage.supabase.", ".supabase.")
+        .replace(/\/$/, "");
+    }
+  };
+  const encodeSegments = (path: string) =>
+    path
+      .split("/")
+      .map((seg) => {
+        try {
+          return encodeURIComponent(decodeURIComponent(seg));
+        } catch {
+          return encodeURIComponent(seg);
+        }
+      })
+      .join("/");
+  const base = normalizeBase(import.meta.env.VITE_SUPABASE_URL || "");
+  if (!base) return trimmed;
+  const clean = trimmed.replace(/^\/+/, "").replace(/^promotion-images\//, "");
+  const encoded = encodeSegments(clean);
+  return `${base}/storage/v1/object/public/promotion-images/${encoded}`;
+};
+
+const buildLibraryImageUrl = (asset: PromotionImageAsset) => {
+  if (asset?.url) {
+    return asset.url; // уже публичный URL с корректным кодированием
+  }
+  const base = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "");
+  if (!base || !asset?.path) return "";
+  const encoded = asset.path
+    .split("/")
+    .map((seg) => encodeURIComponent(seg))
+    .join("/");
+  return `${base}/storage/v1/object/public/promotion-images/${encoded}`;
+};
+
+const normalizeImageUrl = (raw?: string | null) => {
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    const encodedPath = url.pathname
+      .split("/")
+      .map((seg) => encodeURIComponent(decodeURIComponent(seg)))
+      .join("/");
+    return `${url.protocol}//${url.host}${encodedPath}${url.search}${url.hash}`;
+  } catch {
+    return raw.replace(/ /g, "%20");
+  }
+};
 
 export function PromotionsManagement(): JSX.Element {
   const { isAdmin } = useAdmin();
   const { cities, isLoading: isCitiesLoading } = useCities();
   const { toast } = useToast();
-  const [promotions, setPromotions] = useState<PromotionCardData[]>(defaultPromotions);
+  const [promotions, setPromotions] = useState<PromotionCardData[]>([]);
   const [currentCityId, setCurrentCityId] = useState<string | null>(null);
   const [copyFromCityId, setCopyFromCityId] = useState<string | null>(null);
   const [sourcePromotions, setSourcePromotions] = useState<PromotionCardData[]>([]);
+  const [imageLibrary, setImageLibrary] = useState<PromotionImageAsset[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+  const [isLoadingPromos, setIsLoadingPromos] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
+  const [openLibraryForId, setOpenLibraryForId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!isCitiesLoading && cities.length && !currentCityId) {
@@ -26,26 +124,78 @@ export function PromotionsManagement(): JSX.Element {
   }, [cities, currentCityId, isCitiesLoading]);
 
   useEffect(() => {
-    const stored = loadPromotionsFromStorage(currentCityId);
-    setPromotions(stored);
-  }, [currentCityId]);
+    let cancelled = false;
+    const load = async () => {
+      if (!currentCityId) {
+        setPromotions([]);
+        return;
+      }
+      setIsLoadingPromos(true);
+      try {
+        const list = await fetchPromotions(currentCityId);
+        if (!cancelled) {
+          const normalized = (list ?? []).map((p, index) => ({
+            ...p,
+            id: isUuid(p.id) ? p.id : ensureUuid(),
+            displayOrder: p.displayOrder ?? index + 1,
+          }));
+          setPromotions(normalized);
+        }
+      } catch (error) {
+        console.error("Ошибка загрузки акций:", error);
+        if (!cancelled) {
+          setPromotions([]);
+          toast({
+            title: "Не удалось загрузить акции",
+            description: "Проверьте подключение или права.",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingPromos(false);
+        }
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentCityId, toast]);
 
   useEffect(() => {
     if (!copyFromCityId) {
       setSourcePromotions([]);
       return;
     }
-    const source = loadPromotionsFromStorage(copyFromCityId);
-    setSourcePromotions(source);
+    const loadSource = async () => {
+      try {
+        const source = await fetchPromotions(copyFromCityId);
+        const normalized = (source ?? []).map((p, index) => ({
+          ...p,
+          id: isUuid(p.id) ? p.id : ensureUuid(),
+          displayOrder: p.displayOrder ?? index + 1,
+        }));
+        setSourcePromotions(normalized);
+      } catch (error) {
+        console.error("Ошибка загрузки акций-источника:", error);
+        setSourcePromotions([]);
+      }
+    };
+    void loadSource();
   }, [copyFromCityId]);
 
   useEffect(() => {
-    if (!currentCityId) return;
-    savePromotionsToStorage(promotions, currentCityId);
-  }, [promotions, currentCityId]);
+    if (currentCityId) {
+      void loadImageLibrary();
+    } else {
+      setImageLibrary([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentCityId]);
 
   const handleAdd = () => {
-    const id = crypto.randomUUID ? crypto.randomUUID() : `promo-${Date.now()}`;
+    const id = ensureUuid();
     setPromotions((prev) => [
       ...prev,
       {
@@ -63,15 +213,23 @@ export function PromotionsManagement(): JSX.Element {
     toast({ title: "Карточка удалена", description: "Не забудьте сохранить изменения." });
   };
 
+  const handleRemoveWithConfirm = (promo: PromotionCardData) => {
+    const confirmed = window.confirm(`Удалить акцию «${promo.title || "без названия"}»?`);
+    if (!confirmed) return;
+    handleRemove(promo.id);
+  };
+
   const handleChange = (id: string, field: keyof PromotionCardData, value: string) => {
+    if (field === "imageUrl") {
+      setPreviewErrors((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    }
     setPromotions((prev) =>
       prev.map((promo) => (promo.id === id ? { ...promo, [field]: value } : promo)),
     );
-  };
-
-  const handleReset = () => {
-    setPromotions(defaultPromotions);
-    toast({ title: "Вернули дефолтные акции" });
   };
 
   const handleManualSave = () => {
@@ -79,8 +237,36 @@ export function PromotionsManagement(): JSX.Element {
       toast({ title: "Выберите город", description: "Перед сохранением выберите город.", variant: "destructive" });
       return;
     }
-    savePromotionsToStorage(promotions, currentCityId);
-    toast({ title: "Сохранено", description: "Акции обновлены для главной страницы." });
+    setIsSaving(true);
+
+    const payload = promotions.map((promo, index) => ({
+      ...promo,
+      id: isUuid(promo.id) ? promo.id : ensureUuid(),
+      imageUrl: resolvePromotionImageUrl(promo.imageUrl),
+      isActive: promo.isActive !== false,
+      displayOrder: index + 1,
+    }));
+    savePromotions(currentCityId, payload)
+      .then((result) => {
+        if (result?.success === false) {
+          toast({
+            title: "Не удалось сохранить акции",
+            description: result.errorMessage || "Проверьте подключение или права.",
+            variant: "destructive",
+          });
+        } else {
+          toast({ title: "Сохранено", description: "Акции обновлены для главной страницы." });
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("Ошибка сохранения акций:", error);
+        toast({
+          title: "Не удалось сохранить",
+          description: "Попробуйте ещё раз.",
+          variant: "destructive",
+        });
+      })
+      .finally(() => setIsSaving(false));
   };
 
   const handleCopyFrom = () => {
@@ -88,9 +274,24 @@ export function PromotionsManagement(): JSX.Element {
       toast({ title: "Выберите город", description: "Укажите город-источник для копирования.", variant: "destructive" });
       return;
     }
-    const copied = loadPromotionsFromStorage(copyFromCityId);
-    setPromotions(copied);
-    toast({ title: "Скопировано", description: "Акции скопированы из выбранного города." });
+    fetchPromotions(copyFromCityId)
+      .then((copied) => {
+        const normalized = (copied ?? []).map((p, index) => ({
+          ...p,
+          id: isUuid(p.id) ? p.id : ensureUuid(),
+          displayOrder: p.displayOrder ?? index + 1,
+        }));
+        setPromotions(normalized);
+        toast({ title: "Скопировано", description: "Акции скопированы из выбранного города." });
+      })
+      .catch((error) => {
+        console.error("Ошибка копирования акций:", error);
+        toast({
+          title: "Не удалось скопировать",
+          description: "Проверьте подключение или права.",
+          variant: "destructive",
+        });
+      });
   };
 
   const handleCopySingle = (promo: PromotionCardData) => {
@@ -121,13 +322,85 @@ export function PromotionsManagement(): JSX.Element {
       });
       return;
     }
-    const id = crypto.randomUUID ? crypto.randomUUID() : `promo-${Date.now()}`;
+    const id = ensureUuid();
     const cloned: PromotionCardData = { ...source, id };
     setPromotions((prev) => [...prev, cloned]);
     toast({ title: "Акция скопирована", description: "Отредактируйте детали при необходимости." });
   };
 
+  const loadImageLibrary = async () => {
+    if (!currentCityId) return;
+    setLibraryLoading(true);
+    try {
+      const images = await fetchPromotionImageLibrary(currentCityId, "city");
+      setImageLibrary(images ?? []);
+    } catch (error) {
+      console.error("Ошибка загрузки библиотеки изображений:", error);
+      toast({
+        title: "Не удалось загрузить библиотеку",
+        description: "Попробуйте позже.",
+        variant: "destructive",
+      });
+    } finally {
+      setLibraryLoading(false);
+    }
+  };
+
+  const handleSelectLibraryImage = (promoId: string, url: string) => {
+    setPromotions((prev) =>
+      prev.map((promo) => (promo.id === promoId ? { ...promo, imageUrl: url } : promo)),
+    );
+    setOpenLibraryForId(null);
+    setIsLibraryOpen(false);
+  };
+
+  const handleUploadFileClick = (promoId: string) => {
+    setUploadTargetId(promoId);
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !uploadTargetId || !currentCityId) {
+      return;
+    }
+    event.target.value = "";
+    try {
+      const uploaded = await uploadPromotionImage(file, currentCityId);
+      if (uploaded?.url) {
+        handleSelectLibraryImage(uploadTargetId, uploaded.url);
+        toast({ title: "Изображение загружено", description: "Ссылка проставлена в карточку." });
+        // Обновим библиотеку, чтобы появилось новое изображение
+        void loadImageLibrary();
+      }
+    } catch (error) {
+      console.error("Ошибка загрузки изображения акции:", error);
+      toast({
+        title: "Не удалось загрузить изображение",
+        description: "Попробуйте ещё раз.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadTargetId(null);
+    }
+  };
+
   const emptyState = useMemo(() => promotions.length === 0, [promotions.length]);
+
+  const filteredLibrary = useMemo(() => {
+    if (!librarySearch.trim()) return imageLibrary;
+    const query = librarySearch.trim().toLowerCase();
+    return imageLibrary.filter((img) => img.path.toLowerCase().includes(query));
+  }, [imageLibrary, librarySearch]);
+
+  const preparedLibrary = useMemo(
+    () =>
+      filteredLibrary.map((img) => ({
+        ...img,
+        url: normalizeImageUrl(img.url || buildLibraryImageUrl(img)),
+      })),
+    [filteredLibrary],
+  );
 
   if (!isAdmin) {
     return (
@@ -137,8 +410,24 @@ export function PromotionsManagement(): JSX.Element {
     );
   }
 
+  if (isLoadingPromos && !promotions.length) {
+    return (
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-white flex items-center gap-3">
+        <div className="h-5 w-5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+        <span>Загружаем акции…</span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
@@ -151,17 +440,18 @@ export function PromotionsManagement(): JSX.Element {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={handleReset} className="bg-white/10 text-white">
-              <RefreshCcw className="h-4 w-4 mr-2" />
-              Сбросить к дефолту
-            </Button>
-            <Button onClick={handleAdd}>
+            <Button onClick={handleAdd} disabled={isSaving}>
               <Plus className="h-4 w-4 mr-2" />
               Добавить карточку
             </Button>
-            <Button variant="default" onClick={handleManualSave} className="bg-mariko-primary">
+            <Button
+              variant="default"
+              onClick={handleManualSave}
+              className="bg-mariko-primary"
+              disabled={isSaving}
+            >
               <Save className="h-4 w-4 mr-2" />
-              Сохранить
+              {isSaving ? "Сохранение..." : "Сохранить"}
             </Button>
           </div>
         </div>
@@ -184,6 +474,18 @@ export function PromotionsManagement(): JSX.Element {
                 ))}
               </SelectContent>
             </Select>
+            {isLoadingPromos && (
+              <p className="text-xs text-white/60">Загружаем акции для выбранного города…</p>
+            )}
+            <Button
+              variant="secondary"
+              onClick={loadImageLibrary}
+              className="bg-white/10 text-white"
+              disabled={!currentCityId || libraryLoading}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              {libraryLoading ? "Обновляем библиотеку..." : "Обновить библиотеку изображений"}
+            </Button>
           </div>
 
           <div className="space-y-2">
@@ -234,7 +536,7 @@ export function PromotionsManagement(): JSX.Element {
                         <div className="relative h-28 w-full bg-black/20">
                           {promo.imageUrl ? (
                             <img
-                              src={promo.imageUrl}
+                              src={resolvePromotionImageUrl(promo.imageUrl)}
                               alt={promo.title}
                               className="h-full w-full object-cover"
                               loading="lazy"
@@ -281,14 +583,19 @@ export function PromotionsManagement(): JSX.Element {
               key={promo.id}
               className="relative rounded-2xl border border-white/10 bg-white/5 p-4 md:p-5 shadow-lg shadow-black/10"
             >
-              <div className="flex items-start gap-4">
-                <div className="hidden sm:block w-48 flex-shrink-0 overflow-hidden rounded-xl bg-black/20">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+                <div className="hidden sm:block w-44 md:w-48 flex-shrink-0 overflow-hidden rounded-xl bg-black/20">
                   {promo.imageUrl ? (
                     <img
-                      src={promo.imageUrl}
+                      src={resolvePromotionImageUrl(promo.imageUrl)}
                       alt={promo.title}
                       className="h-32 w-full object-cover"
                       loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src =
+                          "data:image/svg+xml;base64,PHN2ZyBmaWxsPSIjZGRkIiB2aWV3Qm94PSIwIDAgMTIwIDEyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCBmaWxsPSIjMzMzIiB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgcng9IjEyIi8+PHRleHQgeD0iNjAiIHk9IjY4IiBmb250LXNpemU9IjE0IiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmYiPz88L3RleHQ+PC9zdmc+";
+                      }}
                     />
                   ) : (
                     <div className="flex h-32 items-center justify-center text-white/50">
@@ -296,19 +603,18 @@ export function PromotionsManagement(): JSX.Element {
                     </div>
                   )}
                 </div>
-                <div className="flex-1 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-white/60 text-sm">
-                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white font-semibold">
+                <div className="flex-1 space-y-3 min-w-0">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-2 text-white/60 text-sm min-w-0">
+                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white font-semibold flex-shrink-0">
                         {idx + 1}
                       </span>
-                      <span className="truncate">ID: {promo.id}</span>
                     </div>
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => handleRemove(promo.id)}
-                      className="bg-red-600 hover:bg-red-500"
+                      onClick={() => handleRemoveWithConfirm(promo)}
+                      className="bg-red-600 hover:bg-red-500 w-full sm:w-auto px-3 py-1 text-sm"
                     >
                       <Trash2 className="h-4 w-4 mr-1" />
                       Удалить
@@ -344,9 +650,31 @@ export function PromotionsManagement(): JSX.Element {
                       placeholder="/images/promotions/..."
                       className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
                     />
-                    <p className="text-xs text-white/50">
-                      Можно указать путь из /public или прямую ссылку. Изображение растянется пропорционально.
-                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="secondary"
+                        onClick={() => handleUploadFileClick(promo.id)}
+                        className="bg-white/10 text-white"
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Загрузить с устройства
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          setOpenLibraryForId(promo.id);
+                          setIsLibraryOpen(true);
+                          setLibrarySearch("");
+                          if (!imageLibrary.length) {
+                            void loadImageLibrary();
+                          }
+                        }}
+                        className="bg-white/10 text-white"
+                      >
+                        <ImageIcon className="h-4 w-4 mr-2" />
+                        Выбрать из библиотеки
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -354,6 +682,27 @@ export function PromotionsManagement(): JSX.Element {
           ))}
         </div>
       )}
+
+      <ImageLibraryModal
+        isOpen={isLibraryOpen}
+        images={preparedLibrary}
+        searchQuery={librarySearch}
+        isLoading={libraryLoading}
+        error={null}
+        selectedUrl={
+          promotions.find((p) => p.id === openLibraryForId)?.imageUrl ?? undefined
+        }
+        onSelect={(url) => {
+          if (openLibraryForId) {
+            handleSelectLibraryImage(openLibraryForId, url);
+          }
+        }}
+        onSearchChange={setLibrarySearch}
+        onClose={() => {
+          setIsLibraryOpen(false);
+          setOpenLibraryForId(null);
+        }}
+      />
     </div>
   );
 }
