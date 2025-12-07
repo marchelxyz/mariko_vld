@@ -94,7 +94,6 @@ export const PromotionsCarousel = ({
     <div className="relative w-full mx-auto">
       <div className="mb-3 flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-white/70 shadow-[0_0_0_6px_rgba(255,255,255,0.12)]" />
           <span className="font-el-messiri text-lg md:text-xl font-semibold text-white drop-shadow">
             Акции
           </span>
