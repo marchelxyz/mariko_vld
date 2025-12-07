@@ -1,14 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { type PromotionCardData } from "@shared/data";
 import { cn } from "@shared/utils";
 
-export interface PromotionSlide {
-  id: string;
-  title: string;
-  description?: string;
-  imageUrl: string;
-  badge?: string;
-}
+export type PromotionSlide = PromotionCardData;
 
 interface PromotionsCarouselProps {
   promotions: PromotionSlide[];
@@ -259,12 +254,18 @@ const PromotionSlideCard = ({
       onClick={onClick}
       className="relative block aspect-[2/1] w-full overflow-hidden rounded-[18px] text-left"
     >
-      <img
-        src={promotion.imageUrl}
-        alt={promotion.title}
-        className="h-full w-full object-cover"
-        loading="lazy"
-      />
+      {promotion.imageUrl ? (
+        <img
+          src={promotion.imageUrl}
+          alt={promotion.title}
+          className="h-full w-full object-cover"
+          loading="lazy"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-white/10 via-white/5 to-white/10 text-white/70">
+          Нет изображения
+        </div>
+      )}
     </button>
   );
 };

@@ -13,6 +13,9 @@ import {
   getMenuByRestaurantId,
   MenuCategory,
   MenuItem,
+  defaultPromotions,
+  loadPromotionsFromStorage,
+  PROMOTIONS_STORAGE_KEY,
 } from "@shared/data";
 import { QuickActionButton, ServiceCard, MenuItemComponent } from "@shared/ui";
 import { PromotionsCarousel, type PromotionSlide } from "./PromotionsCarousel";
@@ -51,6 +54,7 @@ const Index = () => {
   const [recommended, setRecommended] = useState<MenuItem[]>([]);
   const [cityChangedFlash, setCityChangedFlash] = useState(false);
   const prevCityIdRef = useRef<string | null>(null);
+  const [promotions, setPromotions] = useState<PromotionSlide[]>([]);
 
   // 🔧 ВРЕМЕННОЕ СКРЫТИЕ: измените на true чтобы показать раздел "Рекомендуем попробовать"
   const showRecommendedSection = false;
@@ -72,6 +76,36 @@ const Index = () => {
       fallbackLabel: "Открыть форму бронирования",
     });
   };
+
+  // Подтягиваем акции из localStorage (управляются через админку)
+  useEffect(() => {
+    const applyPromotions = () => {
+      const stored = loadPromotionsFromStorage(selectedCity?.id);
+      setPromotions(stored);
+    };
+
+    applyPromotions();
+
+    const handleStorage = (event: StorageEvent) => {
+      if (!selectedCity?.id) return;
+      if (event.key === `${PROMOTIONS_STORAGE_KEY}.${selectedCity.id}`) {
+        applyPromotions();
+      }
+    };
+
+    const handleCustomUpdate = (event: Event) => {
+      const cityId = (event as CustomEvent)?.detail?.cityId;
+      if (!selectedCity?.id || cityId !== selectedCity.id) return;
+      applyPromotions();
+    };
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("promotions-storage-updated", handleCustomUpdate);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("promotions-storage-updated", handleCustomUpdate);
+    };
+  }, [selectedCity?.id]);
 
   const openEmbeddedPage = (slug: string, config: EmbeddedPageConfig) => {
     navigate(`/webview/${slug}`, {
