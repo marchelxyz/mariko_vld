@@ -220,13 +220,6 @@ export function PromotionsManagement(): JSX.Element {
   };
 
   const handleChange = (id: string, field: keyof PromotionCardData, value: string) => {
-    if (field === "imageUrl") {
-      setPreviewErrors((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
-    }
     setPromotions((prev) =>
       prev.map((promo) => (promo.id === id ? { ...promo, [field]: value } : promo)),
     );
@@ -583,98 +576,77 @@ export function PromotionsManagement(): JSX.Element {
               key={promo.id}
               className="relative rounded-2xl border border-white/10 bg-white/5 p-4 md:p-5 shadow-lg shadow-black/10"
             >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
-                <div className="hidden sm:block w-44 md:w-48 flex-shrink-0 overflow-hidden rounded-xl bg-black/20">
-                  {promo.imageUrl ? (
-                    <img
-                      src={resolvePromotionImageUrl(promo.imageUrl)}
-                      alt={promo.title}
-                      className="h-32 w-full object-cover"
-                      loading="lazy"
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.src =
-                          "data:image/svg+xml;base64,PHN2ZyBmaWxsPSIjZGRkIiB2aWV3Qm94PSIwIDAgMTIwIDEyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCBmaWxsPSIjMzMzIiB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgcng9IjEyIi8+PHRleHQgeD0iNjAiIHk9IjY4IiBmb250LXNpemU9IjE0IiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmYiPz88L3RleHQ+PC9zdmc+";
-                      }}
-                    />
-                  ) : (
-                    <div className="flex h-32 items-center justify-center text-white/50">
-                      <ImageIcon className="h-6 w-6" />
-                    </div>
-                  )}
+              <div className="flex-1 space-y-3 min-w-0">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-2 text-white/60 text-sm min-w-0">
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white font-semibold flex-shrink-0">
+                      {idx + 1}
+                    </span>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleRemoveWithConfirm(promo)}
+                    className="bg-red-600 hover:bg-red-500 w-full sm:w-auto px-3 py-1 text-sm"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Удалить
+                  </Button>
                 </div>
-                <div className="flex-1 space-y-3 min-w-0">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-2 text-white/60 text-sm min-w-0">
-                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white font-semibold flex-shrink-0">
-                        {idx + 1}
-                      </span>
-                    </div>
+
+                <div className="space-y-2">
+                  <Label className="text-white/80">Заголовок</Label>
+                  <Input
+                    value={promo.title}
+                    onChange={(e) => handleChange(promo.id, 'title', e.target.value)}
+                    placeholder="Например, «-30% именинникам»"
+                    className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-white/80">Описание (при открытии)</Label>
+                  <Textarea
+                    value={promo.description ?? ''}
+                    onChange={(e) => handleChange(promo.id, 'description', e.target.value)}
+                    rows={3}
+                    placeholder="Коротко опишите условия акции"
+                    className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-white/80">Ссылка на изображение</Label>
+                  <Input
+                    value={promo.imageUrl}
+                    onChange={(e) => handleChange(promo.id, 'imageUrl', e.target.value)}
+                    placeholder="/images/promotions/..."
+                    className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
+                  />
+                  <div className="flex flex-wrap gap-2">
                     <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleRemoveWithConfirm(promo)}
-                      className="bg-red-600 hover:bg-red-500 w-full sm:w-auto px-3 py-1 text-sm"
+                      variant="secondary"
+                      onClick={() => handleUploadFileClick(promo.id)}
+                      className="bg-white/10 text-white"
                     >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Удалить
+                      <Upload className="h-4 w-4 mr-2" />
+                      Загрузить с устройства
                     </Button>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-white/80">Заголовок</Label>
-                    <Input
-                      value={promo.title}
-                      onChange={(e) => handleChange(promo.id, "title", e.target.value)}
-                      placeholder="Например, «-30% именинникам»"
-                      className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-white/80">Описание (при открытии)</Label>
-                    <Textarea
-                      value={promo.description ?? ""}
-                      onChange={(e) => handleChange(promo.id, "description", e.target.value)}
-                      rows={3}
-                      placeholder="Коротко опишите условия акции"
-                      className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-white/80">Ссылка на изображение</Label>
-                    <Input
-                      value={promo.imageUrl}
-                      onChange={(e) => handleChange(promo.id, "imageUrl", e.target.value)}
-                      placeholder="/images/promotions/..."
-                      className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
-                    />
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="secondary"
-                        onClick={() => handleUploadFileClick(promo.id)}
-                        className="bg-white/10 text-white"
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Загрузить с устройства
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        onClick={() => {
-                          setOpenLibraryForId(promo.id);
-                          setIsLibraryOpen(true);
-                          setLibrarySearch("");
-                          if (!imageLibrary.length) {
-                            void loadImageLibrary();
-                          }
-                        }}
-                        className="bg-white/10 text-white"
-                      >
-                        <ImageIcon className="h-4 w-4 mr-2" />
-                        Выбрать из библиотеки
-                      </Button>
-                    </div>
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setOpenLibraryForId(promo.id);
+                        setIsLibraryOpen(true);
+                        setLibrarySearch('');
+                        if (!imageLibrary.length) {
+                          void loadImageLibrary();
+                        }
+                      }}
+                      className="bg-white/10 text-white"
+                    >
+                      <ImageIcon className="h-4 w-4 mr-2" />
+                      Выбрать из библиотеки
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -682,7 +654,6 @@ export function PromotionsManagement(): JSX.Element {
           ))}
         </div>
       )}
-
       <ImageLibraryModal
         isOpen={isLibraryOpen}
         images={preparedLibrary}
