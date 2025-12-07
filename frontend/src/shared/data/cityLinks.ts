@@ -6,10 +6,11 @@ export const CITY_PROMOTION_LINKS: Record<string, string> = {
 
 export const VACANCIES_LINK = "https://vhachapuri.ru/work";
 
-export const DEFAULT_BOOKING_LINK = "https://remarked.online/marico/#openReMarkedWidget";
-
 export const CITY_BOOKING_LINKS: Record<string, string> = {
+  // Калуга — стандартный домен Remarked для города
   kaluga: "https://remarked.online/marico-kaluga/#openReMarkedWidget",
+  // Пенза — виджет на remarked.online
   penza: "https://remarked.online/marico-zacechnoe/#openReMarkedWidget",
-  zhukovsky: DEFAULT_BOOKING_LINK,
+  // Жуковский — основной домен Remarked
+  zhukovsky: "https://remarked.online/marico/#openReMarkedWidget",
 };

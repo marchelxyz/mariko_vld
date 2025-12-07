@@ -7,7 +7,6 @@ import { EmbeddedPageConfig } from "@/shared/config/webviewPages";
 import {
   CITY_BOOKING_LINKS,
   CITY_PROMOTION_LINKS,
-  DEFAULT_BOOKING_LINK,
   RESTAURANT_REVIEW_LINKS,
   VACANCIES_LINK,
   getMenuByRestaurantId,
@@ -60,12 +59,22 @@ const Index = () => {
 
   const handleBookingClick = () => {
     if (!selectedCity?.id || !selectedCity?.name) {
-      safeOpenLink(DEFAULT_BOOKING_LINK, { try_instant_view: true });
+      toast({
+        title: "Выберите город",
+        description: "Бронирование доступно после выбора города.",
+      });
       return;
     }
 
-    const bookingLink =
-      CITY_BOOKING_LINKS[selectedCity.id] ?? DEFAULT_BOOKING_LINK;
+    const bookingLink = CITY_BOOKING_LINKS[selectedCity.id];
+
+    if (!bookingLink) {
+      toast({
+        title: "Бронь скоро появится",
+        description: "Для выбранного города пока нет ссылки на бронь.",
+      });
+      return;
+    }
 
     openBookingPage({
       title: `Бронь — ${selectedCity.name}`,
