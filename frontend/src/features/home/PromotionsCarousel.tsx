@@ -11,7 +11,7 @@ interface PromotionsCarouselProps {
   onBookTable?: () => void;
 }
 
-const AUTO_PLAY_INTERVAL_MS = 7000;
+const AUTO_PLAY_INTERVAL_MS = 5000;
 const SWIPE_THRESHOLD_PX = 45;
 
 export const PromotionsCarousel = ({

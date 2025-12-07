@@ -587,7 +587,7 @@ export function PromotionsManagement(): JSX.Element {
                     variant="destructive"
                     size="sm"
                     onClick={() => handleRemoveWithConfirm(promo)}
-                    className="bg-red-600 hover:bg-red-500 w-full sm:w-auto px-3 py-1 text-sm"
+                    className="bg-red-600 hover:bg-red-500 px-2 py-1 text-xs h-8"
                   >
                     <Trash2 className="h-4 w-4 mr-1" />
                     Удалить
