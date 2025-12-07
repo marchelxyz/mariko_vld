@@ -13,14 +13,13 @@ import {
   getMenuByRestaurantId,
   MenuCategory,
   MenuItem,
-  defaultPromotions,
-  loadPromotionsFromStorage,
-  PROMOTIONS_STORAGE_KEY,
 } from "@shared/data";
 import { QuickActionButton, ServiceCard, MenuItemComponent } from "@shared/ui";
 import { PromotionsCarousel, type PromotionSlide } from "./PromotionsCarousel";
 import { toast } from "@/hooks/use-toast";
 import { safeOpenLink, storage } from "@/lib/telegram";
+import { fetchPromotions } from "@shared/api/promotionsApi";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 const promotionsForCarousel: PromotionSlide[] = [
   {
@@ -79,31 +78,50 @@ const Index = () => {
 
   // Подтягиваем акции из localStorage (управляются через админку)
   useEffect(() => {
-    const applyPromotions = () => {
-      const stored = loadPromotionsFromStorage(selectedCity?.id);
-      setPromotions(stored);
-    };
+    let cancelled = false;
 
-    applyPromotions();
-
-    const handleStorage = (event: StorageEvent) => {
-      if (!selectedCity?.id) return;
-      if (event.key === `${PROMOTIONS_STORAGE_KEY}.${selectedCity.id}`) {
-        applyPromotions();
+    const loadPromotions = async () => {
+      if (!selectedCity?.id) {
+        setPromotions([]);
+        return;
+      }
+      try {
+        const list = await fetchPromotions(selectedCity.id);
+        if (!cancelled) {
+          const normalized =
+            list
+              ?.filter((promo) => promo.isActive !== false)
+              ?.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)) ?? [];
+          setPromotions(normalized);
+        }
+      } catch (error) {
+        console.error("Ошибка загрузки акций:", error);
+        if (!cancelled) {
+          setPromotions([]);
+        }
       }
     };
 
-    const handleCustomUpdate = (event: Event) => {
-      const cityId = (event as CustomEvent)?.detail?.cityId;
-      if (!selectedCity?.id || cityId !== selectedCity.id) return;
-      applyPromotions();
-    };
+    void loadPromotions();
 
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener("promotions-storage-updated", handleCustomUpdate);
+    if (isSupabaseConfigured() && selectedCity?.id) {
+      const channel = supabase
+        .channel(`promotions-${selectedCity.id}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "promotions", filter: `city_id=eq.${selectedCity.id}` },
+          () => void loadPromotions(),
+        )
+        .subscribe();
+
+      return () => {
+        cancelled = true;
+        supabase.removeChannel(channel);
+      };
+    }
+
     return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener("promotions-storage-updated", handleCustomUpdate);
+      cancelled = true;
     };
   }, [selectedCity?.id]);
 
@@ -244,12 +262,14 @@ const Index = () => {
           </div>
 
           {/* Promotions Carousel */}
-          <div className="mt-6 md:mt-8">
-            <PromotionsCarousel
-              promotions={promotionsForCarousel}
-              onBookTable={handleBookingClick}
-            />
-          </div>
+          {promotions.length > 0 && (
+            <div className="mt-6 md:mt-8">
+              <PromotionsCarousel
+                promotions={promotions}
+                onBookTable={handleBookingClick}
+              />
+            </div>
+          )}
 
           {/* Menu Button (Full Width) */}
           <div className="mt-6 md:mt-8">

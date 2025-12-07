@@ -4,27 +4,30 @@ export type PromotionCardData = {
   description?: string;
   imageUrl?: string;
   badge?: string;
+  isActive?: boolean;
+  displayOrder?: number;
+  cityId?: string;
 };
 
 export const PROMOTIONS_STORAGE_KEY = "admin.promotions.v1";
 
 export const defaultPromotions: PromotionCardData[] = [
   {
-    id: "birthday",
+    id: "7f8e0b0e-2b3f-4c96-9a3c-1b2d0fbcc001",
     title: "Именинникам — праздник в Mariko",
     description: "Теплые скидки и десерт для компании в день рождения.",
     imageUrl: "/images/promotions/zhukovsky/promo birhtday.jpg",
     badge: "Жуковский",
   },
   {
-    id: "self-delivery",
+    id: "9c1f9a65-6c93-4f43-8fbe-0c7e9cbb7002",
     title: "Самовывоз выгоднее",
     description: "Заказывайте онлайн, забирайте сами и экономьте на доставке.",
     imageUrl: "/images/promotions/zhukovsky/promo self delivery.jpg",
     badge: "Жуковский",
   },
   {
-    id: "women",
+    id: "c3d9c2c1-1f44-4c0b-8f4d-0e2f9f7b3003",
     title: "Девичники и встречи с подругами",
     description: "Сеты для компании и бокал игристого для уютного вечера.",
     imageUrl: "/images/promotions/zhukovsky/promo women.jpg",

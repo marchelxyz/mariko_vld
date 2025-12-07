@@ -117,7 +117,91 @@ const normalizeMenuImageUrl = (rawUrl) => {
   return trimmed;
 };
 
+const getSupabasePublicBase = () => {
+  if (!SUPABASE_BASE_URL) return null;
+  try {
+    const parsed = new URL(SUPABASE_BASE_URL);
+    const host = parsed.host.replace('.storage.supabase.', '.supabase.');
+    return `${parsed.protocol}//${host}`;
+  } catch {
+    return SUPABASE_BASE_URL.replace(/\/storage\/v1.*$/, '')
+      .replace('.storage.supabase.', '.supabase.')
+      .replace(/\/$/, '');
+  }
+};
+
+const normalizePromotionImageUrl = (rawUrl, cityId = null) => {
+  if (!rawUrl) return undefined;
+  const trimmed = String(rawUrl).trim();
+  if (!trimmed) return undefined;
+  const publicBase = getSupabasePublicBase();
+  // Поправляем публичные URL c .storage.supabase
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      const host = parsed.host.replace('.storage.supabase.', '.supabase.');
+      if (host !== parsed.host) {
+        return `${parsed.protocol}//${host}${parsed.pathname}${parsed.search}${parsed.hash}`;
+      }
+      // Если путь не содержит cityId, а оно есть — дописываем
+      if (cityId && !parsed.pathname.includes(`/${cityId}/`) && parsed.pathname.includes('/promotion-images/')) {
+        const parts = parsed.pathname.split('/promotion-images/');
+        const rest = parts[1] || '';
+        const withCity = rest.includes('/') ? rest : `${cityId}/${rest}`;
+        return `${parsed.protocol}//${parsed.host}/storage/v1/object/public/promotion-images/${withCity}`;
+      }
+    } catch {
+      // ignore
+    }
+    return trimmed;
+  }
+  const encodeSegments = (path) =>
+    path
+      .split('/')
+      .map((seg) => {
+        try {
+          return encodeURIComponent(decodeURIComponent(seg));
+        } catch {
+          return encodeURIComponent(seg);
+        }
+      })
+      .join('/');
+  // Чиним дубль bucket'а
+  const doubleBucket = `${publicBase || ''}/storage/v1/object/public/promotion-images/promotion-images/`;
+  if (doubleBucket && trimmed.startsWith(doubleBucket)) {
+    return trimmed.replace('/promotion-images/promotion-images/', '/promotion-images/');
+  }
+  if (/^(\.?\/)?images\//i.test(trimmed)) {
+    return undefined;
+  }
+  // Относительный путь в bucket
+  if (publicBase) {
+    let clean = trimmed.replace(/^\/+/, '').replace(/^promotion-images\//, '');
+    if (cityId && !clean.includes('/')) {
+      clean = `${cityId}/${clean}`;
+    }
+    const encoded = encodeSegments(clean);
+    return `${publicBase}/storage/v1/object/public/promotion-images/${encoded}`;
+  }
+  return trimmed;
+};
+
 const escapeForInFilter = (value = "") => `"${value.replace(/"/g, '\\"')}"`;
+
+const isUuid = (value = "") =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
+const ensureUuid = () => {
+  if (crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback: craft UUID v4-like string from random bytes
+  const bytes = crypto.randomBytes(16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant
+  const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+};
 
 const loadRestaurantsForCities = async (cityIds = [], { onlyActive = false } = {}) => {
   if (!cityIds.length) {
@@ -331,6 +415,72 @@ const replaceRestaurantMenu = async (restaurantId, menu) => {
       body: JSON.stringify(itemsPayload),
     });
   }
+};
+
+// ============================ PROMOTIONS HELPERS ============================
+const getPromotionsForCityFromSupabase = async (cityId) => {
+  const url = buildRestUrl('promotions', {
+    select: '*',
+    order: 'display_order',
+    city_id: `eq.${cityId}`,
+  });
+  const rows = await requestJson(url);
+  if (!rows || !rows.length) {
+    return [];
+  }
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    description: row.description || undefined,
+    imageUrl: normalizePromotionImageUrl(row.image_url, row.city_id || cityId),
+    badge: row.badge || undefined,
+    displayOrder: row.display_order ?? 1,
+    isActive: row.is_active !== false,
+    cityId: row.city_id,
+  }));
+};
+
+const replaceCityPromotions = async (cityId, promotions) => {
+  const deleteUrl = buildRestUrl('promotions', {
+    city_id: `eq.${cityId}`,
+  });
+
+  await requestJson(deleteUrl, {
+    method: 'DELETE',
+    headers: {
+      Prefer: 'return=representation',
+    },
+  });
+
+  if (!Array.isArray(promotions) || !promotions.length) {
+    return;
+  }
+
+  const payload = promotions.map((promo, index) => ({
+    id: ensureUuid(),
+    city_id: cityId,
+    title: promo.title,
+    description: promo.description || null,
+    image_url: normalizePromotionImageUrl(promo.imageUrl, cityId) || null,
+    badge: promo.badge || null,
+    display_order: promo.displayOrder ?? index + 1,
+    is_active: promo.isActive !== false,
+  }));
+
+  console.log('🧹 Saving promotions payload', {
+    cityId,
+    count: payload.length,
+    sample: payload.slice(0, 3),
+  });
+
+  const insertUrl = buildRestUrl('promotions');
+  await requestJson(insertUrl, {
+    method: 'POST',
+    headers: {
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify(payload),
+  });
 };
 
 // ============================ TELEGRAM WEBAPP AUTH ============================
@@ -570,6 +720,181 @@ const handleUploadMenuImage = async (req, res) => {
   app.post(route, handleUploadMenuImage);
 });
 
+// ==== Promotion images upload/list ====
+const PROMOTION_BUCKET = 'promotion-images';
+
+const handleUploadPromotionImage = async (req, res) => {
+  if (!SUPABASE_BASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return res.status(500).json({ error: 'Supabase Storage не настроен на сервере' });
+  }
+
+  const adminUser = resolveAdminUser(req);
+  if (!adminUser) {
+    return res.status(401).json({ error: 'Недостаточно прав для выполнения операции' });
+  }
+
+  try {
+    const { fileName, contentType, dataUrl, cityId } = req.body || {};
+    if (!fileName || !dataUrl) {
+      return res.status(400).json({ error: 'Нужно передать fileName и dataUrl' });
+    }
+
+    const match = /^data:(.+);base64,(.*)$/.exec(dataUrl);
+    if (!match) {
+      return res.status(400).json({ error: 'Некорректный формат dataUrl' });
+    }
+    const base64 = match[2];
+    const buffer = Buffer.from(base64, 'base64');
+
+    const safeFileName = String(fileName)
+      .split('/')
+      .pop()
+      .replace(/[^a-zA-Z0-9_.-]+/g, '_');
+
+    const hash = crypto.createHash('sha1').update(buffer).digest('hex');
+    const extension = (() => {
+      const parts = safeFileName.split('.');
+      if (parts.length > 1) {
+        return `.${parts.pop()}`;
+      }
+      if (contentType && contentType.includes('/')) {
+        const [, subtype] = contentType.split('/');
+        if (subtype) {
+          return `.${subtype.split('+')[0]}`;
+        }
+      }
+      return '';
+    })();
+    const prefix = cityId ? `${cityId}/` : '';
+    const pathInBucket = `${prefix}${hash}${extension}`;
+    const encodedPath = pathInBucket
+      .split('/')
+      .map((segment) => encodeURIComponent(segment))
+      .join('/');
+    const uploadUrl = `${SUPABASE_BASE_URL}/storage/v1/object/${PROMOTION_BUCKET}/${encodedPath}`;
+
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': contentType || 'application/octet-stream',
+        'x-upsert': 'true',
+      },
+      body: buffer,
+    });
+
+    if (!uploadResponse.ok) {
+      const text = await uploadResponse.text();
+      console.error('❌ Ошибка загрузки изображения акции в Supabase Storage:', text);
+      return res
+        .status(500)
+        .json({ error: 'Не удалось загрузить изображение в Supabase Storage' });
+    }
+
+    const publicBase = getSupabasePublicBase();
+    const publicUrl = `${publicBase || SUPABASE_BASE_URL}/storage/v1/object/public/${PROMOTION_BUCKET}/${encodedPath}`;
+
+    console.log(
+      `✅ ${adminUser.username || adminUser.id} загрузил изображение акции hash=${hash} (${cityId || 'global'}): ${publicUrl}`,
+    );
+
+    res.json({ url: publicUrl, hash });
+  } catch (error) {
+    console.error('❌ Неожиданная ошибка загрузки изображения акции:', error);
+    res.status(500).json({ error: error.message || 'Не удалось загрузить изображение акции' });
+  }
+};
+
+['/api/admin/promotions/upload-image', '/admin/promotions/upload-image'].forEach((route) => {
+  app.post(route, handleUploadPromotionImage);
+});
+
+const handleListPromotionImages = async (req, res) => {
+  if (!SUPABASE_BASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return res.status(500).json({ error: 'Supabase Storage не настроен на сервере' });
+  }
+
+  const adminUser = resolveAdminUser(req);
+  if (!adminUser) {
+    return res.status(401).json({ error: 'Недостаточно прав для выполнения операции' });
+  }
+
+  const cityId = req.query.cityId || null;
+  const scope = (req.query.scope || 'global').toString();
+  const prefix = scope === 'city' && cityId ? `${cityId}/` : '';
+  const publicBase = getSupabasePublicBase();
+
+  try {
+    const listUrl = `${SUPABASE_BASE_URL}/storage/v1/object/list/${PROMOTION_BUCKET}`;
+    const response = await fetch(listUrl, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prefix,
+        limit: 500,
+        offset: 0,
+        sortBy: { column: 'updated_at', order: 'desc' },
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error('❌ Ошибка получения списка изображений акций из Supabase Storage:', text);
+      return res.status(500).json({ error: 'Не удалось получить список изображений' });
+    }
+
+    const files = (await response.json()) || [];
+    const images = files
+      .filter((file) => file && typeof file.name === 'string' && !file.name.endsWith('/'))
+      .map((file) => {
+        const rawName = file.name.startsWith(`${PROMOTION_BUCKET}/`)
+          ? file.name.slice(PROMOTION_BUCKET.length + 1)
+          : file.name;
+        // если запрашиваем по городу, а путь без префикса города — дописываем
+        const correctedPath =
+          scope === 'city' && cityId && rawName && !rawName.includes('/')
+            ? `${cityId}/${rawName}`
+            : rawName;
+        const encodedPath = rawName
+          .split('/')
+          .map((segment) => encodeURIComponent(segment))
+          .join('/');
+        const encodedCorrectedPath = correctedPath
+          .split('/')
+          .map((segment) => encodeURIComponent(segment))
+          .join('/');
+        const publicUrl = `${publicBase || SUPABASE_BASE_URL}/storage/v1/object/public/${PROMOTION_BUCKET}/${encodedCorrectedPath}`;
+        return {
+          path: correctedPath,
+          url: publicUrl,
+          size: file.metadata?.size ?? file.size ?? 0,
+          updatedAt: file.updated_at ?? null,
+        };
+      });
+
+    console.log('📸 Promotion images list', {
+      prefix,
+      scope,
+      cityId,
+      count: images.length,
+      sample: images.slice(0, 3),
+    });
+
+    res.json({ images });
+  } catch (error) {
+    console.error('❌ Неожиданная ошибка при получении списка изображений акций:', error);
+    res.status(500).json({ error: error.message || 'Не удалось получить список изображений' });
+  }
+};
+
+['/api/admin/promotions/images', '/admin/promotions/images'].forEach((route) => {
+  app.get(route, handleListPromotionImages);
+});
 const handleListMenuImages = async (req, res) => {
   if (!SUPABASE_BASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return res.status(500).json({ error: 'Supabase Storage не настроен на сервере' });
@@ -674,6 +999,29 @@ const handleGetRestaurantMenu = async (req, res) => {
   app.get(route, handleGetRestaurantMenu);
 });
 
+const handleGetPromotions = async (req, res) => {
+  if (!ensureSupabaseConfigured(res)) {
+    return;
+  }
+
+  const cityId = req.params.cityId;
+  if (!cityId) {
+    return res.status(400).json({ error: 'Необходимо передать cityId' });
+  }
+
+  try {
+    const list = await getPromotionsForCityFromSupabase(cityId);
+    res.json(list);
+  } catch (error) {
+    console.error('❌ Ошибка загрузки акций через API:', error);
+    res.status(500).json({ error: error.message || 'Не удалось загрузить акции' });
+  }
+};
+
+['/api/promotions/:cityId', '/promotions/:cityId'].forEach((route) => {
+  app.get(route, handleGetPromotions);
+});
+
 const handleSaveRestaurantMenu = async (req, res) => {
   if (!ensureSupabaseConfigured(res)) {
     return;
@@ -715,6 +1063,39 @@ const handleSaveRestaurantMenu = async (req, res) => {
 
 ['/api/admin/menu/:restaurantId', '/admin/menu/:restaurantId'].forEach((route) => {
   app.post(route, handleSaveRestaurantMenu);
+});
+
+const handleSavePromotions = async (req, res) => {
+  if (!ensureSupabaseConfigured(res)) {
+    return;
+  }
+
+  const adminUser = resolveAdminUser(req);
+  if (!adminUser) {
+    return res.status(401).json({ error: 'Недостаточно прав для выполнения операции' });
+  }
+
+  const cityId = req.params.cityId;
+  const promos = req.body;
+
+  if (!cityId || !Array.isArray(promos)) {
+    return res.status(400).json({ error: 'Некорректный payload акций' });
+  }
+
+  try {
+    await replaceCityPromotions(cityId, promos);
+    console.log(
+      `✅ ${adminUser.username || adminUser.id} обновил акции города ${cityId} (шт: ${promos.length})`,
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Ошибка сохранения акций через API:', error);
+    res.status(500).json({ error: error.message || 'Не удалось сохранить акции' });
+  }
+};
+
+['/api/admin/promotions/:cityId', '/admin/promotions/:cityId'].forEach((route) => {
+  app.post(route, handleSavePromotions);
 });
 
 app.listen(API_PORT, () => {
