@@ -15,8 +15,33 @@ import {
   MenuItem,
 } from "@shared/data";
 import { QuickActionButton, ServiceCard, MenuItemComponent } from "@shared/ui";
+import { PromotionsCarousel, type PromotionSlide } from "./PromotionsCarousel";
+import { toast } from "@/hooks/use-toast";
 import { safeOpenLink, storage } from "@/lib/telegram";
 
+const promotionsForCarousel: PromotionSlide[] = [
+  {
+    id: "birthday",
+    title: "Именинникам — праздник в Mariko",
+    description: "Теплые скидки и десерт для компании в день рождения.",
+    imageUrl: "/images/promotions/zhukovsky/promo birhtday.jpg",
+    badge: "Жуковский",
+  },
+  {
+    id: "self-delivery",
+    title: "Самовывоз выгоднее",
+    description: "Заказывайте онлайн, забирайте сами и экономьте на доставке.",
+    imageUrl: "/images/promotions/zhukovsky/promo self delivery.jpg",
+    badge: "Жуковский",
+  },
+  {
+    id: "women",
+    title: "Девичники и встречи с подругами",
+    description: "Сеты для компании и бокал игристого для уютного вечера.",
+    imageUrl: "/images/promotions/zhukovsky/promo women.jpg",
+    badge: "Жуковский",
+  },
+];
 
 const Index = () => {
   const navigate = useNavigate();
@@ -29,6 +54,24 @@ const Index = () => {
 
   // 🔧 ВРЕМЕННОЕ СКРЫТИЕ: измените на true чтобы показать раздел "Рекомендуем попробовать"
   const showRecommendedSection = false;
+
+  const handleBookingClick = () => {
+    if (!selectedCity?.id || !selectedCity?.name) {
+      safeOpenLink(DEFAULT_BOOKING_LINK, { try_instant_view: true });
+      return;
+    }
+
+    const bookingLink =
+      CITY_BOOKING_LINKS[selectedCity.id] ?? DEFAULT_BOOKING_LINK;
+
+    openBookingPage({
+      title: `Бронь — ${selectedCity.name}`,
+      url: bookingLink,
+      allowedCityId: selectedCity.id,
+      description: `Забронируйте столик в ресторане ${selectedCity.name}.`,
+      fallbackLabel: "Открыть форму бронирования",
+    });
+  };
 
   const openEmbeddedPage = (slug: string, config: EmbeddedPageConfig) => {
     navigate(`/webview/${slug}`, {
@@ -141,23 +184,7 @@ const Index = () => {
               icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Бронь столика"
               highlighted={cityChangedFlash}
-              onClick={() => {
-                if (!selectedCity?.id || !selectedCity?.name) {
-                  safeOpenLink(DEFAULT_BOOKING_LINK, { try_instant_view: true });
-                  return;
-                }
-
-                const bookingLink =
-                  CITY_BOOKING_LINKS[selectedCity.id] ?? DEFAULT_BOOKING_LINK;
-
-                openBookingPage({
-                  title: `Бронь — ${selectedCity.name}`,
-                  url: bookingLink,
-                  allowedCityId: selectedCity.id,
-                  description: `Забронируйте столик в ресторане ${selectedCity.name}.`,
-                  fallbackLabel: "Открыть форму бронирования",
-                });
-              }}
+              onClick={handleBookingClick}
             />
 
             <QuickActionButton
@@ -179,6 +206,14 @@ const Index = () => {
               title="Как нас найти?"
               highlighted={cityChangedFlash}
               onClick={() => navigate("/about")}
+            />
+          </div>
+
+          {/* Promotions Carousel */}
+          <div className="mt-6 md:mt-8">
+            <PromotionsCarousel
+              promotions={promotionsForCarousel}
+              onBookTable={handleBookingClick}
             />
           </div>
 

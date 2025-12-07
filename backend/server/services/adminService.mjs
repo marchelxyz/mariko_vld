@@ -1,9 +1,5 @@
 import { supabase } from "../supabaseClient.mjs";
-import {
-  ADMIN_SUPER_IDS,
-  ADMIN_DEV_TOKEN,
-  ADMIN_ROLE_VALUES,
-} from "../config.mjs";
+import { ADMIN_DEV_TOKEN, ADMIN_ROLE_VALUES, ADMIN_DEV_TELEGRAM_ID } from "../config.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
 
 export const parseRestaurantPermissions = (permissions) => {
@@ -21,13 +17,6 @@ export const parseRestaurantPermissions = (permissions) => {
       .filter((id) => Boolean(id));
   }
   return [];
-};
-
-export const isListedSuperAdmin = (telegramId) => {
-  if (!telegramId) {
-    return false;
-  }
-  return ADMIN_SUPER_IDS.includes(telegramId.trim());
 };
 
 export const getTelegramIdFromRequest = (req) => {
@@ -76,25 +65,23 @@ export const resolveAdminContext = async (telegramId) => {
   const record = await fetchAdminRecordByTelegram(telegramId);
   const permissions = record?.permissions ?? {};
   const allowedRestaurants = parseRestaurantPermissions(permissions);
-  let role = record?.role ?? "user";
-  if (isListedSuperAdmin(telegramId)) {
-    role = "super_admin";
-  }
   return {
-    role: ADMIN_ROLE_VALUES.has(role) ? role : "user",
+    role: ADMIN_ROLE_VALUES.has(record?.role) ? record.role : "user",
     allowedRestaurants,
   };
 };
 
 export const buildUserWithRole = (profile, adminRecord) => {
-  const telegramId = profile?.telegram_id ? String(profile.telegram_id) : null;
-  let role = adminRecord?.role ?? "user";
-  if (telegramId && isListedSuperAdmin(telegramId)) {
-    role = "super_admin";
-  }
+  const telegramId = profile?.telegram_id
+    ? String(profile.telegram_id)
+    : adminRecord?.telegram_id
+      ? String(adminRecord.telegram_id)
+      : null;
+  const role = adminRecord?.role ?? "user";
   const allowedRestaurants = parseRestaurantPermissions(adminRecord?.permissions ?? {});
+  const id = profile?.id ?? telegramId ?? adminRecord?.id ?? "";
   return {
-    id: profile?.id ?? adminRecord?.id ?? "",
+    id,
     telegramId,
     name: profile?.name ?? adminRecord?.name ?? "",
     phone: profile?.phone ?? null,
@@ -109,7 +96,7 @@ export const authoriseSuperAdmin = async (req, res) => {
   const telegramId = getTelegramIdFromRequest(req);
   const devToken = req.get("x-admin-token");
   if (!telegramId && ADMIN_DEV_TOKEN && devToken === ADMIN_DEV_TOKEN) {
-    return { role: "super_admin", allowedRestaurants: [], telegramId: ADMIN_SUPER_IDS[0] || null };
+    return { role: "super_admin", allowedRestaurants: [], telegramId: ADMIN_DEV_TELEGRAM_ID || null };
   }
   if (!telegramId) {
     res.status(401).json({ success: false, message: "Требуется Telegram ID администратора" });
@@ -127,7 +114,7 @@ export const authoriseAdmin = async (req, res) => {
   const telegramId = getTelegramIdFromRequest(req);
   const devToken = req.get("x-admin-token");
   if (!telegramId && ADMIN_DEV_TOKEN && devToken === ADMIN_DEV_TOKEN) {
-    return { role: "super_admin", allowedRestaurants: [], telegramId: ADMIN_SUPER_IDS[0] || null };
+    return { role: "super_admin", allowedRestaurants: [], telegramId: ADMIN_DEV_TELEGRAM_ID || null };
   }
   if (!telegramId) {
     res.status(401).json({ success: false, message: "Требуется Telegram ID администратора" });

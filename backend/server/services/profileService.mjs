@@ -134,19 +134,23 @@ export const fetchUserProfile = async (identifier) => {
   if (!supabase) {
     return null;
   }
-  let query = supabase
-    .from("user_profiles")
-    .select(PROFILE_SELECT_FIELDS)
-    .eq("id", identifier)
-    .maybeSingle();
-  let result = await query;
-  if (result.error && result.error.code !== "PGRST116") {
-    console.error("Ошибка загрузки профиля:", result.error);
+  const asString = identifier ? String(identifier) : "";
+  const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(asString);
+  if (looksLikeUuid) {
+    const result = await supabase
+      .from("user_profiles")
+      .select(PROFILE_SELECT_FIELDS)
+      .eq("id", asString)
+      .maybeSingle();
+    if (result.error && result.error.code !== "PGRST116") {
+      console.error("Ошибка загрузки профиля:", result.error);
+    }
+    if (result.data) {
+      return result.data;
+    }
   }
-  if (result.data) {
-    return result.data;
-  }
-  const numeric = Number(identifier);
+
+  const numeric = Number(asString);
   if (Number.isFinite(numeric)) {
     const fallback = await supabase
       .from("user_profiles")

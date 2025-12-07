@@ -6,22 +6,18 @@ import dotenv from "dotenv";
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const localEnvPath = path.join(currentDir, ".env.local");
 const defaultEnvPath = path.join(currentDir, ".env");
-const envPath = fs.existsSync(localEnvPath) ? localEnvPath : defaultEnvPath;
-
-dotenv.config({
-  path: envPath,
-});
+// Сначала загружаем базовый .env, затем дополняем значениями из .env.local (не перекрывая уже заданные).
+if (fs.existsSync(defaultEnvPath)) {
+  dotenv.config({ path: defaultEnvPath });
+}
+if (fs.existsSync(localEnvPath)) {
+  dotenv.config({ path: localEnvPath, override: false });
+}
 
 export const PORT = Number(process.env.CART_SERVER_PORT ?? process.env.PORT ?? 4010);
 export const CART_ORDERS_TABLE = process.env.CART_ORDERS_TABLE ?? "cart_orders";
 const maxOrdersLimitRaw = Number.parseInt(process.env.CART_ORDERS_MAX_LIMIT ?? "", 10);
 export const MAX_ORDERS_LIMIT = Number.isFinite(maxOrdersLimitRaw) ? maxOrdersLimitRaw : 50;
-const DEFAULT_SUPER_ADMINS = ["577222108"];
-const adminIdsFromEnv = (process.env.ADMIN_SUPER_IDS ?? "")
-  .split(",")
-  .map((value) => value.trim())
-  .filter((value) => value.length > 0);
-export const ADMIN_SUPER_IDS = adminIdsFromEnv.length > 0 ? adminIdsFromEnv : DEFAULT_SUPER_ADMINS;
 export const ADMIN_DEV_TOKEN = process.env.ADMIN_DEV_TOKEN;
 export const ADMIN_DEV_TELEGRAM_ID = process.env.ADMIN_DEV_TELEGRAM_ID || null;
 export const ADMIN_ROLE_VALUES = new Set(["super_admin", "admin", "user"]);
