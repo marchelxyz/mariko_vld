@@ -201,3 +201,54 @@ export async function createRemarkedReserve(
   
   return data;
 }
+
+/**
+ * Получить брони по номеру телефона
+ */
+export async function getRemarkedReservesByPhone(
+  token: string,
+  phone: string,
+  limit: number = 1
+): Promise<{
+  status: string;
+  total: number;
+  count: number;
+  reserves: Array<{
+    id: number;
+    name: string;
+    phone: string;
+    estimated_time: string;
+    guests_count: string;
+    inner_status: string;
+  }>;
+}> {
+  const request: RemarkedRequest = {
+    method: "GetReservesByPhone",
+    token,
+    phone,
+    limit: limit.toString(),
+    offset: "0",
+    sort_by: "id",
+    sort_direction: "DESC",
+  };
+
+  const response = await fetch(`${REMARKED_API_BASE}/ApiReservesWidget`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get reserves: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  
+  if (data.status === "error") {
+    throw new Error(data.message || "Ошибка получения броней");
+  }
+  
+  return data;
+}
