@@ -5,6 +5,7 @@ import {
   fetchActiveCitiesViaServer,
   fetchAllCitiesViaServer,
   setCityStatusViaServer,
+  createCityViaServer,
   updateRestaurantViaServer,
 } from "./serverGateway";
 
@@ -19,6 +20,10 @@ class CitiesApi {
 
   async setCityStatus(cityId: string, isActive: boolean): Promise<{ success: boolean; errorMessage?: string }> {
     return await setCityStatusViaServer(cityId, isActive);
+  }
+
+  async createCity(city: { id: string; name: string; displayOrder?: number }): Promise<{ success: boolean; errorMessage?: string }> {
+    return await createCityViaServer(city);
   }
 
   async updateRestaurant(restaurantId: string, updates: { 

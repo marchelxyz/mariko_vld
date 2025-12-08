@@ -125,6 +125,41 @@ export function createCitiesRouter() {
   });
 
   /**
+   * Создать новый город
+   */
+  router.post("/", async (req, res) => {
+    const admin = await authoriseSuperAdmin(req, res);
+    if (!admin) {
+      return;
+    }
+
+    const { id, name, displayOrder } = req.body ?? {};
+    if (typeof id !== "string" || typeof name !== "string" || !id.trim() || !name.trim()) {
+      return res.status(400).json({ success: false, message: "Некорректные параметры: требуется id и name" });
+    }
+
+    try {
+      // Проверяем, существует ли город с таким ID
+      const existingCity = await queryOne(`SELECT id FROM cities WHERE id = $1`, [id]);
+      if (existingCity) {
+        return res.status(400).json({ success: false, message: "Город с таким ID уже существует" });
+      }
+
+      // Создаем город
+      await query(
+        `INSERT INTO cities (id, name, is_active, display_order, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, NOW(), NOW())`,
+        [id.trim(), name.trim(), true, displayOrder ?? 0]
+      );
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Ошибка создания города:", error);
+      return res.status(500).json({ success: false, message: "Не удалось создать город" });
+    }
+  });
+
+  /**
    * Изменить статус города
    */
   router.post("/status", async (req, res) => {
