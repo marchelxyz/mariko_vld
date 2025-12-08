@@ -106,9 +106,9 @@ function RandomBackgroundPattern() {
   function generatePositions(width: number, height: number): PatternPosition[] {
     const newPositions: PatternPosition[] = [];
     const placedRects: Array<{ x: number; y: number; width: number; height: number }> = [];
-    const minScale = 0.7;
-    const maxScale = 1.2;
-    const padding = 0;
+    const minScale = 0.4;
+    const maxScale = 0.7;
+    const padding = 10;
 
     function getRandomPattern() {
       const index = Math.floor(Math.random() * PATTERNS.length);
@@ -206,7 +206,7 @@ function RandomBackgroundPattern() {
     const targetDensity = 0.7;
     const area = width * height;
     const avgElementArea = 200 * 150;
-    const targetElements = Math.max(30, Math.floor((area * targetDensity) / avgElementArea));
+    const targetElements = Math.max(30, Math.floor((area * targetDensity) / avgElementArea)) * 3;
 
     // Размещаем паттерны до достижения целевого количества или пока есть место
     let attempts = 0;
