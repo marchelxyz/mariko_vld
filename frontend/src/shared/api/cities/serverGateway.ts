@@ -15,22 +15,30 @@ function parseErrorPayload(payload?: string): string | null {
 }
 
 async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(resolveServerUrl(path), {
-    credentials: 'include',
-    ...options,
-    headers: {
-      Accept: 'application/json',
-      ...(options?.headers ?? {}),
-    },
-  });
+  try {
+    const response = await fetch(resolveServerUrl(path), {
+      credentials: 'include',
+      ...options,
+      headers: {
+        Accept: 'application/json',
+        ...(options?.headers ?? {}),
+      },
+    });
 
-  const text = await response.text();
-  if (!response.ok) {
-    const errorMessage = parseErrorPayload(text) ?? `Server API responded with ${response.status}`;
-    throw new Error(errorMessage);
+    const text = await response.text();
+    if (!response.ok) {
+      const errorMessage = parseErrorPayload(text) ?? `Server API responded with ${response.status}`;
+      throw new Error(errorMessage);
+    }
+
+    return text ? (JSON.parse(text) as T) : (undefined as T);
+  } catch (error) {
+    // Обрабатываем ошибки сети и другие ошибки
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Не удалось подключиться к серверу. Проверьте подключение к интернету.');
+    }
+    throw error;
   }
-
-  return text ? (JSON.parse(text) as T) : (undefined as T);
 }
 
 export const fetchActiveCitiesViaServer = () => fetchFromServer<City[]>('/cities/active');

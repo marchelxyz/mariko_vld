@@ -63,7 +63,7 @@ export function CitiesManagement(): JSX.Element {
   // Права доступа
   const canManage = isSuperAdmin() && hasPermission(Permission.MANAGE_CITIES);
 
-  // Загрузка городов из Supabase
+  // Загрузка городов из базы данных
   useEffect(() => {
     const loadCities = async () => {
       setIsLoading(true);
@@ -77,13 +77,15 @@ export function CitiesManagement(): JSX.Element {
         setCitiesWithStatus(citiesWithStatus);
       } catch (error) {
         console.error('Ошибка загрузки городов:', error);
+        // Показываем сообщение об ошибке пользователю
+        alert('❌ Не удалось загрузить города. Проверьте подключение к серверу.');
       } finally {
         setIsLoading(false);
       }
     };
 
     loadCities();
-  }, [useSupabase]);
+  }, []);
 
   // Real-time подписка на изменения
   useEffect(() => {
