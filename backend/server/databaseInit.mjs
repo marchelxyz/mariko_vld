@@ -185,6 +185,39 @@ const SCHEMAS = {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `,
+
+  menu_categories: `
+    CREATE TABLE IF NOT EXISTS menu_categories (
+      id VARCHAR(255) PRIMARY KEY,
+      restaurant_id VARCHAR(255) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      description TEXT,
+      display_order INTEGER DEFAULT 0,
+      is_active BOOLEAN DEFAULT true,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `,
+
+  menu_items: `
+    CREATE TABLE IF NOT EXISTS menu_items (
+      id VARCHAR(255) PRIMARY KEY,
+      category_id VARCHAR(255) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      description TEXT,
+      price DECIMAL(10, 2) NOT NULL,
+      weight VARCHAR(50),
+      image_url TEXT,
+      is_vegetarian BOOLEAN DEFAULT false,
+      is_spicy BOOLEAN DEFAULT false,
+      is_new BOOLEAN DEFAULT false,
+      is_recommended BOOLEAN DEFAULT false,
+      is_active BOOLEAN DEFAULT true,
+      display_order INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `,
 };
 
 /**
@@ -219,6 +252,11 @@ const INDEXES = [
     `CREATE INDEX IF NOT EXISTS idx_promotions_city_id ON promotions(city_id);`,
     `CREATE INDEX IF NOT EXISTS idx_promotions_is_active ON promotions(is_active);`,
     `CREATE INDEX IF NOT EXISTS idx_promotions_display_order ON promotions(display_order);`,
+    `CREATE INDEX IF NOT EXISTS idx_menu_categories_restaurant_id ON menu_categories(restaurant_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_menu_categories_display_order ON menu_categories(display_order);`,
+    `CREATE INDEX IF NOT EXISTS idx_menu_items_category_id ON menu_items(category_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_menu_items_display_order ON menu_items(display_order);`,
+    `CREATE INDEX IF NOT EXISTS idx_menu_items_is_active ON menu_items(is_active);`,
 ];
 
 /**
@@ -265,6 +303,8 @@ export async function initializeDatabase() {
       "restaurants",        // restaurants зависит от cities
       "bookings",           // bookings зависит от restaurants
       "promotions",         // promotions зависит от cities
+      "menu_categories",    // menu_categories зависит от restaurants
+      "menu_items",         // menu_items зависит от menu_categories
     ];
 
     // Создаем таблицы в правильном порядке
@@ -317,6 +357,20 @@ export async function initializeDatabase() {
         sql: `ALTER TABLE bookings 
               ADD CONSTRAINT fk_bookings_restaurant 
               FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE`,
+      },
+      {
+        name: "fk_menu_categories_restaurant",
+        table: "menu_categories",
+        sql: `ALTER TABLE menu_categories 
+              ADD CONSTRAINT fk_menu_categories_restaurant 
+              FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE`,
+      },
+      {
+        name: "fk_menu_items_category",
+        table: "menu_items",
+        sql: `ALTER TABLE menu_items 
+              ADD CONSTRAINT fk_menu_items_category 
+              FOREIGN KEY (category_id) REFERENCES menu_categories(id) ON DELETE CASCADE`,
       },
       {
         name: "fk_promotions_city",

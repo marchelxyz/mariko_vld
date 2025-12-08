@@ -98,15 +98,6 @@ FRONTEND_ENV="frontend/.env"
 # ======================================================================
 log "📦 Настройка Frontend переменных..."
 
-# Supabase
-SUPABASE_URL=$(read_env_value "$FRONTEND_ENV" "VITE_SUPABASE_URL")
-SUPABASE_ANON_KEY=$(read_env_value "$FRONTEND_ENV" "VITE_SUPABASE_ANON_KEY")
-
-if [[ "$INTERACTIVE" == "--interactive" ]]; then
-  SUPABASE_URL=$(prompt_value "VITE_SUPABASE_URL" "$SUPABASE_URL" "URL вашего Supabase проекта")
-  SUPABASE_ANON_KEY=$(prompt_value "VITE_SUPABASE_ANON_KEY" "$SUPABASE_ANON_KEY" "Supabase Anon Key")
-fi
-
 # Backend URL (Railway)
 SERVER_API_URL=$(read_env_value "$FRONTEND_ENV" "VITE_SERVER_API_URL")
 CART_API_URL=$(read_env_value "$FRONTEND_ENV" "VITE_CART_API_URL")
@@ -129,10 +120,6 @@ ENVIRONMENTS=("production" "preview" "development")
 
 for env in "${ENVIRONMENTS[@]}"; do
   log "Настройка переменных для окружения: $env"
-  
-  # Supabase
-  set_vercel_var "VITE_SUPABASE_URL" "$SUPABASE_URL" "$env"
-  set_vercel_var "VITE_SUPABASE_ANON_KEY" "$SUPABASE_ANON_KEY" "$env"
   
   # Backend API
   set_vercel_var "VITE_SERVER_API_URL" "${BACKEND_BASE}/api" "$env"

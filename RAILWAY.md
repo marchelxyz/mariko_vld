@@ -76,9 +76,9 @@ bash scripts/setup-railway-env.sh --interactive
 railway variables set KEY=value --service <service-name>
 
 # Примеры:
-railway variables set VITE_SUPABASE_URL=https://xxx.supabase.co --service frontend
 railway variables set DATABASE_URL=postgresql://... --service backend
 railway variables set BOT_TOKEN=xxx --service bot
+railway variables set VITE_SERVER_API_URL=https://xxx.up.railway.app/api --service frontend
 
 # Просмотр всех переменных
 railway variables
@@ -92,8 +92,6 @@ railway variables --service <service-name>
 #### Frontend (Vercel)
 
 **Обязательные:**
-- `VITE_SUPABASE_URL` — URL вашего Supabase проекта
-- `VITE_SUPABASE_ANON_KEY` — Supabase Anon Key
 - `VITE_SERVER_API_URL` → `https://<backend>.up.railway.app/api` (рекомендуется использовать эту переменную)
 
 **Опциональные** (если не используется `VITE_SERVER_API_URL`):
@@ -134,8 +132,6 @@ railway variables --service <service-name>
 - `BOT_TOKEN` — токен Telegram бота
 - `WEBAPP_URL` — **домен Vercel frontend** (например: `https://your-app.vercel.app`)
 - `PROFILE_SYNC_URL` — URL синхронизации профиля (обычно: `https://<backend>.up.railway.app/api/cart/profile/sync`)
-- `SUPABASE_URL` — URL Supabase проекта
-- `SUPABASE_SERVICE_ROLE_KEY` — Service Role Key Supabase
 - `VITE_USE_SERVER_API` — использовать серверный API (по умолчанию: `true`)
 - `VITE_SERVER_API_URL` → `https://<backend>.up.railway.app/api`
 - `VITE_FORCE_SERVER_API` — принудительно использовать серверный API (по умолчанию: `true`)
@@ -223,8 +219,6 @@ bash scripts/setup-vercel-env.sh --interactive
 4. Добавьте переменные для всех окружений (Production, Preview, Development)
 
 **Обязательные переменные:**
-- `VITE_SUPABASE_URL` — URL вашего Supabase проекта
-- `VITE_SUPABASE_ANON_KEY` — Supabase Anon Key
 - `VITE_SERVER_API_URL` → `https://<backend>.up.railway.app/api` (URL backend на Railway)
 
 **Полный список переменных** см. в разделе "Frontend" выше.

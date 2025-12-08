@@ -141,62 +141,28 @@ export async function savePromotions(
   }
 }
 
+/**
+ * Загрузить изображение для акции
+ * TODO: Реализовать через Яндекс Облако Storage
+ */
 export async function uploadPromotionImage(
   file: File,
   cityId?: string,
 ): Promise<UploadImageResult> {
-  if (!shouldUseServerApi()) {
-    throw new Error("Серверный API выключен. Загрузка изображений недоступна.");
-  }
-
-  const dataUrl = await readFileAsDataUrl(file);
-
-  const headers = buildAdminHeaders({
-    "Content-Type": "application/json",
-  });
-
-  const payload = {
-    fileName: file.name,
-    contentType: file.type || "application/octet-stream",
-    dataUrl,
-    cityId,
-  };
-
-  return fetchFromServer<UploadImageResult>("/admin/promotions/upload-image", {
-    method: "POST",
-    credentials: "include",
-    headers,
-    body: JSON.stringify(payload),
-  });
+  // TODO: Реализовать загрузку через Яндекс Облако Storage
+  throw new Error('Загрузка изображений акций будет реализована через Яндекс Облако Storage');
 }
 
+/**
+ * Получить библиотеку изображений акций
+ * TODO: Реализовать через Яндекс Облако Storage
+ */
 export async function fetchPromotionImageLibrary(
   cityId?: string,
   scope: "global" | "city" = "global",
 ): Promise<PromotionImageAsset[]> {
-  if (!shouldUseServerApi()) {
-    return [];
-  }
-
-  const headers = buildAdminHeaders();
-  const params = new URLSearchParams();
-  if (cityId) params.set("cityId", cityId);
-  params.set("scope", scope);
-
-  try {
-    const result = await fetchFromServer<{ images: PromotionImageAsset[] }>(
-      `/admin/promotions/images?${params.toString()}`,
-      {
-        method: "GET",
-        credentials: "include",
-        headers,
-      },
-    );
-    return result?.images ?? [];
-  } catch (error) {
-    console.error("❌ Ошибка загрузки библиотеки изображений акций:", error);
-    return [];
-  }
+  // TODO: Реализовать получение списка изображений через Яндекс Облако Storage
+  return [];
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {

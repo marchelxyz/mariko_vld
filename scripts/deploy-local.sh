@@ -128,31 +128,16 @@ run_remote "
     return 0
   }
 
-  check_bot_supabase() {
-    local file=\$1
-    local has_url=0
-    if grep -q \"^SUPABASE_URL=\" \"\$file\" || grep -q \"^VITE_SUPABASE_URL=\" \"\$file\"; then
-      has_url=1
-    fi
-    if [ \$has_url -eq 0 ]; then
-      echo \"❌ \$file: нет SUPABASE_URL или VITE_SUPABASE_URL\" >&2
-    fi
-  }
-
   check_file \"$REMOTE_BOT_DIR/.env\" \
     BOT_TOKEN \
-    SUPABASE_SERVICE_ROLE_KEY \
     WEBAPP_URL \
     ADMIN_PANEL_TOKEN \
     ADMIN_TELEGRAM_IDS \
     API_PORT \
     PROFILE_SYNC_URL \
     VITE_YANDEX_GEOCODE_API_KEY
-  check_bot_supabase \"$REMOTE_BOT_DIR/.env\"
 
   check_file \"$REMOTE_SERVER_DIR/.env\" \
-    SUPABASE_URL \
-    SUPABASE_SERVICE_ROLE_KEY \
     CART_ORDERS_TABLE \
     CART_SERVER_PORT \
     PORT \

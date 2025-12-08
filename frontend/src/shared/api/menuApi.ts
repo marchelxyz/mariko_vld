@@ -1,75 +1,39 @@
-import { getMenuByRestaurantId, type RestaurantMenu } from "@shared/data";
+import type { RestaurantMenu } from "@shared/data";
 import { getTg } from "@/lib/telegram";
 
 const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
-const RAW_SERVER_API_BASE = normalizeBaseUrl(rawServerEnv || '/api');
-const HAS_CUSTOM_SERVER_BASE = Boolean(rawServerEnv);
-const USE_SERVER_API = (import.meta.env.VITE_USE_SERVER_API ?? 'true') !== 'false';
-const FORCE_SERVER_API_IN_DEV = import.meta.env.VITE_FORCE_SERVER_API === 'true';
-
-type SaveMenuResult = {
-  success: boolean;
-  errorMessage?: string;
-};
-
-type UploadImageResult = {
-  url: string;
-};
-
-export type MenuImageAsset = {
-  path: string;
-  url: string;
-  size: number;
-  updatedAt: string | null;
-};
-
-function normalizeBaseUrl(base: string): string {
-  if (!base || base === '/') {
-    return '';
-  }
-  return base.endsWith('/') ? base.slice(0, -1) : base;
-}
+const RAW_SERVER_API_BASE = rawServerEnv ? (rawServerEnv.endsWith("/") ? rawServerEnv.slice(0, -1) : rawServerEnv) : "/api";
+const USE_SERVER_API = (import.meta.env.VITE_USE_SERVER_API ?? "true") !== "false";
+const FORCE_SERVER_API_IN_DEV = import.meta.env.VITE_FORCE_SERVER_API === "true";
 
 function shouldUseServerApi(): boolean {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return false;
   }
   if (!USE_SERVER_API) {
     return false;
   }
-  if (import.meta.env.DEV && !HAS_CUSTOM_SERVER_BASE && !FORCE_SERVER_API_IN_DEV) {
+  if (import.meta.env.DEV && !rawServerEnv && !FORCE_SERVER_API_IN_DEV) {
     return false;
   }
   return true;
 }
 
 function resolveServerUrl(path: string): string {
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   if (!RAW_SERVER_API_BASE) {
     return normalizedPath;
   }
   return `${RAW_SERVER_API_BASE}${normalizedPath}`;
 }
 
-function buildAdminHeaders(initial?: Record<string, string>): Record<string, string> {
-  const headers: Record<string, string> = {
-    ...(initial ?? {}),
-  };
-
-  const initData = getTg()?.initData;
-  if (initData) {
-    headers['X-Telegram-Init-Data'] = initData;
-  }
-
-  return headers;
-}
-
 async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(resolveServerUrl(path), {
-    credentials: 'include',
+    credentials: "include",
     ...options,
     headers: {
-      Accept: 'application/json',
+      Accept: "application/json",
+      "Content-Type": "application/json",
       ...(options?.headers ?? {}),
     },
   });
@@ -95,31 +59,71 @@ function parseErrorPayload(payload?: string): string | null {
   }
 }
 
-export async function fetchRestaurantMenu(restaurantId: string): Promise<RestaurantMenu | null> {
-  if (shouldUseServerApi()) {
-    try {
-      const menu = await fetchFromServer<RestaurantMenu | null>(
-        `/menu/${encodeURIComponent(restaurantId)}`,
-      );
-      if (menu) {
-        return menu;
-      }
-    } catch (error) {
-      console.error('❌ Ошибка серверного API меню, используем статичные данные:', error);
-    }
+export async function fetchMenuByRestaurantId(restaurantId: string): Promise<RestaurantMenu | null> {
+  if (!restaurantId) {
+    return null;
+  }
+  
+  if (!shouldUseServerApi()) {
+    // Fallback на статические данные если серверный API выключен
+    const { getMenuByRestaurantId } = await import("@shared/data/menuData");
+    return (await getMenuByRestaurantId(restaurantId)) ?? null;
   }
 
-  return (await getMenuByRestaurantId(restaurantId)) ?? null;
+  try {
+    const menu = await fetchFromServer<RestaurantMenu | null>(
+      `/menu/${encodeURIComponent(restaurantId)}`,
+      {
+        method: "GET",
+        credentials: "include",
+      }
+    );
+    return menu;
+  } catch (error) {
+    console.error("❌ Ошибка получения меню через серверный API:", error);
+    // Fallback на статические данные при ошибке
+    try {
+      const { getMenuByRestaurantId } = await import("@shared/data/menuData");
+      return (await getMenuByRestaurantId(restaurantId)) ?? null;
+    } catch {
+      return null;
+    }
+  }
 }
 
+/**
+ * Алиас для обратной совместимости
+ * @deprecated Используйте fetchMenuByRestaurantId
+ */
+export const fetchRestaurantMenu = fetchMenuByRestaurantId;
+
+function buildAdminHeaders(initial?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = {
+    ...(initial ?? {}),
+  };
+
+  const initData = getTg()?.initData;
+  if (initData) {
+    headers['X-Telegram-Init-Data'] = initData;
+  }
+
+  return headers;
+}
+
+export type SaveMenuResult = {
+  success: boolean;
+  errorMessage?: string;
+};
+
+/**
+ * Сохранить меню ресторана
+ */
 export async function saveRestaurantMenu(
   restaurantId: string,
   menu: RestaurantMenu,
 ): Promise<SaveMenuResult> {
   if (!shouldUseServerApi()) {
-    const message = 'Серверный API меню отключен. Проверьте конфигурацию VITE_USE_SERVER_API.';
-    console.error(message);
-    return { success: false, errorMessage: message };
+    return { success: false, errorMessage: 'Серверный API выключен' };
   }
 
   const headers = buildAdminHeaders({
@@ -127,103 +131,50 @@ export async function saveRestaurantMenu(
   });
 
   try {
-    const response = await fetch(resolveServerUrl(`/admin/menu/${encodeURIComponent(restaurantId)}`), {
+    await fetchFromServer(`/admin/menu/${encodeURIComponent(restaurantId)}`, {
       method: 'POST',
       credentials: 'include',
       headers,
       body: JSON.stringify(menu),
     });
-
-    const text = await response.text();
-    if (!response.ok) {
-      return {
-        success: false,
-        errorMessage: parseErrorPayload(text) ?? 'Ошибка серверного API при сохранении меню',
-      };
-    }
-
     return { success: true };
   } catch (error: unknown) {
-    console.error('❌ Неожиданная ошибка сохранения меню через серверный API:', error);
-    const message =
-      error instanceof Error ? error.message : 'Неожиданная ошибка при сохранении меню';
-    return {
-      success: false,
-      errorMessage: message,
-    };
+    const message = error instanceof Error ? error.message : 'Неожиданная ошибка при сохранении меню';
+    return { success: false, errorMessage: message };
   }
 }
 
+export type MenuImageAsset = {
+  path: string;
+  url: string;
+  size: number;
+  updatedAt: string | null;
+};
+
+type UploadImageResult = {
+  url: string;
+};
+
+/**
+ * Загрузить изображение для меню
+ * TODO: Реализовать через Яндекс Облако Storage
+ */
 export async function uploadMenuImage(
   restaurantId: string,
   file: File,
 ): Promise<UploadImageResult> {
-  if (!shouldUseServerApi()) {
-    throw new Error('Серверный API меню отключен. Загрузка изображений недоступна.');
-  }
-
-  const dataUrl = await readFileAsDataUrl(file);
-
-  const headers = buildAdminHeaders({
-    'Content-Type': 'application/json',
-  });
-
-  const payload = {
-    restaurantId,
-    fileName: file.name,
-    contentType: file.type || 'application/octet-stream',
-    dataUrl,
-  };
-
-  return fetchFromServer<UploadImageResult>('/admin/menu/upload-image', {
-    method: 'POST',
-    credentials: 'include',
-    headers,
-    body: JSON.stringify(payload),
-  });
+  // TODO: Реализовать загрузку через Яндекс Облако Storage
+  throw new Error('Загрузка изображений меню будет реализована через Яндекс Облако Storage');
 }
 
+/**
+ * Получить библиотеку изображений меню
+ * TODO: Реализовать через Яндекс Облако Storage
+ */
 export async function fetchMenuImageLibrary(
   restaurantId: string,
   scope: 'global' | 'restaurant' = 'global',
 ): Promise<MenuImageAsset[]> {
-  if (!shouldUseServerApi()) {
-    return [];
-  }
-
-  const headers = buildAdminHeaders();
-  const params = new URLSearchParams();
-  if (restaurantId) {
-    params.set('restaurantId', restaurantId);
-  }
-  params.set('scope', scope);
-
-  const result = await fetchFromServer<{ images: MenuImageAsset[] }>(
-    `/admin/menu/images?${params.toString()}`,
-    {
-      method: 'GET',
-      credentials: 'include',
-      headers,
-    },
-  );
-
-  return result?.images ?? [];
-}
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result === 'string') {
-        resolve(result);
-      } else {
-        reject(new Error('Не удалось прочитать файл как data URL'));
-      }
-    };
-    reader.onerror = () => {
-      reject(reader.error ?? new Error('Ошибка чтения файла'));
-    };
-    reader.readAsDataURL(file);
-  });
+  // TODO: Реализовать получение списка изображений через Яндекс Облако Storage
+  return [];
 }
