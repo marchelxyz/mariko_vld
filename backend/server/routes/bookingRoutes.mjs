@@ -276,7 +276,7 @@ export function createBookingRouter() {
 
       logger.info('Бронирование создано в Remarked', { 
         reserveId: remarkedReserve.reserve_id,
-        restaurantId: restaurant.remarked_restaurant_id 
+        restaurantId: restaurant.remarked_restaurant_id
       });
 
       // Сохраняем бронирование в БД
