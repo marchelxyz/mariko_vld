@@ -17,7 +17,7 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
   const navigate = useNavigate();
   const activeKey = useMemo(() => currentPage, [currentPage]);
   const { isAdmin, isSuperAdmin } = useAdmin();
-  const showAdmin = isAdmin || isSuperAdmin || activeKey === "admin";
+  const showAdmin = isAdmin || isSuperAdmin();
 
   const items: NavItem[] = [
     { key: "home", label: "Главная", path: "/", icon: Home },

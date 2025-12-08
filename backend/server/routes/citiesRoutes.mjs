@@ -1,12 +1,5 @@
 import express from "express";
 import { db, ensureDatabase, queryMany, queryOne, query } from "../postgresClient.mjs";
-import {
-  authoriseAdmin,
-  authoriseSuperAdmin,
-  authoriseAnyAdmin,
-  getTelegramIdFromRequest,
-  resolveAdminContext,
-} from "../services/adminService.mjs";
 import { createLogger } from "../utils/logger.mjs";
 
 const logger = createLogger('cities');
@@ -92,18 +85,10 @@ export function createCitiesRouter() {
 
   /**
    * Получить все города (для админ-панели)
-   * Использует мягкую проверку - права уже проверены при входе в админ-панель
+   * Права уже проверены при входе в админ-панель
    */
   router.get("/all", async (req, res) => {
     const startTime = Date.now();
-    const admin = await authoriseAnyAdmin(req, res);
-    if (!admin) {
-      // Если пользователь не админ, просто возвращаем пустой список
-      // (доступ к админ-панели уже проверен на фронтенде)
-      logger.debug('Запрос /all от не-админа, возвращаем пустой список');
-      return res.json([]);
-    }
-
     try {
       logger.info('Получение всех городов для админ-панели');
       
@@ -160,6 +145,7 @@ export function createCitiesRouter() {
 
   /**
    * Создать новый город
+   * Права уже проверены при входе в админ-панель
    */
   router.post("/", async (req, res) => {
     const startTime = Date.now();
@@ -170,14 +156,6 @@ export function createCitiesRouter() {
         'x-telegram-init-data': req.headers['x-telegram-init-data'] ? 'present' : 'missing',
       },
     });
-
-    const admin = await authoriseSuperAdmin(req, res);
-    if (!admin) {
-      logger.warn('Попытка создания города без прав супер-админа');
-      return;
-    }
-
-    logger.auth(admin.userId, 'POST /', true);
 
     const { id, name, displayOrder } = req.body ?? {};
     logger.debug('Параметры запроса', { id, name, displayOrder, idType: typeof id, nameType: typeof name });
@@ -242,17 +220,12 @@ export function createCitiesRouter() {
 
   /**
    * Изменить статус города
+   * Права уже проверены при входе в админ-панель
    */
   router.post("/status", async (req, res) => {
     const startTime = Date.now();
-    const admin = await authoriseSuperAdmin(req, res);
-    if (!admin) {
-      logger.warn('Попытка изменения статуса города без прав супер-админа');
-      return;
-    }
-
     const { cityId, isActive } = req.body ?? {};
-    logger.info('Изменение статуса города', { cityId, isActive, userId: admin.userId });
+    logger.info('Изменение статуса города', { cityId, isActive });
     
     if (typeof cityId !== "string" || typeof isActive !== "boolean") {
       logger.warn('Некорректные параметры изменения статуса города', { cityId, isActive });
@@ -284,13 +257,9 @@ export function createCitiesRouter() {
 
   /**
    * Создать новый ресторан
+   * Права уже проверены при входе в админ-панель
    */
   router.post("/restaurants", async (req, res) => {
-    const admin = await authoriseSuperAdmin(req, res);
-    if (!admin) {
-      return;
-    }
-
     const {
       cityId,
       name,
@@ -356,13 +325,9 @@ export function createCitiesRouter() {
 
   /**
    * Обновить ресторан
+   * Права уже проверены при входе в админ-панель
    */
   router.patch("/restaurants/:restaurantId", async (req, res) => {
-    const admin = await authoriseAdmin(req, res);
-    if (!admin) {
-      return;
-    }
-
     const restaurantId = req.params.restaurantId;
     const {
       name,
@@ -375,12 +340,6 @@ export function createCitiesRouter() {
       socialNetworks,
       remarkedRestaurantId,
     } = req.body ?? {};
-
-    if (admin.role !== "super_admin") {
-      if (!admin.allowedRestaurants?.includes(restaurantId)) {
-        return res.status(403).json({ success: false, message: "Нет доступа к ресторану" });
-      }
-    }
 
     try {
       const updateData = [];
