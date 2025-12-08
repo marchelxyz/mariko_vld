@@ -116,22 +116,58 @@ if [[ "$INTERACTIVE" == "--interactive" ]]; then
 fi
 
 # Backend URLs (нужно будет заменить на Railway домены)
-BACKEND_URL=$(read_env_value "$FRONTEND_ENV" "VITE_CART_API_URL" | sed 's|/api/cart/submit||')
-if [[ -z "$BACKEND_URL" ]]; then
-  BACKEND_URL="https://your-backend.up.railway.app"
+# Проверяем, есть ли VITE_SERVER_API_URL (предпочтительный вариант)
+SERVER_API_URL=$(read_env_value "$FRONTEND_ENV" "VITE_SERVER_API_URL")
+CART_API_URL=$(read_env_value "$FRONTEND_ENV" "VITE_CART_API_URL")
+
+# Определяем базовый URL бэкенда
+if [[ -n "$SERVER_API_URL" ]]; then
+  # Если есть VITE_SERVER_API_URL, используем его
+  BACKEND_BASE=$(echo "$SERVER_API_URL" | sed 's|/api$||')
+elif [[ -n "$CART_API_URL" ]]; then
+  # Если есть VITE_CART_API_URL, извлекаем базовый URL
+  BACKEND_BASE=$(echo "$CART_API_URL" | sed 's|/api/cart/submit.*||')
+else
+  # По умолчанию
+  BACKEND_BASE="https://your-backend.up.railway.app"
 fi
 
 if [[ "$INTERACTIVE" == "--interactive" ]]; then
-  BACKEND_URL=$(prompt_value "Backend URL" "$BACKEND_URL" "URL вашего backend сервиса на Railway (например: https://backend.up.railway.app)")
+  BACKEND_BASE=$(prompt_value "Backend Base URL" "$BACKEND_BASE" "Базовый URL вашего backend сервиса на Railway (например: https://backend.up.railway.app)")
 fi
 
 set_railway_var "$FRONTEND_SERVICE" "VITE_SUPABASE_URL" "$SUPABASE_URL"
 set_railway_var "$FRONTEND_SERVICE" "VITE_SUPABASE_ANON_KEY" "$SUPABASE_ANON_KEY"
-set_railway_var "$FRONTEND_SERVICE" "VITE_CART_API_URL" "${BACKEND_URL}/api/cart/submit"
-set_railway_var "$FRONTEND_SERVICE" "VITE_CART_RECALC_URL" "${BACKEND_URL}/api/cart/recalculate"
-set_railway_var "$FRONTEND_SERVICE" "VITE_CART_ORDERS_URL" "${BACKEND_URL}/api/cart/orders"
-set_railway_var "$FRONTEND_SERVICE" "VITE_ADMIN_API_URL" "${BACKEND_URL}/api/cart"
-set_railway_var "$FRONTEND_SERVICE" "VITE_SERVER_API_URL" "${BACKEND_URL}/api"
+
+# Устанавливаем VITE_SERVER_API_URL (предпочтительный вариант)
+# Это заменит необходимость в трёх отдельных переменных
+set_railway_var "$FRONTEND_SERVICE" "VITE_SERVER_API_URL" "${BACKEND_BASE}/api"
+
+# Также устанавливаем отдельные переменные для обратной совместимости
+# (если они были заданы в локальном .env)
+CART_API_URL_FROM_ENV=$(read_env_value "$FRONTEND_ENV" "VITE_CART_API_URL")
+CART_RECALC_URL_FROM_ENV=$(read_env_value "$FRONTEND_ENV" "VITE_CART_RECALC_URL")
+CART_ORDERS_URL_FROM_ENV=$(read_env_value "$FRONTEND_ENV" "VITE_CART_ORDERS_URL")
+
+if [[ -n "$CART_API_URL_FROM_ENV" ]]; then
+  set_railway_var "$FRONTEND_SERVICE" "VITE_CART_API_URL" "$CART_API_URL_FROM_ENV"
+else
+  set_railway_var "$FRONTEND_SERVICE" "VITE_CART_API_URL" "${BACKEND_BASE}/api/cart/submit"
+fi
+
+if [[ -n "$CART_RECALC_URL_FROM_ENV" ]]; then
+  set_railway_var "$FRONTEND_SERVICE" "VITE_CART_RECALC_URL" "$CART_RECALC_URL_FROM_ENV"
+else
+  set_railway_var "$FRONTEND_SERVICE" "VITE_CART_RECALC_URL" "${BACKEND_BASE}/api/cart/recalculate"
+fi
+
+if [[ -n "$CART_ORDERS_URL_FROM_ENV" ]]; then
+  set_railway_var "$FRONTEND_SERVICE" "VITE_CART_ORDERS_URL" "$CART_ORDERS_URL_FROM_ENV"
+else
+  set_railway_var "$FRONTEND_SERVICE" "VITE_CART_ORDERS_URL" "${BACKEND_BASE}/api/cart/orders"
+fi
+
+set_railway_var "$FRONTEND_SERVICE" "VITE_ADMIN_API_URL" "${BACKEND_BASE}/api/cart"
 
 # Admin
 ADMIN_TOKEN=$(read_env_value "$FRONTEND_ENV" "VITE_DEV_ADMIN_TOKEN")
@@ -318,14 +354,22 @@ set_railway_var "$BOT_SERVICE" "SUPABASE_SERVICE_ROLE_KEY" "$BOT_SUPABASE_SERVIC
 
 # Server API
 USE_SERVER_API=$(read_env_value "$BOT_ENV" "VITE_USE_SERVER_API")
-SERVER_API_URL=$(read_env_value "$BOT_ENV" "VITE_SERVER_API_URL")
+SERVER_API_URL_FROM_ENV=$(read_env_value "$BOT_ENV" "VITE_SERVER_API_URL")
 FORCE_SERVER_API=$(read_env_value "$BOT_ENV" "VITE_FORCE_SERVER_API")
+
+# Определяем базовый URL бэкенда для бота (используем тот же, что и для фронтенда)
+BOT_BACKEND_BASE="$BACKEND_BASE"
+if [[ -z "$BOT_BACKEND_BASE" ]]; then
+  BOT_BACKEND_BASE="https://your-backend.up.railway.app"
+fi
 
 if [[ -z "$USE_SERVER_API" ]]; then
   USE_SERVER_API="true"
 fi
-if [[ -z "$SERVER_API_URL" ]]; then
-  SERVER_API_URL="${BACKEND_URL}/api"
+if [[ -z "$SERVER_API_URL_FROM_ENV" ]]; then
+  SERVER_API_URL="${BOT_BACKEND_BASE}/api"
+else
+  SERVER_API_URL="$SERVER_API_URL_FROM_ENV"
 fi
 if [[ -z "$FORCE_SERVER_API" ]]; then
   FORCE_SERVER_API="true"
