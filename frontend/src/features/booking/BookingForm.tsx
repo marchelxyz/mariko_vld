@@ -110,7 +110,14 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
   const [guestsCount, setGuestsCount] = useState<number>(2);
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const [selectedTime, setSelectedTime] = useState<string>("");
-  const [phone, setPhone] = useState<string>(profile.phone || "");
+  // Инициализируем телефон только если он есть и не является дефолтным значением
+  const [phone, setPhone] = useState<string>(() => {
+    const profilePhone = profile.phone?.trim();
+    if (profilePhone && profilePhone !== "+7 (000) 000-00-00") {
+      return profilePhone;
+    }
+    return "";
+  });
   const [name, setName] = useState<string>(profile.name || "");
   const [selectedEvent, setSelectedEvent] = useState<EventType | null>(null);
   const [comment, setComment] = useState<string>("");
@@ -561,12 +568,19 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
   useEffect(() => {
     // Используем функциональное обновление состояния, чтобы избежать проблем с зависимостями
     setPhone((prevPhone) => {
-      // Подтягиваем телефон из профиля, если он есть и поле пустое или содержит дефолтное значение
-      if (profile.phone && profile.phone !== "+7 (000) 000-00-00") {
+      // Подтягиваем телефон из профиля, если он есть и не является дефолтным значением
+      const profilePhone = profile.phone?.trim();
+      if (profilePhone && profilePhone !== "+7 (000) 000-00-00") {
         const trimmedPrev = prevPhone?.trim() || "";
+        // Обновляем только если поле пустое или содержит дефолтное значение
         if (!trimmedPrev || trimmedPrev === "+7 (000) 000-00-00") {
-          return profile.phone;
+          return profilePhone;
         }
+      }
+      // Если в профиле дефолтное значение или его нет, очищаем поле (чтобы показать placeholder)
+      const trimmedPrev = prevPhone?.trim() || "";
+      if (trimmedPrev === "+7 (000) 000-00-00") {
+        return "";
       }
       return prevPhone;
     });
