@@ -97,7 +97,7 @@ type BookingFormProps = {
   onSuccess?: () => void;
 };
 
-export function BookingForm({ onSuccess }: BookingFormProps = {}) {
+export function BookingForm({ onSuccess }: BookingFormProps) {
   const { selectedRestaurant } = useCityContext();
   const { profile } = useProfile();
 
@@ -383,6 +383,10 @@ export function BookingForm({ onSuccess }: BookingFormProps = {}) {
 
     setSubmitting(true);
 
+    // Подготавливаем данные заранее для использования в catch блоке
+    let dateStr = "";
+    let formattedPhone = "";
+
     try {
       // Проверяем валидность данных перед обработкой
       if (!phone || typeof phone !== "string" || !phone.trim()) {
@@ -401,8 +405,8 @@ export function BookingForm({ onSuccess }: BookingFormProps = {}) {
         throw new Error("Некорректное время бронирования");
       }
       
-      const formattedPhone = formatPhone(phone);
-      const dateStr = format(selectedDate, "yyyy-MM-dd");
+      formattedPhone = formatPhone(phone);
+      dateStr = format(selectedDate, "yyyy-MM-dd");
       const fullComment = [
         selectedEvent?.comment,
         typeof comment === "string" ? comment.trim() : "",
