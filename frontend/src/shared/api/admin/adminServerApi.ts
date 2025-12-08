@@ -75,16 +75,22 @@ const getFallbackTelegramId = (): string | undefined => {
 };
 
 const resolveTelegramId = (override?: string): string | undefined => {
+  console.log('[adminServerApi] resolveTelegramId override:', override);
+  console.log('[adminServerApi] ADMIN_TELEGRAM_IDS:', Array.from(ADMIN_TELEGRAM_IDS));
   // Используем override только если это похоже на нормальный числовой telegram id
   if (override && /^\d+$/.test(override)) {
+    console.log('[adminServerApi] Using override ID:', override);
     return override;
   }
   const user = getUser();
   if (user?.id) {
+    console.log('[adminServerApi] Using Telegram user ID:', user.id);
     return user.id.toString();
   }
   // Fallback: используем первый ID из списка администраторов
-  return getFallbackTelegramId();
+  const fallback = getFallbackTelegramId();
+  console.log('[adminServerApi] Using fallback ID:', fallback);
+  return fallback;
 };
 
 const buildHeaders = (overrideTelegramId?: string): Record<string, string> => {

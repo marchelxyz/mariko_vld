@@ -48,6 +48,7 @@ export function useAdmin() {
         const user = getUser();
         // Парсим список Telegram ID администраторов (через запятую)
         const adminIdsRaw = import.meta.env.VITE_ADMIN_TELEGRAM_IDS;
+        console.log('[useAdmin] VITE_ADMIN_TELEGRAM_IDS:', adminIdsRaw);
         const adminIds = adminIdsRaw
           ? adminIdsRaw
               .split(",")
@@ -55,10 +56,16 @@ export function useAdmin() {
               .filter((id) => id && /^\d+$/.test(id))
           : [];
         const fallbackId = adminIds.length > 0 ? adminIds[0] : undefined;
-        const currentUserId = user?.id?.toString() || fallbackId || 'demo_user';
-        setUserId(currentUserId);
+        console.log('[useAdmin] Parsed admin IDs:', adminIds, 'Fallback ID:', fallbackId);
+        console.log('[useAdmin] Telegram user:', user);
+        // Используем только числовой ID или undefined, чтобы resolveTelegramId мог использовать свой fallback
+        const currentUserId = user?.id?.toString() || fallbackId || undefined;
+        console.log('[useAdmin] Current user ID:', currentUserId);
+        setUserId(currentUserId || '');
 
+        // Передаем undefined, если нет валидного ID - resolveTelegramId сам использует fallback
         const response = await adminServerApi.getCurrentAdmin(currentUserId);
+        console.log('[useAdmin] Admin response:', response);
         const mappedRole =
           response.role === 'super_admin'
             ? UserRole.SUPER_ADMIN
