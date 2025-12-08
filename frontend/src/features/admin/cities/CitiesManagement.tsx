@@ -10,6 +10,7 @@ import {
   Trash2,
   Shield,
   Edit,
+  Plus,
 } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { adminApi } from "@shared/api/admin";
@@ -17,7 +18,7 @@ import { citiesApi } from "@shared/api/cities";
 import { getAllCitiesAsync, type City, type Restaurant } from "@shared/data";
 import { useAdmin } from "@shared/hooks";
 import { Permission } from "@shared/types";
-import { EditRestaurantModal } from "./ui";
+import { EditRestaurantModal, CreateCityModal } from "./ui";
 import {
   Button,
   Input,
@@ -59,6 +60,7 @@ export function CitiesManagement(): JSX.Element {
   const [cityToDelete, setCityToDelete] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [restaurantToEdit, setRestaurantToEdit] = useState<Restaurant | null>(null);
+  const [isCreateCityModalOpen, setIsCreateCityModalOpen] = useState(false);
 
   // Права доступа
   const canManage = isSuperAdmin() && hasPermission(Permission.MANAGE_CITIES);
@@ -257,6 +259,30 @@ export function CitiesManagement(): JSX.Element {
   };
 
   /**
+   * Создать новый город
+   */
+  const handleCreateCity = async (city: { id: string; name: string; displayOrder?: number }) => {
+    if (!canManage) {
+      alert('У вас нет прав для создания городов');
+      return;
+    }
+
+    const result = await citiesApi.createCity(city);
+
+    if (result.success) {
+      // Перезагружаем города для обновления данных
+      const cities = await getAllCitiesAsync();
+      const citiesWithStatus = cities.map((city) => normalizeCity(city as City & { is_active?: boolean }));
+      setCitiesWithStatus(citiesWithStatus);
+      alert(`✅ Город "${city.name}" успешно создан`);
+      setIsCreateCityModalOpen(false);
+    } else {
+      const details = result.errorMessage ? `\n\nДетали: ${result.errorMessage}` : '';
+      alert(`❌ Ошибка создания города${details}`);
+    }
+  };
+
+  /**
    * Обновить ID Remarked для ресторана
    */
   const handleUpdateRemarkedId = async (restaurantId: string, cityId: string) => {
@@ -357,6 +383,15 @@ export function CitiesManagement(): JSX.Element {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1"
           />
+          {canManage && (
+            <Button
+              onClick={() => setIsCreateCityModalOpen(true)}
+              className="bg-mariko-primary hover:bg-mariko-primary/90"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Создать город
+            </Button>
+          )}
         </div>
       </div>
 
@@ -517,6 +552,13 @@ export function CitiesManagement(): JSX.Element {
         isOpen={!!restaurantToEdit}
         onClose={() => setRestaurantToEdit(null)}
         onSave={handleSaveRestaurant}
+      />
+
+      {/* Модальное окно создания города */}
+      <CreateCityModal
+        isOpen={isCreateCityModalOpen}
+        onClose={() => setIsCreateCityModalOpen(false)}
+        onSave={handleCreateCity}
       />
     </div>
   );

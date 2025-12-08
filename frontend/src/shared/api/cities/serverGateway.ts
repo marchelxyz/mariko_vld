@@ -76,6 +76,40 @@ export async function setCityStatusViaServer(
   return { success: true };
 }
 
+export async function createCityViaServer(
+  city: { id: string; name: string; displayOrder?: number }
+): Promise<{ success: boolean; errorMessage?: string }> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  const initData = getTg()?.initData;
+  if (initData) {
+    headers['X-Telegram-Init-Data'] = initData;
+  }
+
+  const response = await fetch(resolveServerUrl('/cities'), {
+    method: 'POST',
+    credentials: 'include',
+    headers,
+    body: JSON.stringify({
+      id: city.id,
+      name: city.name,
+      displayOrder: city.displayOrder,
+    }),
+  });
+
+  const text = await response.text();
+  if (!response.ok) {
+    return {
+      success: false,
+      errorMessage: parseErrorPayload(text) ?? 'Ошибка серверного API при создании города',
+    };
+  }
+
+  return { success: true };
+}
+
 export async function updateRestaurantViaServer(
   restaurantId: string,
   updates: {
