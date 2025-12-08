@@ -1,17 +1,15 @@
-import { httpClient } from "./http";
-
-const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
-const RAW_SERVER_API_BASE = normalizeBaseUrl(rawServerEnv || "/api");
-const HAS_CUSTOM_SERVER_BASE = Boolean(rawServerEnv);
-const USE_SERVER_API = (import.meta.env.VITE_USE_SERVER_API ?? "true") !== "false";
-const FORCE_SERVER_API_IN_DEV = import.meta.env.VITE_FORCE_SERVER_API === "true";
-
 function normalizeBaseUrl(base: string): string {
   if (!base || base === "/") {
     return "";
   }
   return base.endsWith("/") ? base.slice(0, -1) : base;
 }
+
+const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
+const RAW_SERVER_API_BASE = normalizeBaseUrl(rawServerEnv || "/api");
+const HAS_CUSTOM_SERVER_BASE = Boolean(rawServerEnv);
+const USE_SERVER_API = (import.meta.env.VITE_USE_SERVER_API ?? "true") !== "false";
+const FORCE_SERVER_API_IN_DEV = import.meta.env.VITE_FORCE_SERVER_API === "true";
 
 function shouldUseServerApi(): boolean {
   if (typeof window === "undefined") {
@@ -35,15 +33,25 @@ function resolveServerUrl(path: string): string {
 }
 
 async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(resolveServerUrl(path), {
+  const fetchOptions: RequestInit = {
     credentials: "include",
-    ...options,
+    method: options?.method,
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
       ...(options?.headers ?? {}),
     },
-  });
+  };
+
+  if (options?.body) {
+    fetchOptions.body = options.body;
+  }
+
+  if (options?.signal) {
+    fetchOptions.signal = options.signal;
+  }
+
+  const response = await fetch(resolveServerUrl(path), fetchOptions);
 
   const text = await response.text();
   if (!response.ok) {

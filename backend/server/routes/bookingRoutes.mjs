@@ -290,7 +290,7 @@ export function createBookingRouter() {
           customer_email,
           booking_date, 
           booking_time, 
-          guests_countNum, 
+          guests_count, 
           comment, 
           event_tags, 
           source, 
