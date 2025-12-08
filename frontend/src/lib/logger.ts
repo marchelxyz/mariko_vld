@@ -4,13 +4,19 @@
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
+interface ErrorInfo {
+  name: string;
+  message: string;
+  stack?: string;
+}
+
 interface LogEntry {
   timestamp: string;
   level: LogLevel;
   category: string;
   message: string;
   data?: unknown;
-  error?: Error;
+  error?: ErrorInfo;
   userId?: string;
   sessionId?: string;
 }
@@ -48,7 +54,7 @@ class Logger {
         name: error.name,
         message: error.message,
         stack: error.stack,
-      } as unknown as Error : undefined,
+      } : undefined,
       userId: this.userId,
       sessionId: this.sessionId,
     };
@@ -126,8 +132,28 @@ class Logger {
     this.log('warn', category, message, data, error);
   }
 
-  error(category: string, message: string, error?: Error, data?: unknown): void {
-    this.log('error', category, message, data, error);
+  error(category: string, errorOrMessage: Error | string, dataOrError?: unknown | Error, data?: unknown): void {
+    // Поддержка двух вариантов вызова:
+    // 1. logger.error('category', error, data) - наиболее распространенный
+    // 2. logger.error('category', message, error, data) - для обратной совместимости
+    
+    let message: string;
+    let error: Error | undefined;
+    let finalData: unknown | undefined;
+    
+    if (errorOrMessage instanceof Error) {
+      // Вариант 1: logger.error('category', error, data)
+      error = errorOrMessage;
+      message = error.message || 'Ошибка';
+      finalData = dataOrError as unknown;
+    } else {
+      // Вариант 2: logger.error('category', message, error?, data?)
+      message = errorOrMessage;
+      error = dataOrError instanceof Error ? dataOrError : undefined;
+      finalData = data;
+    }
+    
+    this.log('error', category, message, finalData, error);
   }
 
   // Специализированные методы для разных категорий
