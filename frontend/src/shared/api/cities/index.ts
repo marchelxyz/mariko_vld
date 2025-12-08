@@ -6,6 +6,7 @@ import {
   fetchAllCitiesViaServer,
   setCityStatusViaServer,
   createCityViaServer,
+  createRestaurantViaServer,
   updateRestaurantViaServer,
 } from "./serverGateway";
 
@@ -24,6 +25,20 @@ class CitiesApi {
 
   async createCity(city: { id: string; name: string; displayOrder?: number }): Promise<{ success: boolean; errorMessage?: string }> {
     return await createCityViaServer(city);
+  }
+
+  async createRestaurant(restaurant: {
+    cityId: string;
+    name: string;
+    address: string;
+    phoneNumber?: string;
+    deliveryAggregators?: Array<{ name: string; url: string }>;
+    yandexMapsUrl?: string;
+    twoGisUrl?: string;
+    socialNetworks?: Array<{ name: string; url: string }>;
+    remarkedRestaurantId?: number;
+  }): Promise<{ success: boolean; restaurantId?: string; errorMessage?: string }> {
+    return await createRestaurantViaServer(restaurant);
   }
 
   async updateRestaurant(restaurantId: string, updates: { 

@@ -186,6 +186,78 @@ export function createCitiesRouter() {
   });
 
   /**
+   * Создать новый ресторан
+   */
+  router.post("/restaurants", async (req, res) => {
+    const admin = await authoriseSuperAdmin(req, res);
+    if (!admin) {
+      return;
+    }
+
+    const {
+      cityId,
+      name,
+      address,
+      phoneNumber,
+      deliveryAggregators,
+      yandexMapsUrl,
+      twoGisUrl,
+      socialNetworks,
+      remarkedRestaurantId,
+    } = req.body ?? {};
+
+    if (typeof cityId !== "string" || typeof name !== "string" || typeof address !== "string" || !cityId.trim() || !name.trim() || !address.trim()) {
+      return res.status(400).json({ success: false, message: "Некорректные параметры: требуется cityId, name и address" });
+    }
+
+    try {
+      // Проверяем, существует ли город
+      const city = await queryOne(`SELECT id FROM cities WHERE id = $1`, [cityId.trim()]);
+      if (!city) {
+        return res.status(400).json({ success: false, message: "Город не найден" });
+      }
+
+      // Генерируем ID ресторана из названия города и адреса
+      const restaurantId = `${cityId.trim()}-${name.trim().toLowerCase().replace(/[^a-zа-яё0-9\s]/g, '').replace(/\s+/g, '-').replace(/^-+|-+$/g, '')}`;
+
+      // Проверяем, существует ли ресторан с таким ID
+      const existingRestaurant = await queryOne(`SELECT id FROM restaurants WHERE id = $1`, [restaurantId]);
+      if (existingRestaurant) {
+        return res.status(400).json({ success: false, message: "Ресторан с таким ID уже существует" });
+      }
+
+      // Создаем ресторан
+      await query(
+        `INSERT INTO restaurants (
+          id, city_id, name, address, is_active, phone_number, 
+          delivery_aggregators, yandex_maps_url, two_gis_url, 
+          social_networks, remarked_restaurant_id, display_order, created_at, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())`,
+        [
+          restaurantId,
+          cityId.trim(),
+          name.trim(),
+          address.trim(),
+          true,
+          phoneNumber?.trim() || null,
+          deliveryAggregators ? JSON.stringify(deliveryAggregators) : null,
+          yandexMapsUrl?.trim() || null,
+          twoGisUrl?.trim() || null,
+          socialNetworks ? JSON.stringify(socialNetworks) : null,
+          remarkedRestaurantId || null,
+          0,
+        ]
+      );
+
+      return res.json({ success: true, restaurantId });
+    } catch (error) {
+      console.error("Ошибка создания ресторана:", error);
+      return res.status(500).json({ success: false, message: "Не удалось создать ресторан" });
+    }
+  });
+
+  /**
    * Обновить ресторан
    */
   router.patch("/restaurants/:restaurantId", async (req, res) => {

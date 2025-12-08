@@ -261,20 +261,58 @@ export function CitiesManagement(): JSX.Element {
   /**
    * Создать новый город
    */
-  const handleCreateCity = async (city: { id: string; name: string; displayOrder?: number }) => {
+  const handleCreateCity = async (city: {
+    id: string;
+    name: string;
+    displayOrder?: number;
+    restaurant?: {
+      name: string;
+      address: string;
+      phoneNumber?: string;
+      deliveryAggregators?: Array<{ name: string; url: string }>;
+      yandexMapsUrl?: string;
+      twoGisUrl?: string;
+      socialNetworks?: Array<{ name: string; url: string }>;
+      remarkedRestaurantId?: number;
+    };
+  }) => {
     if (!canManage) {
       alert('У вас нет прав для создания городов');
       return;
     }
 
-    const result = await citiesApi.createCity(city);
+    const result = await citiesApi.createCity({
+      id: city.id,
+      name: city.name,
+      displayOrder: city.displayOrder,
+    });
 
     if (result.success) {
+      // Если указаны данные ресторана, создаем ресторан
+      if (city.restaurant) {
+        const restaurantResult = await citiesApi.createRestaurant({
+          cityId: city.id,
+          name: city.restaurant.name,
+          address: city.restaurant.address,
+          phoneNumber: city.restaurant.phoneNumber,
+          deliveryAggregators: city.restaurant.deliveryAggregators,
+          yandexMapsUrl: city.restaurant.yandexMapsUrl,
+          twoGisUrl: city.restaurant.twoGisUrl,
+          socialNetworks: city.restaurant.socialNetworks,
+          remarkedRestaurantId: city.restaurant.remarkedRestaurantId,
+        });
+
+        if (!restaurantResult.success) {
+          const details = restaurantResult.errorMessage ? `\n\nДетали: ${restaurantResult.errorMessage}` : '';
+          alert(`✅ Город "${city.name}" создан, но не удалось создать ресторан${details}`);
+        }
+      }
+
       // Перезагружаем города для обновления данных
       const cities = await getAllCitiesAsync();
       const citiesWithStatus = cities.map((city) => normalizeCity(city as City & { is_active?: boolean }));
       setCitiesWithStatus(citiesWithStatus);
-      alert(`✅ Город "${city.name}" успешно создан`);
+      alert(`✅ Город "${city.name}" успешно создан${city.restaurant ? ' с рестораном' : ''}`);
       setIsCreateCityModalOpen(false);
     } else {
       const details = result.errorMessage ? `\n\nДетали: ${result.errorMessage}` : '';
