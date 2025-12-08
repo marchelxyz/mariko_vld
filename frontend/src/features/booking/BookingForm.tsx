@@ -206,13 +206,36 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
 
   // Загрузка слотов
   useEffect(() => {
-    if (!selectedDate || !token || !isValidRestaurantId) {
+    if (!selectedDate || !isValidRestaurantId) {
       setAvailableSlots([]);
       setSelectedTime("");
+      setLoadingSlots(false);
+      return;
+    }
+
+    // Если токен еще не загружен, но нет ошибки, ждем загрузки
+    if (!token && !tokenError) {
+      setLoadingSlots(true);
+      return;
+    }
+
+    // Если токен не загружен из-за ошибки, не пытаемся загружать слоты
+    if (!token && tokenError) {
+      setAvailableSlots([]);
+      setSelectedTime("");
+      setLoadingSlots(false);
+      return;
+    }
+
+    if (!token) {
+      setAvailableSlots([]);
+      setSelectedTime("");
+      setLoadingSlots(false);
       return;
     }
 
     if (!(selectedDate instanceof Date) || isNaN(selectedDate.getTime())) {
+      setLoadingSlots(false);
       return;
     }
 
@@ -260,16 +283,25 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       })
       .catch((error) => {
         // Игнорируем ошибки отмены запроса
-        if (error.name === 'AbortError') {
+        if (error.name === 'AbortError' || error.name === 'AbortError') {
           return;
         }
-        // Не показываем ошибку, если просто нет слотов (это нормальная ситуация)
-        const errorMessage = error instanceof Error ? error.message : "Не удалось загрузить доступное время";
-        toast({
-          title: "Ошибка",
-          description: errorMessage,
-          variant: "destructive",
-        });
+        
+        // Очищаем слоты при ошибке
+        setAvailableSlots([]);
+        setSelectedTime("");
+        
+        // Показываем ошибку только если это не просто отсутствие слотов
+        let errorMessage = "Не удалось загрузить доступное время";
+        if (error instanceof Error) {
+          errorMessage = error.message.trim() || errorMessage;
+        } else if (typeof error === 'string') {
+          errorMessage = error.trim() || errorMessage;
+        }
+        
+        // Не показываем toast для ошибок загрузки слотов, так как это может быть нормальной ситуацией
+        // (например, все слоты заняты)
+        console.error('Ошибка загрузки слотов:', errorMessage);
       })
       .finally(() => {
         if (!slotsAbortControllerRef.current?.signal.aborted) {
@@ -280,7 +312,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     return () => {
       slotsAbortControllerRef.current?.abort();
     };
-  }, [selectedDate, token, guestsCount, isValidRestaurantId]);
+  }, [selectedDate, token, guestsCount, isValidRestaurantId, tokenError]);
 
   // Автозаполнение из профиля
   useEffect(() => {
@@ -529,10 +561,21 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           onSuccess();
         }
       } else {
-        throw new Error(result?.error || "Не удалось создать бронирование");
+        // Улучшенная обработка ошибок
+        const errorMessage = result?.error?.trim() || "Не удалось создать бронирование. Попробуйте позже.";
+        throw new Error(errorMessage);
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Не удалось создать бронирование";
+      let errorMessage = "Не удалось создать бронирование. Попробуйте позже.";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message.trim() || errorMessage;
+      } else if (typeof error === 'string') {
+        errorMessage = error.trim() || errorMessage;
+      } else if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = String(error.message).trim() || errorMessage;
+      }
+      
       toast({
         title: "Ошибка",
         description: errorMessage,
@@ -623,7 +666,16 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         <Label className="text-white font-el-messiri text-base font-semibold">
           Время *
         </Label>
-        {loadingSlots ? (
+        {tokenError ? (
+          <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-4">
+            <p className="text-red-300 text-sm">
+              {tokenError}
+            </p>
+            <p className="mt-2 text-red-200/70 text-xs">
+              Попробуйте обновить страницу или обратитесь в поддержку
+            </p>
+          </div>
+        ) : loadingSlots ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-white" />
           </div>
