@@ -138,7 +138,7 @@ export async function addRestaurantToSupabase(restaurant: {
 
 export async function updateRestaurantInSupabase(
   restaurantId: string,
-  updates: { name?: string; address?: string; isActive?: boolean },
+  updates: { name?: string; address?: string; isActive?: boolean; remarkedRestaurantId?: number },
 ): Promise<boolean> {
   if (!isSupabaseConfigured()) {
     console.error('Supabase не настроен');
@@ -150,6 +150,7 @@ export async function updateRestaurantInSupabase(
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.address !== undefined) updateData.address = updates.address;
     if (updates.isActive !== undefined) updateData.is_active = updates.isActive;
+    if (updates.remarkedRestaurantId !== undefined) updateData.remarked_restaurant_id = updates.remarkedRestaurantId;
 
     const { error } = await supabase
       .from('restaurants')
@@ -230,6 +231,7 @@ export async function fetchActiveCitiesViaSupabase(): Promise<City[]> {
             name: r.name,
             address: r.address,
             city: cityRow.name,
+            remarkedRestaurantId: r.remarked_restaurant_id,
           })),
       }))
       .filter((city) => city.restaurants.length > 0);
@@ -280,6 +282,7 @@ export async function fetchAllCitiesViaSupabase(): Promise<Array<City & { is_act
           address: r.address,
           city: cityRow.name,
           isActive: r.is_active,
+          remarkedRestaurantId: r.remarked_restaurant_id,
         })),
     }));
   } catch (error) {

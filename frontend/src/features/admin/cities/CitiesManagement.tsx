@@ -223,6 +223,57 @@ export function CitiesManagement(): JSX.Element {
     }
   };
 
+  /**
+   * Обновить ID Remarked для ресторана
+   */
+  const handleUpdateRemarkedId = async (restaurantId: string, cityId: string) => {
+    if (!canManage) {
+      alert('У вас нет прав для изменения настроек ресторанов');
+      return;
+    }
+
+    const city = citiesWithStatus.find((c) => c.id === cityId);
+    const restaurant = city?.restaurants.find((r) => r.id === restaurantId);
+    if (!restaurant) return;
+
+    const currentId = restaurant.remarkedRestaurantId?.toString() || '';
+    const newId = prompt(
+      `Введите ID ресторана в Remarked для "${restaurant.name}":`,
+      currentId
+    );
+
+    if (newId === null) return; // Пользователь отменил
+
+    const parsedId = newId.trim() === '' ? undefined : parseInt(newId.trim(), 10);
+    
+    if (newId.trim() !== '' && (isNaN(parsedId!) || parsedId! <= 0)) {
+      alert('❌ ID должен быть положительным числом');
+      return;
+    }
+
+    const result = await citiesSupabaseApi.updateRestaurant(restaurantId, {
+      remarkedRestaurantId: parsedId,
+    });
+
+    if (result) {
+      setCitiesWithStatus((prev) =>
+        prev.map((c) =>
+          c.id === cityId
+            ? {
+                ...c,
+                restaurants: c.restaurants.map((r) =>
+                  r.id === restaurantId ? { ...r, remarkedRestaurantId: parsedId } : r,
+                ),
+              }
+            : c,
+        ),
+      );
+      alert(`✅ ID Remarked обновлен`);
+    } else {
+      alert('❌ Ошибка обновления ID Remarked');
+    }
+  };
+
   if (!isSuperAdmin()) {
     return (
       <div className="bg-mariko-secondary rounded-[24px] p-12 text-center">
@@ -353,21 +404,37 @@ export function CitiesManagement(): JSX.Element {
                     <p className="text-white/60 text-xs md:text-sm truncate">
                       {restaurant.address}
                     </p>
+                    {restaurant.remarkedRestaurantId && (
+                      <p className="text-white/50 text-xs mt-1">
+                        Remarked ID: {restaurant.remarkedRestaurantId}
+                      </p>
+                    )}
                   </div>
                   {canManage && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleToggleRestaurantActive(restaurant.id, city.id)}
-                      title={restaurant.isActive ? 'Деактивировать ресторан' : 'Активировать ресторан'}
-                      className="h-8 w-8 md:h-9 md:w-9 p-0"
-                    >
-                      {restaurant.isActive ? (
-                        <EyeOff className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                      ) : (
-                        <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                      )}
-                    </Button>
+                    <div className="flex gap-1 md:gap-2 flex-shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleUpdateRemarkedId(restaurant.id, city.id)}
+                        title="Настроить ID Remarked"
+                        className="h-8 w-8 md:h-9 md:w-9 p-0 text-xs"
+                      >
+                        🎯
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleToggleRestaurantActive(restaurant.id, city.id)}
+                        title={restaurant.isActive ? 'Деактивировать ресторан' : 'Активировать ресторан'}
+                        className="h-8 w-8 md:h-9 md:w-9 p-0"
+                      >
+                        {restaurant.isActive ? (
+                          <EyeOff className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                        ) : (
+                          <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                        )}
+                      </Button>
+                    </div>
                   )}
                 </div>
               ))}
