@@ -25,10 +25,13 @@ import {
   getRemarkedToken,
   getRemarkedSlots,
   createRemarkedReserve,
+  getRemarkedReservesByPhone,
 } from "@shared/api/remarked";
+import { profileApi } from "@shared/api/profile";
 import { toast } from "@/hooks/use-toast";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { cn } from "@shared/utils";
+import { logger } from "@/lib/logger";
 
 type EventType = {
   id: string;
@@ -90,7 +93,7 @@ export function BookingForm() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const [guestsCount, setGuestsCount] = useState<number>(2);
+  const [guestsCount, setGuestsCount] = useState<number>(1);
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [phone, setPhone] = useState<string>(profile.phone || "");
@@ -105,6 +108,8 @@ export function BookingForm() {
   const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [token, setToken] = useState<string | null>(null);
+  const [hasPreviousBooking, setHasPreviousBooking] = useState<boolean>(false);
+  const [checkingPreviousBooking, setCheckingPreviousBooking] = useState<boolean>(false);
 
   const remarkedRestaurantId = selectedRestaurant?.remarkedRestaurantId;
 
@@ -116,7 +121,7 @@ export function BookingForm() {
           setToken(data.token);
         })
         .catch((error) => {
-          console.error("Ошибка получения токена:", error);
+          logger.error("booking", error instanceof Error ? error : new Error("Ошибка получения токена"));
           toast({
             title: "Ошибка",
             description: "Не удалось подключиться к системе бронирования",
@@ -170,7 +175,7 @@ export function BookingForm() {
         }
       })
       .catch((error) => {
-        console.error("Ошибка загрузки слотов:", error);
+        logger.error("booking", error instanceof Error ? error : new Error("Ошибка загрузки слотов"));
         toast({
           title: "Ошибка",
           description: "Не удалось загрузить доступное время",
@@ -190,7 +195,50 @@ export function BookingForm() {
     if (profile.name && !name) {
       setName(profile.name);
     }
-  }, [profile.phone, profile.name]);
+    // Если согласие уже было дано ранее, устанавливаем его
+    if (profile.personalDataConsentGiven) {
+      setConsentGiven(true);
+      setHasPreviousBooking(true);
+    }
+  }, [profile.phone, profile.name, profile.personalDataConsentGiven]);
+
+  // Проверка наличия предыдущих броней при загрузке токена и телефона
+  useEffect(() => {
+    const checkPreviousBookings = async () => {
+      if (!token || !phone || !remarkedRestaurantId || hasPreviousBooking) {
+        return;
+      }
+
+      // Форматируем телефон для проверки
+      const formattedPhone = formatPhone(phone);
+      if (!formattedPhone || formattedPhone.length < 10) {
+        return;
+      }
+
+      setCheckingPreviousBooking(true);
+      try {
+        const reserves = await getRemarkedReservesByPhone(token, formattedPhone, 1);
+        if (reserves.total > 0) {
+          setHasPreviousBooking(true);
+          setConsentGiven(true);
+          // Сохраняем согласие в профиль, если его еще нет
+          if (!profile.personalDataConsentGiven) {
+            await profileApi.updateUserProfile(profile.id, {
+              personalDataConsentGiven: true,
+              personalDataConsentDate: new Date().toISOString(),
+            });
+          }
+        }
+      } catch (error) {
+        // Игнорируем ошибки проверки - это не критично
+        logger.debug('booking', 'Не удалось проверить предыдущие брони', { error });
+      } finally {
+        setCheckingPreviousBooking(false);
+      }
+    };
+
+    void checkPreviousBookings();
+  }, [token, phone, remarkedRestaurantId, hasPreviousBooking, profile.id, profile.personalDataConsentGiven]);
 
   const handleSubmit = async () => {
     // Валидация
@@ -239,7 +287,7 @@ export function BookingForm() {
       return;
     }
 
-    if (!consentGiven) {
+    if (!hasPreviousBooking && !consentGiven) {
       toast({
         title: "Ошибка",
         description: "Необходимо дать согласие на обработку персональных данных",
@@ -285,17 +333,54 @@ export function BookingForm() {
           description: `Бронирование создано. ID: ${result.reserve_id}`,
         });
 
+        // Сохраняем данные в профиль
+        const profileUpdates: Partial<typeof profile> = {};
+        let shouldUpdateProfile = false;
+
+        // Сохраняем имя, если оно изменилось или отсутствовало
+        if (name.trim() && name.trim() !== profile.name) {
+          profileUpdates.name = name.trim();
+          shouldUpdateProfile = true;
+        }
+
+        // Сохраняем телефон, если он изменился или отсутствовал
+        if (formattedPhone && formattedPhone !== profile.phone) {
+          profileUpdates.phone = formattedPhone;
+          shouldUpdateProfile = true;
+        }
+
+        // Сохраняем согласие на обработку персональных данных
+        if (consentGiven && !profile.personalDataConsentGiven) {
+          profileUpdates.personalDataConsentGiven = true;
+          profileUpdates.personalDataConsentDate = new Date().toISOString();
+          shouldUpdateProfile = true;
+        }
+
+        if (shouldUpdateProfile) {
+          try {
+            await profileApi.updateUserProfile(profile.id, profileUpdates);
+            logger.info('booking', 'Профиль обновлен после бронирования', { updates: profileUpdates });
+          } catch (error) {
+            logger.error('booking', error instanceof Error ? error : new Error('Ошибка обновления профиля'), { updates: profileUpdates });
+            // Не показываем ошибку пользователю, так как бронирование уже создано
+          }
+        }
+
         // Сброс формы
-        setSelectedDate(undefined);
+        setSelectedDate(today);
         setSelectedTime("");
         setSelectedEvent(null);
         setComment("");
-        setConsentGiven(false);
+        // Не сбрасываем согласие, если оно уже было дано
+        if (!hasPreviousBooking) {
+          setConsentGiven(false);
+        }
+        setHasPreviousBooking(true);
       } else {
         throw new Error("Неизвестная ошибка");
       }
     } catch (error) {
-      console.error("Ошибка создания бронирования:", error);
+      logger.error("booking", error instanceof Error ? error : new Error("Ошибка создания бронирования"));
       toast({
         title: "Ошибка",
         description:
@@ -327,7 +412,7 @@ export function BookingForm() {
       {/* Количество человек */}
       <div className="space-y-2">
         <Label className="text-white font-el-messiri text-base font-semibold">
-          Количество человек *
+          Сколько вас? *
         </Label>
         <Select
           value={guestsCount.toString()}
@@ -490,20 +575,38 @@ export function BookingForm() {
       </div>
 
       {/* Согласие */}
-      <div className="flex items-start gap-3">
-        <Checkbox
-          id="consent"
-          checked={consentGiven}
-          onCheckedChange={(checked) => setConsentGiven(checked === true)}
-          className="mt-1"
-        />
-        <Label
-          htmlFor="consent"
-          className="text-white/90 text-sm cursor-pointer leading-relaxed"
-        >
-          Даю согласие на обработку персональных данных *
-        </Label>
-      </div>
+      {!hasPreviousBooking && (
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="consent"
+            checked={consentGiven}
+            onCheckedChange={(checked) => setConsentGiven(checked === true)}
+            className="mt-1"
+            disabled={checkingPreviousBooking}
+          />
+          <Label
+            htmlFor="consent"
+            className="text-white/90 text-sm cursor-pointer leading-relaxed"
+          >
+            Даю согласие на{" "}
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                // TODO: Заменить на реальную ссылку на документ
+                toast({
+                  title: "Документ",
+                  description: "Ссылка на документ будет добавлена позже",
+                });
+              }}
+              className="underline hover:text-white transition-colors"
+            >
+              обработку персональных данных
+            </a>{" "}
+            *
+          </Label>
+        </div>
+      )}
 
       {/* Кнопка отправки */}
       <Button

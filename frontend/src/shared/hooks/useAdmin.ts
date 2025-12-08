@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { adminServerApi } from "@shared/api/admin";
 import { Permission, UserRole } from "@shared/types";
 import { getUser } from "@/lib/telegram";
+import { logger } from "@/lib/logger";
 
 /**
  * Хук для проверки прав администратора
@@ -48,7 +49,7 @@ export function useAdmin() {
         const user = getUser();
         // Парсим список Telegram ID администраторов (через запятую)
         const adminIdsRaw = import.meta.env.VITE_ADMIN_TELEGRAM_IDS;
-        console.log('[useAdmin] VITE_ADMIN_TELEGRAM_IDS:', adminIdsRaw);
+        logger.debug('admin', 'VITE_ADMIN_TELEGRAM_IDS', { adminIdsRaw });
         const adminIds = adminIdsRaw
           ? adminIdsRaw
               .split(",")
@@ -56,16 +57,16 @@ export function useAdmin() {
               .filter((id) => id && /^\d+$/.test(id))
           : [];
         const fallbackId = adminIds.length > 0 ? adminIds[0] : undefined;
-        console.log('[useAdmin] Parsed admin IDs:', adminIds, 'Fallback ID:', fallbackId);
-        console.log('[useAdmin] Telegram user:', user);
+        logger.debug('admin', 'Parsed admin IDs', { adminIds, fallbackId });
+        logger.debug('admin', 'Telegram user', { user });
         // Используем только числовой ID или undefined, чтобы resolveTelegramId мог использовать свой fallback
         const currentUserId = user?.id?.toString() || fallbackId || undefined;
-        console.log('[useAdmin] Current user ID:', currentUserId);
+        logger.debug('admin', 'Current user ID', { currentUserId });
         setUserId(currentUserId || '');
 
         // Передаем undefined, если нет валидного ID - resolveTelegramId сам использует fallback
         const response = await adminServerApi.getCurrentAdmin(currentUserId);
-        console.log('[useAdmin] Admin response:', response);
+        logger.debug('admin', 'Admin response', { response });
         const mappedRole =
           response.role === 'super_admin'
             ? UserRole.SUPER_ADMIN
@@ -82,7 +83,9 @@ export function useAdmin() {
         setAllowedRestaurants(response.allowedRestaurants ?? []);
         setIsAdmin(mappedRole === UserRole.ADMIN || mappedRole === UserRole.SUPER_ADMIN);
       } catch (error) {
-        console.error('Ошибка проверки прав администратора:', error);
+        logger.error('admin', error instanceof Error ? error : new Error('Ошибка проверки прав администратора'), {
+          error: error instanceof Error ? error.message : String(error),
+        });
         setIsAdmin(false);
         setUserRole(UserRole.USER);
         setPermissions([]);

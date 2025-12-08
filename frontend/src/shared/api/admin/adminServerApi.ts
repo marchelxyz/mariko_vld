@@ -2,6 +2,7 @@ import { getCartApiBaseUrl } from "@shared/api/cart";
 import type { CartOrderRecord } from "@shared/api/cart";
 import type { UserRole } from "@shared/types";
 import { getUser } from "@/lib/telegram";
+import { logger } from "@/lib/logger";
 
 function normalizeBaseUrl(base: string | undefined): string {
   if (!base || base === "/") {
@@ -32,23 +33,23 @@ function validateAdminApiBase(): void {
   const isProduction = import.meta.env.PROD;
   
   if (isRelative && isProduction) {
-    console.warn(
-      '[adminServerApi] ⚠️ ВНИМАНИЕ: ADMIN_API_BASE использует относительный путь в production:',
-      ADMIN_API_BASE,
-      '\nЭто означает, что запросы будут идти на Vercel вместо Railway backend.',
-      '\nУбедитесь, что переменная VITE_ADMIN_API_URL установлена и указывает на Railway backend.',
-      '\nПример: https://your-backend.up.railway.app/api/cart'
-    );
+    logger.warn('admin-api', 'ADMIN_API_BASE использует относительный путь в production', {
+      adminApiBase: ADMIN_API_BASE,
+      message: 'Запросы будут идти на Vercel вместо Railway backend. Убедитесь, что переменная VITE_ADMIN_API_URL установлена и указывает на Railway backend.',
+      example: 'https://your-backend.up.railway.app/api/cart',
+    });
   }
 }
 
 // Логируем используемый базовый URL для диагностики
 if (typeof window !== "undefined") {
-  console.log('[adminServerApi] VITE_ADMIN_API_URL:', rawAdminBase);
-  console.log('[adminServerApi] VITE_SERVER_API_URL:', rawServerApiUrl);
-  console.log('[adminServerApi] cartBase (fallback):', cartBase);
-  console.log('[adminServerApi] resolvedBase:', resolvedBase);
-  console.log('[adminServerApi] ADMIN_API_BASE:', ADMIN_API_BASE);
+  logger.debug('admin-api', 'Admin API configuration', {
+    viteAdminApiUrl: rawAdminBase,
+    viteServerApiUrl: rawServerApiUrl,
+    cartBase,
+    resolvedBase,
+    adminApiBase: ADMIN_API_BASE,
+  });
   validateAdminApiBase();
 }
 
@@ -112,21 +113,23 @@ const getFallbackTelegramId = (): string | undefined => {
 };
 
 const resolveTelegramId = (override?: string): string | undefined => {
-  console.log('[adminServerApi] resolveTelegramId override:', override);
-  console.log('[adminServerApi] ADMIN_TELEGRAM_IDS:', Array.from(ADMIN_TELEGRAM_IDS));
+  logger.debug('admin-api', 'resolveTelegramId', {
+    override,
+    adminTelegramIds: Array.from(ADMIN_TELEGRAM_IDS),
+  });
   // Используем override только если это похоже на нормальный числовой telegram id
   if (override && /^\d+$/.test(override)) {
-    console.log('[adminServerApi] Using override ID:', override);
+    logger.debug('admin-api', 'Using override ID', { override });
     return override;
   }
   const user = getUser();
   if (user?.id) {
-    console.log('[adminServerApi] Using Telegram user ID:', user.id);
+    logger.debug('admin-api', 'Using Telegram user ID', { userId: user.id });
     return user.id.toString();
   }
   // Fallback: используем первый ID из списка администраторов
   const fallback = getFallbackTelegramId();
-  console.log('[adminServerApi] Using fallback ID:', fallback);
+  logger.debug('admin-api', 'Using fallback ID', { fallback });
   return fallback;
 };
 
@@ -150,14 +153,14 @@ const handleResponse = async <T>(response: Response): Promise<T> => {
     if (response.status === 404) {
       const isRelative = ADMIN_API_BASE.startsWith("/");
       if (isRelative && import.meta.env.PROD) {
-        console.error(
-          '[adminServerApi] ❌ 404 ошибка: Backend не найден.',
-          '\nВозможные причины:',
-          '\n1. Переменная VITE_ADMIN_API_URL не установлена или указывает на неправильный домен',
-          '\n2. Backend на Railway не запущен или недоступен',
-          '\n3. URL указывает на Vercel вместо Railway backend',
-          '\nТекущий ADMIN_API_BASE:', ADMIN_API_BASE
-        );
+        logger.error('admin-api', new Error('404 ошибка: Backend не найден'), {
+          adminApiBase: ADMIN_API_BASE,
+          possibleCauses: [
+            'Переменная VITE_ADMIN_API_URL не установлена или указывает на неправильный домен',
+            'Backend на Railway не запущен или недоступен',
+            'URL указывает на Vercel вместо Railway backend',
+          ],
+        });
       }
     }
     
@@ -169,13 +172,13 @@ const handleResponse = async <T>(response: Response): Promise<T> => {
 export const adminServerApi = {
   async getCurrentAdmin(overrideTelegramId?: string): Promise<AdminMeResponse> {
     const url = `${ADMIN_API_BASE}/me`;
-    console.log('[adminServerApi] getCurrentAdmin URL:', url);
+    logger.debug('admin-api', 'getCurrentAdmin', { url });
     const response = await fetch(url, {
       headers: buildHeaders(overrideTelegramId),
     });
     if (!response.ok) {
       const errorText = await response.text().catch(() => "");
-      console.error('[adminServerApi] getCurrentAdmin error:', {
+      logger.error('admin-api', new Error('getCurrentAdmin error'), {
         status: response.status,
         statusText: response.statusText,
         url,
