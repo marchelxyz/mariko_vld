@@ -25,7 +25,7 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     outDir: "dist",
-    sourcemap: false,
+    sourcemap: mode === 'production' ? 'hidden' : false,
     minify: "esbuild",
     target: "es2017",
     cssCodeSplit: true,
