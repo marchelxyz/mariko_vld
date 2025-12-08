@@ -30,7 +30,28 @@ function processSvg(svgString: string): string {
   return `data:image/svg+xml;charset=utf-8,${encoded}`;
 }
 
+// Дублируем паттерны несколько раз для большего разнообразия и количества элементов
 const PATTERNS_RAW = [
+  vectorSvgRaw,
+  vector1SvgRaw,
+  vector2SvgRaw,
+  vector3SvgRaw,
+  vector4SvgRaw,
+  vector67SvgRaw,
+  vector68SvgRaw,
+  vector70SvgRaw,
+  vector71SvgRaw,
+  // Дублируем первый раз
+  vectorSvgRaw,
+  vector1SvgRaw,
+  vector2SvgRaw,
+  vector3SvgRaw,
+  vector4SvgRaw,
+  vector67SvgRaw,
+  vector68SvgRaw,
+  vector70SvgRaw,
+  vector71SvgRaw,
+  // Дублируем второй раз
   vectorSvgRaw,
   vector1SvgRaw,
   vector2SvgRaw,
@@ -45,7 +66,28 @@ const PATTERNS_RAW = [
 // Предобрабатываем все SVG при загрузке модуля
 const PATTERNS = PATTERNS_RAW.map(processSvg);
 
+// Соответствующие размеры для каждого паттерна (дублируем так же)
 const PATTERN_SIZES = [
+  { width: 170, height: 148 }, // Vector
+  { width: 170, height: 148 }, // Vector-1
+  { width: 170, height: 148 }, // Vector-2
+  { width: 170, height: 148 }, // Vector-3
+  { width: 170, height: 148 }, // Vector-4
+  { width: 282, height: 174 }, // vector-67
+  { width: 282, height: 174 }, // vector-68
+  { width: 282, height: 174 }, // vector-70
+  { width: 282, height: 174 }, // vector-71
+  // Дублируем первый раз
+  { width: 170, height: 148 },
+  { width: 170, height: 148 },
+  { width: 170, height: 148 },
+  { width: 170, height: 148 },
+  { width: 170, height: 148 },
+  { width: 282, height: 174 },
+  { width: 282, height: 174 },
+  { width: 282, height: 174 },
+  { width: 282, height: 174 },
+  // Дублируем второй раз
   { width: 170, height: 148 },
   { width: 170, height: 148 },
   { width: 170, height: 148 },
@@ -161,10 +203,10 @@ function RandomBackgroundPattern() {
     }
 
     // Увеличиваем плотность для лучшего заполнения фона
-    const targetDensity = 0.5;
+    const targetDensity = 0.7;
     const area = width * height;
     const avgElementArea = 200 * 150;
-    const targetElements = Math.max(20, Math.floor((area * targetDensity) / avgElementArea));
+    const targetElements = Math.max(30, Math.floor((area * targetDensity) / avgElementArea));
 
     // Размещаем паттерны до достижения целевого количества или пока есть место
     let attempts = 0;
