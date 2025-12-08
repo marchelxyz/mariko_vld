@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { format } from "date-fns";
+import { format as formatDate } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Calendar } from "@shared/ui/calendar";
 import { Button } from "@shared/ui/button";
@@ -140,14 +140,14 @@ export function BookingForm() {
     }
 
     setLoadingSlots(true);
-    const dateStr = format(selectedDate, "yyyy-MM-dd");
+    const dateStr = formatDate(selectedDate, "yyyy-MM-dd");
 
     getRemarkedSlots(token, dateStr, guestsCount)
       .then((data) => {
         const slots = data.slots
           .filter((slot) => slot.is_free)
           .map((slot) => ({
-            time: format(new Date(slot.start_datetime), "HH:mm"),
+            time: formatDate(new Date(slot.start_datetime), "HH:mm"),
             datetime: slot.start_datetime,
             isFree: slot.is_free,
           }))
@@ -163,8 +163,8 @@ export function BookingForm() {
         });
         // Не показываем toast при первой загрузке для сегодняшней даты
         if (slots.length === 0) {
-          const todayStr = format(new Date(), "yyyy-MM-dd");
-          const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
+          const todayStr = formatDate(new Date(), "yyyy-MM-dd");
+          const selectedDateStr = formatDate(selectedDate, "yyyy-MM-dd");
           // Показываем toast только если это не сегодняшняя дата (чтобы не показывать при первой загрузке)
           if (selectedDateStr !== todayStr) {
             toast({
@@ -309,12 +309,12 @@ export function BookingForm() {
 
     try {
       const formattedPhone = formatPhone(phone);
-      const dateStr = format(selectedDate, "yyyy-MM-dd");
+      const dateStr = formatDate(selectedDate, "yyyy-MM-dd");
       const fullComment = [
         selectedEvent?.comment,
         comment.trim(),
       ]
-        .filter(Boolean)
+        .filter((item) => Boolean(item))
         .join(". ");
 
       const result = await createRemarkedReserve(token, {
@@ -443,7 +443,7 @@ export function BookingForm() {
               className="w-full justify-start text-left font-normal h-12 bg-white/10 border-white/20 text-white hover:bg-white/20"
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {format(selectedDate, "d MMMM yyyy", { locale: ru })}
+              {formatDate(selectedDate, "d MMMM yyyy", { locale: ru })}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
