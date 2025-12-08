@@ -18,8 +18,20 @@ export const PORT = Number(process.env.CART_SERVER_PORT ?? process.env.PORT ?? 4
 export const CART_ORDERS_TABLE = process.env.CART_ORDERS_TABLE ?? "cart_orders";
 const maxOrdersLimitRaw = Number.parseInt(process.env.CART_ORDERS_MAX_LIMIT ?? "", 10);
 export const MAX_ORDERS_LIMIT = Number.isFinite(maxOrdersLimitRaw) ? maxOrdersLimitRaw : 50;
-export const ADMIN_DEV_TOKEN = process.env.ADMIN_DEV_TOKEN;
-export const ADMIN_DEV_TELEGRAM_ID = process.env.ADMIN_DEV_TELEGRAM_ID || null;
+// Парсим список Telegram ID администраторов (через запятую)
+const parseAdminTelegramIds = (raw) => {
+  if (!raw) {
+    return new Set();
+  }
+  return new Set(
+    raw
+      .split(",")
+      .map((id) => id.trim())
+      .filter((id) => id && /^\d+$/.test(id))
+      .map((id) => String(id))
+  );
+};
+export const ADMIN_TELEGRAM_IDS = parseAdminTelegramIds(process.env.ADMIN_TELEGRAM_IDS);
 export const ADMIN_ROLE_VALUES = new Set(["super_admin", "admin", "user"]);
 export const ORDER_STATUS_VALUES = new Set([
   "draft",

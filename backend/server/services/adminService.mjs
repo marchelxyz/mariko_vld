@@ -1,5 +1,5 @@
 import { queryOne, queryMany, db } from "../postgresClient.mjs";
-import { ADMIN_DEV_TOKEN, ADMIN_ROLE_VALUES, ADMIN_DEV_TELEGRAM_ID } from "../config.mjs";
+import { ADMIN_TELEGRAM_IDS, ADMIN_ROLE_VALUES } from "../config.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
 
 export const parseRestaurantPermissions = (permissions) => {
@@ -85,6 +85,12 @@ export const resolveAdminContext = async (telegramId) => {
   if (!telegramId) {
     return { role: "user", allowedRestaurants: [] };
   }
+  // Проверяем, есть ли Telegram ID в списке администраторов из переменной окружения
+  const normalizedId = normaliseTelegramId(telegramId);
+  if (normalizedId && ADMIN_TELEGRAM_IDS.has(normalizedId)) {
+    return { role: "super_admin", allowedRestaurants: [] };
+  }
+  // Проверяем в базе данных
   const record = await fetchAdminRecordByTelegram(telegramId);
   const permissions = record?.permissions ?? {};
   const allowedRestaurants = parseRestaurantPermissions(permissions);
@@ -117,10 +123,6 @@ export const buildUserWithRole = (profile, adminRecord) => {
 
 export const authoriseSuperAdmin = async (req, res) => {
   const telegramId = getTelegramIdFromRequest(req);
-  const devToken = req.get("x-admin-token");
-  if (!telegramId && ADMIN_DEV_TOKEN && devToken === ADMIN_DEV_TOKEN) {
-    return { role: "super_admin", allowedRestaurants: [], telegramId: ADMIN_DEV_TELEGRAM_ID || null };
-  }
   if (!telegramId) {
     res.status(401).json({ success: false, message: "Требуется Telegram ID администратора" });
     return null;
@@ -135,10 +137,6 @@ export const authoriseSuperAdmin = async (req, res) => {
 
 export const authoriseAdmin = async (req, res) => {
   const telegramId = getTelegramIdFromRequest(req);
-  const devToken = req.get("x-admin-token");
-  if (!telegramId && ADMIN_DEV_TOKEN && devToken === ADMIN_DEV_TOKEN) {
-    return { role: "super_admin", allowedRestaurants: [], telegramId: ADMIN_DEV_TELEGRAM_ID || null };
-  }
   if (!telegramId) {
     res.status(401).json({ success: false, message: "Требуется Telegram ID администратора" });
     return null;
