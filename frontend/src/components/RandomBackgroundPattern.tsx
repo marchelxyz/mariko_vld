@@ -106,9 +106,9 @@ function RandomBackgroundPattern() {
   function generatePositions(width: number, height: number): PatternPosition[] {
     const newPositions: PatternPosition[] = [];
     const placedRects: Array<{ x: number; y: number; width: number; height: number; rotation: number }> = [];
-    const minScale = 0.25;
-    const maxScale = 0.45;
-    const padding = 20; // Увеличиваем padding для учета поворота
+    const minScale = 0.2;
+    const maxScale = 0.35; // Уменьшаем максимальный размер для более компактных элементов
+    const padding = 8; // Уменьшаем padding для более плотного размещения
 
     function getRandomPattern() {
       const index = Math.floor(Math.random() * PATTERNS.length);
@@ -197,14 +197,14 @@ function RandomBackgroundPattern() {
       }
 
       // Используем сетку для равномерного распределения
-      // Разбиваем пространство на сетку и выбираем случайную ячейку
-      const gridCols = Math.ceil(Math.sqrt(existingRects.length + 1) * 2);
-      const gridRows = Math.ceil(Math.sqrt(existingRects.length + 1) * 2);
+      // Разбиваем пространство на более плотную сетку для лучшего заполнения
+      const gridCols = Math.ceil(Math.sqrt(existingRects.length + 1) * 2.5);
+      const gridRows = Math.ceil(Math.sqrt(existingRects.length + 1) * 2.5);
       const cellWidth = width / gridCols;
       const cellHeight = height / gridRows;
       
       // Пробуем разместить в случайной ячейке сетки
-      const gridAttempts = 200;
+      const gridAttempts = 300; // Увеличиваем попытки для более плотного размещения
       for (let i = 0; i < gridAttempts; i++) {
         const col = Math.floor(Math.random() * gridCols);
         const row = Math.floor(Math.random() * gridRows);
@@ -222,7 +222,7 @@ function RandomBackgroundPattern() {
       }
 
       // Если сетка не помогла, пытаемся разместить рядом с существующими паттернами
-      const attempts = 300;
+      const attempts = 500; // Увеличиваем попытки для более плотного размещения
       for (let i = 0; i < attempts; i++) {
         const randomRect = existingRects[Math.floor(Math.random() * existingRects.length)];
         const existingBounds = getRotatedBounds(randomRect.width, randomRect.height, randomRect.rotation);
@@ -263,7 +263,7 @@ function RandomBackgroundPattern() {
       }
 
       // Если не удалось разместить рядом, ищем любое свободное место равномерно
-      const randomAttempts = 1000;
+      const randomAttempts = 1500; // Увеличиваем попытки для более плотного заполнения
       for (let i = 0; i < randomAttempts; i++) {
         const x = Math.random() * Math.max(0, width - w);
         const y = Math.random() * Math.max(0, height - h);
@@ -277,14 +277,15 @@ function RandomBackgroundPattern() {
     }
 
     // Увеличиваем плотность для лучшего заполнения фона
-    const targetDensity = 0.7;
+    const targetDensity = 0.85; // Увеличиваем целевую плотность
     const area = width * height;
-    const avgElementArea = 200 * 150;
-    const targetElements = Math.max(30, Math.floor((area * targetDensity) / avgElementArea)) * 9;
+    // Учитываем уменьшенный размер элементов при расчете
+    const avgElementArea = 150 * 120; // Уменьшаем среднюю площадь элемента
+    const targetElements = Math.max(40, Math.floor((area * targetDensity) / avgElementArea));
 
     // Размещаем паттерны до достижения целевого количества или пока есть место
     let attempts = 0;
-    const maxAttempts = targetElements * 3; // Увеличиваем количество попыток
+    const maxAttempts = targetElements * 5; // Увеличиваем количество попыток для более плотного заполнения
     
     for (let i = 0; i < targetElements && attempts < maxAttempts; i++) {
       attempts++;
