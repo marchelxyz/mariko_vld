@@ -242,7 +242,8 @@ export async function createRemarkedReserve(
 export async function getRemarkedReservesByPhone(
   token: string,
   phone: string,
-  limit: number = 1
+  limit: number = 1,
+  guestsCount?: number
 ): Promise<{
   status: string;
   total: number;
@@ -256,10 +257,13 @@ export async function getRemarkedReservesByPhone(
     inner_status: string;
   }>;
 }> {
+  // Согласно спецификации Remarked, guests_count обязателен для GetReservesByPhone
+  // Если не передан, используем 1 по умолчанию
   const request: RemarkedRequest = {
     method: "GetReservesByPhone",
     token,
     phone,
+    guests_count: guestsCount ?? 1,
     limit: limit.toString(),
     offset: "0",
     sort_by: "id",

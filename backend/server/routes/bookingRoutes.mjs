@@ -41,22 +41,35 @@ async function getRemarkedToken(restaurantId) {
  * Создать бронирование в Remarked
  */
 async function createRemarkedReserve(token, reserve) {
+  // Формируем объект reserve согласно спецификации Remarked API
+  const reserveData = {
+    name: reserve.name,
+    phone: reserve.phone,
+    date: reserve.date, // формат: "yyyy-MM-dd"
+    time: reserve.time, // формат: "HH:mm"
+    guests_count: Number(reserve.guests_count), // обязательно integer
+    type: "booking", // "booking" | "banquet"
+    source: reserve.source || "mobile_app", // "site" | "mobile_app"
+  };
+
+  // Опциональные поля добавляем только если они есть
+  if (reserve.email) {
+    reserveData.email = reserve.email;
+  }
+  if (reserve.comment) {
+    reserveData.comment = reserve.comment;
+  }
+  if (reserve.duration) {
+    reserveData.duration = Number(reserve.duration);
+  }
+  if (reserve.eventTags && Array.isArray(reserve.eventTags) && reserve.eventTags.length > 0) {
+    reserveData.eventTags = reserve.eventTags.map(id => Number(id));
+  }
+
   const request = {
     method: "CreateReserve",
     token,
-    reserve: {
-      name: reserve.name,
-      phone: reserve.phone,
-      email: reserve.email || "",
-      date: reserve.date,
-      time: reserve.time,
-      guests_count: reserve.guests_count,
-      comment: reserve.comment || "",
-      eventTags: reserve.eventTags || [],
-      source: reserve.source || "mobile_app",
-      duration: reserve.duration,
-      type: "booking",
-    },
+    reserve: reserveData,
   };
 
   const response = await fetch(`${REMARKED_API_BASE}/ApiReservesWidget`, {
@@ -194,7 +207,10 @@ export function createBookingRouter() {
         });
       }
 
-      if (!guestsCount || typeof guestsCount !== "number" || guestsCount < 1) {
+      // Приводим guestsCount к числу на случай, если придет строка
+      const guestsCountNum = typeof guestsCount === "number" ? guestsCount : parseInt(String(guestsCount), 10);
+      
+      if (!guestsCountNum || isNaN(guestsCountNum) || guestsCountNum < 1) {
         const duration = Date.now() - startTime;
         logger.requestError('POST', '/', new Error('Не указано количество гостей'), 400);
         return res.status(400).json({ 
@@ -251,7 +267,7 @@ export function createBookingRouter() {
         email: email?.trim() || undefined,
         date,
         time,
-        guests_count: guestsCount,
+        guests_count: guestsCountNum,
         comment: comment?.trim() || undefined,
         eventTags: eventTags || [],
         source,
@@ -274,7 +290,7 @@ export function createBookingRouter() {
           customer_email,
           booking_date, 
           booking_time, 
-          guests_count, 
+          guests_countNum, 
           comment, 
           event_tags, 
           source, 
@@ -291,7 +307,7 @@ export function createBookingRouter() {
           email?.trim() || null,
           date,
           time,
-          guestsCount,
+          guestsCountNum,
           comment?.trim() || null,
           JSON.stringify(eventTags || []),
           source,
