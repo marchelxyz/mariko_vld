@@ -23,9 +23,9 @@ type PatternPosition = {
 
 // Обрабатываем SVG строки: заменяем цвета и создаем data URLs
 function processSvg(svgString: string): string {
-  // Используем более светлый цвет для паттернов, чтобы они были видны на темном фоне #830E0E
-  let processed = svgString.replace(/#940000/g, "#B01E1E");
-  processed = processed.replace(/fill="#[^"]*"/g, 'fill="#B01E1E"');
+  // Используем цвет #740E0E для паттернов на темном фоне #830E0E
+  let processed = svgString.replace(/#940000/g, "#740E0E");
+  processed = processed.replace(/fill="#[^"]*"/g, 'fill="#740E0E"');
   const encoded = encodeURIComponent(processed);
   return `data:image/svg+xml;charset=utf-8,${encoded}`;
 }
