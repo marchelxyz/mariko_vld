@@ -292,7 +292,20 @@ export async function createBooking(
     return result;
   } catch (error: unknown) {
     const functionDuration = performance.now() - functionStartTime;
-    const message = error instanceof Error ? error.message : "Неожиданная ошибка создания бронирования";
+    let message = "Не удалось создать бронирование";
+    
+    if (error instanceof Error) {
+      message = error.message || message;
+    } else if (typeof error === 'string') {
+      message = error;
+    } else if (error && typeof error === 'object' && 'message' in error) {
+      message = String(error.message) || message;
+    }
+    
+    // Убеждаемся, что сообщение не пустое
+    if (!message || message.trim() === '') {
+      message = "Не удалось создать бронирование. Попробуйте позже.";
+    }
     
     logger.error('booking-api', error instanceof Error ? error : new Error(message), {
       requestId,
