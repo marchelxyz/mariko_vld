@@ -1,24 +1,24 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Calendar } from "@shared/ui/ui/calendar";
-import { Button } from "@shared/ui/ui/button";
-import { Input } from "@shared/ui/ui/input";
-import { Label } from "@shared/ui/ui/label";
-import { Textarea } from "@shared/ui/ui/textarea";
-import { Checkbox } from "@shared/ui/ui/checkbox";
+import { Calendar } from "@shared/ui/calendar";
+import { Button } from "@shared/ui/button";
+import { Input } from "@shared/ui/input";
+import { Label } from "@shared/ui/label";
+import { Textarea } from "@shared/ui/textarea";
+import { Checkbox } from "@shared/ui/checkbox";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@shared/ui/ui/select";
+} from "@shared/ui/select";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@shared/ui/ui/popover";
+} from "@shared/ui/popover";
 import { useProfile } from "@entities/user";
 import { useCityContext } from "@/contexts";
 import {
