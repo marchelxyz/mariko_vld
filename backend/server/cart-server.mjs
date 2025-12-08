@@ -112,6 +112,17 @@ registerCartRoutes(app);
 const adminRouter = createAdminRouter();
 app.use("/api/admin", adminRouter);
 app.use("/api/cart/admin", adminRouter);
+// Роут для логов с фронтенда (без префикса /admin)
+app.post("/api/logs", async (req, res) => {
+  try {
+    const logEntry = req.body;
+    console.log("[client-log]", JSON.stringify(logEntry));
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("Ошибка обработки лога", error);
+    return res.status(500).json({ success: false, message: "Ошибка обработки лога" });
+  }
+});
 app.use("/api/payments", createPaymentRouter());
 // Геокодер: дублируем под /api/geocode и /api/cart/geocode, чтобы попадать под имеющийся прокси /api/cart/*
 const geocodeRouter = createGeocodeRouter();
