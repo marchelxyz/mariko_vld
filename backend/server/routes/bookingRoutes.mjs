@@ -437,8 +437,16 @@ export function createBookingRouter() {
         duration: bookingDuration,
       });
 
+      // Проверяем, что получили валидный ответ от Remarked
+      if (!remarkedReserve || typeof remarkedReserve !== 'object') {
+        throw new Error('Неверный формат ответа от сервиса бронирования');
+      }
+
+      // Безопасно извлекаем reserve_id (может быть 0, null или undefined)
+      const reserveId = remarkedReserve.reserve_id != null ? remarkedReserve.reserve_id : null;
+
       logger.info('Бронирование создано в Remarked', { 
-        reserveId: remarkedReserve.reserve_id,
+        reserveId: reserveId,
         restaurantId: restaurant.remarked_restaurant_id
       });
 
@@ -464,7 +472,7 @@ export function createBookingRouter() {
         [
           restaurantId,
           restaurant.remarked_restaurant_id,
-          remarkedReserve.reserve_id || null,
+          reserveId,
           name.trim(),
           formattedPhone,
           email?.trim() || null,
@@ -481,9 +489,13 @@ export function createBookingRouter() {
 
       const booking = bookingResult.rows[0];
 
+      if (!booking || !booking.id) {
+        throw new Error('Не удалось сохранить бронирование в базу данных');
+      }
+
       logger.info('Бронирование сохранено в БД', { 
         bookingId: booking.id,
-        reserveId: remarkedReserve.reserve_id 
+        reserveId: reserveId 
       });
 
       const duration = Date.now() - startTime;
@@ -493,7 +505,7 @@ export function createBookingRouter() {
         success: true,
         booking: {
           id: booking.id,
-          reserveId: remarkedReserve.reserve_id,
+          reserveId: reserveId,
         },
         data: {
           form_url: remarkedReserve.form_url || undefined,
