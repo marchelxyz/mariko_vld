@@ -106,15 +106,6 @@ BOT_ENV="backend/bot/.env"
 # ======================================================================
 log "📦 Настройка Frontend..."
 
-# Supabase
-SUPABASE_URL=$(read_env_value "$FRONTEND_ENV" "VITE_SUPABASE_URL")
-SUPABASE_ANON_KEY=$(read_env_value "$FRONTEND_ENV" "VITE_SUPABASE_ANON_KEY")
-
-if [[ "$INTERACTIVE" == "--interactive" ]]; then
-  SUPABASE_URL=$(prompt_value "VITE_SUPABASE_URL" "$SUPABASE_URL" "URL вашего Supabase проекта")
-  SUPABASE_ANON_KEY=$(prompt_value "VITE_SUPABASE_ANON_KEY" "$SUPABASE_ANON_KEY" "Supabase Anon Key")
-fi
-
 # Backend URLs (нужно будет заменить на Railway домены)
 # Проверяем, есть ли VITE_SERVER_API_URL (предпочтительный вариант)
 SERVER_API_URL=$(read_env_value "$FRONTEND_ENV" "VITE_SERVER_API_URL")
@@ -135,9 +126,6 @@ fi
 if [[ "$INTERACTIVE" == "--interactive" ]]; then
   BACKEND_BASE=$(prompt_value "Backend Base URL" "$BACKEND_BASE" "Базовый URL вашего backend сервиса на Railway (например: https://backend.up.railway.app)")
 fi
-
-set_railway_var "$FRONTEND_SERVICE" "VITE_SUPABASE_URL" "$SUPABASE_URL"
-set_railway_var "$FRONTEND_SERVICE" "VITE_SUPABASE_ANON_KEY" "$SUPABASE_ANON_KEY"
 
 # Устанавливаем VITE_SERVER_API_URL (предпочтительный вариант)
 # Это заменит необходимость в трёх отдельных переменных
@@ -326,22 +314,6 @@ if [[ -z "$PROFILE_SYNC_URL" ]]; then
   PROFILE_SYNC_URL="${WEBAPP_URL}/api/cart/profile/sync"
 fi
 set_railway_var "$BOT_SERVICE" "PROFILE_SYNC_URL" "$PROFILE_SYNC_URL"
-
-# Supabase
-BOT_SUPABASE_URL=$(read_env_value "$BOT_ENV" "SUPABASE_URL")
-BOT_SUPABASE_SERVICE_KEY=$(read_env_value "$BOT_ENV" "SUPABASE_SERVICE_ROLE_KEY")
-
-if [[ -z "$BOT_SUPABASE_URL" ]]; then
-  BOT_SUPABASE_URL="$SUPABASE_URL"
-fi
-
-if [[ "$INTERACTIVE" == "--interactive" ]]; then
-  BOT_SUPABASE_URL=$(prompt_value "SUPABASE_URL" "$BOT_SUPABASE_URL" "Supabase URL")
-  BOT_SUPABASE_SERVICE_KEY=$(prompt_value "SUPABASE_SERVICE_ROLE_KEY" "$BOT_SUPABASE_SERVICE_KEY" "Supabase Service Role Key")
-fi
-
-set_railway_var "$BOT_SERVICE" "SUPABASE_URL" "$BOT_SUPABASE_URL"
-set_railway_var "$BOT_SERVICE" "SUPABASE_SERVICE_ROLE_KEY" "$BOT_SUPABASE_SERVICE_KEY"
 
 # Server API
 USE_SERVER_API=$(read_env_value "$BOT_ENV" "VITE_USE_SERVER_API")

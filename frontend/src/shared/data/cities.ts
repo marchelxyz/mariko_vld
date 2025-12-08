@@ -394,8 +394,8 @@ export function getAvailableCities(): City[] {
   }
 
 /**
- * Получить список активных городов из Supabase (асинхронно)
- * Используйте эту функцию для real-time данных
+ * Получить список активных городов из базы данных (асинхронно)
+ * Используйте эту функцию для получения актуальных данных
  */
 export async function getAvailableCitiesAsync(): Promise<City[]> {
   return await citiesApi.getActiveCities();
@@ -416,7 +416,7 @@ export function getAllCities(): City[] {
 }
 
 /**
- * Получить ВСЕ города из Supabase (асинхронно)
+ * Получить ВСЕ города из базы данных (асинхронно)
  */
 export async function getAllCitiesAsync(): Promise<City[]> {
   return await citiesApi.getAllCities();

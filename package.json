@@ -7,8 +7,6 @@
     "env:local": "node scripts/create-env-local.js",
     "optimize-images": "node scripts/optimize-images.js",
     "build:optimized": "npm run build:optimized --prefix frontend",
-    "db:migrate:supabase": "node scripts/migrate-supabase-db.js",
-    "db:dump:supabase": "node scripts/migrate-supabase-db.js --dump-only",
     "frontend:dev": "npm run dev --prefix frontend",
     "frontend:build": "npm run build --prefix frontend",
     "frontend:preview": "npm run preview --prefix frontend",
