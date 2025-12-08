@@ -245,7 +245,7 @@ export async function createBooking(
   booking: CreateBookingRequest
 ): Promise<CreateBookingResponse> {
   const functionStartTime = performance.now();
-  const requestId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const requestId = `booking_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   
   logger.info('booking-api', '🚀 Начало создания бронирования через API', {
     requestId,
