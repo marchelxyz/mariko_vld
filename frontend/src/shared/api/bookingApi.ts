@@ -93,7 +93,6 @@ export type CreateBookingResponse = {
   booking?: {
     id: string;
     reserveId?: number;
-    formUrl?: string;
   };
   error?: string;
 };

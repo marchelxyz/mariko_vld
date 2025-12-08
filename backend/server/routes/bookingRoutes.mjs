@@ -331,7 +331,6 @@ export function createBookingRouter() {
         booking: {
           id: booking.id,
           reserveId: remarkedReserve.reserve_id,
-          formUrl: remarkedReserve.form_url,
         },
       });
 
