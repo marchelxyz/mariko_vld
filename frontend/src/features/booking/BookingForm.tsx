@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Calendar } from "@shared/ui/calendar";
@@ -31,7 +31,6 @@ import { profileApi } from "@shared/api/profile";
 import { toast } from "@/hooks/use-toast";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { cn } from "@shared/utils";
-import { logger } from "@/lib/logger";
 
 type EventType = {
   id: string;
@@ -47,9 +46,10 @@ const EVENT_TYPES: EventType[] = [
   { id: "eat", label: "Хочу поесть", comment: "Хочу поесть" },
 ];
 
-/**
- * Проверка, что имя содержит только русские буквы
- */
+type BookingFormProps = {
+  onSuccess?: () => void;
+};
+
 function isRussianName(name: string): boolean {
   if (!name || typeof name !== "string") {
     return false;
@@ -59,9 +59,6 @@ function isRussianName(name: string): boolean {
   return trimmed.length > 0 && russianRegex.test(trimmed);
 }
 
-/**
- * Форматирование телефона для Remarked API
- */
 function formatPhone(phone: string): string {
   if (!phone || typeof phone !== "string") {
     throw new Error("Некорректный номер телефона");
@@ -69,47 +66,35 @@ function formatPhone(phone: string): string {
   
   const cleaned = phone.replace(/\D/g, "");
   
-  // Если номер начинается с 8, заменяем на 7
   if (cleaned.startsWith("8")) {
     return `+7${cleaned.slice(1)}`;
   }
   
-  // Если номер начинается с 7, добавляем +
   if (cleaned.startsWith("7")) {
     return `+${cleaned}`;
   }
   
-  // Если номер уже начинается с +7, возвращаем как есть
   if (phone.startsWith("+7")) {
     return phone;
   }
   
-  // Если номер короткий (10 цифр), добавляем +7
   if (cleaned.length === 10) {
     return `+7${cleaned}`;
   }
   
-  // В остальных случаях возвращаем как есть (может быть уже отформатирован)
   return phone.startsWith("+") ? phone : `+${phone}`;
 }
 
-type BookingFormProps = {
-  onSuccess?: () => void;
-};
+function isValidRemarkedId(id: number | undefined): boolean {
+  if (!id) return false;
+  const idStr = id.toString();
+  return /^\d{6}$/.test(idStr);
+}
 
 export function BookingForm({ onSuccess }: BookingFormProps) {
   const { selectedRestaurant } = useCityContext();
   const { profile } = useProfile();
 
-  if (!selectedRestaurant) {
-    return (
-      <div className="p-4 text-center text-muted-foreground">
-        Выберите ресторан для бронирования столика
-      </div>
-    );
-  }
-
-  // Устанавливаем текущую дату по умолчанию
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -133,82 +118,60 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
 
   const remarkedRestaurantId = selectedRestaurant?.remarkedRestaurantId;
 
-  /**
-   * Проверка, что ID ресторана Remarked является 6-значным числом
-   */
-  const isValidRemarkedId = (id: number | undefined): boolean => {
-    if (!id) return false;
-    const idStr = id.toString();
-    return /^\d{6}$/.test(idStr);
-  };
+  if (!selectedRestaurant) {
+    return (
+      <div className="p-4 text-center text-muted-foreground">
+        Выберите ресторан для бронирования столика
+      </div>
+    );
+  }
 
-  // Загрузка токена при монтировании
+  if (!remarkedRestaurantId) {
+    return (
+      <div className="rounded-[24px] border border-white/15 bg-white/10 p-6 text-center text-white">
+        <p className="font-el-messiri text-lg">
+          Бронирование пока недоступно для этого ресторана
+        </p>
+        <p className="mt-2 text-sm text-white/70">
+          Обратитесь к администратору для настройки системы бронирования
+        </p>
+      </div>
+    );
+  }
+
+  if (!isValidRemarkedId(remarkedRestaurantId)) {
+    return (
+      <div className="rounded-[24px] border border-white/15 bg-white/10 p-6 text-center text-white">
+        <p className="font-el-messiri text-lg">
+          Ошибка конфигурации системы бронирования
+        </p>
+        <p className="mt-2 text-sm text-white/70">
+          ID ресторана должен быть 6-значным кодом Remarked
+        </p>
+      </div>
+    );
+  }
+
+  // Загрузка токена
   useEffect(() => {
-    if (remarkedRestaurantId) {
-      // Проверяем, что ID является 6-значным кодом
-      if (!isValidRemarkedId(remarkedRestaurantId)) {
-        const error = new Error(`Некорректный ID Remarked: ${remarkedRestaurantId}. Ожидается 6-значный код`);
-        logger.error("booking", error, {
-          step: 'token_load_validation_error',
-          remarkedRestaurantId,
-          timestamp: new Date().toISOString(),
-        });
+    if (!remarkedRestaurantId || !isValidRemarkedId(remarkedRestaurantId)) {
+      return;
+    }
+
+    getRemarkedToken(remarkedRestaurantId, true)
+      .then((data) => {
+        setToken(data.token);
+      })
+      .catch((error) => {
         toast({
-          title: "Ошибка конфигурации",
-          description: "ID ресторана в системе бронирования должен быть 6-значным кодом",
+          title: "Ошибка",
+          description: "Не удалось подключиться к системе бронирования",
           variant: "destructive",
         });
-        return;
-      }
-
-      logger.info("booking", "🔄 Начало загрузки токена Remarked", {
-        step: 'token_load_start',
-        remarkedRestaurantId,
-        restaurantName: selectedRestaurant?.name,
-        timestamp: new Date().toISOString(),
       });
-
-      const tokenLoadStartTime = performance.now();
-      
-      getRemarkedToken(remarkedRestaurantId, true)
-        .then((data) => {
-          const tokenLoadDuration = performance.now() - tokenLoadStartTime;
-          logger.info("booking", "✅ Токен Remarked успешно получен", {
-            step: 'token_load_success',
-            remarkedRestaurantId,
-            tokenLength: data.token?.length || 0,
-            hasCapacity: !!data.capacity,
-            capacityMin: data.capacity?.min,
-            capacityMax: data.capacity?.max,
-            duration: `${tokenLoadDuration.toFixed(2)}ms`,
-            timestamp: new Date().toISOString(),
-          });
-          setToken(data.token);
-        })
-        .catch((error) => {
-          const tokenLoadDuration = performance.now() - tokenLoadStartTime;
-          logger.error("booking", error instanceof Error ? error : new Error("Ошибка получения токена"), {
-            step: 'token_load_error',
-            remarkedRestaurantId,
-            restaurantName: selectedRestaurant?.name,
-            errorDetails: {
-              name: error instanceof Error ? error.name : 'Unknown',
-              message: error instanceof Error ? error.message : String(error),
-              stack: error instanceof Error ? error.stack : undefined,
-            },
-            duration: `${tokenLoadDuration.toFixed(2)}ms`,
-            timestamp: new Date().toISOString(),
-          });
-          toast({
-            title: "Ошибка",
-            description: `Не удалось подключиться к системе бронирования. ID: ${remarkedRestaurantId}`,
-            variant: "destructive",
-          });
-        });
-    }
   }, [remarkedRestaurantId]);
 
-  // Загрузка доступных временных слотов при выборе даты или изменении количества гостей
+  // Загрузка слотов
   useEffect(() => {
     if (!selectedDate || !token || !remarkedRestaurantId) {
       setAvailableSlots([]);
@@ -216,55 +179,21 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       return;
     }
 
-    setLoadingSlots(true);
-    
-    // Проверяем валидность даты перед форматированием
-    if (!selectedDate || !(selectedDate instanceof Date) || isNaN(selectedDate.getTime())) {
-      setLoadingSlots(false);
-      logger.error("booking", new Error("Некорректная дата при загрузке слотов"), {
-        step: 'slots_load_validation_error',
-        selectedDate,
-        timestamp: new Date().toISOString(),
-      });
+    if (!(selectedDate instanceof Date) || isNaN(selectedDate.getTime())) {
       return;
     }
-    
+
+    setLoadingSlots(true);
     const dateStr = format(selectedDate, "yyyy-MM-dd");
-
-    logger.info("booking", "🔄 Начало загрузки слотов для бронирования", {
-      step: 'slots_load_start',
-      date: dateStr,
-      guestsCount,
-      remarkedRestaurantId,
-      tokenLength: token.length,
-      timestamp: new Date().toISOString(),
-    });
-
-    const slotsLoadStartTime = performance.now();
 
     getRemarkedSlots(token, dateStr, guestsCount)
       .then((data) => {
-        const slotsLoadDuration = performance.now() - slotsLoadStartTime;
-        
-        logger.info("booking", "📥 Получены данные слотов от Remarked", {
-          step: 'slots_data_received',
-          date: dateStr,
-          guestsCount,
-          totalSlots: data.slots?.length || 0,
-          duration: `${slotsLoadDuration.toFixed(2)}ms`,
-          timestamp: new Date().toISOString(),
-        });
-
-        const slots = data.slots
+        const slots = (data.slots || [])
           .filter((slot) => slot.is_free)
           .map((slot) => {
             try {
               const date = new Date(slot.start_datetime);
               if (isNaN(date.getTime())) {
-                logger.error("booking", new Error(`Invalid date: ${slot.start_datetime}`), {
-                  step: 'slot_date_parse_error',
-                  slotData: slot,
-                });
                 return null;
               }
               return {
@@ -272,80 +201,22 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
                 datetime: slot.start_datetime,
                 isFree: slot.is_free,
               };
-            } catch (error) {
-              logger.error("booking", error instanceof Error ? error : new Error("Ошибка форматирования времени слота"), {
-                step: 'slot_format_error',
-                slotData: slot,
-                errorDetails: {
-                  name: error instanceof Error ? error.name : 'Unknown',
-                  message: error instanceof Error ? error.message : String(error),
-                },
-              });
+            } catch {
               return null;
             }
           })
           .filter((slot): slot is NonNullable<typeof slot> => slot !== null)
           .sort((a, b) => a.time.localeCompare(b.time));
 
-        logger.info("booking", "✅ Слоты успешно обработаны и отфильтрованы", {
-          step: 'slots_processed',
-          date: dateStr,
-          guestsCount,
-          totalSlotsReceived: data.slots?.length || 0,
-          freeSlotsCount: slots.length,
-          availableTimes: slots.map(s => s.time),
-          duration: `${slotsLoadDuration.toFixed(2)}ms`,
-          timestamp: new Date().toISOString(),
-        });
-
         setAvailableSlots(slots);
-        // Сбрасываем выбранное время, если оно больше не доступно
         setSelectedTime((prevTime) => {
           if (prevTime && !slots.some((s) => s.time === prevTime)) {
-            logger.info("booking", "🔄 Выбранное время сброшено (больше не доступно)", {
-              step: 'selected_time_reset',
-              previousTime: prevTime,
-              availableTimes: slots.map(s => s.time),
-            });
             return "";
           }
           return prevTime;
         });
-        // Не показываем toast при первой загрузке для сегодняшней даты
-        if (slots.length === 0) {
-          const todayStr = format(new Date(), "yyyy-MM-dd");
-          const selectedDateStr = selectedDate && selectedDate instanceof Date && !isNaN(selectedDate.getTime()) 
-            ? format(selectedDate, "yyyy-MM-dd")
-            : "";
-          // Показываем toast только если это не сегодняшняя дата (чтобы не показывать при первой загрузке)
-          if (selectedDateStr !== todayStr) {
-            logger.warn("booking", "⚠️ Нет доступных слотов на выбранную дату", {
-              step: 'no_slots_available',
-              date: dateStr,
-              guestsCount,
-            });
-            toast({
-              title: "Нет доступных слотов",
-              description: "На выбранную дату нет свободных столиков",
-            });
-          }
-        }
       })
-      .catch((error) => {
-        const slotsLoadDuration = performance.now() - slotsLoadStartTime;
-        logger.error("booking", error instanceof Error ? error : new Error("Ошибка загрузки слотов"), {
-          step: 'slots_load_error',
-          date: dateStr,
-          guestsCount,
-          remarkedRestaurantId,
-          errorDetails: {
-            name: error instanceof Error ? error.name : 'Unknown',
-            message: error instanceof Error ? error.message : String(error),
-            stack: error instanceof Error ? error.stack : undefined,
-          },
-          duration: `${slotsLoadDuration.toFixed(2)}ms`,
-          timestamp: new Date().toISOString(),
-        });
+      .catch(() => {
         toast({
           title: "Ошибка",
           description: "Не удалось загрузить доступное время",
@@ -365,127 +236,51 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     if (profile.name && !name) {
       setName(profile.name);
     }
-    // Если согласие уже было дано ранее, устанавливаем его
     if (profile.personalDataConsentGiven) {
       setConsentGiven(true);
       setHasPreviousBooking(true);
     }
   }, [profile.phone, profile.name, profile.personalDataConsentGiven]);
 
-  // Проверка наличия предыдущих броней при загрузке токена и телефона
+  // Проверка предыдущих броней
   useEffect(() => {
     const checkPreviousBookings = async () => {
       if (!token || !phone || !remarkedRestaurantId || hasPreviousBooking) {
-        logger.debug('booking', 'Проверка предыдущих броней пропущена', {
-          step: 'previous_bookings_check_skipped',
-          reason: !token ? 'no_token' : !phone ? 'no_phone' : hasPreviousBooking ? 'already_has_booking' : 'unknown',
-          timestamp: new Date().toISOString(),
-        });
         return;
       }
 
-      // Форматируем телефон для проверки
       let formattedPhone: string;
       try {
         formattedPhone = formatPhone(phone);
         if (!formattedPhone || formattedPhone.length < 10) {
-          logger.debug('booking', 'Проверка предыдущих броней пропущена: некорректный телефон', {
-            step: 'previous_bookings_check_skipped',
-            reason: 'invalid_phone',
-            phoneLength: phone.length,
-            timestamp: new Date().toISOString(),
-          });
           return;
         }
-      } catch (error) {
-        logger.warn('booking', 'Ошибка форматирования телефона для проверки броней', {
-          step: 'phone_format_error',
-          error: error instanceof Error ? error.message : String(error),
-          timestamp: new Date().toISOString(),
-        });
+      } catch {
         return;
       }
 
-      logger.info('booking', '🔄 Начало проверки предыдущих броней', {
-        step: 'previous_bookings_check_start',
-        phone: formattedPhone.replace(/\d(?=\d{4})/g, '*'), // Маскируем телефон
-        remarkedRestaurantId,
-        timestamp: new Date().toISOString(),
-      });
-
       setCheckingPreviousBooking(true);
-      const checkStartTime = performance.now();
 
       try {
         const reserves = await getRemarkedReservesByPhone(token, formattedPhone, 1);
-        const checkDuration = performance.now() - checkStartTime;
         
-        logger.info('booking', '📥 Получен ответ о предыдущих бронях', {
-          step: 'previous_bookings_response',
-          total: reserves.total,
-          count: reserves.count,
-          hasReserves: reserves.total > 0,
-          duration: `${checkDuration.toFixed(2)}ms`,
-          timestamp: new Date().toISOString(),
-        });
-
         if (reserves.total > 0) {
-          logger.info('booking', '✅ Найдены предыдущие брони, согласие установлено автоматически', {
-            step: 'previous_bookings_found',
-            total: reserves.total,
-            timestamp: new Date().toISOString(),
-          });
-          
           setHasPreviousBooking(true);
           setConsentGiven(true);
           
-          // Сохраняем согласие в профиль, если его еще нет
           if (!profile.personalDataConsentGiven) {
-            logger.info('booking', '💾 Сохранение согласия в профиль', {
-              step: 'consent_save_to_profile',
-              profileId: profile.id,
-              timestamp: new Date().toISOString(),
-            });
-            
             try {
               await profileApi.updateUserProfile(profile.id, {
                 personalDataConsentGiven: true,
                 personalDataConsentDate: new Date().toISOString(),
               });
-              logger.info('booking', '✅ Согласие успешно сохранено в профиль', {
-                step: 'consent_saved',
-                timestamp: new Date().toISOString(),
-              });
-            } catch (error) {
-              logger.error('booking', error instanceof Error ? error : new Error('Ошибка сохранения согласия'), {
-                step: 'consent_save_error',
-                errorDetails: {
-                  name: error instanceof Error ? error.name : 'Unknown',
-                  message: error instanceof Error ? error.message : String(error),
-                },
-                timestamp: new Date().toISOString(),
-              });
+            } catch {
+              // Игнорируем ошибки сохранения
             }
           }
-        } else {
-          logger.info('booking', 'ℹ️ Предыдущие брони не найдены', {
-            step: 'previous_bookings_not_found',
-            timestamp: new Date().toISOString(),
-          });
         }
-      } catch (error) {
-        const checkDuration = performance.now() - checkStartTime;
-        // Игнорируем ошибки проверки - это не критично
-        logger.debug('booking', 'Не удалось проверить предыдущие брони', {
-          step: 'previous_bookings_check_error',
-          error: error instanceof Error ? error.message : String(error),
-          errorDetails: {
-            name: error instanceof Error ? error.name : 'Unknown',
-            stack: error instanceof Error ? error.stack : undefined,
-          },
-          duration: `${checkDuration.toFixed(2)}ms`,
-          timestamp: new Date().toISOString(),
-        });
+      } catch {
+        // Игнорируем ошибки проверки
       } finally {
         setCheckingPreviousBooking(false);
       }
@@ -494,65 +289,15 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     void checkPreviousBookings();
   }, [token, phone, remarkedRestaurantId, hasPreviousBooking, profile.id, profile.personalDataConsentGiven]);
 
-  const handleSubmit = async () => {
-    // ========== ЛОГИРОВАНИЕ НАЧАЛА ПРОЦЕССА БРОНИРОВАНИЯ ==========
-    const submitStartTime = performance.now();
-    const submitTimestamp = new Date().toISOString();
-    
-    // Собираем полную информацию о состоянии формы и контексте
-    const formState = {
-      selectedDate: selectedDate ? format(selectedDate, "yyyy-MM-dd HH:mm:ss") : null,
-      selectedTime,
-      guestsCount,
-      phone: phone ? phone.replace(/\d(?=\d{4})/g, '*') : null, // Маскируем телефон для безопасности
-      name: name ? name.substring(0, 1) + '*'.repeat(Math.max(0, name.length - 1)) : null, // Маскируем имя
-      selectedEvent: selectedEvent ? { id: selectedEvent.id, label: selectedEvent.label } : null,
-      commentLength: comment ? comment.length : 0,
-      consentGiven,
-      hasPreviousBooking,
-      checkingPreviousBooking,
-      loadingSlots,
-      submitting,
-      availableSlotsCount: availableSlots.length,
-      tokenExists: !!token,
-      tokenLength: token ? token.length : 0,
-    };
+  const handleDateSelect = useCallback((date: Date | undefined) => {
+    if (date) {
+      setSelectedDate(date);
+      setSelectedTime("");
+    }
+  }, []);
 
-    const contextInfo = {
-      restaurantId: selectedRestaurant?.id,
-      restaurantName: selectedRestaurant?.name,
-      remarkedRestaurantId,
-      profileId: profile?.id,
-      profilePhone: profile?.phone ? profile.phone.replace(/\d(?=\d{4})/g, '*') : null,
-      profileName: profile?.name ? profile.name.substring(0, 1) + '*'.repeat(Math.max(0, profile.name.length - 1)) : null,
-      profileConsentGiven: profile?.personalDataConsentGiven,
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-      screenResolution: typeof window !== 'undefined' ? `${window.screen.width}x${window.screen.height}` : 'unknown',
-      viewportSize: typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'unknown',
-      timestamp: submitTimestamp,
-    };
-
-    logger.info('booking', '🔵 НАЖАТИЕ НА КНОПКУ "ЗАБРОНИРОВАТЬ СТОЛИК"', {
-      action: 'button_click',
-      formState,
-      contextInfo,
-      performance: {
-        memory: typeof performance !== 'undefined' && 'memory' in performance 
-          ? {
-              usedJSHeapSize: (performance as any).memory?.usedJSHeapSize,
-              totalJSHeapSize: (performance as any).memory?.totalJSHeapSize,
-              jsHeapSizeLimit: (performance as any).memory?.jsHeapSizeLimit,
-            }
-          : null,
-      },
-    });
-
-    // ========== ВАЛИДАЦИЯ С ЛОГИРОВАНИЕМ ==========
-    if (!selectedDate) {
-      logger.warn('booking', '❌ Валидация не пройдена: не выбрана дата', {
-        validationError: 'missing_date',
-        formState,
-      });
+  const handleSubmit = useCallback(async () => {
+    if (!selectedDate || !(selectedDate instanceof Date) || isNaN(selectedDate.getTime())) {
       toast({
         title: "Ошибка",
         description: "Выберите дату бронирования",
@@ -562,10 +307,6 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     }
 
     if (!selectedTime) {
-      logger.warn('booking', '❌ Валидация не пройдена: не выбрано время', {
-        validationError: 'missing_time',
-        formState,
-      });
       toast({
         title: "Ошибка",
         description: "Выберите время бронирования",
@@ -575,10 +316,6 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     }
 
     if (!name.trim()) {
-      logger.warn('booking', '❌ Валидация не пройдена: не введено имя', {
-        validationError: 'missing_name',
-        formState,
-      });
       toast({
         title: "Ошибка",
         description: "Введите ваше имя",
@@ -588,12 +325,6 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     }
 
     if (!isRussianName(name)) {
-      logger.warn('booking', '❌ Валидация не пройдена: имя содержит недопустимые символы', {
-        validationError: 'invalid_name_format',
-        nameLength: name.length,
-        nameFirstChar: name.substring(0, 1),
-        formState,
-      });
       toast({
         title: "Ошибка",
         description: "Имя должно содержать только русские буквы",
@@ -603,10 +334,6 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     }
 
     if (!phone.trim()) {
-      logger.warn('booking', '❌ Валидация не пройдена: не введен телефон', {
-        validationError: 'missing_phone',
-        formState,
-      });
       toast({
         title: "Ошибка",
         description: "Введите номер телефона",
@@ -616,10 +343,6 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     }
 
     if (!hasPreviousBooking && !consentGiven) {
-      logger.warn('booking', '❌ Валидация не пройдена: не дано согласие на обработку данных', {
-        validationError: 'missing_consent',
-        formState,
-      });
       toast({
         title: "Ошибка",
         description: "Необходимо дать согласие на обработку персональных данных",
@@ -629,12 +352,6 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     }
 
     if (!token || !remarkedRestaurantId) {
-      logger.error('booking', new Error('❌ Валидация не пройдена: система бронирования недоступна'), {
-        validationError: 'system_unavailable',
-        tokenExists: !!token,
-        remarkedRestaurantId,
-        formState,
-      });
       toast({
         title: "Ошибка",
         description: "Система бронирования недоступна",
@@ -643,72 +360,33 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       return;
     }
 
-    // Проверяем, что ID является 6-значным кодом
-    if (!isValidRemarkedId(remarkedRestaurantId)) {
-      const error = new Error(`Некорректный ID Remarked при создании бронирования: ${remarkedRestaurantId}`);
-      logger.error("booking", error, {
-        validationError: 'invalid_remarked_id',
-        remarkedRestaurantId,
-        formState,
-      });
-      toast({
-        title: "Ошибка конфигурации",
-        description: "ID ресторана в системе бронирования должен быть 6-значным кодом. Обратитесь к администратору.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    logger.info('booking', '✅ Валидация пройдена успешно', {
-      validationStatus: 'passed',
-      formState,
-    });
-
     setSubmitting(true);
 
-    // Подготавливаем данные заранее для использования в catch блоке
-    let dateStr = "";
-    let formattedPhone = "";
-    let bookingRequestData: CreateBookingRequest | null = null;
-
     try {
-      logger.info('booking', '🔄 Начало подготовки данных для бронирования', {
-        step: 'data_preparation',
-        timestamp: new Date().toISOString(),
-      });
+      let formattedPhone: string;
+      try {
+        formattedPhone = formatPhone(phone);
+      } catch (error) {
+        toast({
+          title: "Ошибка",
+          description: error instanceof Error ? error.message : "Некорректный номер телефона",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
 
-      // Проверяем валидность данных перед обработкой
-      if (!phone || typeof phone !== "string" || !phone.trim()) {
-        throw new Error("Некорректный номер телефона");
-      }
-      
-      if (!name || typeof name !== "string" || !name.trim()) {
-        throw new Error("Некорректное имя");
-      }
-      
-      if (!selectedDate || !(selectedDate instanceof Date) || isNaN(selectedDate.getTime())) {
-        throw new Error("Некорректная дата бронирования");
-      }
-      
-      if (!selectedTime || typeof selectedTime !== "string" || !selectedTime.trim()) {
-        throw new Error("Некорректное время бронирования");
-      }
-      
-      formattedPhone = formatPhone(phone);
-      dateStr = format(selectedDate, "yyyy-MM-dd");
+      const dateStr = format(selectedDate, "yyyy-MM-dd");
       const fullComment = [
         selectedEvent?.comment,
-        typeof comment === "string" ? comment.trim() : "",
+        comment.trim(),
       ]
         .filter((item) => Boolean(item))
         .join(". ");
 
-      // Используем бэкенд API для создания бронирования
-      const trimmedName = typeof name === "string" ? name.trim() : "";
-      
-      bookingRequestData = {
+      const bookingRequest: CreateBookingRequest = {
         restaurantId: selectedRestaurant.id,
-        name: trimmedName,
+        name: name.trim(),
         phone: formattedPhone,
         date: dateStr,
         time: selectedTime,
@@ -717,86 +395,30 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         source: "mobile_app",
       };
 
-      logger.info('booking', '📤 Отправка запроса на создание бронирования', {
-        step: 'api_request',
-        requestData: {
-          ...bookingRequestData,
-          phone: formattedPhone.replace(/\d(?=\d{4})/g, '*'), // Маскируем телефон
-          name: trimmedName.substring(0, 1) + '*'.repeat(Math.max(0, trimmedName.length - 1)), // Маскируем имя
-        },
-        timestamp: new Date().toISOString(),
-        requestStartTime: performance.now(),
-      });
-
-      const apiRequestStartTime = performance.now();
-      const result = await createBooking(bookingRequestData);
-      const apiRequestDuration = performance.now() - apiRequestStartTime;
-
-      logger.info('booking', '📥 Получен ответ от API создания бронирования', {
-        step: 'api_response',
-        success: result?.success,
-        hasBooking: !!result?.booking,
-        bookingId: result?.booking?.id,
-        reserveId: result?.booking?.reserveId,
-        error: result?.error,
-        responseDuration: `${apiRequestDuration.toFixed(2)}ms`,
-        timestamp: new Date().toISOString(),
-      });
+      const result = await createBooking(bookingRequest);
 
       if (result && result.success && result.booking) {
-        const reserveId = result.booking.reserveId;
-        const reserveIdStr = reserveId != null ? String(reserveId) : null;
-        const totalDuration = performance.now() - submitStartTime;
-        
-        logger.info('booking', '✅ БРОНИРОВАНИЕ УСПЕШНО СОЗДАНО', {
-          step: 'booking_success',
-          bookingId: result.booking.id,
-          reserveId: reserveIdStr,
-          restaurantId: selectedRestaurant.id,
-          restaurantName: selectedRestaurant.name,
-          date: dateStr,
-          time: selectedTime,
-          guestsCount,
-          totalDuration: `${totalDuration.toFixed(2)}ms`,
-          apiDuration: `${apiRequestDuration.toFixed(2)}ms`,
-          timestamp: new Date().toISOString(),
-        });
-        
         toast({
           title: "Успешно!",
-          description: reserveIdStr 
-            ? `Бронирование создано. ID: ${reserveIdStr}`
+          description: result.booking.reserveId 
+            ? `Бронирование создано. ID: ${result.booking.reserveId}`
             : "Бронирование создано",
         });
 
-        // Сохраняем данные в профиль
+        // Обновление профиля
         const profileUpdates: Partial<typeof profile> = {};
         let shouldUpdateProfile = false;
 
-        logger.info('booking', '🔄 Проверка необходимости обновления профиля', {
-          step: 'profile_update_check',
-          currentProfileName: profile.name,
-          currentProfilePhone: profile.phone ? profile.phone.replace(/\d(?=\d{4})/g, '*') : null,
-          currentProfileConsent: profile.personalDataConsentGiven,
-          newName: trimmedName.substring(0, 1) + '*'.repeat(Math.max(0, trimmedName.length - 1)),
-          newPhone: formattedPhone.replace(/\d(?=\d{4})/g, '*'),
-          newConsent: consentGiven,
-        });
-
-        // Сохраняем имя, если оно изменилось или отсутствовало
-        const trimmedName = typeof name === "string" ? name.trim() : "";
-        if (trimmedName && trimmedName !== profile.name) {
-          profileUpdates.name = trimmedName;
+        if (name.trim() && name.trim() !== profile.name) {
+          profileUpdates.name = name.trim();
           shouldUpdateProfile = true;
         }
 
-        // Сохраняем телефон, если он изменился или отсутствовал
         if (formattedPhone && formattedPhone !== profile.phone) {
           profileUpdates.phone = formattedPhone;
           shouldUpdateProfile = true;
         }
 
-        // Сохраняем согласие на обработку персональных данных
         if (consentGiven && !profile.personalDataConsentGiven) {
           profileUpdates.personalDataConsentGiven = true;
           profileUpdates.personalDataConsentDate = new Date().toISOString();
@@ -804,53 +426,11 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         }
 
         if (shouldUpdateProfile) {
-          logger.info('booking', '💾 Обновление профиля пользователя', {
-            step: 'profile_update',
-            updates: {
-              ...profileUpdates,
-              phone: profileUpdates.phone ? profileUpdates.phone.replace(/\d(?=\d{4})/g, '*') : undefined,
-              name: profileUpdates.name ? profileUpdates.name.substring(0, 1) + '*'.repeat(Math.max(0, profileUpdates.name.length - 1)) : undefined,
-            },
-            timestamp: new Date().toISOString(),
-          });
-          
           try {
-            const profileUpdateStartTime = performance.now();
             await profileApi.updateUserProfile(profile.id, profileUpdates);
-            const profileUpdateDuration = performance.now() - profileUpdateStartTime;
-            
-            logger.info('booking', '✅ Профиль успешно обновлен', {
-              step: 'profile_update_success',
-              updates: {
-                ...profileUpdates,
-                phone: profileUpdates.phone ? profileUpdates.phone.replace(/\d(?=\d{4})/g, '*') : undefined,
-                name: profileUpdates.name ? profileUpdates.name.substring(0, 1) + '*'.repeat(Math.max(0, profileUpdates.name.length - 1)) : undefined,
-              },
-              duration: `${profileUpdateDuration.toFixed(2)}ms`,
-              timestamp: new Date().toISOString(),
-            });
-          } catch (error) {
-            logger.error('booking', error instanceof Error ? error : new Error('Ошибка обновления профиля'), {
-              step: 'profile_update_error',
-              updates: {
-                ...profileUpdates,
-                phone: profileUpdates.phone ? profileUpdates.phone.replace(/\d(?=\d{4})/g, '*') : undefined,
-                name: profileUpdates.name ? profileUpdates.name.substring(0, 1) + '*'.repeat(Math.max(0, profileUpdates.name.length - 1)) : undefined,
-              },
-              errorDetails: {
-                name: error instanceof Error ? error.name : 'Unknown',
-                message: error instanceof Error ? error.message : String(error),
-                stack: error instanceof Error ? error.stack : undefined,
-              },
-              timestamp: new Date().toISOString(),
-            });
-            // Не показываем ошибку пользователю, так как бронирование уже создано
+          } catch {
+            // Игнорируем ошибки обновления профиля
           }
-        } else {
-          logger.info('booking', 'ℹ️ Обновление профиля не требуется', {
-            step: 'profile_update_skipped',
-            reason: 'no_changes',
-          });
         }
 
         // Сброс формы
@@ -858,75 +438,18 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         setSelectedTime("");
         setSelectedEvent(null);
         setComment("");
-        // Не сбрасываем согласие, если оно уже было дано
         if (!hasPreviousBooking) {
           setConsentGiven(false);
         }
         setHasPreviousBooking(true);
 
-        logger.info('booking', '🔄 Форма сброшена после успешного бронирования', {
-          step: 'form_reset',
-          timestamp: new Date().toISOString(),
-        });
-
-        // Закрываем модальное окно после успешного бронирования
         if (onSuccess) {
-          logger.info('booking', '🚪 Вызов onSuccess callback', {
-            step: 'on_success_callback',
-            timestamp: new Date().toISOString(),
-          });
           onSuccess();
         }
       } else {
-        const errorMessage = result?.error || "Неизвестная ошибка";
-        const error = new Error(`API вернул неуспешный результат: ${errorMessage}`);
-        logger.error('booking', error, {
-          step: 'api_error_response',
-          apiResponse: result,
-          requestData: bookingRequestData ? {
-            ...bookingRequestData,
-            phone: bookingRequestData.phone.replace(/\d(?=\d{4})/g, '*'),
-            name: bookingRequestData.name.substring(0, 1) + '*'.repeat(Math.max(0, bookingRequestData.name.length - 1)),
-          } : null,
-          timestamp: new Date().toISOString(),
-        });
-        throw error;
+        throw new Error(result?.error || "Не удалось создать бронирование");
       }
     } catch (error) {
-      const totalDuration = performance.now() - submitStartTime;
-      const errorDetails = {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      };
-
-      logger.error("booking", error instanceof Error ? error : new Error("Ошибка создания бронирования"), {
-        step: 'booking_error',
-        errorDetails,
-        formState,
-        contextInfo,
-        requestData: bookingRequestData ? {
-          ...bookingRequestData,
-          phone: bookingRequestData.phone.replace(/\d(?=\d{4})/g, '*'),
-          name: bookingRequestData.name.substring(0, 1) + '*'.repeat(Math.max(0, bookingRequestData.name.length - 1)),
-        } : null,
-        remarkedRestaurantId,
-        date: dateStr,
-        time: selectedTime,
-        guestsCount,
-        totalDuration: `${totalDuration.toFixed(2)}ms`,
-        timestamp: new Date().toISOString(),
-        performance: {
-          memory: typeof performance !== 'undefined' && 'memory' in performance 
-            ? {
-                usedJSHeapSize: (performance as any).memory?.usedJSHeapSize,
-                totalJSHeapSize: (performance as any).memory?.totalJSHeapSize,
-                jsHeapSizeLimit: (performance as any).memory?.jsHeapSizeLimit,
-              }
-            : null,
-        },
-      });
-      
       const errorMessage = error instanceof Error ? error.message : "Не удалось создать бронирование";
       toast({
         title: "Ошибка",
@@ -934,46 +457,25 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         variant: "destructive",
       });
     } finally {
-      const totalDuration = performance.now() - submitStartTime;
-      logger.info('booking', '🏁 Завершение процесса бронирования', {
-        step: 'booking_complete',
-        submitting: false,
-        totalDuration: `${totalDuration.toFixed(2)}ms`,
-        timestamp: new Date().toISOString(),
-      });
       setSubmitting(false);
     }
-  };
-
-  if (!remarkedRestaurantId) {
-    return (
-      <div className="rounded-[24px] border border-white/15 bg-white/10 p-6 text-center text-white">
-        <p className="font-el-messiri text-lg">
-          Бронирование пока недоступно для этого ресторана
-        </p>
-        <p className="mt-2 text-sm text-white/70">
-          Обратитесь к администратору для настройки системы бронирования (требуется 6-значный код Remarked)
-        </p>
-      </div>
-    );
-  }
-
-  // Проверяем формат ID при отображении формы
-  if (!isValidRemarkedId(remarkedRestaurantId)) {
-    return (
-      <div className="rounded-[24px] border border-white/15 bg-white/10 p-6 text-center text-white">
-        <p className="font-el-messiri text-lg">
-          Ошибка конфигурации системы бронирования
-        </p>
-        <p className="mt-2 text-sm text-white/70">
-          ID ресторана должен быть 6-значным кодом Remarked. Текущее значение: {remarkedRestaurantId}
-        </p>
-        <p className="mt-2 text-sm text-white/70">
-          Обратитесь к администратору для исправления настроек
-        </p>
-      </div>
-    );
-  }
+  }, [
+    selectedDate,
+    selectedTime,
+    name,
+    phone,
+    consentGiven,
+    hasPreviousBooking,
+    token,
+    remarkedRestaurantId,
+    selectedRestaurant,
+    guestsCount,
+    selectedEvent,
+    comment,
+    profile,
+    today,
+    onSuccess,
+  ]);
 
   return (
     <div className="space-y-6">
@@ -1020,12 +522,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
             <Calendar
               mode="single"
               selected={selectedDate}
-              onSelect={(date) => {
-                if (date) {
-                  setSelectedDate(date);
-                  setSelectedTime(""); // Сбрасываем время при смене даты
-                }
-              }}
+              onSelect={handleDateSelect}
               disabled={(date) => {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
@@ -1060,7 +557,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
                   selectedTime === slot.time
                     ? "bg-mariko-primary text-white"
                     : "bg-white/10 border-white/20 text-white hover:bg-white/20"
-                  )}
+                )}
               >
                 {slot.time}
               </Button>
@@ -1167,7 +664,6 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
               href="#"
               onClick={(e) => {
                 e.preventDefault();
-                // TODO: Заменить на реальную ссылку на документ
                 toast({
                   title: "Документ",
                   description: "Ссылка на документ будет добавлена позже",
