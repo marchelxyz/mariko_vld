@@ -10,8 +10,7 @@ interface BookingLocationState {
 const Booking = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { selectedRestaurant, getSelectedCity } = useCityContext();
-  const selectedCity = getSelectedCity();
+  const { selectedRestaurant, selectedCity } = useCityContext();
 
   const locationState = location.state as BookingLocationState | undefined;
   const backTarget = locationState?.from ?? "/";
