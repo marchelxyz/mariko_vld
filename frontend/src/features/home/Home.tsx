@@ -5,7 +5,6 @@ import { useCityContext } from "@/contexts";
 import { BottomNavigation, Header } from "@shared/ui/widgets";
 import { EmbeddedPageConfig } from "@/shared/config/webviewPages";
 import {
-  CITY_BOOKING_LINKS,
   CITY_PROMOTION_LINKS,
   RESTAURANT_REVIEW_LINKS,
   VACANCIES_LINK,
@@ -66,22 +65,20 @@ const Index = () => {
       return;
     }
 
-    const bookingLink = CITY_BOOKING_LINKS[selectedCity.id];
-
-    if (!bookingLink) {
+    if (!selectedRestaurant?.remarkedRestaurantId) {
       toast({
-        title: "Бронь скоро появится",
-        description: "Для выбранного города пока нет ссылки на бронь.",
+        title: "Бронь недоступна",
+        description: "Бронирование пока недоступно для этого ресторана. Обратитесь к администратору.",
+        variant: "destructive",
       });
       return;
     }
 
-    openBookingPage({
-      title: `Бронь — ${selectedCity.name}`,
-      url: bookingLink,
-      allowedCityId: selectedCity.id,
-      description: `Забронируйте столик в ресторане ${selectedCity.name}.`,
-      fallbackLabel: "Открыть форму бронирования",
+    // Открываем форму бронирования напрямую
+    navigate("/booking", {
+      state: {
+        from: location.pathname,
+      },
     });
   };
 
@@ -143,14 +140,6 @@ const Index = () => {
     });
   };
 
-  const openBookingPage = (config: EmbeddedPageConfig) => {
-    navigate("/booking", {
-      state: {
-        from: location.pathname,
-        bookingConfig: config,
-      },
-    });
-  };
 
   const handleReviewClick = () => {
     const externalReviewLink = RESTAURANT_REVIEW_LINKS[selectedRestaurant.id];
