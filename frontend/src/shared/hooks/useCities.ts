@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { citiesSupabaseApi } from "@shared/api/cities";
+import { citiesApi } from "@shared/api/cities";
 import { getAvailableCitiesAsync, type City } from "@shared/data";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
@@ -40,7 +40,7 @@ export function useCities() {
       return;
     }
 
-    const unsubscribe = citiesSupabaseApi.subscribeToCitiesChanges((updatedCities) => {
+    const unsubscribe = citiesApi.subscribeToCitiesChanges((updatedCities) => {
       setCities(updatedCities);
       console.log('🔄 Список городов обновлен в реальном времени');
     });

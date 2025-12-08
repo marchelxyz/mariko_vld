@@ -10,6 +10,7 @@ import { registerCartRoutes } from "./routes/cartRoutes.mjs";
 import { createAdminRouter } from "./routes/adminRoutes.mjs";
 import { createPaymentRouter } from "./routes/paymentRoutes.mjs";
 import { createGeocodeRouter } from "./routes/geocodeRoutes.mjs";
+import { createCitiesRouter } from "./routes/citiesRoutes.mjs";
 
 const app = express();
 app.use(cors());
@@ -94,6 +95,10 @@ app.use("/api/payments", createPaymentRouter());
 const geocodeRouter = createGeocodeRouter();
 app.use("/api/geocode", geocodeRouter);
 app.use("/api/cart/geocode", geocodeRouter);
+// Роуты для городов и ресторанов
+const citiesRouter = createCitiesRouter();
+app.use("/api/cities", citiesRouter);
+app.use("/api/cart/cities", citiesRouter);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: "Not Found" });

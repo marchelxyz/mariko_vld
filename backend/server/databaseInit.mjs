@@ -118,6 +118,36 @@ const SCHEMAS = {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `,
+
+  cities: `
+    CREATE TABLE IF NOT EXISTS cities (
+      id VARCHAR(255) PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      is_active BOOLEAN DEFAULT true,
+      display_order INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `,
+
+  restaurants: `
+    CREATE TABLE IF NOT EXISTS restaurants (
+      id VARCHAR(255) PRIMARY KEY,
+      city_id VARCHAR(255) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      address VARCHAR(500) NOT NULL,
+      is_active BOOLEAN DEFAULT true,
+      display_order INTEGER DEFAULT 0,
+      phone_number VARCHAR(20),
+      delivery_aggregators JSONB DEFAULT '[]'::jsonb,
+      yandex_maps_url TEXT,
+      two_gis_url TEXT,
+      social_networks JSONB DEFAULT '[]'::jsonb,
+      remarked_restaurant_id INTEGER,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `,
 };
 
 /**
@@ -138,6 +168,11 @@ const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);`,
   `CREATE INDEX IF NOT EXISTS idx_payments_provider_payment_id ON payments(provider_payment_id);`,
   `CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);`,
+  `CREATE INDEX IF NOT EXISTS idx_cities_is_active ON cities(is_active);`,
+  `CREATE INDEX IF NOT EXISTS idx_cities_display_order ON cities(display_order);`,
+  `CREATE INDEX IF NOT EXISTS idx_restaurants_city_id ON restaurants(city_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_restaurants_is_active ON restaurants(is_active);`,
+  `CREATE INDEX IF NOT EXISTS idx_restaurants_display_order ON restaurants(display_order);`,
 ];
 
 /**
@@ -180,6 +215,8 @@ export async function initializeDatabase() {
       "admin_users",        // admin_users независима
       "restaurant_payments", // restaurant_payments независима
       "payments",           // payments зависит от cart_orders
+      "cities",             // cities независима
+      "restaurants",        // restaurants зависит от cities
     ];
 
     // Создаем таблицы в правильном порядке
@@ -218,6 +255,13 @@ export async function initializeDatabase() {
         sql: `ALTER TABLE payments 
               ADD CONSTRAINT fk_payments_order 
               FOREIGN KEY (order_id) REFERENCES ${CART_ORDERS_TABLE}(id) ON DELETE SET NULL`,
+      },
+      {
+        name: "fk_restaurants_city",
+        table: "restaurants",
+        sql: `ALTER TABLE restaurants 
+              ADD CONSTRAINT fk_restaurants_city 
+              FOREIGN KEY (city_id) REFERENCES cities(id) ON DELETE CASCADE`,
       },
     ];
 
@@ -298,6 +342,8 @@ export async function checkDatabaseTables() {
       "admin_users",
       "restaurant_payments",
       "payments",
+      "cities",
+      "restaurants",
     ];
     
     const result = await query(`
