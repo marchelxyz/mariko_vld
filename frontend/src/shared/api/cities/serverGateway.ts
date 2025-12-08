@@ -110,6 +110,47 @@ export async function createCityViaServer(
   return { success: true };
 }
 
+export async function createRestaurantViaServer(
+  restaurant: {
+    cityId: string;
+    name: string;
+    address: string;
+    phoneNumber?: string;
+    deliveryAggregators?: Array<{ name: string; url: string }>;
+    yandexMapsUrl?: string;
+    twoGisUrl?: string;
+    socialNetworks?: Array<{ name: string; url: string }>;
+    remarkedRestaurantId?: number;
+  }
+): Promise<{ success: boolean; restaurantId?: string; errorMessage?: string }> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  const initData = getTg()?.initData;
+  if (initData) {
+    headers['X-Telegram-Init-Data'] = initData;
+  }
+
+  const response = await fetch(resolveServerUrl('/cities/restaurants'), {
+    method: 'POST',
+    credentials: 'include',
+    headers,
+    body: JSON.stringify(restaurant),
+  });
+
+  const text = await response.text();
+  if (!response.ok) {
+    return {
+      success: false,
+      errorMessage: parseErrorPayload(text) ?? 'Ошибка серверного API при создании ресторана',
+    };
+  }
+
+  const result = text ? JSON.parse(text) : {};
+  return { success: true, restaurantId: result.restaurantId };
+}
+
 export async function updateRestaurantViaServer(
   restaurantId: string,
   updates: {
