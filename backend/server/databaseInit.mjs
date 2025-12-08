@@ -32,7 +32,7 @@ const SCHEMAS = {
 
   user_addresses: `
     CREATE TABLE IF NOT EXISTS user_addresses (
-      id VARCHAR(255) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      id VARCHAR(255) PRIMARY KEY,
       user_id VARCHAR(255) NOT NULL,
       label VARCHAR(255),
       street VARCHAR(255),
@@ -46,8 +46,7 @@ const SCHEMAS = {
       accuracy DOUBLE PRECISION,
       is_primary BOOLEAN DEFAULT false,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      CONSTRAINT fk_user_addresses_user FOREIGN KEY (user_id) REFERENCES user_profiles(id) ON DELETE CASCADE
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `,
 
@@ -116,8 +115,7 @@ const SCHEMAS = {
       description TEXT,
       metadata JSONB DEFAULT '{}'::jsonb,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      CONSTRAINT fk_payments_order FOREIGN KEY (order_id) REFERENCES ${CART_ORDERS_TABLE}(id) ON DELETE SET NULL
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `,
 };
@@ -153,34 +151,132 @@ export async function initializeDatabase() {
 
   try {
     console.log("🔄 Начинаем инициализацию базы данных...");
-
-    // Создаем таблицы
-    for (const [tableName, schema] of Object.entries(SCHEMAS)) {
+    console.log(`📊 DATABASE_URL установлен: ${process.env.DATABASE_URL ? "да" : "нет"}`);
+    
+    // Проверяем подключение к БД и наличие расширения для UUID
+    try {
+      await query("SELECT 1 as test");
+      console.log("✅ Подключение к БД успешно");
+      
+      // Проверяем наличие расширения pgcrypto для gen_random_uuid()
       try {
+        await query("CREATE EXTENSION IF NOT EXISTS pgcrypto");
+        console.log("✅ Расширение pgcrypto доступно");
+      } catch (extError) {
+        console.warn("⚠️  Не удалось создать расширение pgcrypto:", extError.message);
+        console.warn("⚠️  UUID будут генерироваться на стороне приложения");
+      }
+    } catch (error) {
+      console.error("❌ Ошибка подключения к БД:", error.message);
+      console.error("Полная ошибка:", error);
+      throw error;
+    }
+
+    // Определяем порядок создания таблиц (важно для foreign keys)
+    const tableOrder = [
+      "user_profiles",      // Сначала создаем user_profiles
+      "user_addresses",     // Потом user_addresses (зависит от user_profiles)
+      "cart_orders",        // cart_orders независима
+      "admin_users",        // admin_users независима
+      "restaurant_payments", // restaurant_payments независима
+      "payments",           // payments зависит от cart_orders
+    ];
+
+    // Создаем таблицы в правильном порядке
+    for (const tableName of tableOrder) {
+      try {
+        const schema = SCHEMAS[tableName];
+        if (!schema) {
+          console.warn(`⚠️  Схема для таблицы ${tableName} не найдена`);
+          continue;
+        }
+        
+        console.log(`📝 Создаем таблицу: ${tableName}...`);
         await query(schema);
         console.log(`✅ Таблица ${tableName} создана/проверена`);
       } catch (error) {
         console.error(`❌ Ошибка создания таблицы ${tableName}:`, error.message);
+        console.error(`Полная ошибка:`, error);
+        console.error(`SQL запрос:`, SCHEMAS[tableName]?.substring(0, 200) + "...");
         throw error;
       }
     }
 
+    // Создаем foreign keys отдельно (после создания всех таблиц)
+    console.log("🔗 Создаем foreign keys...");
+    const foreignKeys = [
+      {
+        name: "fk_user_addresses_user",
+        table: "user_addresses",
+        sql: `ALTER TABLE user_addresses 
+              ADD CONSTRAINT fk_user_addresses_user 
+              FOREIGN KEY (user_id) REFERENCES user_profiles(id) ON DELETE CASCADE`,
+      },
+      {
+        name: "fk_payments_order",
+        table: "payments",
+        sql: `ALTER TABLE payments 
+              ADD CONSTRAINT fk_payments_order 
+              FOREIGN KEY (order_id) REFERENCES ${CART_ORDERS_TABLE}(id) ON DELETE SET NULL`,
+      },
+    ];
+
+    for (const fk of foreignKeys) {
+      try {
+        // Проверяем, существует ли уже constraint
+        const checkResult = await query(`
+          SELECT constraint_name 
+          FROM information_schema.table_constraints 
+          WHERE constraint_name = $1 AND table_schema = 'public'
+        `, [fk.name]);
+        
+        if (checkResult.rows.length === 0) {
+          await query(fk.sql);
+          console.log(`✅ Foreign key ${fk.name} создан`);
+        } else {
+          console.log(`ℹ️  Foreign key ${fk.name} уже существует`);
+        }
+      } catch (error) {
+        const errorMsg = error.message || String(error);
+        if (!errorMsg.includes("already exists") && 
+            !errorMsg.includes("duplicate") && 
+            !errorMsg.includes("does not exist") &&
+            !errorMsg.includes("constraint") &&
+            !errorMsg.includes("already")) {
+          console.warn(`⚠️  Предупреждение при создании foreign key ${fk.name}:`, errorMsg);
+        } else {
+          console.log(`ℹ️  Foreign key ${fk.name} пропущен (уже существует или не требуется)`);
+        }
+      }
+    }
+
     // Создаем индексы
+    console.log("📇 Создаем индексы...");
     for (const indexSql of INDEXES) {
       try {
         await query(indexSql);
       } catch (error) {
         // Игнорируем ошибки, если индекс уже существует
-        if (!error.message.includes("already exists")) {
-          console.warn(`⚠️  Предупреждение при создании индекса:`, error.message);
+        const errorMsg = error.message || String(error);
+        if (!errorMsg.includes("already exists") && !errorMsg.includes("duplicate")) {
+          console.warn(`⚠️  Предупреждение при создании индекса:`, errorMsg);
+          console.warn(`SQL:`, indexSql.substring(0, 100) + "...");
         }
       }
     }
 
     console.log("✅ Инициализация базы данных завершена успешно");
+    
+    // Проверяем созданные таблицы
+    await checkDatabaseTables();
+    
     return true;
   } catch (error) {
-    console.error("❌ Критическая ошибка инициализации БД:", error);
+    console.error("❌ Критическая ошибка инициализации БД:");
+    console.error("Сообщение:", error.message);
+    console.error("Код:", error.code);
+    console.error("Детали:", error.detail);
+    console.error("Полный стек:", error.stack);
     return false;
   }
 }
