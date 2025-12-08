@@ -6,7 +6,6 @@ const RAW_SERVER_API_BASE = normalizeBaseUrl(rawServerEnv || "/api");
 const HAS_CUSTOM_SERVER_BASE = Boolean(rawServerEnv);
 const USE_SERVER_API = (import.meta.env.VITE_USE_SERVER_API ?? "true") !== "false";
 const FORCE_SERVER_API_IN_DEV = import.meta.env.VITE_FORCE_SERVER_API === "true";
-const DEV_ADMIN_TOKEN = import.meta.env.VITE_DEV_ADMIN_TOKEN;
 
 export type PromotionImageAsset = {
   path: string;
@@ -60,8 +59,6 @@ function buildAdminHeaders(initial?: Record<string, string>): Record<string, str
   const initData = getTg()?.initData;
   if (initData) {
     headers["X-Telegram-Init-Data"] = initData;
-  } else if (import.meta.env.DEV && DEV_ADMIN_TOKEN) {
-    headers["X-Admin-Token"] = DEV_ADMIN_TOKEN;
   }
 
   return headers;

@@ -3,8 +3,6 @@ import { db, ensureDatabase, queryMany, queryOne, query } from "../postgresClien
 import {
   CART_ORDERS_TABLE,
   ORDER_STATUS_VALUES,
-  ADMIN_DEV_TOKEN,
-  ADMIN_DEV_TELEGRAM_ID,
 } from "../config.mjs";
 import {
   authoriseAdmin,
@@ -30,30 +28,16 @@ export function createAdminRouter() {
 
   router.get("/me", async (req, res) => {
     const telegramId = getTelegramIdFromRequest(req);
-    const devToken = req.get("x-admin-token");
 
-    // Быстрый bypass: если пришёл dev-токен, отдаём супер-админа без обращения к БД
-    if (ADMIN_DEV_TOKEN && devToken === ADMIN_DEV_TOKEN) {
-      return res.json({
-        success: true,
-        role: "super_admin",
-        allowedRestaurants: [],
-      });
+    if (!telegramId) {
+      return res.status(401).json({ success: false, message: "Не удалось определить администратора" });
     }
 
     if (!ensureDatabase(res)) {
       return;
     }
-    const devOverrideId =
-      !telegramId && ADMIN_DEV_TOKEN && devToken === ADMIN_DEV_TOKEN
-        ? ADMIN_DEV_TELEGRAM_ID || null
-        : null;
 
-    if (!telegramId && !devOverrideId) {
-      return res.status(401).json({ success: false, message: "Не удалось определить администратора" });
-    }
-
-    const context = await resolveAdminContext(telegramId || devOverrideId);
+    const context = await resolveAdminContext(telegramId);
     return res.json({
       success: true,
       role: context.role,
