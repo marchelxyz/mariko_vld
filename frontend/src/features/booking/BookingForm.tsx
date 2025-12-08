@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Calendar } from "@shared/ui/calendar";
@@ -95,8 +95,12 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
   const { selectedRestaurant } = useCityContext();
   const { profile } = useProfile();
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Используем useMemo для today, чтобы избежать пересоздания при каждом рендере
+  const today = useMemo(() => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }, []);
 
   const [guestsCount, setGuestsCount] = useState<number>(1);
   const [selectedDate, setSelectedDate] = useState<Date>(today);
@@ -115,9 +119,17 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
   const [token, setToken] = useState<string | null>(null);
   const [hasPreviousBooking, setHasPreviousBooking] = useState<boolean>(false);
   const [checkingPreviousBooking, setCheckingPreviousBooking] = useState<boolean>(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+
+  // Refs для отмены запросов
+  const tokenAbortControllerRef = useRef<AbortController | null>(null);
+  const slotsAbortControllerRef = useRef<AbortController | null>(null);
+  const reservesAbortControllerRef = useRef<AbortController | null>(null);
 
   const remarkedRestaurantId = selectedRestaurant?.remarkedRestaurantId;
+  const isValidRestaurantId = remarkedRestaurantId && isValidRemarkedId(remarkedRestaurantId);
 
+  // Ранние возвраты перемещены ПОСЛЕ всех хуков
   if (!selectedRestaurant) {
     return (
       <div className="p-4 text-center text-muted-foreground">
@@ -139,7 +151,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     );
   }
 
-  if (!isValidRemarkedId(remarkedRestaurantId)) {
+  if (!isValidRestaurantId) {
     return (
       <div className="rounded-[24px] border border-white/15 bg-white/10 p-6 text-center text-white">
         <p className="font-el-messiri text-lg">
@@ -154,26 +166,47 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
 
   // Загрузка токена
   useEffect(() => {
-    if (!remarkedRestaurantId || !isValidRemarkedId(remarkedRestaurantId)) {
+    if (!isValidRestaurantId) {
       return;
     }
 
-    getRemarkedToken(remarkedRestaurantId, true)
+    // Отменяем предыдущий запрос, если он существует
+    tokenAbortControllerRef.current?.abort();
+    tokenAbortControllerRef.current = new AbortController();
+
+    setTokenError(null);
+    
+    getRemarkedToken(remarkedRestaurantId!, true)
       .then((data) => {
+        // Проверяем, не был ли запрос отменен
+        if (tokenAbortControllerRef.current?.signal.aborted) {
+          return;
+        }
         setToken(data.token);
+        setTokenError(null);
       })
       .catch((error) => {
+        // Игнорируем ошибки отмены запроса
+        if (error.name === 'AbortError') {
+          return;
+        }
+        const errorMessage = error instanceof Error ? error.message : "Не удалось подключиться к системе бронирования";
+        setTokenError(errorMessage);
         toast({
           title: "Ошибка",
-          description: "Не удалось подключиться к системе бронирования",
+          description: errorMessage,
           variant: "destructive",
         });
       });
-  }, [remarkedRestaurantId]);
+
+    return () => {
+      tokenAbortControllerRef.current?.abort();
+    };
+  }, [remarkedRestaurantId, isValidRestaurantId]);
 
   // Загрузка слотов
   useEffect(() => {
-    if (!selectedDate || !token || !remarkedRestaurantId) {
+    if (!selectedDate || !token || !isValidRestaurantId) {
       setAvailableSlots([]);
       setSelectedTime("");
       return;
@@ -183,11 +216,20 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       return;
     }
 
+    // Отменяем предыдущий запрос, если он существует
+    slotsAbortControllerRef.current?.abort();
+    slotsAbortControllerRef.current = new AbortController();
+
     setLoadingSlots(true);
     const dateStr = format(selectedDate, "yyyy-MM-dd");
 
     getRemarkedSlots(token, dateStr, guestsCount)
       .then((data) => {
+        // Проверяем, не был ли запрос отменен
+        if (slotsAbortControllerRef.current?.signal.aborted) {
+          return;
+        }
+
         const slots = (data.slots || [])
           .filter((slot) => slot.is_free)
           .map((slot) => {
@@ -216,26 +258,47 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           return prevTime;
         });
       })
-      .catch(() => {
+      .catch((error) => {
+        // Игнорируем ошибки отмены запроса
+        if (error.name === 'AbortError') {
+          return;
+        }
+        // Не показываем ошибку, если просто нет слотов (это нормальная ситуация)
+        const errorMessage = error instanceof Error ? error.message : "Не удалось загрузить доступное время";
         toast({
           title: "Ошибка",
-          description: "Не удалось загрузить доступное время",
+          description: errorMessage,
           variant: "destructive",
         });
       })
       .finally(() => {
-        setLoadingSlots(false);
+        if (!slotsAbortControllerRef.current?.signal.aborted) {
+          setLoadingSlots(false);
+        }
       });
-  }, [selectedDate, token, guestsCount, remarkedRestaurantId]);
+
+    return () => {
+      slotsAbortControllerRef.current?.abort();
+    };
+  }, [selectedDate, token, guestsCount, isValidRestaurantId]);
 
   // Автозаполнение из профиля
   useEffect(() => {
-    if (profile.phone && !phone) {
-      setPhone(profile.phone);
-    }
-    if (profile.name && !name) {
-      setName(profile.name);
-    }
+    // Используем функциональное обновление состояния, чтобы избежать проблем с зависимостями
+    setPhone((prevPhone) => {
+      if (profile.phone && !prevPhone) {
+        return profile.phone;
+      }
+      return prevPhone;
+    });
+    
+    setName((prevName) => {
+      if (profile.name && !prevName) {
+        return profile.name;
+      }
+      return prevName;
+    });
+
     if (profile.personalDataConsentGiven) {
       setConsentGiven(true);
       setHasPreviousBooking(true);
@@ -245,7 +308,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
   // Проверка предыдущих броней
   useEffect(() => {
     const checkPreviousBookings = async () => {
-      if (!token || !phone || !remarkedRestaurantId || hasPreviousBooking) {
+      if (!token || !phone || !isValidRestaurantId || hasPreviousBooking) {
         return;
       }
 
@@ -259,10 +322,19 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         return;
       }
 
+      // Отменяем предыдущий запрос, если он существует
+      reservesAbortControllerRef.current?.abort();
+      reservesAbortControllerRef.current = new AbortController();
+
       setCheckingPreviousBooking(true);
 
       try {
         const reserves = await getRemarkedReservesByPhone(token, formattedPhone, 1);
+        
+        // Проверяем, не был ли запрос отменен
+        if (reservesAbortControllerRef.current?.signal.aborted) {
+          return;
+        }
         
         if (reserves.total > 0) {
           setHasPreviousBooking(true);
@@ -279,15 +351,24 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
             }
           }
         }
-      } catch {
-        // Игнорируем ошибки проверки
+      } catch (error) {
+        // Игнорируем ошибки отмены запроса и другие ошибки проверки
+        if (error instanceof Error && error.name !== 'AbortError') {
+          // Тихая ошибка - не показываем пользователю
+        }
       } finally {
-        setCheckingPreviousBooking(false);
+        if (!reservesAbortControllerRef.current?.signal.aborted) {
+          setCheckingPreviousBooking(false);
+        }
       }
     };
 
     void checkPreviousBookings();
-  }, [token, phone, remarkedRestaurantId, hasPreviousBooking, profile.id, profile.personalDataConsentGiven]);
+
+    return () => {
+      reservesAbortControllerRef.current?.abort();
+    };
+  }, [token, phone, isValidRestaurantId, hasPreviousBooking, profile.id, profile.personalDataConsentGiven]);
 
   const handleDateSelect = useCallback((date: Date | undefined) => {
     if (date) {
@@ -351,10 +432,11 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       return;
     }
 
-    if (!token || !remarkedRestaurantId) {
+    if (!token || !isValidRestaurantId) {
+      const errorMsg = tokenError || "Система бронирования недоступна";
       toast({
         title: "Ошибка",
-        description: "Система бронирования недоступна",
+        description: errorMsg,
         variant: "destructive",
       });
       return;
@@ -467,13 +549,14 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     consentGiven,
     hasPreviousBooking,
     token,
-    remarkedRestaurantId,
+    isValidRestaurantId,
     selectedRestaurant,
     guestsCount,
     selectedEvent,
     comment,
     profile,
     today,
+    tokenError,
     onSuccess,
   ]);
 
