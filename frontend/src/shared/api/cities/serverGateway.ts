@@ -50,7 +50,7 @@ export async function setCityStatusViaServer(
     headers['X-Telegram-Init-Data'] = initData;
   }
 
-  const response = await fetch(resolveServerUrl('/admin/cities/status'), {
+  const response = await fetch(resolveServerUrl('/cities/status'), {
     method: 'POST',
     credentials: 'include',
     headers,
@@ -62,6 +62,47 @@ export async function setCityStatusViaServer(
     return {
       success: false,
       errorMessage: parseErrorPayload(text) ?? 'Ошибка серверного API при изменении статуса города',
+    };
+  }
+
+  return { success: true };
+}
+
+export async function updateRestaurantViaServer(
+  restaurantId: string,
+  updates: {
+    name?: string;
+    address?: string;
+    isActive?: boolean;
+    phoneNumber?: string;
+    deliveryAggregators?: Array<{ name: string; url: string }>;
+    yandexMapsUrl?: string;
+    twoGisUrl?: string;
+    socialNetworks?: Array<{ name: string; url: string }>;
+    remarkedRestaurantId?: number;
+  }
+): Promise<{ success: boolean; errorMessage?: string }> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  const initData = getTg()?.initData;
+  if (initData) {
+    headers['X-Telegram-Init-Data'] = initData;
+  }
+
+  const response = await fetch(resolveServerUrl(`/cities/restaurants/${restaurantId}`), {
+    method: 'PATCH',
+    credentials: 'include',
+    headers,
+    body: JSON.stringify(updates),
+  });
+
+  const text = await response.text();
+  if (!response.ok) {
+    return {
+      success: false,
+      errorMessage: parseErrorPayload(text) ?? 'Ошибка серверного API при обновлении ресторана',
     };
   }
 

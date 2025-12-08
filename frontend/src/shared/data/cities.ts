@@ -1,4 +1,4 @@
-import { citiesSupabaseApi } from '@/shared/api/cities';
+import { citiesApi } from '@/shared/api/cities';
 import { ACTIVE_CITY_IDS, USE_ACTIVE_CITIES_FILTER, isRestaurantActive } from '@/shared/config/activeCities';
 
 export type DeliveryAggregator = {
@@ -402,7 +402,7 @@ export function getAvailableCities(): City[] {
  * Используйте эту функцию для real-time данных
  */
 export async function getAvailableCitiesAsync(): Promise<City[]> {
-  return await citiesSupabaseApi.getActiveCities();
+  return await citiesApi.getActiveCities();
 }
 
 /**
@@ -417,7 +417,7 @@ export function getAllCities(): City[] {
  * Получить ВСЕ города из Supabase (асинхронно)
  */
 export async function getAllCitiesAsync(): Promise<City[]> {
-  return await citiesSupabaseApi.getAllCities();
+  return await citiesApi.getAllCities();
 }
 
 // Полный список городов уже экспортирован выше
