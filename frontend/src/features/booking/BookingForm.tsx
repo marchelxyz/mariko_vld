@@ -209,7 +209,23 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
 
   // Загрузка слотов через новый эндпоинт
   useEffect(() => {
-    if (!selectedDate || !isValidRestaurantId || !selectedRestaurant?.id) {
+    // Проверяем, что все необходимые данные доступны
+    const restaurantId = selectedRestaurant?.id;
+    const hasValidRestaurantId = restaurantId && restaurantId.trim() !== '';
+    
+    // Условия загрузки согласно описанию:
+    // 1. Выбран ресторан (restaurantId должен существовать)
+    // 2. Выбрана дата (selectedDate должен быть валидной датой)
+    // 3. Указано количество гостей (guestsCount >= 1)
+    // 4. Ресторан настроен для бронирования (isValidRestaurantId)
+    if (!selectedDate || !isValidRestaurantId || !hasValidRestaurantId || guestsCount < 1) {
+      console.log('Условия загрузки слотов не выполнены:', {
+        hasSelectedDate: !!selectedDate,
+        isValidRestaurantId,
+        hasValidRestaurantId,
+        guestsCount,
+        restaurantId,
+      });
       setAvailableSlots([]);
       setSelectedTime("");
       setSelectedSlot(null);
@@ -218,6 +234,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     }
 
     if (!(selectedDate instanceof Date) || isNaN(selectedDate.getTime())) {
+      console.log('Невалидная дата:', selectedDate);
       setLoadingSlots(false);
       return;
     }
@@ -229,8 +246,16 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     setLoadingSlots(true);
     const dateStr = format(selectedDate, "yyyy-MM-dd");
 
+    console.log('Загрузка слотов:', {
+      restaurantId: restaurantId,
+      date: dateStr,
+      guestsCount: guestsCount,
+      isValidRestaurantId: isValidRestaurantId,
+      remarkedRestaurantId: remarkedRestaurantId,
+    });
+
     getBookingSlots({
-      restaurantId: selectedRestaurant.id,
+      restaurantId: restaurantId!,
       date: dateStr,
       guestsCount: guestsCount,
       withRooms: true,
@@ -241,15 +266,27 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           return;
         }
 
+        console.log('Ответ API слотов:', {
+          success: response.success,
+          slotsCount: response.data?.slots?.length || 0,
+          error: response.error,
+          allSlots: response.data?.slots || [],
+        });
+
         if (response.success && response.data) {
+          const allSlots = response.data.slots || [];
+          console.log('Все слоты от API:', allSlots.length);
+          
           // Фильтруем только свободные слоты
-          const freeSlots = (response.data.slots || [])
+          const freeSlots = allSlots
             .filter((slot) => slot.is_free)
             .sort((a, b) => {
               const timeA = a.start_datetime.split(' ')[1]?.substring(0, 5) || '';
               const timeB = b.start_datetime.split(' ')[1]?.substring(0, 5) || '';
               return timeA.localeCompare(timeB);
             });
+
+          console.log('Свободные слоты после фильтрации:', freeSlots.length, freeSlots);
 
           setAvailableSlots(freeSlots);
           
@@ -273,6 +310,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
             return prevTime;
           });
         } else {
+          console.warn('Не удалось загрузить слоты:', response.error);
           setAvailableSlots([]);
           setSelectedTime("");
           setSelectedSlot(null);
@@ -281,6 +319,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       .catch((error) => {
         // Игнорируем ошибки отмены запроса
         if (error.name === 'AbortError') {
+          console.log('Запрос слотов отменен');
           return;
         }
         
@@ -290,7 +329,14 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         setSelectedSlot(null);
         
         // Не показываем toast для ошибок загрузки слотов, так как это может быть нормальной ситуацией
-        console.error('Ошибка загрузки слотов:', error);
+        console.error('Ошибка загрузки слотов:', {
+          error,
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          restaurantId: restaurantId,
+          date: dateStr,
+          guestsCount: guestsCount,
+        });
       })
       .finally(() => {
         if (!slotsAbortControllerRef.current?.signal.aborted) {
@@ -301,7 +347,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     return () => {
       slotsAbortControllerRef.current?.abort();
     };
-  }, [selectedDate, guestsCount, isValidRestaurantId, selectedRestaurant?.id]);
+  }, [selectedDate, guestsCount, isValidRestaurantId, selectedRestaurant?.id, remarkedRestaurantId]);
 
   // Автозаполнение из профиля
   useEffect(() => {
@@ -679,18 +725,10 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         <Label className="text-white font-el-messiri text-base font-semibold">
           Время *
         </Label>
-        {tokenError ? (
-          <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-4">
-            <p className="text-red-300 text-sm">
-              {tokenError}
-            </p>
-            <p className="mt-2 text-red-200/70 text-xs">
-              Попробуйте обновить страницу или обратитесь в поддержку
-            </p>
-          </div>
-        ) : loadingSlots ? (
+        {loadingSlots ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-white" />
+            <span className="ml-2 text-white/70 text-sm">Загрузка доступного времени...</span>
           </div>
         ) : availableSlots.length > 0 ? (
           <div className="grid grid-cols-3 gap-2">
@@ -715,10 +753,28 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
               );
             })}
           </div>
+        ) : selectedDate ? (
+          <div className="rounded-lg border border-white/20 bg-white/5 p-4">
+            <p className="text-white/70 text-sm">
+              Нет доступных временных слотов на эту дату
+            </p>
+          </div>
         ) : (
-          <p className="text-white/70 text-sm">
-            Нет доступных временных слотов на эту дату
-          </p>
+          <div className="rounded-lg border border-white/20 bg-white/5 p-4">
+            <p className="text-white/70 text-sm">
+              Выберите дату для просмотра доступного времени
+            </p>
+          </div>
+        )}
+        {tokenError && (
+          <div className="mt-2 rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-3">
+            <p className="text-yellow-300 text-xs">
+              ⚠️ {tokenError}
+            </p>
+            <p className="mt-1 text-yellow-200/70 text-xs">
+              Бронирование может быть недоступно. Попробуйте обновить страницу.
+            </p>
+          </div>
         )}
       </div>
 
