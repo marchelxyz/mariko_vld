@@ -443,7 +443,7 @@ export function BookingForm() {
               className="w-full justify-start text-left font-normal h-12 bg-white/10 border-white/20 text-white hover:bg-white/20"
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {formatDate(selectedDate, "d MMMM yyyy", { locale: ru })}
+              {selectedDate ? formatDate(selectedDate, "d MMMM yyyy", { locale: ru }) : ""}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
@@ -456,7 +456,11 @@ export function BookingForm() {
                   setSelectedTime(""); // Сбрасываем время при смене даты
                 }
               }}
-              disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+              disabled={(date) => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                return date < today;
+              }}
               initialFocus
               locale={ru}
             />
