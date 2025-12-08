@@ -39,10 +39,27 @@ export async function getRemarkedToken(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to get token: ${response.statusText}`);
+    let errorMessage = `Failed to get token: ${response.statusText}`;
+    try {
+      const errorData = await response.json();
+      if (errorData.message) {
+        errorMessage = errorData.message;
+      } else if (errorData.error) {
+        errorMessage = errorData.error;
+      }
+    } catch {
+      // Если не удалось распарсить JSON, используем стандартное сообщение
+    }
+    throw new Error(`${errorMessage} (Restaurant ID: ${restaurantId})`);
   }
 
   const data = await response.json();
+  
+  // Проверяем наличие ошибки в ответе
+  if (data.status === "error") {
+    throw new Error(data.message || `Ошибка получения токена для ресторана ${restaurantId}`);
+  }
+  
   return data;
 }
 
@@ -85,10 +102,27 @@ export async function getRemarkedSlots(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to get slots: ${response.statusText}`);
+    let errorMessage = `Failed to get slots: ${response.statusText}`;
+    try {
+      const errorData = await response.json();
+      if (errorData.message) {
+        errorMessage = errorData.message;
+      } else if (errorData.error) {
+        errorMessage = errorData.error;
+      }
+    } catch {
+      // Если не удалось распарсить JSON, используем стандартное сообщение
+    }
+    throw new Error(errorMessage);
   }
 
   const data = await response.json();
+  
+  // Проверяем наличие ошибки в ответе
+  if (data.status === "error") {
+    throw new Error(data.message || "Ошибка получения слотов");
+  }
+  
   return data;
 }
 

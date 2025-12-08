@@ -362,6 +362,15 @@ export function CitiesManagement(): JSX.Element {
       return;
     }
 
+    // Проверяем, что ID является 6-значным кодом
+    if (parsedId !== undefined) {
+      const idStr = parsedId.toString();
+      if (!/^\d{6}$/.test(idStr)) {
+        alert('❌ ID Remarked должен быть 6-значным кодом (например: 123456)');
+        return;
+      }
+    }
+
     const result = await citiesApi.updateRestaurant(restaurantId, {
       remarkedRestaurantId: parsedId,
     });
