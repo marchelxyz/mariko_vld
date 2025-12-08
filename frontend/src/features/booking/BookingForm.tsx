@@ -561,15 +561,23 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
   useEffect(() => {
     // Используем функциональное обновление состояния, чтобы избежать проблем с зависимостями
     setPhone((prevPhone) => {
-      if (profile.phone && !prevPhone) {
-        return profile.phone;
+      // Подтягиваем телефон из профиля, если он есть и поле пустое или содержит дефолтное значение
+      if (profile.phone && profile.phone !== "+7 (000) 000-00-00") {
+        const trimmedPrev = prevPhone?.trim() || "";
+        if (!trimmedPrev || trimmedPrev === "+7 (000) 000-00-00") {
+          return profile.phone;
+        }
       }
       return prevPhone;
     });
     
     setName((prevName) => {
-      if (profile.name && !prevName) {
-        return profile.name;
+      // Подтягиваем имя из профиля, если оно есть и поле пустое или содержит дефолтное значение
+      if (profile.name && profile.name !== "Пользователь") {
+        const trimmedPrev = prevName?.trim() || "";
+        if (!trimmedPrev || trimmedPrev === "Пользователь") {
+          return profile.name;
+        }
       }
       return prevName;
     });
