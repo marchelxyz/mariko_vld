@@ -3,8 +3,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useCityContext } from "@/contexts";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { EmbeddedPageConfig } from "@/shared/config/webviewPages";
-import { CITY_BOOKING_LINKS, DEFAULT_BOOKING_LINK } from "@shared/data";
+import { CITY_BOOKING_LINKS } from "@shared/data";
 import { safeOpenLink } from "@/lib/telegram";
+import { toast } from "@/hooks/use-toast";
 
 interface BookingLocationState {
   from?: string;
@@ -16,24 +17,36 @@ const Booking = () => {
   const location = useLocation();
   const { selectedCity } = useCityContext();
   const [isIframeLoading, setIframeLoading] = useState(true);
+  const [isIframeErrored, setIframeErrored] = useState(false);
 
   const locationState = location.state as BookingLocationState | undefined;
   const stateConfig = locationState?.bookingConfig;
 
   const computedConfig = useMemo<EmbeddedPageConfig>(() => {
     if (selectedCity?.id && selectedCity?.name) {
+      const bookingLink = CITY_BOOKING_LINKS[selectedCity.id];
+
+      if (bookingLink) {
+        return {
+          title: `Бронь — ${selectedCity.name}`,
+          url: bookingLink,
+          allowedCityId: selectedCity.id,
+          description: `Забронируйте столик в ресторане ${selectedCity.name}.`,
+          fallbackLabel: "Открыть форму бронирования",
+        };
+      }
+
       return {
         title: `Бронь — ${selectedCity.name}`,
-        url: CITY_BOOKING_LINKS[selectedCity.id] ?? DEFAULT_BOOKING_LINK,
+        url: "",
         allowedCityId: selectedCity.id,
-        description: `Забронируйте столик в ресторане ${selectedCity.name}.`,
-        fallbackLabel: "Открыть форму бронирования",
+        description: "Для этого города бронирование пока недоступно.",
       };
     }
     return {
       title: "Бронь столика",
-      url: DEFAULT_BOOKING_LINK,
-      fallbackLabel: "Открыть форму бронирования",
+      url: "",
+      description: "Выберите город, чтобы забронировать столик.",
     };
   }, [selectedCity?.id, selectedCity?.name]);
 
@@ -45,7 +58,16 @@ const Booking = () => {
       ? selectedCity.id === bookingConfig.allowedCityId
       : true;
 
+  const hasBookingLink = Boolean(bookingConfig.url);
+
   const handleFallbackClick = () => {
+    if (!bookingConfig.url) {
+      toast({
+        title: "Ссылка недоступна",
+        description: "Для выбранного города бронь будет подключена позже.",
+      });
+      return;
+    }
     safeOpenLink(bookingConfig.url, { try_instant_view: true });
   };
 
@@ -62,15 +84,40 @@ const Booking = () => {
             <p className="mt-4 text-sm font-el-messiri opacity-80">Загружаем виджет бронирования…</p>
           </div>
         )}
-        <iframe
-          title={bookingConfig.title}
-          src={bookingConfig.url}
-          className="h-full w-full flex-1"
-          loading="lazy"
-          onLoad={() => setIframeLoading(false)}
-          allow="geolocation *; microphone *; camera *; payment *"
-          allowFullScreen
-        />
+        {isIframeErrored ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center text-mariko-dark bg-white">
+            <p className="font-el-messiri text-lg">Не удалось загрузить страницу бронирования.</p>
+            <p className="text-sm text-mariko-dark/70">
+              Откроем ссылку во внешнем окне, чтобы вы могли продолжить.
+            </p>
+            <button
+              onClick={() => {
+                setIframeErrored(false);
+                handleFallbackClick();
+              }}
+              className="inline-flex items-center justify-center rounded-[14px] bg-mariko-primary px-5 py-3 font-semibold text-white shadow-md transition hover:bg-mariko-primary/90"
+            >
+              Открыть форму бронирования
+            </button>
+          </div>
+        ) : (
+          <iframe
+            title={bookingConfig.title}
+            src={bookingConfig.url}
+            className="h-full w-full flex-1"
+            loading="lazy"
+            onLoad={() => {
+              setIframeLoading(false);
+              setIframeErrored(false);
+            }}
+            onError={() => {
+              setIframeLoading(false);
+              setIframeErrored(true);
+            }}
+            allow="geolocation *; microphone *; camera *; payment *"
+            allowFullScreen
+          />
+        )}
       </div>
     </div>
   );
@@ -89,9 +136,7 @@ const Booking = () => {
             <p className="mt-2 text-sm text-white/80">{bookingConfig.description}</p>
           )}
 
-          {allowedForCity ? (
-            iframeContainer
-          ) : (
+          {!allowedForCity ? (
             <div className="mt-10 rounded-[20px] border border-white/15 bg-mariko-primary/10 p-6 text-center text-white">
               <p className="font-el-messiri text-lg">Раздел доступен только для выбранного города.</p>
               <p className="mt-3 text-sm text-white/80">
@@ -106,6 +151,15 @@ const Booking = () => {
               >
                 Открыть форму бронирования
               </button>
+            </div>
+          ) : hasBookingLink ? (
+            iframeContainer
+          ) : (
+            <div className="mt-10 rounded-[20px] border border-white/15 bg-mariko-primary/10 p-6 text-center text-white">
+              <p className="font-el-messiri text-lg">Бронирование пока недоступно для этого города.</p>
+              <p className="mt-3 text-sm text-white/80">
+                Мы сообщим, когда появится ссылка на форму брони.
+              </p>
             </div>
           )}
         </div>

@@ -2,7 +2,7 @@
  * Главная страница админ-панели
  */
 
-import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck } from 'lucide-react';
+import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck, Megaphone } from 'lucide-react';
 import { useState, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNavigation, Header } from "@shared/ui/widgets";
@@ -29,8 +29,13 @@ const DeliveryManagementLazy = lazy(() =>
     default: module.DeliveryManagement,
   })),
 );
+const PromotionsManagementLazy = lazy(() =>
+  import("@features/admin").then((module) => ({
+    default: module.PromotionsManagement,
+  })),
+);
 
-type AdminSection = 'cities' | 'menu' | 'roles' | 'deliveries' | null;
+type AdminSection = 'cities' | 'menu' | 'roles' | 'deliveries' | 'promotions' | null;
 
 const SectionLoader = () => (
   <div className="min-h-[40vh] flex items-center justify-center">
@@ -141,6 +146,14 @@ export default function AdminPanel(): JSX.Element {
               onClick={() => setActiveSection('deliveries')}
             />
 
+            {/* Управление акциями */}
+            <AdminCard
+              icon={<Megaphone className="w-8 h-8" />}
+              title="Управление акциями"
+              description="Заполняйте карточки для карусели на главной"
+              onClick={() => setActiveSection('promotions')}
+            />
+
             {/* Управление ролями (только для супер-админа) */}
             {isSuperAdmin() && (
               <AdminCard
@@ -167,6 +180,11 @@ export default function AdminPanel(): JSX.Element {
             {activeSection === 'deliveries' && (
               <Suspense fallback={<SectionLoader />}>
                 <DeliveryManagementLazy />
+              </Suspense>
+            )}
+            {activeSection === 'promotions' && (
+              <Suspense fallback={<SectionLoader />}>
+                <PromotionsManagementLazy />
               </Suspense>
             )}
             {activeSection === 'roles' && isSuperAdmin() && (

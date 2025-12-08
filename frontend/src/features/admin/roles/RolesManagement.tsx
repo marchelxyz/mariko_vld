@@ -110,10 +110,6 @@ export function RolesManagement(): JSX.Element {
   };
 
   const openDialogForUser = (user: AdminPanelUser) => {
-    if (user.role === UserRole.SUPER_ADMIN) {
-      alert("Нельзя изменить роль супер-администратора");
-      return;
-    }
     setSelectedUser(user);
     setSelectedRole(user.role);
     setSelectedRestaurants(user.allowedRestaurants ?? []);
@@ -215,12 +211,10 @@ export function RolesManagement(): JSX.Element {
                 {user.role === UserRole.SUPER_ADMIN ? <Shield className="w-4 h-4 mr-1" /> : user.role === UserRole.ADMIN ? <UserCheck className="w-4 h-4 mr-1" /> : <UserX className="w-4 h-4 mr-1" />}
                 {getRoleLabel(user.role)}
               </span>
-              {user.role !== UserRole.SUPER_ADMIN && (
-                <Button variant="outline" className="w-full sm:w-auto" onClick={() => openDialogForUser(user)}>
-                  Настроить
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
-              )}
+              <Button variant="outline" className="w-full sm:w-auto" onClick={() => openDialogForUser(user)}>
+                Настроить
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
             </div>
           </div>
         ))}
@@ -247,10 +241,16 @@ export function RolesManagement(): JSX.Element {
                   <SelectValue placeholder="Выберите роль" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={UserRole.SUPER_ADMIN}>Супер-администратор</SelectItem>
                   <SelectItem value={UserRole.ADMIN}>Администратор</SelectItem>
                   <SelectItem value={UserRole.USER}>Пользователь</SelectItem>
                 </SelectContent>
               </Select>
+              {selectedRole === UserRole.SUPER_ADMIN && (
+                <p className="text-mariko-dark/60 text-xs mt-2">
+                  Супер-админ получает полный доступ ко всем городам и ресторанам.
+                </p>
+              )}
             </div>
 
             {selectedRole === UserRole.ADMIN && (
