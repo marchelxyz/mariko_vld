@@ -2,6 +2,7 @@ import { Save, X, Plus, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button, Input, Label } from "@shared/ui";
 import type { DeliveryAggregator, SocialNetwork } from "@shared/data";
+import { logger } from "@/lib/logger";
 
 type CreateCityModalProps = {
   isOpen: boolean;
@@ -187,16 +188,23 @@ export function CreateCityModal({
         remarkedRestaurantId: remarkedRestaurantId.trim() ? parseInt(remarkedRestaurantId.trim(), 10) : undefined,
       } : undefined;
 
-      await onSave({
+      const cityData = {
         id: id.trim(),
         name: name.trim(),
         displayOrder: displayOrder.trim() ? parseInt(displayOrder.trim(), 10) : 0,
         restaurant: restaurantData,
-      });
+      };
+      
+      logger.info('cities', 'Начинаем создание города в модальном окне', cityData);
+      await onSave(cityData);
+      logger.info('cities', 'Город успешно создан в модальном окне');
       onClose();
     } catch (error) {
-      console.error('Ошибка создания города:', error);
-      alert('Ошибка создания города');
+      logger.error('cities', error instanceof Error ? error : new Error('Ошибка создания города'), {
+        cityId: id.trim(),
+        cityName: name.trim(),
+      });
+      alert(`Ошибка создания города: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
     } finally {
       setIsSaving(false);
     }
