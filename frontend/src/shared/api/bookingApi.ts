@@ -176,7 +176,6 @@ export type CreateBookingRequest = {
   eventTags?: number[];
   source?: "site" | "mobile_app";
   duration?: number;
-  tableIds?: number[];
 };
 
 export type Slot = {

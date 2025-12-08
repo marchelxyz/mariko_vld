@@ -103,9 +103,6 @@ async function createRemarkedReserve(token, reserve) {
   if (reserve.duration) {
     reserveData.duration = Number(reserve.duration);
   }
-  if (reserve.table_ids && Array.isArray(reserve.table_ids) && reserve.table_ids.length > 0) {
-    reserveData.table_ids = reserve.table_ids.map(id => Number(id));
-  }
   if (reserve.eventTags && Array.isArray(reserve.eventTags) && reserve.eventTags.length > 0) {
     reserveData.eventTags = reserve.eventTags.map(id => Number(id));
   }
@@ -325,7 +322,6 @@ export function createBookingRouter() {
         eventTags,
         source = "mobile_app",
         duration: bookingDuration,
-        tableIds,
       } = req.body ?? {};
 
       // Валидация обязательных полей
@@ -439,7 +435,6 @@ export function createBookingRouter() {
         eventTags: eventTags || [],
         source,
         duration: bookingDuration,
-        table_ids: tableIds && Array.isArray(tableIds) && tableIds.length > 0 ? tableIds : undefined,
       });
 
       logger.info('Бронирование создано в Remarked', { 

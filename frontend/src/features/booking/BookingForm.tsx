@@ -508,9 +508,6 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         comment: fullComment || undefined,
         source: "mobile_app",
         duration: duration,
-        tableIds: selectedSlot?.tables_ids && selectedSlot.tables_ids.length > 0 
-          ? selectedSlot.tables_ids 
-          : undefined,
       };
 
       const result = await createBooking(bookingRequest);
@@ -696,7 +693,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
             <Loader2 className="h-6 w-6 animate-spin text-white" />
           </div>
         ) : availableSlots.length > 0 ? (
-          <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto p-1">
+          <div className="grid grid-cols-3 gap-2">
             {availableSlots.map((slot) => {
               const timeStr = slot.start_datetime.split(' ')[1]?.substring(0, 5) || '';
               const isSelected = selectedSlot?.start_stamp === slot.start_stamp;
@@ -707,21 +704,13 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
                   variant={isSelected ? "default" : "outline"}
                   onClick={() => handleSlotSelect(slot)}
                   className={cn(
-                    "h-12 flex flex-col items-center justify-center",
+                    "h-12",
                     isSelected
                       ? "bg-mariko-primary text-white"
                       : "bg-white/10 border-white/20 text-white hover:bg-white/20"
                   )}
                 >
-                  <span className="font-medium">{timeStr}</span>
-                  {slot.tables_count !== undefined && slot.tables_count > 0 && (
-                    <span className={cn(
-                      "text-xs mt-1",
-                      isSelected ? "opacity-90" : "opacity-60"
-                    )}>
-                      {slot.tables_count} {slot.tables_count === 1 ? 'стол' : slot.tables_count < 5 ? 'стола' : 'столов'}
-                    </span>
-                  )}
+                  {timeStr}
                 </Button>
               );
             })}
