@@ -213,7 +213,19 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     const restaurantId = selectedRestaurant?.id;
     const hasValidRestaurantId = restaurantId && restaurantId.trim() !== '';
     
-    if (!selectedDate || !isValidRestaurantId || !hasValidRestaurantId) {
+    // Условия загрузки согласно описанию:
+    // 1. Выбран ресторан (restaurantId должен существовать)
+    // 2. Выбрана дата (selectedDate должен быть валидной датой)
+    // 3. Указано количество гостей (guestsCount >= 1)
+    // 4. Ресторан настроен для бронирования (isValidRestaurantId)
+    if (!selectedDate || !isValidRestaurantId || !hasValidRestaurantId || guestsCount < 1) {
+      console.log('Условия загрузки слотов не выполнены:', {
+        hasSelectedDate: !!selectedDate,
+        isValidRestaurantId,
+        hasValidRestaurantId,
+        guestsCount,
+        restaurantId,
+      });
       setAvailableSlots([]);
       setSelectedTime("");
       setSelectedSlot(null);
@@ -222,6 +234,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     }
 
     if (!(selectedDate instanceof Date) || isNaN(selectedDate.getTime())) {
+      console.log('Невалидная дата:', selectedDate);
       setLoadingSlots(false);
       return;
     }
@@ -712,18 +725,10 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         <Label className="text-white font-el-messiri text-base font-semibold">
           Время *
         </Label>
-        {tokenError ? (
-          <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-4">
-            <p className="text-red-300 text-sm">
-              {tokenError}
-            </p>
-            <p className="mt-2 text-red-200/70 text-xs">
-              Попробуйте обновить страницу или обратитесь в поддержку
-            </p>
-          </div>
-        ) : loadingSlots ? (
+        {loadingSlots ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-white" />
+            <span className="ml-2 text-white/70 text-sm">Загрузка доступного времени...</span>
           </div>
         ) : availableSlots.length > 0 ? (
           <div className="grid grid-cols-3 gap-2">
@@ -748,10 +753,28 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
               );
             })}
           </div>
+        ) : selectedDate ? (
+          <div className="rounded-lg border border-white/20 bg-white/5 p-4">
+            <p className="text-white/70 text-sm">
+              Нет доступных временных слотов на эту дату
+            </p>
+          </div>
         ) : (
-          <p className="text-white/70 text-sm">
-            Нет доступных временных слотов на эту дату
-          </p>
+          <div className="rounded-lg border border-white/20 bg-white/5 p-4">
+            <p className="text-white/70 text-sm">
+              Выберите дату для просмотра доступного времени
+            </p>
+          </div>
+        )}
+        {tokenError && (
+          <div className="mt-2 rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-3">
+            <p className="text-yellow-300 text-xs">
+              ⚠️ {tokenError}
+            </p>
+            <p className="mt-1 text-yellow-200/70 text-xs">
+              Бронирование может быть недоступно. Попробуйте обновить страницу.
+            </p>
+          </div>
         )}
       </div>
 
