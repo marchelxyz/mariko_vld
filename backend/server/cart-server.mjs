@@ -99,7 +99,18 @@ app.use((req, res) => {
   res.status(404).json({ success: false, message: "Not Found" });
 });
 
+// Healthcheck endpoint для контейнеров
+app.get("/health", (req, res) => {
+  res.status(200).json({ 
+    status: "ok", 
+    timestamp: new Date().toISOString(),
+    database: Boolean(db)
+  });
+});
+
 // Инициализируем БД при старте сервера
+let server = null;
+
 async function startServer() {
   console.log("🚀 Запуск сервера...");
   console.log(`📊 DATABASE_URL: ${process.env.DATABASE_URL ? "установлен" : "не установлен"}`);
@@ -120,15 +131,76 @@ async function startServer() {
     console.warn("⚠️  DATABASE_URL не задан – сохраняем только в лог.");
   }
 
-  app.listen(PORT, () => {
-    console.log(`🚀 Cart mock server (Express) listening on http://localhost:${PORT}`);
+  server = app.listen(PORT, "0.0.0.0", () => {
+    console.log(`🚀 Cart mock server (Express) listening on http://0.0.0.0:${PORT}`);
     if (!db) {
       console.log("ℹ️  DATABASE_URL не задан – сохраняем только в лог.");
     } else {
       console.log("✅ Сервер запущен с подключением к БД");
     }
   });
+
+  // Обработка ошибок сервера
+  server.on("error", (error) => {
+    console.error("❌ Ошибка сервера:", error);
+    if (error.code === "EADDRINUSE") {
+      console.error(`⚠️  Порт ${PORT} уже занят`);
+      process.exit(1);
+    } else {
+      throw error;
+    }
+  });
+
+  return server;
 }
+
+// Graceful shutdown
+async function shutdown(signal) {
+  console.log(`\n📛 Получен сигнал ${signal}, начинаем graceful shutdown...`);
+  
+  if (server) {
+    server.close(() => {
+      console.log("✅ HTTP сервер закрыт");
+      
+      // Закрываем соединения с БД
+      if (db) {
+        db.end(() => {
+          console.log("✅ Соединения с БД закрыты");
+          process.exit(0);
+        }).catch((err) => {
+          console.error("❌ Ошибка при закрытии соединений с БД:", err);
+          process.exit(1);
+        });
+      } else {
+        process.exit(0);
+      }
+    });
+
+    // Принудительное завершение через 10 секунд
+    setTimeout(() => {
+      console.error("⚠️  Принудительное завершение после таймаута");
+      process.exit(1);
+    }, 10000);
+  } else {
+    process.exit(0);
+  }
+}
+
+// Обработка сигналов завершения
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+
+// Обработка необработанных ошибок
+process.on("uncaughtException", (error) => {
+  console.error("❌ Необработанное исключение:", error);
+  shutdown("uncaughtException");
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("❌ Необработанный rejection:", reason);
+  console.error("Promise:", promise);
+  // Не завершаем процесс при unhandledRejection, только логируем
+});
 
 startServer().catch((error) => {
   console.error("❌ Критическая ошибка запуска сервера:");
