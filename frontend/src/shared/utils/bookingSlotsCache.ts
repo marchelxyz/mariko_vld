@@ -22,10 +22,31 @@ const CACHE_KEY_PREFIX = "booking_slots_cache_";
 const CACHE_TTL = 60 * 1000; // 1 минута
 
 /**
- * Генерирует ключ кэша для комбинации ресторана, даты и количества гостей
+ * Кодирует строку в безопасный формат для использования в ключах Telegram Storage API.
+ * Telegram Storage API не поддерживает кириллицу и некоторые специальные символы в ключах.
+ */
+function encodeStorageKey(part: string): string {
+  // Используем base64 для кодирования, но заменяем символы, которые могут быть проблемными
+  // Убираем padding и заменяем символы, которые могут вызывать проблемы
+  try {
+    const encoded = btoa(encodeURIComponent(part))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+    return encoded;
+  } catch {
+    // Fallback: если кодирование не удалось, используем простую замену
+    return part.replace(/[^a-zA-Z0-9_-]/g, '_');
+  }
+}
+
+/**
+ * Генерирует ключ кэша для комбинации ресторана, даты и количества гостей.
+ * Кодирует restaurantId для безопасного использования в Telegram Storage API.
  */
 function getCacheKey(restaurantId: string, date: string, guestsCount: number): string {
-  return `${CACHE_KEY_PREFIX}${restaurantId}_${date}_${guestsCount}`;
+  const encodedRestaurantId = encodeStorageKey(restaurantId);
+  return `${CACHE_KEY_PREFIX}${encodedRestaurantId}_${date}_${guestsCount}`;
 }
 
 /**
@@ -101,9 +122,11 @@ export function clearBookingSlotsCache(restaurantId?: string): void {
   try {
     if (restaurantId) {
       // Очищаем только кэши для конкретного ресторана
+      // Используем закодированный restaurantId для поиска ключей
+      const encodedRestaurantId = encodeStorageKey(restaurantId);
       const keys = Object.keys(localStorage);
       keys.forEach((key) => {
-        if (key.startsWith(CACHE_KEY_PREFIX) && key.includes(`_${restaurantId}_`)) {
+        if (key.startsWith(CACHE_KEY_PREFIX) && key.includes(`_${encodedRestaurantId}_`)) {
           storage.removeItem(key);
         }
       });
