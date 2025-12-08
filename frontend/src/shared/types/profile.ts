@@ -20,4 +20,6 @@ export interface UserProfile {
   createdAt?: string;
   updatedAt?: string;
   lastLogin?: string;
+  personalDataConsentGiven?: boolean;
+  personalDataConsentDate?: string;
 }
