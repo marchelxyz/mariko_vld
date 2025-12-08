@@ -158,7 +158,7 @@ export function createBookingRouter() {
         comment,
         eventTags,
         source = "mobile_app",
-        duration,
+        duration: bookingDuration,
       } = req.body ?? {};
 
       // Валидация обязательных полей
@@ -271,7 +271,7 @@ export function createBookingRouter() {
         comment: comment?.trim() || undefined,
         eventTags: eventTags || [],
         source,
-        duration,
+        duration: bookingDuration,
       });
 
       logger.info('Бронирование создано в Remarked', { 
