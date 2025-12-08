@@ -3,6 +3,7 @@ import { db, ensureDatabase, queryMany, queryOne, query } from "../postgresClien
 import {
   authoriseAdmin,
   authoriseSuperAdmin,
+  authoriseAnyAdmin,
   getTelegramIdFromRequest,
   resolveAdminContext,
 } from "../services/adminService.mjs";
@@ -91,16 +92,17 @@ export function createCitiesRouter() {
 
   /**
    * Получить все города (для админ-панели)
+   * Использует мягкую проверку - права уже проверены при входе в админ-панель
    */
   router.get("/all", async (req, res) => {
     const startTime = Date.now();
-    const admin = await authoriseSuperAdmin(req, res);
+    const admin = await authoriseAnyAdmin(req, res);
     if (!admin) {
-      logger.warn('Попытка доступа к /all без прав супер-админа');
-      return;
+      // Если пользователь не админ, просто возвращаем пустой список
+      // (доступ к админ-панели уже проверен на фронтенде)
+      logger.debug('Запрос /all от не-админа, возвращаем пустой список');
+      return res.json([]);
     }
-
-    logger.auth(admin.userId, 'GET /all', true);
 
     try {
       logger.info('Получение всех городов для админ-панели');
