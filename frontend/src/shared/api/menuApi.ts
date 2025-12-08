@@ -1,4 +1,5 @@
 import type { RestaurantMenu } from "@shared/data";
+import { getTg } from "@/lib/telegram";
 
 const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
 const RAW_SERVER_API_BASE = rawServerEnv ? (rawServerEnv.endsWith("/") ? rawServerEnv.slice(0, -1) : rawServerEnv) : "/api";
@@ -87,6 +88,59 @@ export async function fetchMenuByRestaurantId(restaurantId: string): Promise<Res
     } catch {
       return null;
     }
+  }
+}
+
+/**
+ * Алиас для обратной совместимости
+ * @deprecated Используйте fetchMenuByRestaurantId
+ */
+export const fetchRestaurantMenu = fetchMenuByRestaurantId;
+
+function buildAdminHeaders(initial?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = {
+    ...(initial ?? {}),
+  };
+
+  const initData = getTg()?.initData;
+  if (initData) {
+    headers['X-Telegram-Init-Data'] = initData;
+  }
+
+  return headers;
+}
+
+export type SaveMenuResult = {
+  success: boolean;
+  errorMessage?: string;
+};
+
+/**
+ * Сохранить меню ресторана
+ */
+export async function saveRestaurantMenu(
+  restaurantId: string,
+  menu: RestaurantMenu,
+): Promise<SaveMenuResult> {
+  if (!shouldUseServerApi()) {
+    return { success: false, errorMessage: 'Серверный API выключен' };
+  }
+
+  const headers = buildAdminHeaders({
+    'Content-Type': 'application/json',
+  });
+
+  try {
+    await fetchFromServer(`/admin/menu/${encodeURIComponent(restaurantId)}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: JSON.stringify(menu),
+    });
+    return { success: true };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Неожиданная ошибка при сохранении меню';
+    return { success: false, errorMessage: message };
   }
 }
 
