@@ -85,7 +85,11 @@ function formatPhone(phone: string): string {
   return phone.startsWith("+") ? phone : `+${phone}`;
 }
 
-export function BookingForm() {
+type BookingFormProps = {
+  onSuccess?: () => void;
+};
+
+export function BookingForm({ onSuccess }: BookingFormProps = {}) {
   const { selectedRestaurant } = useCityContext();
   const { profile } = useProfile();
 
@@ -421,6 +425,11 @@ export function BookingForm() {
           setConsentGiven(false);
         }
         setHasPreviousBooking(true);
+
+        // Закрываем модальное окно после успешного бронирования
+        if (onSuccess) {
+          onSuccess();
+        }
       } else {
         throw new Error(result.error || "Неизвестная ошибка");
       }

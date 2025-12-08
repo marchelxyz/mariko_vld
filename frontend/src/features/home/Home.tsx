@@ -13,6 +13,14 @@ import {
   MenuItem,
 } from "@shared/data";
 import { QuickActionButton, ServiceCard, MenuItemComponent } from "@shared/ui";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@shared/ui/ui/dialog";
+import { BookingForm } from "@/features/booking/BookingForm";
 import { PromotionsCarousel, type PromotionSlide } from "./PromotionsCarousel";
 import { toast } from "@/hooks/use-toast";
 import { safeOpenLink, storage } from "@/lib/telegram";
@@ -52,6 +60,7 @@ const Index = () => {
   const [cityChangedFlash, setCityChangedFlash] = useState(false);
   const prevCityIdRef = useRef<string | null>(null);
   const [promotions, setPromotions] = useState<PromotionSlide[]>([]);
+  const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
 
   // 🔧 ВРЕМЕННОЕ СКРЫТИЕ: измените на true чтобы показать раздел "Рекомендуем попробовать"
   const showRecommendedSection = false;
@@ -74,12 +83,8 @@ const Index = () => {
       return;
     }
 
-    // Открываем форму бронирования напрямую
-    navigate("/booking", {
-      state: {
-        from: location.pathname,
-      },
-    });
+    // Открываем модальное окно с формой бронирования
+    setIsBookingDialogOpen(true);
   };
 
   // Подтягиваем акции из localStorage (управляются через админку)
@@ -389,6 +394,30 @@ const Index = () => {
           <BottomNavigation currentPage="home" />
         </div>
 
+
+        {/* Модальное окно бронирования */}
+        <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
+          <DialogContent className="max-w-[95vw] md:max-w-2xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-white/95 to-white/90 backdrop-blur-md border-white/20 rounded-[24px] p-6 md:p-8">
+            <DialogHeader>
+              <DialogTitle className="font-el-messiri text-2xl md:text-3xl text-center text-gray-900">
+                {selectedRestaurant?.name
+                  ? `Бронь столика — ${selectedRestaurant.name}`
+                  : "Бронь столика"}
+              </DialogTitle>
+              {selectedCity && selectedRestaurant && (
+                <DialogDescription className="text-center text-gray-600 mt-2">
+                  Забронируйте столик в ресторане {selectedRestaurant.name}
+                  {selectedCity && ` (${selectedCity.name})`}
+                </DialogDescription>
+              )}
+            </DialogHeader>
+            <div className="mt-6">
+              <div className="rounded-[24px] border border-white/15 bg-white/10 p-4 md:p-6">
+                <BookingForm onSuccess={() => setIsBookingDialogOpen(false)} />
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {activeDish && (
           <div
