@@ -197,13 +197,49 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         if (error.name === 'AbortError') {
           return;
         }
-        const errorMessage = error instanceof Error ? error.message : "Не удалось подключиться к системе бронирования";
+        
+        // Формируем понятное сообщение об ошибке
+        let errorMessage = "Не удалось подключиться к системе бронирования";
+        
+        if (error instanceof Error) {
+          const message = error.message?.trim();
+          if (message) {
+            // Если сообщение содержит информацию об ошибке, используем его
+            if (message.includes("Failed to get token") || message.includes("Restaurant ID")) {
+              errorMessage = "Ошибка подключения к сервису бронирования. Проверьте настройки ресторана.";
+            } else if (message.includes("Ошибка получения токена")) {
+              errorMessage = message;
+            } else {
+              errorMessage = message;
+            }
+          }
+        } else if (typeof error === 'string' && error.trim()) {
+          errorMessage = error.trim();
+        } else if (error && typeof error === 'object' && 'message' in error) {
+          const message = String(error.message)?.trim();
+          if (message) {
+            errorMessage = message;
+          }
+        }
+        
         setTokenError(errorMessage);
-        toast({
-          title: "Ошибка",
-          description: errorMessage,
-          variant: "destructive",
-        });
+        
+        // Показываем toast только при критических ошибках (не сетевых)
+        // Сетевые ошибки обычно временные и не требуют немедленного внимания пользователя
+        const isNetworkError = error instanceof TypeError || 
+                              (error instanceof Error && (
+                                error.message.includes('fetch') ||
+                                error.message.includes('network') ||
+                                error.message.includes('Failed to fetch')
+                              ));
+        
+        if (!isNetworkError) {
+          toast({
+            title: "Ошибка подключения",
+            description: errorMessage,
+            variant: "destructive",
+          });
+        }
       });
 
     return () => {
@@ -954,11 +990,11 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         )}
         {tokenError && (
           <div className="mt-2 rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-3">
-            <p className="text-yellow-300 text-xs">
+            <p className="text-yellow-300 text-xs font-medium">
               ⚠️ {tokenError}
             </p>
             <p className="mt-1 text-yellow-200/70 text-xs">
-              Бронирование может быть недоступно. Попробуйте обновить страницу.
+              Бронирование может быть временно недоступно. Попробуйте обновить страницу или обратитесь в ресторан по телефону.
             </p>
           </div>
         )}
