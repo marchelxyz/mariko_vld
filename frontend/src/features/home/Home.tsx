@@ -60,7 +60,16 @@ const Index = () => {
   const showRecommendedSection = false;
 
   const handleBookingClick = () => {
-    if (!selectedCity?.id || !selectedCity?.name) {
+    console.log("[Booking] handleBookingClick вызван", {
+      selectedCity: selectedCity?.id,
+      selectedCityName: selectedCity?.name,
+      selectedRestaurant: selectedRestaurant?.id,
+      remarkedRestaurantId: selectedRestaurant?.remarkedRestaurantId,
+      locationPathname: location.pathname,
+    });
+
+    if (!selectedCity?.id) {
+      console.log("[Booking] Блокировка: город не выбран (нет id)");
       toast({
         title: "Выберите город",
         description: "Бронирование доступно после выбора города.",
@@ -69,6 +78,10 @@ const Index = () => {
     }
 
     if (!selectedRestaurant?.remarkedRestaurantId) {
+      console.log("[Booking] Блокировка: remarkedRestaurantId отсутствует", {
+        restaurantId: selectedRestaurant?.id,
+        restaurantName: selectedRestaurant?.name,
+      });
       toast({
         title: "Бронь недоступна",
         description: "Бронирование пока недоступно для этого ресторана. Обратитесь к администратору.",
@@ -77,12 +90,23 @@ const Index = () => {
       return;
     }
 
-    // Переходим на страницу бронирования
-    navigate("/booking", {
-      state: {
-        from: location.pathname,
-      },
-    });
+    console.log("[Booking] Переход на /booking");
+    try {
+      // Переходим на страницу бронирования
+      navigate("/booking", {
+        state: {
+          from: location.pathname,
+        },
+      });
+      console.log("[Booking] navigate вызван успешно");
+    } catch (error) {
+      console.error("[Booking] Ошибка при вызове navigate:", error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось открыть страницу бронирования",
+        variant: "destructive",
+      });
+    }
   };
 
   // Подтягиваем акции из localStorage (управляются через админку)
