@@ -106,8 +106,8 @@ function RandomBackgroundPattern() {
   function generatePositions(width: number, height: number): PatternPosition[] {
     const newPositions: PatternPosition[] = [];
     const placedRects: Array<{ x: number; y: number; width: number; height: number }> = [];
-    const minScale = 0.4;
-    const maxScale = 0.7;
+    const minScale = 0.25;
+    const maxScale = 0.45;
     const padding = 10;
 
     function getRandomPattern() {
@@ -142,13 +142,40 @@ function RandomBackgroundPattern() {
     function findTouchingPosition(
       existingRects: Array<{ x: number; y: number; width: number; height: number }>,
       w: number,
-      h: number
+      h: number,
+      attemptIndex: number
     ): { x: number; y: number } | null {
       if (existingRects.length === 0) {
-        return { x: Math.random() * (width - w), y: Math.random() * (height - h) };
+        // Первый элемент размещаем в центре для равномерного старта
+        return { x: (width - w) / 2, y: (height - h) / 2 };
       }
 
-      // Сначала пытаемся разместить рядом с существующими паттернами
+      // Используем сетку для равномерного распределения
+      // Разбиваем пространство на сетку и выбираем случайную ячейку
+      const gridCols = Math.ceil(Math.sqrt(existingRects.length + 1) * 2);
+      const gridRows = Math.ceil(Math.sqrt(existingRects.length + 1) * 2);
+      const cellWidth = width / gridCols;
+      const cellHeight = height / gridRows;
+      
+      // Пробуем разместить в случайной ячейке сетки
+      const gridAttempts = 200;
+      for (let i = 0; i < gridAttempts; i++) {
+        const col = Math.floor(Math.random() * gridCols);
+        const row = Math.floor(Math.random() * gridRows);
+        const x = col * cellWidth + Math.random() * (cellWidth - w);
+        const y = row * cellHeight + Math.random() * (cellHeight - h);
+        
+        const clampedX = Math.max(0, Math.min(x, width - w));
+        const clampedY = Math.max(0, Math.min(y, height - h));
+        
+        if (clampedX + w <= width && clampedY + h <= height) {
+          if (!checkOverlap(clampedX, clampedY, w, h, existingRects)) {
+            return { x: clampedX, y: clampedY };
+          }
+        }
+      }
+
+      // Если сетка не помогла, пытаемся разместить рядом с существующими паттернами
       const attempts = 300;
       for (let i = 0; i < attempts; i++) {
         const randomRect = existingRects[Math.floor(Math.random() * existingRects.length)];
@@ -188,8 +215,8 @@ function RandomBackgroundPattern() {
         }
       }
 
-      // Если не удалось разместить рядом, ищем любое свободное место
-      const randomAttempts = 500;
+      // Если не удалось разместить рядом, ищем любое свободное место равномерно
+      const randomAttempts = 1000;
       for (let i = 0; i < randomAttempts; i++) {
         const x = Math.random() * (width - w);
         const y = Math.random() * (height - h);
@@ -206,7 +233,7 @@ function RandomBackgroundPattern() {
     const targetDensity = 0.7;
     const area = width * height;
     const avgElementArea = 200 * 150;
-    const targetElements = Math.max(30, Math.floor((area * targetDensity) / avgElementArea)) * 3;
+    const targetElements = Math.max(30, Math.floor((area * targetDensity) / avgElementArea)) * 9;
 
     // Размещаем паттерны до достижения целевого количества или пока есть место
     let attempts = 0;
@@ -220,7 +247,7 @@ function RandomBackgroundPattern() {
       const h = pattern.baseHeight * scale;
       const rotation = (Math.random() - 0.5) * 90;
 
-      const position = findTouchingPosition(placedRects, w, h);
+      const position = findTouchingPosition(placedRects, w, h, i);
 
       if (position) {
         newPositions.push({
