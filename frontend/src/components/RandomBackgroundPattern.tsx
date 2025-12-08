@@ -106,9 +106,9 @@ function RandomBackgroundPattern() {
   function generatePositions(width: number, height: number): PatternPosition[] {
     const newPositions: PatternPosition[] = [];
     const placedRects: Array<{ x: number; y: number; width: number; height: number; rotation: number }> = [];
-    const minScale = 0.20; // Увеличиваем минимальный размер элементов
-    const maxScale = 0.35; // Увеличиваем максимальный размер элементов
-    const padding = 4; // Уменьшаем padding в 2 раза для более плотного размещения
+    const minScale = 0.25; // Увеличиваем минимальный размер элементов для лучшего покрытия
+    const maxScale = 0.40; // Увеличиваем максимальный размер элементов
+    const padding = 3; // Уменьшаем padding для более плотного размещения
 
     function getRandomPattern() {
       const index = Math.floor(Math.random() * PATTERNS.length);
@@ -192,10 +192,8 @@ function RandomBackgroundPattern() {
       const effectiveH = rotatedBounds.height;
       
       if (existingRects.length === 0) {
-        // Первый элемент размещаем со смещением влево и вверх
-        const offsetX = width * -0.15; // Смещение влево на 15% от ширины
-        const offsetY = height * 0.3; // Смещение вверх на 30% от высоты
-        return { x: (width - w) / 2 + offsetX, y: (height - h) / 2 - offsetY };
+        // Первый элемент размещаем в центре области генерации
+        return { x: (width - w) / 2, y: (height - h) / 2 };
       }
 
       // Используем сетку для равномерного распределения
@@ -213,17 +211,13 @@ function RandomBackgroundPattern() {
         const x = col * cellWidth + Math.random() * Math.max(0, cellWidth - effectiveW);
         const y = row * cellHeight + Math.random() * Math.max(0, cellHeight - effectiveH);
         
-        // Добавляем смещение влево и вверх ко всем позициям
-        const offsetX = width * -0.15; // Смещение влево на 15% от ширины
-        const offsetY = height * 0.3; // Смещение вверх на 30% от высоты
-        const adjustedX = x + offsetX;
-        const adjustedY = y - offsetY;
         // Разрешаем элементам выходить за границы для полного заполнения экрана
-        const clampedX = Math.max(-w * 0.5, Math.min(adjustedX, width - w * 0.5));
-        const clampedY = Math.max(-h * 0.5, Math.min(adjustedY, height - h * 0.5));
+        // Элементы могут выходить за границы контейнера на 50% своего размера
+        const clampedX = Math.max(-w * 0.5, Math.min(x, width - w * 0.5));
+        const clampedY = Math.max(-h * 0.5, Math.min(y, height - h * 0.5));
         
-        // Разрешаем элементам выходить за границы для полного заполнения экрана
-        if (clampedX + w * 0.5 >= 0 && clampedY + h * 0.5 >= 0 && clampedX <= width && clampedY <= height) {
+        // Принимаем позицию, если элемент хотя бы частично находится в области контейнера
+        if (clampedX + w >= -w * 0.5 && clampedY + h >= -h * 0.5 && clampedX <= width + w * 0.5 && clampedY <= height + h * 0.5) {
           if (!checkOverlap(clampedX, clampedY, w, h, rotation, existingRects)) {
             return { x: clampedX, y: clampedY };
           }
@@ -261,17 +255,12 @@ function RandomBackgroundPattern() {
             y = randomRect.y;
         }
 
-        // Добавляем смещение влево и вверх
-        const offsetX = width * -0.15; // Смещение влево на 15% от ширины
-        const offsetY = height * 0.3; // Смещение вверх на 30% от высоты
-        const adjustedX = x + offsetX;
-        const adjustedY = y - offsetY;
         // Разрешаем элементам выходить за границы для полного заполнения экрана
-        x = Math.max(-w * 0.5, Math.min(adjustedX, width - w * 0.5));
-        y = Math.max(-h * 0.5, Math.min(adjustedY, height - h * 0.5));
+        x = Math.max(-w * 0.5, Math.min(x, width - w * 0.5));
+        y = Math.max(-h * 0.5, Math.min(y, height - h * 0.5));
 
-        // Разрешаем элементам выходить за границы для полного заполнения экрана
-        if (x + w * 0.5 >= 0 && y + h * 0.5 >= 0 && x <= width && y <= height) {
+        // Принимаем позицию, если элемент хотя бы частично находится в области контейнера
+        if (x + w >= -w * 0.5 && y + h >= -h * 0.5 && x <= width + w * 0.5 && y <= height + h * 0.5) {
           if (!checkOverlap(x, y, w, h, rotation, existingRects)) {
             return { x, y };
           }
@@ -280,14 +269,13 @@ function RandomBackgroundPattern() {
 
       // Если не удалось разместить рядом, ищем любое свободное место равномерно
       const randomAttempts = 3000; // Увеличиваем попытки в 2 раза для более плотного заполнения
-      const offsetX = width * -0.15; // Смещение влево на 15% от ширины
-      const offsetY = height * 0.3; // Смещение вверх на 30% от высоты
       for (let i = 0; i < randomAttempts; i++) {
-        const baseX = Math.random() * Math.max(0, width - w);
-        const baseY = Math.random() * Math.max(0, height - h);
+        // Разрешаем элементам размещаться по всей области контейнера, включая края
+        const baseX = Math.random() * (width + w) - w * 0.5;
+        const baseY = Math.random() * (height + h) - h * 0.5;
         // Разрешаем элементам выходить за границы для полного заполнения экрана
-        const x = Math.max(-w * 0.5, Math.min(baseX + offsetX, width - w * 0.5));
-        const y = Math.max(-h * 0.5, Math.min(baseY - offsetY, height - h * 0.5));
+        const x = Math.max(-w * 0.5, Math.min(baseX, width - w * 0.5));
+        const y = Math.max(-h * 0.5, Math.min(baseY, height - h * 0.5));
         
         if (!checkOverlap(x, y, w, h, rotation, existingRects)) {
           return { x, y };
@@ -297,12 +285,12 @@ function RandomBackgroundPattern() {
       return null;
     }
 
-    // Увеличиваем плотность для лучшего заполнения фона в 4 раза
-    const targetDensity = 1.0; // Максимальная целевая плотность
+    // Увеличиваем плотность для лучшего заполнения фона
+    const targetDensity = 1.2; // Увеличиваем целевую плотность для полного покрытия
     const area = width * height;
-    // Уменьшаем среднюю площадь элемента в 4 раза для увеличения количества элементов
-    const avgElementArea = (150 * 120) / 4; // Уменьшаем в 4 раза: было 18000, стало 4500
-    const targetElements = Math.max(160, Math.floor((area * targetDensity) / avgElementArea)); // Увеличиваем минимум в 4 раза
+    // Уменьшаем среднюю площадь элемента для увеличения количества элементов
+    const avgElementArea = (150 * 120) / 4; // Средняя площадь элемента с учетом масштабирования
+    const targetElements = Math.max(200, Math.floor((area * targetDensity) / avgElementArea)); // Увеличиваем минимум элементов
 
     // Размещаем паттерны до достижения целевого количества или пока есть место
     let attempts = 0;
@@ -347,8 +335,12 @@ function RandomBackgroundPattern() {
 
   function updatePositions() {
     // Используем размеры окна для генерации позиций, чтобы заполнить весь видимый экран
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    // Контейнер имеет размеры 140% с отступами -20%, поэтому генерируем позиции для всего контейнера
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    // Размеры контейнера (140% от viewport)
+    const width = viewportWidth * 1.4;
+    const height = viewportHeight * 1.4;
 
     if (width > 0 && height > 0) {
       const newPositions = generatePositions(width, height);
