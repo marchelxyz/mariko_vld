@@ -1,5 +1,6 @@
-import { supabase, ensureSupabase } from "../supabaseClient.mjs";
+import { db, ensureDatabase } from "../postgresClient.mjs";
 import { CART_ORDERS_TABLE, MAX_ORDERS_LIMIT } from "../config.mjs";
+import { queryMany, queryOne } from "../postgresClient.mjs";
 import {
   upsertUserProfileRecord,
   fetchUserProfile,
@@ -10,7 +11,7 @@ import { fetchRestaurantIntegrationConfig, enqueueIikoOrder } from "../services/
 import { normaliseNullableString } from "../utils.mjs";
 import { addressService } from "../services/addressService.mjs";
 
-const healthPayload = () => ({ status: "ok", supabase: Boolean(supabase) });
+const healthPayload = () => ({ status: "ok", database: Boolean(db) });
 
 const getTelegramIdFromHeaders = (req) => {
   const raw = req.get("x-telegram-id");
@@ -60,7 +61,7 @@ export function registerCartRoutes(app) {
   });
 
   app.post("/api/cart/profile/sync", async (req, res) => {
-    if (!ensureSupabase(res)) {
+    if (!ensureDatabase(res)) {
       return;
     }
 
@@ -107,7 +108,7 @@ export function registerCartRoutes(app) {
   });
 
   app.get("/api/cart/profile/me", async (req, res) => {
-    if (!ensureSupabase(res)) {
+    if (!ensureDatabase(res)) {
       return;
     }
     const headerTelegramId = getTelegramIdFromHeaders(req);
@@ -138,7 +139,7 @@ export function registerCartRoutes(app) {
   });
 
   app.patch("/api/cart/profile/me", async (req, res) => {
-    if (!ensureSupabase(res)) {
+    if (!ensureDatabase(res)) {
       return;
     }
     const body = req.body ?? {};
@@ -223,42 +224,45 @@ export function registerCartRoutes(app) {
       },
     };
 
-    if (supabase) {
+    if (db) {
       const subtotal = Number(orderPayload.subtotal ?? orderPayload.totalSum ?? 0);
       const deliveryFee = Number(orderPayload.deliveryFee ?? 0);
       const total = Number(orderPayload.total ?? orderPayload.totalSum ?? subtotal + deliveryFee);
       const warnings = Array.isArray(orderPayload.warnings) ? orderPayload.warnings : [];
 
       try {
-        console.log(`💾 Saving order ${orderId} to Supabase`);
-        const { data: insertedOrder, error } = await supabase
-          .from(CART_ORDERS_TABLE)
-          .insert({
-            external_id: orderId,
-            restaurant_id: orderPayload.restaurantId ?? null,
-            city_id: orderPayload.cityId ?? null,
-            order_type: orderPayload.orderType,
-            customer_name: orderPayload.customerName,
-            customer_phone: orderPayload.customerPhone,
-            delivery_address: orderPayload.deliveryAddress ?? null,
-            comment: orderPayload.comment ?? null,
+        console.log(`💾 Saving order ${orderId} to PostgreSQL`);
+        const insertedOrder = await queryOne(
+          `INSERT INTO ${CART_ORDERS_TABLE} 
+           (external_id, restaurant_id, city_id, order_type, customer_name, customer_phone, 
+            delivery_address, comment, subtotal, delivery_fee, total, status, items, warnings, meta, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
+           RETURNING id`,
+          [
+            orderId,
+            orderPayload.restaurantId ?? null,
+            orderPayload.cityId ?? null,
+            orderPayload.orderType,
+            orderPayload.customerName,
+            orderPayload.customerPhone,
+            orderPayload.deliveryAddress ?? null,
+            orderPayload.comment ?? null,
             subtotal,
-            delivery_fee: deliveryFee,
+            deliveryFee,
             total,
-            status: orderPayload?.status ?? "processing",
-            items: orderPayload.items ?? [],
-            warnings,
-            meta: composedMeta,
-          })
-          .select("id")
-          .single();
-        if (error) {
-          console.error("Ошибка записи в Supabase:", error);
+            orderPayload?.status ?? "processing",
+            JSON.stringify(orderPayload.items ?? []),
+            JSON.stringify(warnings),
+            JSON.stringify(composedMeta),
+          ],
+        );
+        if (!insertedOrder) {
+          console.error("Ошибка записи в PostgreSQL: не получен ID");
           return res
             .status(500)
             .json({ success: false, message: "Не удалось сохранить заказ. Попробуйте позже." });
         }
-        console.log(`✅ Order ${orderId} saved to Supabase`);
+        console.log(`✅ Order ${orderId} saved to PostgreSQL`);
 
         // Сохраняем последний адрес в профиле (если есть Telegram ID и адрес)
         if (resolvedTelegramId && orderPayload.orderType === "delivery") {
@@ -281,7 +285,7 @@ export function registerCartRoutes(app) {
 
         // ⚠️ Не отправляем в iiko до оплаты. Интеграция будет запущена после webhook оплаты.
       } catch (error) {
-        console.error("Ошибка записи в Supabase:", error);
+        console.error("Ошибка записи в PostgreSQL:", error);
         return res
           .status(500)
           .json({ success: false, message: "Не удалось сохранить заказ. Попробуйте позже." });
@@ -293,15 +297,15 @@ export function registerCartRoutes(app) {
     res.json({
       success: true,
       orderId,
-      message: supabase
+      message: db
         ? "Заказ сохранён (mock). Доработайте обработку iiko."
-        : "Заказ принят mock-сервером. Подключите Supabase/iiko позже.",
+        : "Заказ принят mock-сервером. Подключите PostgreSQL/iiko позже.",
     });
   });
 
   app.get("/api/cart/orders", async (req, res) => {
-    if (!supabase) {
-      return res.status(503).json({ success: false, message: "Supabase недоступен" });
+    if (!db) {
+      return res.status(503).json({ success: false, message: "База данных недоступна" });
     }
 
     const rawTelegramId = req.query?.telegramId ?? req.get("x-telegram-id");
@@ -330,35 +334,59 @@ export function registerCartRoutes(app) {
     const requestedLimit = Number.isFinite(requestedLimitRaw) ? requestedLimitRaw : 20;
     const limit = Math.min(Math.max(requestedLimit, 1), MAX_ORDERS_LIMIT);
 
-    let query = supabase
-      .from(CART_ORDERS_TABLE)
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(limit);
+    try {
+      let queryText = `SELECT * FROM ${CART_ORDERS_TABLE} WHERE 1=1`;
+      const params = [];
+      let paramIndex = 1;
 
-    if (telegramId) {
-      query = query.eq("meta->>telegramUserId", telegramId);
-    } else if (phone) {
-      query = query.eq("customer_phone", phone);
-    }
+      if (telegramId) {
+        queryText += ` AND meta->>'telegramUserId' = $${paramIndex++}`;
+        params.push(telegramId);
+      } else if (phone) {
+        queryText += ` AND customer_phone = $${paramIndex++}`;
+        params.push(phone);
+      }
 
-    const { data, error } = await query;
-    if (error) {
+      queryText += ` ORDER BY created_at DESC LIMIT $${paramIndex++}`;
+      params.push(limit);
+
+      const results = await queryMany(queryText, params);
+      
+      // Парсим JSON поля если они строки
+      const orders = results.map((order) => {
+        if (order.items && typeof order.items === "string") {
+          try {
+            order.items = JSON.parse(order.items);
+          } catch {}
+        }
+        if (order.meta && typeof order.meta === "string") {
+          try {
+            order.meta = JSON.parse(order.meta);
+          } catch {}
+        }
+        if (order.warnings && typeof order.warnings === "string") {
+          try {
+            order.warnings = JSON.parse(order.warnings);
+          } catch {}
+        }
+        return order;
+      });
+
+      return res.json({
+        success: true,
+        orders,
+      });
+    } catch (error) {
       console.error("Ошибка получения заказов:", error);
       return res
         .status(500)
         .json({ success: false, message: "Не удалось получить заказы. Попробуйте позже." });
     }
-
-    return res.json({
-      success: true,
-      orders: Array.isArray(data) ? data : [],
-    });
   });
 
   // ===== Адреса пользователя (user_addresses) =====
   app.get("/api/cart/addresses", async (req, res) => {
-    if (!ensureSupabase(res)) {
+    if (!ensureDatabase(res)) {
       return;
     }
     const headerTelegramId = getTelegramIdFromHeaders(req);
@@ -374,7 +402,7 @@ export function registerCartRoutes(app) {
   });
 
   app.post("/api/cart/addresses", async (req, res) => {
-    if (!ensureSupabase(res)) {
+    if (!ensureDatabase(res)) {
       return;
     }
     const headerTelegramId = getTelegramIdFromHeaders(req);
@@ -391,7 +419,7 @@ export function registerCartRoutes(app) {
   });
 
   app.patch("/api/cart/addresses/:addressId", async (req, res) => {
-    if (!ensureSupabase(res)) {
+    if (!ensureDatabase(res)) {
       return;
     }
     const headerTelegramId = getTelegramIdFromHeaders(req);
@@ -409,7 +437,7 @@ export function registerCartRoutes(app) {
   });
 
   app.delete("/api/cart/addresses/:addressId", async (req, res) => {
-    if (!ensureSupabase(res)) {
+    if (!ensureDatabase(res)) {
       return;
     }
     const headerTelegramId = getTelegramIdFromHeaders(req);
@@ -426,7 +454,7 @@ export function registerCartRoutes(app) {
   });
 
   app.post("/api/cart/addresses/:addressId/primary", async (req, res) => {
-    if (!ensureSupabase(res)) {
+    if (!ensureDatabase(res)) {
       return;
     }
     const headerTelegramId = getTelegramIdFromHeaders(req);
