@@ -100,7 +100,6 @@ const normalizeImageUrl = (raw?: string | null) => {
 };
 
 export function PromotionsManagement(): JSX.Element {
-  const { isAdmin } = useAdmin();
   const { cities, isLoading: isCitiesLoading } = useCities();
   const { toast } = useToast();
   const [promotions, setPromotions] = useState<PromotionCardData[]>([]);
@@ -394,14 +393,6 @@ export function PromotionsManagement(): JSX.Element {
       })),
     [filteredLibrary],
   );
-
-  if (!isAdmin) {
-    return (
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-white/80">
-        Нет доступа к управлению акциями.
-      </div>
-    );
-  }
 
   if (isLoadingPromos && !promotions.length) {
     return (

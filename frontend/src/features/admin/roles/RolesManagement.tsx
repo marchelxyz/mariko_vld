@@ -26,7 +26,6 @@ import {
 } from "@shared/ui";
 
 export function RolesManagement(): JSX.Element {
-  const { isSuperAdmin } = useAdmin();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<AdminPanelUser | null>(null);
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.USER);
@@ -41,7 +40,6 @@ export function RolesManagement(): JSX.Element {
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ["admin-users"],
     queryFn: () => adminServerApi.getUsers(),
-    enabled: isSuperAdmin(),
   });
 
   type RestaurantOption = { id: string; label: string; cityName: string; address: string };
@@ -126,10 +124,6 @@ export function RolesManagement(): JSX.Element {
 
   const handleSaveRole = async () => {
     if (!selectedUser) return;
-    if (!isSuperAdmin()) {
-      alert("Только супер-администратор может изменять роли");
-      return;
-    }
     setIsSaving(true);
     try {
       await adminServerApi.updateUserRole(selectedUser.id || selectedUser.telegramId || "", {
@@ -147,16 +141,6 @@ export function RolesManagement(): JSX.Element {
       setIsSaving(false);
     }
   };
-
-  if (!isSuperAdmin()) {
-    return (
-      <div className="bg-mariko-secondary rounded-[24px] p-12 text-center">
-        <Shield className="w-12 h-12 text-white/30 mx-auto mb-4" />
-        <h3 className="text-white font-el-messiri text-xl font-bold mb-2">Доступ запрещен</h3>
-        <p className="text-white/70">Управление ролями доступно только супер-администратору</p>
-      </div>
-    );
-  }
 
   if (isLoading) {
     return (
