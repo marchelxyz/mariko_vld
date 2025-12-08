@@ -106,9 +106,9 @@ function RandomBackgroundPattern() {
   function generatePositions(width: number, height: number): PatternPosition[] {
     const newPositions: PatternPosition[] = [];
     const placedRects: Array<{ x: number; y: number; width: number; height: number; rotation: number }> = [];
-    const minScale = 0.2;
-    const maxScale = 0.35; // Уменьшаем максимальный размер для более компактных элементов
-    const padding = 8; // Уменьшаем padding для более плотного размещения
+    const minScale = 0.15; // Уменьшаем минимальный размер для более плотного размещения
+    const maxScale = 0.28; // Уменьшаем максимальный размер для более компактных элементов
+    const padding = 4; // Уменьшаем padding в 2 раза для более плотного размещения
 
     function getRandomPattern() {
       const index = Math.floor(Math.random() * PATTERNS.length);
@@ -198,13 +198,13 @@ function RandomBackgroundPattern() {
 
       // Используем сетку для равномерного распределения
       // Разбиваем пространство на более плотную сетку для лучшего заполнения
-      const gridCols = Math.ceil(Math.sqrt(existingRects.length + 1) * 2.5);
-      const gridRows = Math.ceil(Math.sqrt(existingRects.length + 1) * 2.5);
+      const gridCols = Math.ceil(Math.sqrt(existingRects.length + 1) * 3.5); // Увеличиваем плотность сетки
+      const gridRows = Math.ceil(Math.sqrt(existingRects.length + 1) * 3.5); // Увеличиваем плотность сетки
       const cellWidth = width / gridCols;
       const cellHeight = height / gridRows;
       
       // Пробуем разместить в случайной ячейке сетки
-      const gridAttempts = 300; // Увеличиваем попытки для более плотного размещения
+      const gridAttempts = 600; // Увеличиваем попытки в 2 раза для более плотного размещения
       for (let i = 0; i < gridAttempts; i++) {
         const col = Math.floor(Math.random() * gridCols);
         const row = Math.floor(Math.random() * gridRows);
@@ -222,7 +222,7 @@ function RandomBackgroundPattern() {
       }
 
       // Если сетка не помогла, пытаемся разместить рядом с существующими паттернами
-      const attempts = 500; // Увеличиваем попытки для более плотного размещения
+      const attempts = 1000; // Увеличиваем попытки в 2 раза для более плотного размещения
       for (let i = 0; i < attempts; i++) {
         const randomRect = existingRects[Math.floor(Math.random() * existingRects.length)];
         const existingBounds = getRotatedBounds(randomRect.width, randomRect.height, randomRect.rotation);
@@ -263,7 +263,7 @@ function RandomBackgroundPattern() {
       }
 
       // Если не удалось разместить рядом, ищем любое свободное место равномерно
-      const randomAttempts = 1500; // Увеличиваем попытки для более плотного заполнения
+      const randomAttempts = 3000; // Увеличиваем попытки в 2 раза для более плотного заполнения
       for (let i = 0; i < randomAttempts; i++) {
         const x = Math.random() * Math.max(0, width - w);
         const y = Math.random() * Math.max(0, height - h);
@@ -276,16 +276,16 @@ function RandomBackgroundPattern() {
       return null;
     }
 
-    // Увеличиваем плотность для лучшего заполнения фона
-    const targetDensity = 0.85; // Увеличиваем целевую плотность
+    // Увеличиваем плотность для лучшего заполнения фона в 4 раза
+    const targetDensity = 1.0; // Максимальная целевая плотность
     const area = width * height;
-    // Учитываем уменьшенный размер элементов при расчете
-    const avgElementArea = 150 * 120; // Уменьшаем среднюю площадь элемента
-    const targetElements = Math.max(40, Math.floor((area * targetDensity) / avgElementArea));
+    // Уменьшаем среднюю площадь элемента в 4 раза для увеличения количества элементов
+    const avgElementArea = (150 * 120) / 4; // Уменьшаем в 4 раза: было 18000, стало 4500
+    const targetElements = Math.max(160, Math.floor((area * targetDensity) / avgElementArea)); // Увеличиваем минимум в 4 раза
 
     // Размещаем паттерны до достижения целевого количества или пока есть место
     let attempts = 0;
-    const maxAttempts = targetElements * 5; // Увеличиваем количество попыток для более плотного заполнения
+    const maxAttempts = targetElements * 8; // Увеличиваем количество попыток для более плотного заполнения
     
     for (let i = 0; i < targetElements && attempts < maxAttempts; i++) {
       attempts++;
