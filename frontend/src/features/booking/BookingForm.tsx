@@ -35,6 +35,7 @@ import { profileApi } from "@shared/api/profile";
 import { toast } from "@/hooks/use-toast";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { cn } from "@shared/utils";
+import { getCachedBookingSlots, cacheBookingSlots } from "@shared/utils/bookingSlotsCache";
 
 type EventType = {
   id: string;
@@ -243,7 +244,6 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     slotsAbortControllerRef.current?.abort();
     slotsAbortControllerRef.current = new AbortController();
 
-    setLoadingSlots(true);
     const dateStr = format(selectedDate, "yyyy-MM-dd");
 
     console.log('Загрузка слотов:', {
@@ -254,6 +254,49 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       remarkedRestaurantId: remarkedRestaurantId,
     });
 
+    // Сначала проверяем кэш предзагруженных данных
+    const cachedSlots = getCachedBookingSlots(restaurantId!, dateStr, guestsCount);
+    const hasCache = cachedSlots && cachedSlots.length > 0;
+    
+    if (hasCache) {
+      console.log('Используем предзагруженные слоты из кэша:', cachedSlots.length);
+      
+      // Фильтруем только свободные слоты
+      const freeSlots = cachedSlots
+        .filter((slot) => slot.is_free)
+        .sort((a, b) => {
+          const timeA = a.start_datetime.split(' ')[1]?.substring(0, 5) || '';
+          const timeB = b.start_datetime.split(' ')[1]?.substring(0, 5) || '';
+          return timeA.localeCompare(timeB);
+        });
+
+      setAvailableSlots(freeSlots);
+      
+      // Сбрасываем выбранный слот, если он больше не доступен
+      setSelectedSlot((prevSlot) => {
+        if (prevSlot && !freeSlots.some((s) => s.start_stamp === prevSlot.start_stamp)) {
+          setSelectedTime("");
+          return null;
+        }
+        return prevSlot;
+      });
+      
+      // Сбрасываем время, если выбранный слот больше не доступен
+      setSelectedTime((prevTime) => {
+        if (prevTime && !freeSlots.some((s) => {
+          const timeStr = s.start_datetime.split(' ')[1]?.substring(0, 5) || '';
+          return timeStr === prevTime;
+        })) {
+          return "";
+        }
+        return prevTime;
+      });
+    } else {
+      // Если кэша нет, показываем индикатор загрузки
+      setLoadingSlots(true);
+    }
+
+    // Загружаем актуальные данные с сервера
     getBookingSlots({
       restaurantId: restaurantId!,
       date: dateStr,
@@ -276,6 +319,9 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         if (response.success && response.data) {
           const allSlots = response.data.slots || [];
           console.log('Все слоты от API:', allSlots.length);
+          
+          // Сохраняем слоты в кэш для будущего использования
+          cacheBookingSlots(restaurantId!, dateStr, guestsCount, allSlots);
           
           // Фильтруем только свободные слоты
           const freeSlots = allSlots
@@ -311,9 +357,12 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           });
         } else {
           console.warn('Не удалось загрузить слоты:', response.error);
-          setAvailableSlots([]);
-          setSelectedTime("");
-          setSelectedSlot(null);
+          // Если кэша не было, очищаем слоты при ошибке
+          if (!hasCache) {
+            setAvailableSlots([]);
+            setSelectedTime("");
+            setSelectedSlot(null);
+          }
         }
       })
       .catch((error) => {
@@ -323,10 +372,12 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           return;
         }
         
-        // Очищаем слоты при ошибке
-        setAvailableSlots([]);
-        setSelectedTime("");
-        setSelectedSlot(null);
+        // Очищаем слоты при ошибке только если кэша не было
+        if (!hasCache) {
+          setAvailableSlots([]);
+          setSelectedTime("");
+          setSelectedSlot(null);
+        }
         
         // Не показываем toast для ошибок загрузки слотов, так как это может быть нормальной ситуацией
         console.error('Ошибка загрузки слотов:', {
@@ -340,7 +391,10 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       })
       .finally(() => {
         if (!slotsAbortControllerRef.current?.signal.aborted) {
-          setLoadingSlots(false);
+          // Убираем индикатор загрузки только если он был показан (не было кэша)
+          if (!hasCache) {
+            setLoadingSlots(false);
+          }
         }
       });
 
