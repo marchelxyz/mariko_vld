@@ -120,23 +120,46 @@ export function getCachedBookingSlots(
  */
 export function clearBookingSlotsCache(restaurantId?: string): void {
   try {
+    // Получаем ключи из localStorage напрямую, так как storage API не предоставляет способ получить все ключи
+    // Это безопасно, так как storage API синхронизирует данные с localStorage
+    const localStorage = typeof window !== 'undefined' ? window.localStorage : null;
+    if (!localStorage) {
+      return;
+    }
+
     if (restaurantId) {
       // Очищаем только кэши для конкретного ресторана
       // Используем закодированный restaurantId для поиска ключей
       const encodedRestaurantId = encodeStorageKey(restaurantId);
-      const keys = Object.keys(localStorage);
-      keys.forEach((key) => {
-        if (key.startsWith(CACHE_KEY_PREFIX) && key.includes(`_${encodedRestaurantId}_`)) {
-          storage.removeItem(key);
+      const keys: string[] = [];
+      
+      // Собираем все ключи из localStorage
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(CACHE_KEY_PREFIX) && key.includes(`_${encodedRestaurantId}_`)) {
+          keys.push(key);
         }
+      }
+      
+      // Удаляем найденные ключи через storage API
+      keys.forEach((key) => {
+        storage.removeItem(key);
       });
     } else {
       // Очищаем все кэши
-      const keys = Object.keys(localStorage);
-      keys.forEach((key) => {
-        if (key.startsWith(CACHE_KEY_PREFIX)) {
-          storage.removeItem(key);
+      const keys: string[] = [];
+      
+      // Собираем все ключи из localStorage
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(CACHE_KEY_PREFIX)) {
+          keys.push(key);
         }
+      }
+      
+      // Удаляем найденные ключи через storage API
+      keys.forEach((key) => {
+        storage.removeItem(key);
       });
     }
   } catch (error) {
