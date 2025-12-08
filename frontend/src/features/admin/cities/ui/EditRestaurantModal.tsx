@@ -130,7 +130,19 @@ export function EditRestaurantModal({
         yandexMapsUrl: yandexMapsUrl.trim(),
         twoGisUrl: twoGisUrl.trim(),
         socialNetworks: socialNetworks.filter(sn => sn.name.trim() && sn.url.trim()),
-        remarkedRestaurantId: remarkedRestaurantId.trim() ? parseInt(remarkedRestaurantId.trim(), 10) : undefined,
+        remarkedRestaurantId: remarkedRestaurantId.trim() ? (() => {
+          const parsed = parseInt(remarkedRestaurantId.trim(), 10);
+          if (isNaN(parsed)) {
+            alert('ID Remarked должен быть числом');
+            throw new Error('Invalid remarkedRestaurantId');
+          }
+          const idStr = parsed.toString();
+          if (!/^\d{6}$/.test(idStr)) {
+            alert('ID Remarked должен быть 6-значным кодом (например: 123456)');
+            throw new Error('Invalid remarkedRestaurantId format');
+          }
+          return parsed;
+        })() : undefined,
       });
       onClose();
     } catch (error) {
@@ -186,13 +198,16 @@ export function EditRestaurantModal({
           </div>
 
           <div>
-            <Label className="text-white">ID Remarked</Label>
+            <Label className="text-white">ID Remarked (6-значный код)</Label>
             <Input
               value={remarkedRestaurantId}
               onChange={(e) => setRemarkedRestaurantId(e.target.value)}
-              placeholder="Используется для брони столиков"
+              placeholder="123456"
               type="number"
             />
+            <p className="text-white/60 text-xs mt-1">
+              Используется для брони столиков. Должен быть 6-значным числом (например: 123456)
+            </p>
           </div>
 
           <div>
