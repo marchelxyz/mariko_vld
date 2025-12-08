@@ -1,6 +1,16 @@
 import { citiesSupabaseApi } from '@/shared/api/cities';
 import { ACTIVE_CITY_IDS, USE_ACTIVE_CITIES_FILTER, isRestaurantActive } from '@/shared/config/activeCities';
 
+export type DeliveryAggregator = {
+  name: string;
+  url: string;
+};
+
+export type SocialNetwork = {
+  name: string;
+  url: string;
+};
+
 export interface Restaurant {
   id: string;
   name: string;
@@ -8,6 +18,11 @@ export interface Restaurant {
   city: string;
   isActive?: boolean;
   remarkedRestaurantId?: number;
+  phoneNumber?: string;
+  deliveryAggregators?: DeliveryAggregator[];
+  yandexMapsUrl?: string;
+  twoGisUrl?: string;
+  socialNetworks?: SocialNetwork[];
 }
 
 export interface City {

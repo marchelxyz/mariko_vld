@@ -9,13 +9,15 @@ import {
   EyeOff,
   Trash2,
   Shield,
+  Edit,
 } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { adminApi } from "@shared/api/admin";
 import { citiesSupabaseApi } from "@shared/api/cities";
-import { getAllCitiesAsync, type City } from "@shared/data";
+import { getAllCitiesAsync, type City, type Restaurant } from "@shared/data";
 import { useAdmin } from "@shared/hooks";
 import { Permission } from "@shared/types";
+import { EditRestaurantModal } from "./ui";
 import {
   Button,
   Input,
@@ -57,6 +59,7 @@ export function CitiesManagement(): JSX.Element {
   const [searchQuery, setSearchQuery] = useState('');
   const [cityToDelete, setCityToDelete] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [restaurantToEdit, setRestaurantToEdit] = useState<Restaurant | null>(null);
   const useSupabase = isSupabaseConfigured();
 
   // Права доступа
@@ -220,6 +223,44 @@ export function CitiesManagement(): JSX.Element {
       alert(`✅ Готово! Ресторан ${newStatus ? 'активирован' : 'деактивирован'}`);
     } else {
       alert('❌ Ошибка изменения статуса ресторана');
+    }
+  };
+
+  /**
+   * Сохранить изменения ресторана
+   */
+  const handleSaveRestaurant = async (updates: {
+    name: string;
+    address: string;
+    phoneNumber: string;
+    deliveryAggregators: Array<{ name: string; url: string }>;
+    yandexMapsUrl: string;
+    twoGisUrl: string;
+    socialNetworks: Array<{ name: string; url: string }>;
+    remarkedRestaurantId?: number;
+  }) => {
+    if (!restaurantToEdit) return;
+
+    const result = await citiesSupabaseApi.updateRestaurant(restaurantToEdit.id, {
+      name: updates.name,
+      address: updates.address,
+      phoneNumber: updates.phoneNumber.trim() ? updates.phoneNumber : undefined,
+      deliveryAggregators: updates.deliveryAggregators.length > 0 ? updates.deliveryAggregators : undefined,
+      yandexMapsUrl: updates.yandexMapsUrl.trim() ? updates.yandexMapsUrl : undefined,
+      twoGisUrl: updates.twoGisUrl.trim() ? updates.twoGisUrl : undefined,
+      socialNetworks: updates.socialNetworks.length > 0 ? updates.socialNetworks : undefined,
+      remarkedRestaurantId: updates.remarkedRestaurantId,
+    });
+
+    if (result) {
+      // Перезагружаем города для обновления данных
+      const cities = await getAllCitiesAsync();
+      const citiesWithStatus = cities.map((city) => normalizeCity(city as City & { is_active?: boolean }));
+      setCitiesWithStatus(citiesWithStatus);
+      alert('✅ Ресторан успешно обновлен');
+      setRestaurantToEdit(null);
+    } else {
+      alert('❌ Ошибка обновления ресторана');
     }
   };
 
@@ -415,6 +456,15 @@ export function CitiesManagement(): JSX.Element {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => setRestaurantToEdit(restaurant)}
+                        title="Редактировать ресторан"
+                        className="h-8 w-8 md:h-9 md:w-9 p-0"
+                      >
+                        <Edit className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleUpdateRemarkedId(restaurant.id, city.id)}
                         title="Настроить ID Remarked"
                         className="h-8 w-8 md:h-9 md:w-9 p-0 text-xs"
@@ -470,6 +520,14 @@ export function CitiesManagement(): JSX.Element {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Модальное окно редактирования ресторана */}
+      <EditRestaurantModal
+        restaurant={restaurantToEdit}
+        isOpen={!!restaurantToEdit}
+        onClose={() => setRestaurantToEdit(null)}
+        onSave={handleSaveRestaurant}
+      />
     </div>
   );
 }

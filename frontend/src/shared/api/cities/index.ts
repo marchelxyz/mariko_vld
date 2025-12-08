@@ -62,7 +62,17 @@ class CitiesApi {
   addCity = addCityToSupabase;
   deleteCity = deleteCityFromSupabase;
   addRestaurant = addRestaurantToSupabase;
-  updateRestaurant = async (restaurantId: string, updates: { name?: string; address?: string; isActive?: boolean; remarkedRestaurantId?: number }): Promise<boolean> => {
+  updateRestaurant = async (restaurantId: string, updates: { 
+    name?: string; 
+    address?: string; 
+    isActive?: boolean; 
+    remarkedRestaurantId?: number;
+    phoneNumber?: string;
+    deliveryAggregators?: Array<{ name: string; url: string }>;
+    yandexMapsUrl?: string;
+    twoGisUrl?: string;
+    socialNetworks?: Array<{ name: string; url: string }>;
+  }): Promise<boolean> => {
     // Если есть серверный прокси — обновляем через него (service key, гарантированное подтверждение)
     if (shouldUseServerProxy()) {
       try {
