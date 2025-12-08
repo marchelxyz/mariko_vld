@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { format as formatDate } from "date-fns";
+import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Calendar } from "@shared/ui/calendar";
 import { Button } from "@shared/ui/button";
@@ -174,17 +174,38 @@ export function BookingForm({ onSuccess }: BookingFormProps = {}) {
     }
 
     setLoadingSlots(true);
-    const dateStr = formatDate(selectedDate, "yyyy-MM-dd");
+    
+    // Проверяем валидность даты перед форматированием
+    if (!selectedDate || !(selectedDate instanceof Date) || isNaN(selectedDate.getTime())) {
+      setLoadingSlots(false);
+      logger.error("booking", new Error("Некорректная дата при загрузке слотов"));
+      return;
+    }
+    
+    const dateStr = format(selectedDate, "yyyy-MM-dd");
 
     getRemarkedSlots(token, dateStr, guestsCount)
       .then((data) => {
         const slots = data.slots
           .filter((slot) => slot.is_free)
-          .map((slot) => ({
-            time: formatDate(new Date(slot.start_datetime), "HH:mm"),
-            datetime: slot.start_datetime,
-            isFree: slot.is_free,
-          }))
+          .map((slot) => {
+            try {
+              const date = new Date(slot.start_datetime);
+              if (isNaN(date.getTime())) {
+                logger.error("booking", new Error(`Invalid date: ${slot.start_datetime}`));
+                return null;
+              }
+              return {
+                time: format(date, "HH:mm"),
+                datetime: slot.start_datetime,
+                isFree: slot.is_free,
+              };
+            } catch (error) {
+              logger.error("booking", error instanceof Error ? error : new Error("Ошибка форматирования времени слота"));
+              return null;
+            }
+          })
+          .filter((slot): slot is NonNullable<typeof slot> => slot !== null)
           .sort((a, b) => a.time.localeCompare(b.time));
 
         setAvailableSlots(slots);
@@ -197,8 +218,10 @@ export function BookingForm({ onSuccess }: BookingFormProps = {}) {
         });
         // Не показываем toast при первой загрузке для сегодняшней даты
         if (slots.length === 0) {
-          const todayStr = formatDate(new Date(), "yyyy-MM-dd");
-          const selectedDateStr = formatDate(selectedDate, "yyyy-MM-dd");
+          const todayStr = format(new Date(), "yyyy-MM-dd");
+          const selectedDateStr = selectedDate && selectedDate instanceof Date && !isNaN(selectedDate.getTime()) 
+            ? format(selectedDate, "yyyy-MM-dd")
+            : "";
           // Показываем toast только если это не сегодняшняя дата (чтобы не показывать при первой загрузке)
           if (selectedDateStr !== todayStr) {
             toast({
@@ -354,7 +377,13 @@ export function BookingForm({ onSuccess }: BookingFormProps = {}) {
 
     try {
       const formattedPhone = formatPhone(phone);
-      const dateStr = formatDate(selectedDate, "yyyy-MM-dd");
+      
+      // Проверяем валидность даты перед форматированием
+      if (!selectedDate || !(selectedDate instanceof Date) || isNaN(selectedDate.getTime())) {
+        throw new Error("Некорректная дата бронирования");
+      }
+      
+      const dateStr = format(selectedDate, "yyyy-MM-dd");
       const fullComment = [
         selectedEvent?.comment,
         comment.trim(),
@@ -517,7 +546,9 @@ export function BookingForm({ onSuccess }: BookingFormProps = {}) {
               className="w-full justify-start text-left font-normal h-12 bg-white/10 border-white/20 text-white hover:bg-white/20"
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {selectedDate ? formatDate(selectedDate, "d MMMM yyyy", { locale: ru }) : ""}
+              {selectedDate && selectedDate instanceof Date && !isNaN(selectedDate.getTime()) 
+                ? format(selectedDate, "d MMMM yyyy", { locale: ru }) 
+                : ""}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
