@@ -1,6 +1,18 @@
-# Railway: развертывание фронта, сервера и бота
+# Railway: развертывание backend и bot
 
-Проект разделён на `frontend/` (Vite), `backend/server` (Express cart-server) и `backend/bot` (Telegraf). Railway: три сервиса. Vercel: статичный фронт из `frontend/`. Timeweb — зеркало через `scripts/deploy-local.sh` / `scripts/push-env.sh`.
+**Архитектура проекта:**
+- **Frontend**: Vercel (статический хостинг)
+- **Backend**: Railway (Express cart-server)
+- **Bot**: Railway (Telegraf)
+- **Database**: PostgreSQL на Railway
+- **Storage**: Yandex Cloud (планируется)
+- **Зеркало**: Timeweb (планируется)
+
+Проект разделён на `frontend/` (Vite), `backend/server` (Express cart-server) и `backend/bot` (Telegraf). 
+
+**См. также:**
+- `ARCHITECTURE.md` — полное описание архитектуры
+- `scripts/setup-vercel-env.sh` — настройка переменных для Vercel (Frontend)
 
 ## Сервисы и команды
 
@@ -77,18 +89,26 @@ railway variables --service <service-name>
 
 ### Список переменных по сервисам
 
-#### Frontend
+#### Frontend (Vercel)
+
+**Обязательные:**
 - `VITE_SUPABASE_URL` — URL вашего Supabase проекта
 - `VITE_SUPABASE_ANON_KEY` — Supabase Anon Key
+- `VITE_SERVER_API_URL` → `https://<backend>.up.railway.app/api` (рекомендуется использовать эту переменную)
+
+**Опциональные** (если не используется `VITE_SERVER_API_URL`):
 - `VITE_CART_API_URL` → `https://<backend>.up.railway.app/api/cart/submit`
 - `VITE_CART_RECALC_URL` → `https://<backend>.up.railway.app/api/cart/recalculate`
 - `VITE_CART_ORDERS_URL` → `https://<backend>.up.railway.app/api/cart/orders`
 - `VITE_ADMIN_API_URL` → `https://<backend>.up.railway.app/api/cart`
-- `VITE_SERVER_API_URL` → `https://<backend>.up.railway.app/api`
+
+**Дополнительные:**
 - `VITE_DEV_ADMIN_TOKEN` — токен для админ-доступа
 - `VITE_DEV_ADMIN_TELEGRAM_ID` — Telegram ID администратора
 - `VITE_GEO_SUGGEST_URL` — URL для геокодирования (по умолчанию: `https://photon.komoot.io/api`)
 - `VITE_GEO_REVERSE_URL` — URL для обратного геокодирования (по умолчанию: `https://photon.komoot.io/reverse`)
+
+**Примечание:** Все переменные должны быть установлены для всех окружений (Production, Preview, Development) в Vercel Dashboard.
 
 #### Backend (cart-server)
 - `DATABASE_URL` — PostgreSQL connection string (Railway предоставляет автоматически при добавлении PostgreSQL)
@@ -112,8 +132,8 @@ railway variables --service <service-name>
 
 #### Bot
 - `BOT_TOKEN` — токен Telegram бота
-- `WEBAPP_URL` — домен фронта на Railway (например: `https://frontend.up.railway.app`)
-- `PROFILE_SYNC_URL` — URL синхронизации профиля (обычно: `${WEBAPP_URL}/api/cart/profile/sync`)
+- `WEBAPP_URL` — **домен Vercel frontend** (например: `https://your-app.vercel.app`)
+- `PROFILE_SYNC_URL` — URL синхронизации профиля (обычно: `https://<backend>.up.railway.app/api/cart/profile/sync`)
 - `SUPABASE_URL` — URL Supabase проекта
 - `SUPABASE_SERVICE_ROLE_KEY` — Service Role Key Supabase
 - `VITE_USE_SERVER_API` — использовать серверный API (по умолчанию: `true`)
@@ -132,10 +152,11 @@ railway variables --service <service-name>
    - Создайте новый проект
    - Подключите репозиторий GitHub/GitLab
 
-2. **Добавьте три сервиса:**
-   - **Frontend:** root `/frontend`, install `npm ci`, build `npm run build`, dist `dist`
+2. **Добавьте два сервиса на Railway:**
    - **Backend:** root `/backend`, install `npm ci --omit=dev`, start `node server/cart-server.mjs`
    - **Bot:** root `/backend/bot`, install `npm ci --omit=dev`, start `node main-bot.cjs`
+   
+   **Примечание:** Frontend разворачивается на Vercel (см. раздел "Vercel" ниже)
 
 3. **Добавьте PostgreSQL:**
    - В проекте Railway нажмите **New** → **Database** → **Add PostgreSQL**
@@ -146,22 +167,78 @@ railway variables --service <service-name>
    - Или настройте вручную через веб-интерфейс/CLI (см. выше)
 
 5. **Важно:** После деплоя замените в переменных:
-   - `your-backend.up.railway.app` → реальный домен backend сервиса
-   - `your-frontend.up.railway.app` → реальный домен frontend сервиса
+   - `your-backend.up.railway.app` → реальный домен backend сервиса на Railway
+   - В переменной `WEBAPP_URL` бота укажите домен Vercel (например: `https://your-app.vercel.app`)
 
 6. **Проверьте логи:**
    ```bash
-   railway logs --service frontend
    railway logs --service backend
    railway logs --service bot
    ```
 
 7. **Включите автоматический деплой:**
    - В настройках каждого сервиса включите **Deploy on Push**
+   
+8. **Настройте Frontend на Vercel:**
+   - См. раздел "Vercel (frontend)" ниже
+   - Используйте скрипт: `bash scripts/setup-vercel-env.sh`
 
 ## Vercel (frontend)
-- Конфиг: `vercel.json` указывает на `frontend/package.json`, билд `npm run build`, dist `dist`, маршрутизация SPA (`/.* -> /index.html`).  
-- Переменные задать в Vercel Dashboard (Project → Settings → Environment Variables) — используйте те же `VITE_*`, что для Railway.
+
+**Платформа**: [Vercel](https://vercel.com)
+
+**Конфигурация**:
+- Root: `/frontend`
+- Build Command: `npm run build`
+- Output Directory: `dist`
+- Framework: Vite (React SPA)
+- Конфиг: `vercel.json` указывает на `frontend/package.json`, маршрутизация SPA (`/.* -> /index.html`)
+
+### Настройка переменных окружения
+
+#### Автоматическая настройка (рекомендуется)
+
+```bash
+# 1. Установите Vercel CLI (если ещё не установлен)
+npm i -g vercel
+
+# 2. Войдите в Vercel
+vercel login
+
+# 3. Свяжите проект с Vercel (выберите проект)
+vercel link
+
+# 4. Запустите скрипт (автоматически читает из локальных .env файлов)
+bash scripts/setup-vercel-env.sh
+
+# Или в интерактивном режиме
+bash scripts/setup-vercel-env.sh --interactive
+```
+
+#### Ручная настройка
+
+1. Откройте [Vercel Dashboard](https://vercel.com)
+2. Выберите проект
+3. Перейдите в **Settings** → **Environment Variables**
+4. Добавьте переменные для всех окружений (Production, Preview, Development)
+
+**Обязательные переменные:**
+- `VITE_SUPABASE_URL` — URL вашего Supabase проекта
+- `VITE_SUPABASE_ANON_KEY` — Supabase Anon Key
+- `VITE_SERVER_API_URL` → `https://<backend>.up.railway.app/api` (URL backend на Railway)
+
+**Полный список переменных** см. в разделе "Frontend" выше.
+
+### Деплой
+
+- Автоматический деплой при push в main ветку
+- Preview деплои для pull requests
+- Настраивается через Vercel Dashboard или `vercel.json`
+
+### Домены
+
+- Production: `https://your-app.vercel.app`
+- Custom domain: настраивается в Vercel Dashboard → **Settings** → **Domains**
 
 ## Зеркало на Timeweb
 - Пока основной хостинг — Timeweb, продолжайте деплой командой `bash scripts/deploy-local.sh` и доставку env `bash scripts/push-env.sh`.  
