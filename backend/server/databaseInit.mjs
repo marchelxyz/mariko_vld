@@ -148,6 +148,28 @@ const SCHEMAS = {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `,
+
+  bookings: `
+    CREATE TABLE IF NOT EXISTS bookings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      restaurant_id VARCHAR(255) NOT NULL,
+      remarked_restaurant_id INTEGER,
+      remarked_reserve_id INTEGER,
+      customer_name VARCHAR(255) NOT NULL,
+      customer_phone VARCHAR(20) NOT NULL,
+      customer_email VARCHAR(255),
+      booking_date DATE NOT NULL,
+      booking_time TIME NOT NULL,
+      guests_count INTEGER NOT NULL DEFAULT 1,
+      comment TEXT,
+      event_tags JSONB DEFAULT '[]'::jsonb,
+      source VARCHAR(50) DEFAULT 'mobile_app',
+      status VARCHAR(50) DEFAULT 'created',
+      remarked_response JSONB,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `,
 };
 
 /**
@@ -173,6 +195,12 @@ const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_restaurants_city_id ON restaurants(city_id);`,
   `CREATE INDEX IF NOT EXISTS idx_restaurants_is_active ON restaurants(is_active);`,
   `CREATE INDEX IF NOT EXISTS idx_restaurants_display_order ON restaurants(display_order);`,
+  `CREATE INDEX IF NOT EXISTS idx_bookings_restaurant_id ON bookings(restaurant_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_bookings_remarked_restaurant_id ON bookings(remarked_restaurant_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_bookings_remarked_reserve_id ON bookings(remarked_reserve_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_bookings_customer_phone ON bookings(customer_phone);`,
+  `CREATE INDEX IF NOT EXISTS idx_bookings_booking_date ON bookings(booking_date);`,
+  `CREATE INDEX IF NOT EXISTS idx_bookings_created_at ON bookings(created_at DESC);`,
 ];
 
 /**
@@ -217,6 +245,7 @@ export async function initializeDatabase() {
       "payments",           // payments зависит от cart_orders
       "cities",             // cities независима
       "restaurants",        // restaurants зависит от cities
+      "bookings",           // bookings зависит от restaurants
     ];
 
     // Создаем таблицы в правильном порядке
@@ -262,6 +291,13 @@ export async function initializeDatabase() {
         sql: `ALTER TABLE restaurants 
               ADD CONSTRAINT fk_restaurants_city 
               FOREIGN KEY (city_id) REFERENCES cities(id) ON DELETE CASCADE`,
+      },
+      {
+        name: "fk_bookings_restaurant",
+        table: "bookings",
+        sql: `ALTER TABLE bookings 
+              ADD CONSTRAINT fk_bookings_restaurant 
+              FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE`,
       },
     ];
 
@@ -344,6 +380,7 @@ export async function checkDatabaseTables() {
       "payments",
       "cities",
       "restaurants",
+      "bookings",
     ];
     
     const result = await query(`

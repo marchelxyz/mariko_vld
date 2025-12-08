@@ -24,9 +24,9 @@ import { useCityContext } from "@/contexts";
 import {
   getRemarkedToken,
   getRemarkedSlots,
-  createRemarkedReserve,
   getRemarkedReservesByPhone,
 } from "@shared/api/remarked";
+import { createBooking } from "@shared/api/bookingApi";
 import { profileApi } from "@shared/api/profile";
 import { toast } from "@/hooks/use-toast";
 import { CalendarIcon, Loader2 } from "lucide-react";
@@ -88,6 +88,14 @@ function formatPhone(phone: string): string {
 export function BookingForm() {
   const { selectedRestaurant } = useCityContext();
   const { profile } = useProfile();
+
+  if (!selectedRestaurant) {
+    return (
+      <div className="p-4 text-center text-muted-foreground">
+        Выберите ресторан для бронирования столика
+      </div>
+    );
+  }
 
   // Устанавливаем текущую дату по умолчанию
   const today = new Date();
@@ -350,20 +358,24 @@ export function BookingForm() {
         .filter((item) => Boolean(item))
         .join(". ");
 
-      const result = await createRemarkedReserve(token, {
+      // Используем бэкенд API для создания бронирования
+      const result = await createBooking({
+        restaurantId: selectedRestaurant.id,
         name: name.trim(),
         phone: formattedPhone,
         date: dateStr,
         time: selectedTime,
-        guests_count: guestsCount,
+        guestsCount: guestsCount,
         comment: fullComment || undefined,
         source: "mobile_app",
       });
 
-      if (result.status === "success") {
+      if (result.success && result.booking) {
         toast({
           title: "Успешно!",
-          description: `Бронирование создано. ID: ${result.reserve_id}`,
+          description: result.booking.reserveId 
+            ? `Бронирование создано. ID: ${result.booking.reserveId}`
+            : "Бронирование создано",
         });
 
         // Сохраняем данные в профиль
@@ -410,7 +422,7 @@ export function BookingForm() {
         }
         setHasPreviousBooking(true);
       } else {
-        throw new Error("Неизвестная ошибка");
+        throw new Error(result.error || "Неизвестная ошибка");
       }
     } catch (error) {
       logger.error("booking", error instanceof Error ? error : new Error("Ошибка создания бронирования"), {
