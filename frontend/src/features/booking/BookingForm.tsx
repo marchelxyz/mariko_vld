@@ -113,18 +113,40 @@ export function BookingForm() {
 
   const remarkedRestaurantId = selectedRestaurant?.remarkedRestaurantId;
 
+  /**
+   * Проверка, что ID ресторана Remarked является 6-значным числом
+   */
+  const isValidRemarkedId = (id: number | undefined): boolean => {
+    if (!id) return false;
+    const idStr = id.toString();
+    return /^\d{6}$/.test(idStr);
+  };
+
   // Загрузка токена при монтировании
   useEffect(() => {
     if (remarkedRestaurantId) {
+      // Проверяем, что ID является 6-значным кодом
+      if (!isValidRemarkedId(remarkedRestaurantId)) {
+        logger.error("booking", new Error(`Некорректный ID Remarked: ${remarkedRestaurantId}. Ожидается 6-значный код`));
+        toast({
+          title: "Ошибка конфигурации",
+          description: "ID ресторана в системе бронирования должен быть 6-значным кодом",
+          variant: "destructive",
+        });
+        return;
+      }
+
       getRemarkedToken(remarkedRestaurantId, true)
         .then((data) => {
           setToken(data.token);
         })
         .catch((error) => {
-          logger.error("booking", error instanceof Error ? error : new Error("Ошибка получения токена"));
+          logger.error("booking", error instanceof Error ? error : new Error("Ошибка получения токена"), {
+            remarkedRestaurantId,
+          });
           toast({
             title: "Ошибка",
-            description: "Не удалось подключиться к системе бронирования",
+            description: `Не удалось подключиться к системе бронирования. ID: ${remarkedRestaurantId}`,
             variant: "destructive",
           });
         });
@@ -305,6 +327,17 @@ export function BookingForm() {
       return;
     }
 
+    // Проверяем, что ID является 6-значным кодом
+    if (!isValidRemarkedId(remarkedRestaurantId)) {
+      logger.error("booking", new Error(`Некорректный ID Remarked при создании бронирования: ${remarkedRestaurantId}`));
+      toast({
+        title: "Ошибка конфигурации",
+        description: "ID ресторана в системе бронирования должен быть 6-значным кодом. Обратитесь к администратору.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -380,13 +413,16 @@ export function BookingForm() {
         throw new Error("Неизвестная ошибка");
       }
     } catch (error) {
-      logger.error("booking", error instanceof Error ? error : new Error("Ошибка создания бронирования"));
+      logger.error("booking", error instanceof Error ? error : new Error("Ошибка создания бронирования"), {
+        remarkedRestaurantId,
+        date: dateStr,
+        time: selectedTime,
+        guestsCount,
+      });
+      const errorMessage = error instanceof Error ? error.message : "Не удалось создать бронирование";
       toast({
         title: "Ошибка",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Не удалось создать бронирование",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -401,7 +437,24 @@ export function BookingForm() {
           Бронирование пока недоступно для этого ресторана
         </p>
         <p className="mt-2 text-sm text-white/70">
-          Обратитесь к администратору для настройки системы бронирования
+          Обратитесь к администратору для настройки системы бронирования (требуется 6-значный код Remarked)
+        </p>
+      </div>
+    );
+  }
+
+  // Проверяем формат ID при отображении формы
+  if (!isValidRemarkedId(remarkedRestaurantId)) {
+    return (
+      <div className="rounded-[24px] border border-white/15 bg-white/10 p-6 text-center text-white">
+        <p className="font-el-messiri text-lg">
+          Ошибка конфигурации системы бронирования
+        </p>
+        <p className="mt-2 text-sm text-white/70">
+          ID ресторана должен быть 6-значным кодом Remarked. Текущее значение: {remarkedRestaurantId}
+        </p>
+        <p className="mt-2 text-sm text-white/70">
+          Обратитесь к администратору для исправления настроек
         </p>
       </div>
     );
