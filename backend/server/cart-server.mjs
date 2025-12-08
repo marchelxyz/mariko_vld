@@ -11,6 +11,7 @@ import { createAdminRouter } from "./routes/adminRoutes.mjs";
 import { createPaymentRouter } from "./routes/paymentRoutes.mjs";
 import { createGeocodeRouter } from "./routes/geocodeRoutes.mjs";
 import { createCitiesRouter } from "./routes/citiesRoutes.mjs";
+import { logger } from "./utils/logger.mjs";
 
 const app = express();
 app.use(cors());
@@ -37,7 +38,7 @@ app.get("/api/db/init", async (req, res) => {
       database: true,
     });
   } catch (error) {
-    console.error("Ошибка инициализации БД через API:", error);
+    logger.error("Ошибка инициализации БД через API", error);
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -75,7 +76,7 @@ app.get("/api/db/check", async (req, res) => {
       database: true,
     });
   } catch (error) {
-    console.error("Ошибка проверки БД:", error);
+    logger.error("Ошибка проверки БД", error);
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -101,6 +102,7 @@ app.use("/api/cities", citiesRouter);
 app.use("/api/cart/cities", citiesRouter);
 
 app.use((req, res) => {
+  logger.warn('404 Not Found', { method: req.method, path: req.path });
   res.status(404).json({ success: false, message: "Not Found" });
 });
 
@@ -117,39 +119,42 @@ app.get("/health", (req, res) => {
 let server = null;
 
 async function startServer() {
-  console.log("🚀 Запуск сервера...");
-  console.log(`📊 DATABASE_URL: ${process.env.DATABASE_URL ? "установлен" : "не установлен"}`);
-  console.log(`📊 db объект: ${db ? "создан" : "не создан"}`);
+  logger.info("Запуск сервера", { port: PORT });
+  logger.debug("Конфигурация", {
+    databaseUrl: process.env.DATABASE_URL ? "установлен" : "не установлен",
+    dbObject: db ? "создан" : "не создан",
+  });
   
   if (db) {
     try {
       const initResult = await initializeDatabase();
       if (!initResult) {
-        console.error("⚠️  Инициализация БД завершилась с ошибками, но продолжаем запуск сервера");
+        logger.warn("Инициализация БД завершилась с ошибками, но продолжаем запуск сервера");
+      } else {
+        logger.info("База данных успешно инициализирована");
       }
     } catch (error) {
-      console.error("❌ Критическая ошибка при инициализации БД:", error);
-      console.error("Полная ошибка:", error);
+      logger.error("Критическая ошибка при инициализации БД", error);
       // Не останавливаем сервер, но логируем ошибку
     }
   } else {
-    console.warn("⚠️  DATABASE_URL не задан – сохраняем только в лог.");
+    logger.warn("DATABASE_URL не задан – сохраняем только в лог");
   }
 
   server = app.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 Cart mock server (Express) listening on http://0.0.0.0:${PORT}`);
+    logger.info(`Cart mock server (Express) listening on http://0.0.0.0:${PORT}`, { port: PORT });
     if (!db) {
-      console.log("ℹ️  DATABASE_URL не задан – сохраняем только в лог.");
+      logger.info("DATABASE_URL не задан – сохраняем только в лог");
     } else {
-      console.log("✅ Сервер запущен с подключением к БД");
+      logger.info("Сервер запущен с подключением к БД");
     }
   });
 
   // Обработка ошибок сервера
   server.on("error", (error) => {
-    console.error("❌ Ошибка сервера:", error);
+    logger.error("Ошибка сервера", error);
     if (error.code === "EADDRINUSE") {
-      console.error(`⚠️  Порт ${PORT} уже занят`);
+      logger.error(`Порт ${PORT} уже занят`, undefined, error);
       process.exit(1);
     } else {
       throw error;
@@ -161,19 +166,19 @@ async function startServer() {
 
 // Graceful shutdown
 async function shutdown(signal) {
-  console.log(`\n📛 Получен сигнал ${signal}, начинаем graceful shutdown...`);
+  logger.info(`Получен сигнал ${signal}, начинаем graceful shutdown...`);
   
   if (server) {
     server.close(() => {
-      console.log("✅ HTTP сервер закрыт");
+      logger.info("HTTP сервер закрыт");
       
       // Закрываем соединения с БД
       if (db) {
         db.end(() => {
-          console.log("✅ Соединения с БД закрыты");
+          logger.info("Соединения с БД закрыты");
           process.exit(0);
         }).catch((err) => {
-          console.error("❌ Ошибка при закрытии соединений с БД:", err);
+          logger.error("Ошибка при закрытии соединений с БД", err);
           process.exit(1);
         });
       } else {
@@ -183,7 +188,7 @@ async function shutdown(signal) {
 
     // Принудительное завершение через 10 секунд
     setTimeout(() => {
-      console.error("⚠️  Принудительное завершение после таймаута");
+      logger.error("Принудительное завершение после таймаута");
       process.exit(1);
     }, 10000);
   } else {
@@ -197,20 +202,20 @@ process.on("SIGINT", () => shutdown("SIGINT"));
 
 // Обработка необработанных ошибок
 process.on("uncaughtException", (error) => {
-  console.error("❌ Необработанное исключение:", error);
+  logger.error("Необработанное исключение", error);
   shutdown("uncaughtException");
 });
 
 process.on("unhandledRejection", (reason, promise) => {
-  console.error("❌ Необработанный rejection:", reason);
-  console.error("Promise:", promise);
+  logger.error("Необработанный rejection", reason instanceof Error ? reason : new Error(String(reason)), {
+    promise: String(promise),
+  });
   // Не завершаем процесс при unhandledRejection, только логируем
 });
 
 startServer().catch((error) => {
-  console.error("❌ Критическая ошибка запуска сервера:");
-  console.error("Сообщение:", error.message);
-  console.error("Код:", error.code);
-  console.error("Полный стек:", error.stack);
+  logger.error("Критическая ошибка запуска сервера", error, {
+    code: error.code,
+  });
   process.exit(1);
 });

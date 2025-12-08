@@ -1,6 +1,7 @@
 import type { City } from "@shared/data";
 import { resolveServerUrl } from "./config";
 import { getTg } from "@/lib/telegram";
+import { logger } from "@/lib/logger";
 
 function parseErrorPayload(payload?: string): string | null {
   if (!payload) {
@@ -15,8 +16,14 @@ function parseErrorPayload(payload?: string): string | null {
 }
 
 async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<T> {
+  const method = options?.method || 'GET';
+  const url = resolveServerUrl(path);
+  const startTime = Date.now();
+  
+  logger.api(method, url, options?.body ? JSON.parse(options.body as string) : undefined);
+  
   try {
-    const response = await fetch(resolveServerUrl(path), {
+    const response = await fetch(url, {
       credentials: 'include',
       ...options,
       headers: {
@@ -25,18 +32,27 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
       },
     });
 
+    const duration = Date.now() - startTime;
     const text = await response.text();
+    
     if (!response.ok) {
       const errorMessage = parseErrorPayload(text) ?? `Server API responded with ${response.status}`;
-      throw new Error(errorMessage);
+      const error = new Error(errorMessage);
+      logger.apiError(method, url, error, response.status);
+      throw error;
     }
 
+    logger.apiSuccess(method, url, text ? JSON.parse(text) : undefined);
     return text ? (JSON.parse(text) as T) : (undefined as T);
   } catch (error) {
+    const duration = Date.now() - startTime;
     // Обрабатываем ошибки сети и другие ошибки
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error('Не удалось подключиться к серверу. Проверьте подключение к интернету.');
+      const networkError = new Error('Не удалось подключиться к серверу. Проверьте подключение к интернету.');
+      logger.apiError(method, url, networkError);
+      throw networkError;
     }
+    logger.apiError(method, url, error as Error);
     throw error;
   }
 }
@@ -80,7 +96,7 @@ export async function createCityViaServer(
   city: { id: string; name: string; displayOrder?: number }
 ): Promise<{ success: boolean; errorMessage?: string }> {
   try {
-    console.log('🔄 [serverGateway] Создание города через сервер:', city);
+    logger.info('cities', 'Создание города через сервер', city);
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -89,13 +105,13 @@ export async function createCityViaServer(
     const initData = getTg()?.initData;
     if (initData) {
       headers['X-Telegram-Init-Data'] = initData;
-      console.log('✅ [serverGateway] Telegram initData добавлен в заголовки');
+      logger.debug('cities', 'Telegram initData добавлен в заголовки');
     } else {
-      console.warn('⚠️ [serverGateway] Telegram initData не найден');
+      logger.warn('cities', 'Telegram initData не найден');
     }
 
     const url = resolveServerUrl('/cities');
-    console.log('🌐 [serverGateway] Отправка запроса на:', url);
+    logger.debug('cities', 'Отправка запроса на создание города', { url });
 
     const response = await fetch(url, {
       method: 'POST',
@@ -108,21 +124,18 @@ export async function createCityViaServer(
       }),
     });
 
-    console.log('📡 [serverGateway] Получен ответ от сервера:', {
+    const text = await response.text();
+    logger.debug('cities', 'Получен ответ от сервера', {
       status: response.status,
       statusText: response.statusText,
       ok: response.ok,
     });
 
-    const text = await response.text();
-    console.log('📄 [serverGateway] Текст ответа:', text);
-
     if (!response.ok) {
       const errorMessage = parseErrorPayload(text) ?? 'Ошибка серверного API при создании города';
-      console.error('❌ [serverGateway] Ошибка создания города:', {
+      logger.error('cities', new Error(errorMessage), {
         status: response.status,
         statusText: response.statusText,
-        errorMessage,
         responseText: text,
       });
       return {
@@ -131,16 +144,13 @@ export async function createCityViaServer(
       };
     }
 
-    console.log('✅ [serverGateway] Город успешно создан через сервер');
+    logger.info('cities', 'Город успешно создан через сервер', { cityId: city.id });
     return { success: true };
   } catch (error) {
-    console.error('❌ [serverGateway] Неожиданная ошибка при создании города:', error);
+    logger.error('cities', error instanceof Error ? error : new Error('Неожиданная ошибка'), {
+      city,
+    });
     if (error instanceof Error) {
-      console.error('Детали ошибки:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-      });
       return {
         success: false,
         errorMessage: `Ошибка сети: ${error.message}`,

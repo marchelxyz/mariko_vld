@@ -2,6 +2,7 @@ import { Save, X, Plus, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button, Input, Label } from "@shared/ui";
 import type { DeliveryAggregator, SocialNetwork } from "@shared/data";
+import { logger } from "@/lib/logger";
 
 type CreateCityModalProps = {
   isOpen: boolean;
@@ -187,24 +188,22 @@ export function CreateCityModal({
         remarkedRestaurantId: remarkedRestaurantId.trim() ? parseInt(remarkedRestaurantId.trim(), 10) : undefined,
       } : undefined;
 
-      console.log('🔄 Начинаем создание города:', { id: id.trim(), name: name.trim(), displayOrder: displayOrder.trim() ? parseInt(displayOrder.trim(), 10) : 0 });
-      await onSave({
+      const cityData = {
         id: id.trim(),
         name: name.trim(),
         displayOrder: displayOrder.trim() ? parseInt(displayOrder.trim(), 10) : 0,
         restaurant: restaurantData,
-      });
-      console.log('✅ Город успешно создан в модальном окне');
+      };
+      
+      logger.info('cities', 'Начинаем создание города в модальном окне', cityData);
+      await onSave(cityData);
+      logger.info('cities', 'Город успешно создан в модальном окне');
       onClose();
     } catch (error) {
-      console.error('❌ Ошибка создания города в CreateCityModal:', error);
-      if (error instanceof Error) {
-        console.error('Детали ошибки:', {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        });
-      }
+      logger.error('cities', error instanceof Error ? error : new Error('Ошибка создания города'), {
+        cityId: id.trim(),
+        cityName: name.trim(),
+      });
       alert(`Ошибка создания города: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
     } finally {
       setIsSaving(false);

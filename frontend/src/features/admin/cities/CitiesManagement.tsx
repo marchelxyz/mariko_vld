@@ -19,6 +19,7 @@ import { getAllCitiesAsync, type City, type Restaurant } from "@shared/data";
 import { useAdmin } from "@shared/hooks";
 import { Permission } from "@shared/types";
 import { EditRestaurantModal, CreateCityModal } from "./ui";
+import { logger } from "@/lib/logger";
 import {
   Button,
   Input,
@@ -69,16 +70,19 @@ export function CitiesManagement(): JSX.Element {
   useEffect(() => {
     const loadCities = async () => {
       setIsLoading(true);
+      logger.info('cities', 'Начало загрузки городов');
       try {
         const cities = await getAllCitiesAsync();
         const citiesWithStatus = cities.map((city) => normalizeCity(city as City & { is_active?: boolean }));
 
-        console.log('📊 Загружено городов:', citiesWithStatus.length);
-        console.log('✅ Активных:', citiesWithStatus.filter(c => c.isActive).length);
+        logger.info('cities', 'Города загружены', {
+          total: citiesWithStatus.length,
+          active: citiesWithStatus.filter(c => c.isActive).length,
+        });
         
         setCitiesWithStatus(citiesWithStatus);
       } catch (error) {
-        console.error('Ошибка загрузки городов:', error);
+        logger.error('cities', error instanceof Error ? error : new Error('Ошибка загрузки городов'));
         // Показываем сообщение об ошибке пользователю
         alert('❌ Не удалось загрузить города. Проверьте подключение к серверу.');
       } finally {
@@ -91,19 +95,22 @@ export function CitiesManagement(): JSX.Element {
 
   // Real-time подписка на изменения
   useEffect(() => {
-    console.log('🔄 Подписка на изменения городов активирована');
+    logger.info('cities', 'Подписка на изменения городов активирована');
 
     const unsubscribe = citiesApi.subscribeToCitiesChanges(async () => {
       // Перезагружаем все города при любом изменении
+      logger.debug('cities', 'Обновление городов через подписку');
       const cities = await getAllCitiesAsync();
       const citiesWithStatus = cities.map((city) => normalizeCity(city as City & { is_active?: boolean }));
       
       setCitiesWithStatus(citiesWithStatus);
-      console.log('✅ Города обновлены в реальном времени');
+      logger.info('cities', 'Города обновлены в реальном времени', {
+        total: citiesWithStatus.length,
+      });
     });
 
     return () => {
-      console.log('❌ Отписка от изменений городов');
+      logger.info('cities', 'Отписка от изменений городов');
       unsubscribe();
     };
   }, []);
@@ -282,7 +289,8 @@ export function CitiesManagement(): JSX.Element {
     }
 
     try {
-      console.log('🔄 [CitiesManagement] Начинаем создание города:', { id: city.id, name: city.name, displayOrder: city.displayOrder });
+      logger.userAction('create_city', { cityId: city.id, cityName: city.name });
+      logger.info('cities', 'Начинаем создание города', { id: city.id, name: city.name, displayOrder: city.displayOrder });
       
       const result = await citiesApi.createCity({
         id: city.id,
@@ -290,14 +298,14 @@ export function CitiesManagement(): JSX.Element {
         displayOrder: city.displayOrder,
       });
 
-      console.log('📊 [CitiesManagement] Результат создания города:', result);
+      logger.debug('cities', 'Результат создания города', result);
 
       if (result.success) {
-        console.log('✅ [CitiesManagement] Город успешно создан, создаем ресторан если нужно');
+        logger.info('cities', 'Город успешно создан, создаем ресторан если нужно');
         
         // Если указаны данные ресторана, создаем ресторан
         if (city.restaurant) {
-          console.log('🔄 [CitiesManagement] Создаем ресторан для города:', city.id);
+          logger.info('cities', 'Создаем ресторан для города', { cityId: city.id });
           const restaurantResult = await citiesApi.createRestaurant({
             cityId: city.id,
             name: city.restaurant.name,
@@ -310,37 +318,36 @@ export function CitiesManagement(): JSX.Element {
             remarkedRestaurantId: city.restaurant.remarkedRestaurantId,
           });
 
-          console.log('📊 [CitiesManagement] Результат создания ресторана:', restaurantResult);
+          logger.debug('cities', 'Результат создания ресторана', restaurantResult);
 
           if (!restaurantResult.success) {
             const details = restaurantResult.errorMessage ? `\n\nДетали: ${restaurantResult.errorMessage}` : '';
-            console.error('❌ [CitiesManagement] Ошибка создания ресторана:', restaurantResult.errorMessage);
+            logger.error('cities', new Error(restaurantResult.errorMessage || 'Ошибка создания ресторана'), {
+              cityId: city.id,
+            });
             alert(`✅ Город "${city.name}" создан, но не удалось создать ресторан${details}`);
           }
         }
 
         // Перезагружаем города для обновления данных
-        console.log('🔄 [CitiesManagement] Перезагружаем список городов');
+        logger.debug('cities', 'Перезагружаем список городов');
         const cities = await getAllCitiesAsync();
         const citiesWithStatus = cities.map((city) => normalizeCity(city as City & { is_active?: boolean }));
         setCitiesWithStatus(citiesWithStatus);
-        console.log('✅ [CitiesManagement] Список городов обновлен');
+        logger.info('cities', 'Список городов обновлен');
         alert(`✅ Город "${city.name}" успешно создан${city.restaurant ? ' с рестораном' : ''}`);
         setIsCreateCityModalOpen(false);
       } else {
         const details = result.errorMessage ? `\n\nДетали: ${result.errorMessage}` : '';
-        console.error('❌ [CitiesManagement] Ошибка создания города:', result.errorMessage);
+        logger.error('cities', new Error(result.errorMessage || 'Ошибка создания города'), {
+          cityId: city.id,
+        });
         alert(`❌ Ошибка создания города${details}`);
       }
     } catch (error) {
-      console.error('❌ [CitiesManagement] Неожиданная ошибка при создании города:', error);
-      if (error instanceof Error) {
-        console.error('Детали ошибки:', {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        });
-      }
+      logger.error('cities', error instanceof Error ? error : new Error('Неожиданная ошибка'), {
+        cityId: city.id,
+      });
       alert(`❌ Неожиданная ошибка при создании города: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
     }
   };

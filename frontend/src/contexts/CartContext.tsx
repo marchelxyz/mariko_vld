@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { logger } from "@/lib/logger";
 
 export type CartItem = {
   id: string;
@@ -54,7 +55,7 @@ const loadCartFromStorage = (): CartItem[] => {
         typeof item.amount === "number",
     );
   } catch (error) {
-    console.warn("[cart] failed to load cart from storage", error);
+    logger.warn('cart', 'Не удалось загрузить корзину из хранилища', undefined, error instanceof Error ? error : new Error(String(error)));
     return [];
   }
 };
@@ -72,7 +73,7 @@ const saveCartToStorage = (items: CartItem[]) => {
       window.localStorage?.setItem(CART_STORAGE_KEY, payload);
     }
   } catch (error) {
-    console.warn("[cart] failed to save cart to storage", error);
+    logger.warn('cart', 'Не удалось сохранить корзину в хранилище', undefined, error instanceof Error ? error : new Error(String(error)));
   }
 };
 
@@ -85,13 +86,16 @@ export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element
   }, [items]);
 
   const addItem = useCallback((item: MenuItem) => {
+    logger.userAction('cart_add_item', { itemId: item.id, itemName: item.name });
     setItems((prev) => {
       const existing = prev.find((entry) => entry.id === item.id);
       if (existing) {
+        logger.debug('cart', 'Увеличено количество товара в корзине', { itemId: item.id, newAmount: existing.amount + 1 });
         return prev.map((entry) =>
           entry.id === item.id ? { ...entry, amount: entry.amount + 1 } : entry,
         );
       }
+      logger.debug('cart', 'Добавлен новый товар в корзину', { itemId: item.id });
       return [
         ...prev,
         {
@@ -134,8 +138,9 @@ export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element
   }, []);
 
   const clearCart = useCallback(() => {
+    logger.userAction('cart_clear', { itemCount: items.length });
     setItems([]);
-  }, []);
+  }, [items.length]);
 
   const getItemCount = useCallback(
     (itemId: string) => {

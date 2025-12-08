@@ -7,6 +7,7 @@ import { Toaster as SonnerToaster } from "@shared/ui/sonner";
 import { Toaster } from "@shared/ui/toaster";
 import { TooltipProvider } from "@shared/ui/tooltip";
 import { isActive, onActivated, onDeactivated } from "@/lib/telegram";
+import { logger } from "@/lib/logger";
 
 // Lazy load pages for better code splitting
 const Index = lazy(() => import("./pages/home"));
@@ -42,15 +43,24 @@ function App() {
   useEnsureUserProfileSync();
 
   useEffect(() => {
+    logger.componentLifecycle('App', 'mount');
     const updateFocus = (focused: boolean) => {
       focusManager.setFocused(focused);
+      logger.debug('app', `Фокус приложения: ${focused ? 'активен' : 'неактивен'}`);
     };
 
     updateFocus(isActive());
-    const unsubscribeActivate = onActivated(() => updateFocus(true));
-    const unsubscribeDeactivate = onDeactivated(() => updateFocus(false));
+    const unsubscribeActivate = onActivated(() => {
+      logger.debug('app', 'Приложение активировано');
+      updateFocus(true);
+    });
+    const unsubscribeDeactivate = onDeactivated(() => {
+      logger.debug('app', 'Приложение деактивировано');
+      updateFocus(false);
+    });
 
     return () => {
+      logger.componentLifecycle('App', 'unmount');
       unsubscribeActivate();
       unsubscribeDeactivate();
     };
