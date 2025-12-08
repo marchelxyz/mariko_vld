@@ -23,8 +23,9 @@ type PatternPosition = {
 
 // Обрабатываем SVG строки: заменяем цвета и создаем data URLs
 function processSvg(svgString: string): string {
-  let processed = svgString.replace(/#940000/g, "#740E0E");
-  processed = processed.replace(/fill="#[^"]*"/g, 'fill="#740E0E"');
+  // Используем более светлый цвет для паттернов, чтобы они были видны на темном фоне #830E0E
+  let processed = svgString.replace(/#940000/g, "#B01E1E");
+  processed = processed.replace(/fill="#[^"]*"/g, 'fill="#B01E1E"');
   const encoded = encodeURIComponent(processed);
   return `data:image/svg+xml;charset=utf-8,${encoded}`;
 }
@@ -253,6 +254,7 @@ function RandomBackgroundPattern() {
               style={{
                 width: "100%",
                 height: "100%",
+                display: "block",
               }}
               onError={(e) => {
                 console.error(`Failed to render pattern ${pos.patternIndex} at position ${pos.x},${pos.y}`);
