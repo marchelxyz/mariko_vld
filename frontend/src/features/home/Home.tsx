@@ -7,7 +7,6 @@ import { EmbeddedPageConfig } from "@/shared/config/webviewPages";
 import {
   CITY_BOOKING_LINKS,
   CITY_PROMOTION_LINKS,
-  DEFAULT_BOOKING_LINK,
   RESTAURANT_REVIEW_LINKS,
   VACANCIES_LINK,
   getMenuByRestaurantId,
@@ -15,8 +14,35 @@ import {
   MenuItem,
 } from "@shared/data";
 import { QuickActionButton, ServiceCard, MenuItemComponent } from "@shared/ui";
+import { PromotionsCarousel, type PromotionSlide } from "./PromotionsCarousel";
+import { toast } from "@/hooks/use-toast";
 import { safeOpenLink, storage } from "@/lib/telegram";
+import { fetchPromotions } from "@shared/api/promotionsApi";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
+const promotionsForCarousel: PromotionSlide[] = [
+  {
+    id: "birthday",
+    title: "Именинникам — праздник в Mariko",
+    description: "Теплые скидки и десерт для компании в день рождения.",
+    imageUrl: "/images/promotions/zhukovsky/promo birhtday.jpg",
+    badge: "Жуковский",
+  },
+  {
+    id: "self-delivery",
+    title: "Самовывоз выгоднее",
+    description: "Заказывайте онлайн, забирайте сами и экономьте на доставке.",
+    imageUrl: "/images/promotions/zhukovsky/promo self delivery.jpg",
+    badge: "Жуковский",
+  },
+  {
+    id: "women",
+    title: "Девичники и встречи с подругами",
+    description: "Сеты для компании и бокал игристого для уютного вечера.",
+    imageUrl: "/images/promotions/zhukovsky/promo women.jpg",
+    badge: "Жуковский",
+  },
+];
 
 const Index = () => {
   const navigate = useNavigate();
@@ -26,9 +52,87 @@ const Index = () => {
   const [recommended, setRecommended] = useState<MenuItem[]>([]);
   const [cityChangedFlash, setCityChangedFlash] = useState(false);
   const prevCityIdRef = useRef<string | null>(null);
+  const [promotions, setPromotions] = useState<PromotionSlide[]>([]);
 
   // 🔧 ВРЕМЕННОЕ СКРЫТИЕ: измените на true чтобы показать раздел "Рекомендуем попробовать"
   const showRecommendedSection = false;
+
+  const handleBookingClick = () => {
+    if (!selectedCity?.id || !selectedCity?.name) {
+      toast({
+        title: "Выберите город",
+        description: "Бронирование доступно после выбора города.",
+      });
+      return;
+    }
+
+    const bookingLink = CITY_BOOKING_LINKS[selectedCity.id];
+
+    if (!bookingLink) {
+      toast({
+        title: "Бронь скоро появится",
+        description: "Для выбранного города пока нет ссылки на бронь.",
+      });
+      return;
+    }
+
+    openBookingPage({
+      title: `Бронь — ${selectedCity.name}`,
+      url: bookingLink,
+      allowedCityId: selectedCity.id,
+      description: `Забронируйте столик в ресторане ${selectedCity.name}.`,
+      fallbackLabel: "Открыть форму бронирования",
+    });
+  };
+
+  // Подтягиваем акции из localStorage (управляются через админку)
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPromotions = async () => {
+      if (!selectedCity?.id) {
+        setPromotions([]);
+        return;
+      }
+      try {
+        const list = await fetchPromotions(selectedCity.id);
+        if (!cancelled) {
+          const normalized =
+            list
+              ?.filter((promo) => promo.isActive !== false)
+              ?.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)) ?? [];
+          setPromotions(normalized);
+        }
+      } catch (error) {
+        console.error("Ошибка загрузки акций:", error);
+        if (!cancelled) {
+          setPromotions([]);
+        }
+      }
+    };
+
+    void loadPromotions();
+
+    if (isSupabaseConfigured() && selectedCity?.id) {
+      const channel = supabase
+        .channel(`promotions-${selectedCity.id}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "promotions", filter: `city_id=eq.${selectedCity.id}` },
+          () => void loadPromotions(),
+        )
+        .subscribe();
+
+      return () => {
+        cancelled = true;
+        supabase.removeChannel(channel);
+      };
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCity?.id]);
 
   const openEmbeddedPage = (slug: string, config: EmbeddedPageConfig) => {
     navigate(`/webview/${slug}`, {
@@ -141,23 +245,7 @@ const Index = () => {
               icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Бронь столика"
               highlighted={cityChangedFlash}
-              onClick={() => {
-                if (!selectedCity?.id || !selectedCity?.name) {
-                  safeOpenLink(DEFAULT_BOOKING_LINK, { try_instant_view: true });
-                  return;
-                }
-
-                const bookingLink =
-                  CITY_BOOKING_LINKS[selectedCity.id] ?? DEFAULT_BOOKING_LINK;
-
-                openBookingPage({
-                  title: `Бронь — ${selectedCity.name}`,
-                  url: bookingLink,
-                  allowedCityId: selectedCity.id,
-                  description: `Забронируйте столик в ресторане ${selectedCity.name}.`,
-                  fallbackLabel: "Открыть форму бронирования",
-                });
-              }}
+              onClick={handleBookingClick}
             />
 
             <QuickActionButton
@@ -181,6 +269,16 @@ const Index = () => {
               onClick={() => navigate("/about")}
             />
           </div>
+
+          {/* Promotions Carousel */}
+          {promotions.length > 0 && (
+            <div className="mt-6 md:mt-8">
+              <PromotionsCarousel
+                promotions={promotions}
+                onBookTable={handleBookingClick}
+              />
+            </div>
+          )}
 
           {/* Menu Button (Full Width) */}
           <div className="mt-6 md:mt-8">

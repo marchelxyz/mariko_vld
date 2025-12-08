@@ -4,7 +4,6 @@ import {
   CART_ORDERS_TABLE,
   ORDER_STATUS_VALUES,
   ADMIN_DEV_TOKEN,
-  ADMIN_SUPER_IDS,
   ADMIN_DEV_TELEGRAM_ID,
 } from "../config.mjs";
 import {
@@ -13,6 +12,7 @@ import {
   buildUserWithRole,
   getTelegramIdFromRequest,
   listAdminRecords,
+  fetchAdminRecordByTelegram,
   resolveAdminContext,
 } from "../services/adminService.mjs";
 import { listUserProfiles, fetchUserProfile } from "../services/profileService.mjs";
@@ -46,7 +46,7 @@ export function createAdminRouter() {
     }
     const devOverrideId =
       !telegramId && ADMIN_DEV_TOKEN && devToken === ADMIN_DEV_TOKEN
-        ? ADMIN_DEV_TELEGRAM_ID || ADMIN_SUPER_IDS[0] || null
+        ? ADMIN_DEV_TELEGRAM_ID || null
         : null;
 
     if (!telegramId && !devOverrideId) {
@@ -86,6 +86,20 @@ export function createAdminRouter() {
       return buildUserWithRole(profile, record ?? null);
     });
 
+    // Добавляем админов без профиля (например, созданных вручную)
+    const seenKeys = new Set(
+      result.map((user) => user.telegramId || user.id).filter((key) => typeof key === "string"),
+    );
+    adminRecords.forEach((record) => {
+      const key = normaliseTelegramId(record.telegram_id) || record.id;
+      if (!key || seenKeys.has(key)) {
+        return;
+      }
+      const user = buildUserWithRole(null, record);
+      seenKeys.add(key);
+      result.push(user);
+    });
+
     return res.json({
       success: true,
       users: result,
@@ -102,22 +116,20 @@ export function createAdminRouter() {
     }
     const userIdentifier = req.params.userId;
     const { role: incomingRole, allowedRestaurants = [], name: overrideName } = req.body ?? {};
-    if (!incomingRole) {
+    if (!incomingRole || !["user", "admin", "super_admin"].includes(incomingRole)) {
       return res.status(400).json({ success: false, message: "Некорректная роль" });
     }
-    if (incomingRole === "super_admin") {
-      return res.status(400).json({ success: false, message: "Нельзя назначить супер-админа" });
-    }
     const profile = await fetchUserProfile(userIdentifier);
-    if (!profile) {
+    const telegramId = profile?.telegram_id ? String(profile.telegram_id) : normaliseTelegramId(userIdentifier);
+    if (!profile && !telegramId) {
       return res.status(404).json({ success: false, message: "Пользователь не найден" });
     }
-    const telegramId = profile.telegram_id ? String(profile.telegram_id) : null;
     if (!telegramId) {
-      return res.status(400).json({ success: false, message: "У пользователя нет Telegram ID в профиле" });
+      return res.status(400).json({ success: false, message: "У пользователя нет Telegram ID" });
     }
     if (incomingRole === "user") {
-      const { error } = await supabase.from("admin_users").delete().eq("telegram_id", profile.telegram_id);
+      const numeric = Number(telegramId);
+      const { error } = await supabase.from("admin_users").delete().eq("telegram_id", numeric);
       if (error) {
         console.error("Ошибка удаления роли:", error);
         return res.status(500).json({ success: false, message: "Не удалось удалить роль" });
@@ -129,13 +141,14 @@ export function createAdminRouter() {
     }
 
     const payload = {
-      telegram_id: profile.telegram_id,
-      name: overrideName ?? profile.name ?? null,
+      telegram_id: Number(telegramId),
+      name: overrideName ?? profile?.name ?? null,
       role: incomingRole,
       permissions: {
-        restaurants: Array.isArray(allowedRestaurants)
-          ? allowedRestaurants.filter((id) => typeof id === "string")
-          : [],
+        restaurants:
+          incomingRole === "admin" && Array.isArray(allowedRestaurants)
+            ? allowedRestaurants.filter((id) => typeof id === "string")
+            : [],
       },
     };
 
@@ -150,9 +163,14 @@ export function createAdminRouter() {
       return res.status(500).json({ success: false, message: "Не удалось сохранить роль" });
     }
 
+    const adminRecord = data ?? payload;
+
+    // Если не нашли профиль, попробуем взять существующую запись из admin_users (для отображения имени)
+    const enrichedProfile = profile ?? (await fetchAdminRecordByTelegram(telegramId));
+
     return res.json({
       success: true,
-      user: buildUserWithRole(profile, data ?? payload),
+      user: buildUserWithRole(enrichedProfile, adminRecord),
     });
   });
 
