@@ -1,6 +1,17 @@
 import { useEffect } from "react";
-import { getCartApiBaseUrl } from "@/shared/api/cart";
 import { getUser } from "@/lib/telegram";
+
+function getProfileSyncApiBaseUrl(): string {
+  // Используем VITE_SERVER_API_URL если он установлен (предпочтительный вариант)
+  const serverApiUrl = import.meta.env.VITE_SERVER_API_URL;
+  if (serverApiUrl) {
+    return serverApiUrl.replace(/\/$/, "");
+  }
+  
+  // Fallback на VITE_CART_API_URL
+  const cartApiUrl = import.meta.env.VITE_CART_API_URL ?? "/api/cart/submit";
+  return cartApiUrl.replace(/\/cart\/submit\/?$/, "");
+}
 
 const SIGNATURE_PREFIX = "mariko_profile_signature_v1";
 const PENDING_PREFIX = "mariko_profile_sync_pending_v1";
@@ -47,7 +58,7 @@ export function useEnsureUserProfileSync(): void {
     }
     sessionStorage?.setItem(pendingKey, signature);
 
-    const baseUrl = getCartApiBaseUrl();
+    const baseUrl = getProfileSyncApiBaseUrl();
     const endpoint = `${baseUrl}/cart/profile/sync`;
 
     fetch(endpoint, {
