@@ -79,35 +79,78 @@ export async function setCityStatusViaServer(
 export async function createCityViaServer(
   city: { id: string; name: string; displayOrder?: number }
 ): Promise<{ success: boolean; errorMessage?: string }> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
+  try {
+    console.log('🔄 [serverGateway] Создание города через сервер:', city);
+    
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
 
-  const initData = getTg()?.initData;
-  if (initData) {
-    headers['X-Telegram-Init-Data'] = initData;
-  }
+    const initData = getTg()?.initData;
+    if (initData) {
+      headers['X-Telegram-Init-Data'] = initData;
+      console.log('✅ [serverGateway] Telegram initData добавлен в заголовки');
+    } else {
+      console.warn('⚠️ [serverGateway] Telegram initData не найден');
+    }
 
-  const response = await fetch(resolveServerUrl('/cities'), {
-    method: 'POST',
-    credentials: 'include',
-    headers,
-    body: JSON.stringify({
-      id: city.id,
-      name: city.name,
-      displayOrder: city.displayOrder,
-    }),
-  });
+    const url = resolveServerUrl('/cities');
+    console.log('🌐 [serverGateway] Отправка запроса на:', url);
 
-  const text = await response.text();
-  if (!response.ok) {
+    const response = await fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: JSON.stringify({
+        id: city.id,
+        name: city.name,
+        displayOrder: city.displayOrder,
+      }),
+    });
+
+    console.log('📡 [serverGateway] Получен ответ от сервера:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+    });
+
+    const text = await response.text();
+    console.log('📄 [serverGateway] Текст ответа:', text);
+
+    if (!response.ok) {
+      const errorMessage = parseErrorPayload(text) ?? 'Ошибка серверного API при создании города';
+      console.error('❌ [serverGateway] Ошибка создания города:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorMessage,
+        responseText: text,
+      });
+      return {
+        success: false,
+        errorMessage,
+      };
+    }
+
+    console.log('✅ [serverGateway] Город успешно создан через сервер');
+    return { success: true };
+  } catch (error) {
+    console.error('❌ [serverGateway] Неожиданная ошибка при создании города:', error);
+    if (error instanceof Error) {
+      console.error('Детали ошибки:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      });
+      return {
+        success: false,
+        errorMessage: `Ошибка сети: ${error.message}`,
+      };
+    }
     return {
       success: false,
-      errorMessage: parseErrorPayload(text) ?? 'Ошибка серверного API при создании города',
+      errorMessage: 'Неожиданная ошибка при создании города',
     };
   }
-
-  return { success: true };
 }
 
 export async function createRestaurantViaServer(

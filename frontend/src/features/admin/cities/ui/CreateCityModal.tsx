@@ -187,16 +187,25 @@ export function CreateCityModal({
         remarkedRestaurantId: remarkedRestaurantId.trim() ? parseInt(remarkedRestaurantId.trim(), 10) : undefined,
       } : undefined;
 
+      console.log('🔄 Начинаем создание города:', { id: id.trim(), name: name.trim(), displayOrder: displayOrder.trim() ? parseInt(displayOrder.trim(), 10) : 0 });
       await onSave({
         id: id.trim(),
         name: name.trim(),
         displayOrder: displayOrder.trim() ? parseInt(displayOrder.trim(), 10) : 0,
         restaurant: restaurantData,
       });
+      console.log('✅ Город успешно создан в модальном окне');
       onClose();
     } catch (error) {
-      console.error('Ошибка создания города:', error);
-      alert('Ошибка создания города');
+      console.error('❌ Ошибка создания города в CreateCityModal:', error);
+      if (error instanceof Error) {
+        console.error('Детали ошибки:', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+        });
+      }
+      alert(`Ошибка создания города: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
     } finally {
       setIsSaving(false);
     }

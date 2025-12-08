@@ -281,42 +281,67 @@ export function CitiesManagement(): JSX.Element {
       return;
     }
 
-    const result = await citiesApi.createCity({
-      id: city.id,
-      name: city.name,
-      displayOrder: city.displayOrder,
-    });
+    try {
+      console.log('🔄 [CitiesManagement] Начинаем создание города:', { id: city.id, name: city.name, displayOrder: city.displayOrder });
+      
+      const result = await citiesApi.createCity({
+        id: city.id,
+        name: city.name,
+        displayOrder: city.displayOrder,
+      });
 
-    if (result.success) {
-      // Если указаны данные ресторана, создаем ресторан
-      if (city.restaurant) {
-        const restaurantResult = await citiesApi.createRestaurant({
-          cityId: city.id,
-          name: city.restaurant.name,
-          address: city.restaurant.address,
-          phoneNumber: city.restaurant.phoneNumber,
-          deliveryAggregators: city.restaurant.deliveryAggregators,
-          yandexMapsUrl: city.restaurant.yandexMapsUrl,
-          twoGisUrl: city.restaurant.twoGisUrl,
-          socialNetworks: city.restaurant.socialNetworks,
-          remarkedRestaurantId: city.restaurant.remarkedRestaurantId,
-        });
+      console.log('📊 [CitiesManagement] Результат создания города:', result);
 
-        if (!restaurantResult.success) {
-          const details = restaurantResult.errorMessage ? `\n\nДетали: ${restaurantResult.errorMessage}` : '';
-          alert(`✅ Город "${city.name}" создан, но не удалось создать ресторан${details}`);
+      if (result.success) {
+        console.log('✅ [CitiesManagement] Город успешно создан, создаем ресторан если нужно');
+        
+        // Если указаны данные ресторана, создаем ресторан
+        if (city.restaurant) {
+          console.log('🔄 [CitiesManagement] Создаем ресторан для города:', city.id);
+          const restaurantResult = await citiesApi.createRestaurant({
+            cityId: city.id,
+            name: city.restaurant.name,
+            address: city.restaurant.address,
+            phoneNumber: city.restaurant.phoneNumber,
+            deliveryAggregators: city.restaurant.deliveryAggregators,
+            yandexMapsUrl: city.restaurant.yandexMapsUrl,
+            twoGisUrl: city.restaurant.twoGisUrl,
+            socialNetworks: city.restaurant.socialNetworks,
+            remarkedRestaurantId: city.restaurant.remarkedRestaurantId,
+          });
+
+          console.log('📊 [CitiesManagement] Результат создания ресторана:', restaurantResult);
+
+          if (!restaurantResult.success) {
+            const details = restaurantResult.errorMessage ? `\n\nДетали: ${restaurantResult.errorMessage}` : '';
+            console.error('❌ [CitiesManagement] Ошибка создания ресторана:', restaurantResult.errorMessage);
+            alert(`✅ Город "${city.name}" создан, но не удалось создать ресторан${details}`);
+          }
         }
-      }
 
-      // Перезагружаем города для обновления данных
-      const cities = await getAllCitiesAsync();
-      const citiesWithStatus = cities.map((city) => normalizeCity(city as City & { is_active?: boolean }));
-      setCitiesWithStatus(citiesWithStatus);
-      alert(`✅ Город "${city.name}" успешно создан${city.restaurant ? ' с рестораном' : ''}`);
-      setIsCreateCityModalOpen(false);
-    } else {
-      const details = result.errorMessage ? `\n\nДетали: ${result.errorMessage}` : '';
-      alert(`❌ Ошибка создания города${details}`);
+        // Перезагружаем города для обновления данных
+        console.log('🔄 [CitiesManagement] Перезагружаем список городов');
+        const cities = await getAllCitiesAsync();
+        const citiesWithStatus = cities.map((city) => normalizeCity(city as City & { is_active?: boolean }));
+        setCitiesWithStatus(citiesWithStatus);
+        console.log('✅ [CitiesManagement] Список городов обновлен');
+        alert(`✅ Город "${city.name}" успешно создан${city.restaurant ? ' с рестораном' : ''}`);
+        setIsCreateCityModalOpen(false);
+      } else {
+        const details = result.errorMessage ? `\n\nДетали: ${result.errorMessage}` : '';
+        console.error('❌ [CitiesManagement] Ошибка создания города:', result.errorMessage);
+        alert(`❌ Ошибка создания города${details}`);
+      }
+    } catch (error) {
+      console.error('❌ [CitiesManagement] Неожиданная ошибка при создании города:', error);
+      if (error instanceof Error) {
+        console.error('Детали ошибки:', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+        });
+      }
+      alert(`❌ Неожиданная ошибка при создании города: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
     }
   };
 

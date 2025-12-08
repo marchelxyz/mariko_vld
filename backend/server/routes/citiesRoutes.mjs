@@ -128,34 +128,77 @@ export function createCitiesRouter() {
    * Создать новый город
    */
   router.post("/", async (req, res) => {
+    console.log("🔄 [citiesRoutes] Запрос на создание города:", {
+      body: req.body,
+      headers: {
+        'content-type': req.headers['content-type'],
+        'x-telegram-init-data': req.headers['x-telegram-init-data'] ? 'present' : 'missing',
+      },
+    });
+
     const admin = await authoriseSuperAdmin(req, res);
     if (!admin) {
+      console.error("❌ [citiesRoutes] Не авторизован супер-админ");
       return;
     }
 
+    console.log("✅ [citiesRoutes] Супер-админ авторизован:", { userId: admin.userId, role: admin.role });
+
     const { id, name, displayOrder } = req.body ?? {};
+    console.log("📊 [citiesRoutes] Параметры запроса:", { id, name, displayOrder, idType: typeof id, nameType: typeof name });
+
     if (typeof id !== "string" || typeof name !== "string" || !id.trim() || !name.trim()) {
+      console.error("❌ [citiesRoutes] Некорректные параметры:", {
+        id,
+        name,
+        idType: typeof id,
+        nameType: typeof name,
+        idTrimmed: id?.trim(),
+        nameTrimmed: name?.trim(),
+      });
       return res.status(400).json({ success: false, message: "Некорректные параметры: требуется id и name" });
     }
 
     try {
       // Проверяем, существует ли город с таким ID
+      console.log("🔍 [citiesRoutes] Проверка существования города с ID:", id.trim());
       const existingCity = await queryOne(`SELECT id FROM cities WHERE id = $1`, [id]);
       if (existingCity) {
+        console.error("❌ [citiesRoutes] Город с таким ID уже существует:", id.trim());
         return res.status(400).json({ success: false, message: "Город с таким ID уже существует" });
       }
 
       // Создаем город
+      console.log("💾 [citiesRoutes] Создание города в БД:", {
+        id: id.trim(),
+        name: name.trim(),
+        is_active: true,
+        display_order: displayOrder ?? 0,
+      });
+      
       await query(
         `INSERT INTO cities (id, name, is_active, display_order, created_at, updated_at)
          VALUES ($1, $2, $3, $4, NOW(), NOW())`,
         [id.trim(), name.trim(), true, displayOrder ?? 0]
       );
 
+      console.log("✅ [citiesRoutes] Город успешно создан:", id.trim());
       return res.json({ success: true });
     } catch (error) {
-      console.error("Ошибка создания города:", error);
-      return res.status(500).json({ success: false, message: "Не удалось создать город" });
+      console.error("❌ [citiesRoutes] Ошибка создания города:", error);
+      console.error("Детали ошибки:", {
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name,
+        code: error?.code,
+        detail: error?.detail,
+        constraint: error?.constraint,
+      });
+      return res.status(500).json({ 
+        success: false, 
+        message: "Не удалось создать город",
+        error: error?.message || "Неизвестная ошибка",
+      });
     }
   });
 
