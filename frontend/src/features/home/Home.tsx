@@ -21,7 +21,6 @@ import { PromotionsCarousel, type PromotionSlide } from "./PromotionsCarousel";
 import { toast } from "@/hooks/use-toast";
 import { safeOpenLink, storage } from "@/lib/telegram";
 import { fetchPromotions } from "@shared/api/promotionsApi";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 const promotionsForCarousel: PromotionSlide[] = [
   {
@@ -113,22 +112,6 @@ const Index = () => {
     };
 
     void loadPromotions();
-
-    if (isSupabaseConfigured() && selectedCity?.id) {
-      const channel = supabase
-        .channel(`promotions-${selectedCity.id}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "promotions", filter: `city_id=eq.${selectedCity.id}` },
-          () => void loadPromotions(),
-        )
-        .subscribe();
-
-      return () => {
-        cancelled = true;
-        supabase.removeChannel(channel);
-      };
-    }
 
     return () => {
       cancelled = true;

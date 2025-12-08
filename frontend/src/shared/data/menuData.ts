@@ -1,4 +1,5 @@
 import type { RestaurantMenu } from "./menuTypes";
+import { fetchMenuByRestaurantId } from "@shared/api/menuApi";
 
 export * from "./menuTypes";
 
@@ -18,9 +19,20 @@ export const loadStaticMenus = async (): Promise<RestaurantMenu[]> => {
   return mod.staticMenus;
 };
 
+/**
+ * Получить меню ресторана
+ * Сначала пытается загрузить из PostgreSQL через API, если не получается - использует статические данные
+ */
 export const getMenuByRestaurantId = async (
   restaurantId: string,
 ): Promise<RestaurantMenu | undefined> => {
+  // Пытаемся получить меню из PostgreSQL через API
+  const dbMenu = await fetchMenuByRestaurantId(restaurantId);
+  if (dbMenu) {
+    return dbMenu;
+  }
+  
+  // Fallback на статические данные
   const menus = await loadStaticMenus();
   return menus.find((menu) => menu.restaurantId === restaurantId);
 };
