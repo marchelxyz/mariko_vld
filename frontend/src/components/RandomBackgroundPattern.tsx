@@ -1,5 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 
+// Импортируем SVG файлы напрямую как raw строки для правильной работы после деплоя
+import vectorSvgRaw from "@/assets/backgrounds/patterns/Vector.svg?raw";
+import vector1SvgRaw from "@/assets/backgrounds/patterns/Vector-1.svg?raw";
+import vector2SvgRaw from "@/assets/backgrounds/patterns/Vector-2.svg?raw";
+import vector3SvgRaw from "@/assets/backgrounds/patterns/Vector-3.svg?raw";
+import vector4SvgRaw from "@/assets/backgrounds/patterns/Vector-4.svg?raw";
+import vector67SvgRaw from "@/assets/backgrounds/patterns/vector-67.svg?raw";
+import vector68SvgRaw from "@/assets/backgrounds/patterns/vector-68.svg?raw";
+import vector70SvgRaw from "@/assets/backgrounds/patterns/vector-70.svg?raw";
+import vector71SvgRaw from "@/assets/backgrounds/patterns/vector-71.svg?raw";
+
 type PatternPosition = {
   x: number;
   y: number;
@@ -10,17 +21,28 @@ type PatternPosition = {
   height: number;
 };
 
-const PATTERNS = [
-  "/backgrounds/patterns/Vector.svg",
-  "/backgrounds/patterns/Vector-1.svg",
-  "/backgrounds/patterns/Vector-2.svg",
-  "/backgrounds/patterns/Vector-3.svg",
-  "/backgrounds/patterns/Vector-4.svg",
-  "/backgrounds/patterns/vector-67.svg",
-  "/backgrounds/patterns/vector-68.svg",
-  "/backgrounds/patterns/vector-70.svg",
-  "/backgrounds/patterns/vector-71.svg",
+// Обрабатываем SVG строки: заменяем цвета и создаем data URLs
+function processSvg(svgString: string): string {
+  let processed = svgString.replace(/#940000/g, "#740E0E");
+  processed = processed.replace(/fill="#[^"]*"/g, 'fill="#740E0E"');
+  const encoded = encodeURIComponent(processed);
+  return `data:image/svg+xml;charset=utf-8,${encoded}`;
+}
+
+const PATTERNS_RAW = [
+  vectorSvgRaw,
+  vector1SvgRaw,
+  vector2SvgRaw,
+  vector3SvgRaw,
+  vector4SvgRaw,
+  vector67SvgRaw,
+  vector68SvgRaw,
+  vector70SvgRaw,
+  vector71SvgRaw,
 ];
+
+// Предобрабатываем все SVG при загрузке модуля
+const PATTERNS = PATTERNS_RAW.map(processSvg);
 
 const PATTERN_SIZES = [
   { width: 170, height: 148 },
@@ -37,7 +59,6 @@ const PATTERN_SIZES = [
 function RandomBackgroundPattern() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [positions, setPositions] = useState<PatternPosition[]>([]);
-  const [svgContents, setSvgContents] = useState<Record<number, string>>({});
 
   function generatePositions(width: number, height: number): PatternPosition[] {
     const newPositions: PatternPosition[] = [];
@@ -192,25 +213,7 @@ function RandomBackgroundPattern() {
     };
   }, []);
 
-  useEffect(() => {
-    const loadSvgs = async () => {
-      const loaded: Record<number, string> = {};
-      for (let i = 0; i < PATTERNS.length; i++) {
-        try {
-          const response = await fetch(PATTERNS[i]);
-          let text = await response.text();
-          text = text.replace(/#940000/g, "#740E0E");
-          text = text.replace(/fill="#[^"]*"/g, 'fill="#740E0E"');
-          const encoded = encodeURIComponent(text);
-          loaded[i] = `data:image/svg+xml;charset=utf-8,${encoded}`;
-        } catch (error) {
-          console.error(`Failed to load ${PATTERNS[i]}:`, error);
-        }
-      }
-      setSvgContents(loaded);
-    };
-    loadSvgs();
-  }, []);
+  // SVG уже загружены и обработаны при импорте модуля, поэтому useEffect не нужен
 
   return (
     <div
@@ -228,7 +231,7 @@ function RandomBackgroundPattern() {
       }}
     >
       {positions.map((pos, index) => {
-        const svgUrl = svgContents[pos.patternIndex];
+        const svgUrl = PATTERNS[pos.patternIndex];
         if (!svgUrl) return null;
 
         return (
@@ -250,6 +253,9 @@ function RandomBackgroundPattern() {
               style={{
                 width: "100%",
                 height: "100%",
+              }}
+              onError={(e) => {
+                console.error(`Failed to render pattern ${pos.patternIndex} at position ${pos.x},${pos.y}`);
               }}
             />
           </div>
