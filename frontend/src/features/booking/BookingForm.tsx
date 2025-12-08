@@ -110,7 +110,14 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
   const [guestsCount, setGuestsCount] = useState<number>(2);
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const [selectedTime, setSelectedTime] = useState<string>("");
-  const [phone, setPhone] = useState<string>(profile.phone || "");
+  // Инициализируем телефон только если он есть и не является дефолтным значением
+  const [phone, setPhone] = useState<string>(() => {
+    const profilePhone = profile.phone?.trim();
+    if (profilePhone && profilePhone !== "+7 (000) 000-00-00") {
+      return profilePhone;
+    }
+    return "";
+  });
   const [name, setName] = useState<string>(profile.name || "");
   const [selectedEvent, setSelectedEvent] = useState<EventType | null>(null);
   const [comment, setComment] = useState<string>("");
@@ -197,13 +204,49 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         if (error.name === 'AbortError') {
           return;
         }
-        const errorMessage = error instanceof Error ? error.message : "Не удалось подключиться к системе бронирования";
+        
+        // Формируем понятное сообщение об ошибке
+        let errorMessage = "Не удалось подключиться к системе бронирования";
+        
+        if (error instanceof Error) {
+          const message = error.message?.trim();
+          if (message) {
+            // Если сообщение содержит информацию об ошибке, используем его
+            if (message.includes("Failed to get token") || message.includes("Restaurant ID")) {
+              errorMessage = "Ошибка подключения к сервису бронирования. Проверьте настройки ресторана.";
+            } else if (message.includes("Ошибка получения токена")) {
+              errorMessage = message;
+            } else {
+              errorMessage = message;
+            }
+          }
+        } else if (typeof error === 'string' && error.trim()) {
+          errorMessage = error.trim();
+        } else if (error && typeof error === 'object' && 'message' in error) {
+          const message = String(error.message)?.trim();
+          if (message) {
+            errorMessage = message;
+          }
+        }
+        
         setTokenError(errorMessage);
-        toast({
-          title: "Ошибка",
-          description: errorMessage,
-          variant: "destructive",
-        });
+        
+        // Показываем toast только при критических ошибках (не сетевых)
+        // Сетевые ошибки обычно временные и не требуют немедленного внимания пользователя
+        const isNetworkError = error instanceof TypeError || 
+                              (error instanceof Error && (
+                                error.message.includes('fetch') ||
+                                error.message.includes('network') ||
+                                error.message.includes('Failed to fetch')
+                              ));
+        
+        if (!isNetworkError) {
+          toast({
+            title: "Ошибка подключения",
+            description: errorMessage,
+            variant: "destructive",
+          });
+        }
       });
 
     return () => {
@@ -525,15 +568,30 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
   useEffect(() => {
     // Используем функциональное обновление состояния, чтобы избежать проблем с зависимостями
     setPhone((prevPhone) => {
-      if (profile.phone && !prevPhone) {
-        return profile.phone;
+      // Подтягиваем телефон из профиля, если он есть и не является дефолтным значением
+      const profilePhone = profile.phone?.trim();
+      if (profilePhone && profilePhone !== "+7 (000) 000-00-00") {
+        const trimmedPrev = prevPhone?.trim() || "";
+        // Обновляем только если поле пустое или содержит дефолтное значение
+        if (!trimmedPrev || trimmedPrev === "+7 (000) 000-00-00") {
+          return profilePhone;
+        }
+      }
+      // Если в профиле дефолтное значение или его нет, очищаем поле (чтобы показать placeholder)
+      const trimmedPrev = prevPhone?.trim() || "";
+      if (trimmedPrev === "+7 (000) 000-00-00") {
+        return "";
       }
       return prevPhone;
     });
     
     setName((prevName) => {
-      if (profile.name && !prevName) {
-        return profile.name;
+      // Подтягиваем имя из профиля, если оно есть и поле пустое или содержит дефолтное значение
+      if (profile.name && profile.name !== "Пользователь") {
+        const trimmedPrev = prevName?.trim() || "";
+        if (!trimmedPrev || trimmedPrev === "Пользователь") {
+          return profile.name;
+        }
       }
       return prevName;
     });
@@ -954,11 +1012,11 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         )}
         {tokenError && (
           <div className="mt-2 rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-3">
-            <p className="text-yellow-300 text-xs">
+            <p className="text-yellow-300 text-xs font-medium">
               ⚠️ {tokenError}
             </p>
             <p className="mt-1 text-yellow-200/70 text-xs">
-              Бронирование может быть недоступно. Попробуйте обновить страницу.
+              Бронирование может быть временно недоступно. Попробуйте обновить страницу или обратитесь в ресторан по телефону.
             </p>
           </div>
         )}
