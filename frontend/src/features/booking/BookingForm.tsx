@@ -51,14 +51,22 @@ const EVENT_TYPES: EventType[] = [
  * Проверка, что имя содержит только русские буквы
  */
 function isRussianName(name: string): boolean {
+  if (!name || typeof name !== "string") {
+    return false;
+  }
   const russianRegex = /^[А-Яа-яЁё\s-]+$/;
-  return russianRegex.test(name.trim());
+  const trimmed = name.trim();
+  return trimmed.length > 0 && russianRegex.test(trimmed);
 }
 
 /**
  * Форматирование телефона для Remarked API
  */
 function formatPhone(phone: string): string {
+  if (!phone || typeof phone !== "string") {
+    throw new Error("Некорректный номер телефона");
+  }
+  
   const cleaned = phone.replace(/\D/g, "");
   
   // Если номер начинается с 8, заменяем на 7
@@ -376,25 +384,37 @@ export function BookingForm({ onSuccess }: BookingFormProps = {}) {
     setSubmitting(true);
 
     try {
-      const formattedPhone = formatPhone(phone);
+      // Проверяем валидность данных перед обработкой
+      if (!phone || typeof phone !== "string" || !phone.trim()) {
+        throw new Error("Некорректный номер телефона");
+      }
       
-      // Проверяем валидность даты перед форматированием
+      if (!name || typeof name !== "string" || !name.trim()) {
+        throw new Error("Некорректное имя");
+      }
+      
       if (!selectedDate || !(selectedDate instanceof Date) || isNaN(selectedDate.getTime())) {
         throw new Error("Некорректная дата бронирования");
       }
       
+      if (!selectedTime || typeof selectedTime !== "string" || !selectedTime.trim()) {
+        throw new Error("Некорректное время бронирования");
+      }
+      
+      const formattedPhone = formatPhone(phone);
       const dateStr = format(selectedDate, "yyyy-MM-dd");
       const fullComment = [
         selectedEvent?.comment,
-        comment.trim(),
+        typeof comment === "string" ? comment.trim() : "",
       ]
         .filter((item) => Boolean(item))
         .join(". ");
 
       // Используем бэкенд API для создания бронирования
+      const trimmedName = typeof name === "string" ? name.trim() : "";
       const result = await createBooking({
         restaurantId: selectedRestaurant.id,
-        name: name.trim(),
+        name: trimmedName,
         phone: formattedPhone,
         date: dateStr,
         time: selectedTime,
@@ -403,11 +423,14 @@ export function BookingForm({ onSuccess }: BookingFormProps = {}) {
         source: "mobile_app",
       });
 
-      if (result.success && result.booking) {
+      if (result && result.success && result.booking) {
+        const reserveId = result.booking.reserveId;
+        const reserveIdStr = reserveId != null ? String(reserveId) : null;
+        
         toast({
           title: "Успешно!",
-          description: result.booking.reserveId 
-            ? `Бронирование создано. ID: ${result.booking.reserveId}`
+          description: reserveIdStr 
+            ? `Бронирование создано. ID: ${reserveIdStr}`
             : "Бронирование создано",
         });
 
@@ -416,8 +439,9 @@ export function BookingForm({ onSuccess }: BookingFormProps = {}) {
         let shouldUpdateProfile = false;
 
         // Сохраняем имя, если оно изменилось или отсутствовало
-        if (name.trim() && name.trim() !== profile.name) {
-          profileUpdates.name = name.trim();
+        const trimmedName = typeof name === "string" ? name.trim() : "";
+        if (trimmedName && trimmedName !== profile.name) {
+          profileUpdates.name = trimmedName;
           shouldUpdateProfile = true;
         }
 
