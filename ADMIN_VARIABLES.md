@@ -27,8 +27,9 @@
 ### Необязательные переменные
 
 #### `VITE_ADMIN_API_URL`
-- **Описание**: Базовый URL для админ API. Если не указан, используется `VITE_CART_API_URL` + `/cart/admin`.
-- **Пример**: `http://localhost:4000/api/cart/admin`
+- **Описание**: Базовый URL для админ API. Если не указан, используется `VITE_CART_API_URL` + `/cart/admin` или `VITE_SERVER_API_URL` + `/cart` (если установлен).
+- **Пример**: `http://localhost:4000/api/cart` или `https://your-backend.up.railway.app/api/cart`
+- **Важно**: В production должен указывать на Railway backend, а не на Vercel!
 - **Где используется**: `frontend/src/shared/api/admin/adminServerApi.ts`
 
 ## Механизм авторизации

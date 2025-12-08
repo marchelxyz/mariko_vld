@@ -11,9 +11,46 @@ function normalizeBaseUrl(base: string | undefined): string {
 }
 
 const rawAdminBase = import.meta.env.VITE_ADMIN_API_URL;
+const rawServerApiUrl = import.meta.env.VITE_SERVER_API_URL;
 const cartBase = normalizeBaseUrl(`${getCartApiBaseUrl()}/cart`);
+
+// Определяем базовый URL для админ API с приоритетом:
+// 1. VITE_ADMIN_API_URL (если установлен)
+// 2. VITE_SERVER_API_URL + /cart (если установлен, предпочтительный fallback)
+// 3. cartBase (из VITE_CART_API_URL, может быть относительным)
+const resolvedBase = rawAdminBase || (rawServerApiUrl ? `${normalizeBaseUrl(rawServerApiUrl)}/cart` : cartBase);
 // Админка всегда идёт на cart-server (4010) — не используем общий SERVER_API, чтобы не улетать на старый бэкенд.
-const ADMIN_API_BASE = normalizeBaseUrl(rawAdminBase || cartBase) + "/admin";
+const ADMIN_API_BASE = normalizeBaseUrl(resolvedBase) + "/admin";
+
+// Проверяем, что URL указывает на правильный backend (не относительный путь в production)
+function validateAdminApiBase(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  
+  const isRelative = ADMIN_API_BASE.startsWith("/");
+  const isProduction = import.meta.env.PROD;
+  
+  if (isRelative && isProduction) {
+    console.warn(
+      '[adminServerApi] ⚠️ ВНИМАНИЕ: ADMIN_API_BASE использует относительный путь в production:',
+      ADMIN_API_BASE,
+      '\nЭто означает, что запросы будут идти на Vercel вместо Railway backend.',
+      '\nУбедитесь, что переменная VITE_ADMIN_API_URL установлена и указывает на Railway backend.',
+      '\nПример: https://your-backend.up.railway.app/api/cart'
+    );
+  }
+}
+
+// Логируем используемый базовый URL для диагностики
+if (typeof window !== "undefined") {
+  console.log('[adminServerApi] VITE_ADMIN_API_URL:', rawAdminBase);
+  console.log('[adminServerApi] VITE_SERVER_API_URL:', rawServerApiUrl);
+  console.log('[adminServerApi] cartBase (fallback):', cartBase);
+  console.log('[adminServerApi] resolvedBase:', resolvedBase);
+  console.log('[adminServerApi] ADMIN_API_BASE:', ADMIN_API_BASE);
+  validateAdminApiBase();
+}
 
 // Парсим список Telegram ID администраторов (через запятую)
 const parseAdminTelegramIds = (raw: string | undefined): Set<string> => {
@@ -107,16 +144,44 @@ const buildHeaders = (overrideTelegramId?: string): Record<string, string> => {
 const handleResponse = async <T>(response: Response): Promise<T> => {
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    throw new Error(text || `Ошибка запроса (${response.status})`);
+    const errorMessage = text || `Ошибка запроса (${response.status})`;
+    
+    // Если получили 404, это может означать, что backend не настроен правильно
+    if (response.status === 404) {
+      const isRelative = ADMIN_API_BASE.startsWith("/");
+      if (isRelative && import.meta.env.PROD) {
+        console.error(
+          '[adminServerApi] ❌ 404 ошибка: Backend не найден.',
+          '\nВозможные причины:',
+          '\n1. Переменная VITE_ADMIN_API_URL не установлена или указывает на неправильный домен',
+          '\n2. Backend на Railway не запущен или недоступен',
+          '\n3. URL указывает на Vercel вместо Railway backend',
+          '\nТекущий ADMIN_API_BASE:', ADMIN_API_BASE
+        );
+      }
+    }
+    
+    throw new Error(errorMessage);
   }
   return (await response.json()) as T;
 };
 
 export const adminServerApi = {
   async getCurrentAdmin(overrideTelegramId?: string): Promise<AdminMeResponse> {
-    const response = await fetch(`${ADMIN_API_BASE}/me`, {
+    const url = `${ADMIN_API_BASE}/me`;
+    console.log('[adminServerApi] getCurrentAdmin URL:', url);
+    const response = await fetch(url, {
       headers: buildHeaders(overrideTelegramId),
     });
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      console.error('[adminServerApi] getCurrentAdmin error:', {
+        status: response.status,
+        statusText: response.statusText,
+        url,
+        errorText,
+      });
+    }
     return handleResponse<AdminMeResponse>(response);
   },
 
