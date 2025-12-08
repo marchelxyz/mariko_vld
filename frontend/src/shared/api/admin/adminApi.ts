@@ -17,6 +17,7 @@ import {
   UserRole,
 } from "@shared/types";
 import { storage } from "@/lib/telegram";
+import { logger } from "@/lib/logger";
 
 /**
  * Ключи для хранения данных
@@ -54,7 +55,7 @@ class AdminApi {
     try {
       // В режиме разработки даём супер-админа для тестирования
       if (IS_DEV_MODE && userId === DEV_USER_ID) {
-        console.log('🔧 DEV MODE: Пользователь получил права супер-администратора');
+        logger.info('admin-api', 'DEV MODE: Пользователь получил права супер-администратора', { userId });
         return UserRole.SUPER_ADMIN;
       }
 
@@ -71,7 +72,7 @@ class AdminApi {
       const roles: Record<string, UserRole> = JSON.parse(rolesData);
       return roles[userId] || UserRole.USER;
     } catch (error) {
-      console.error('Ошибка получения роли пользователя:', error);
+      logger.error('admin-api', error instanceof Error ? error : new Error('Ошибка получения роли пользователя'), { userId });
       return UserRole.USER;
     }
   }
@@ -83,7 +84,7 @@ class AdminApi {
     try {
       // Проверяем, является ли текущий пользователь супер-админом
       if (this.getUserRole(adminId) !== UserRole.SUPER_ADMIN) {
-        console.error('Только супер-администратор может назначать роли');
+        logger.warn('admin-api', 'Только супер-администратор может назначать роли', { adminId, userId, role });
         return false;
       }
 
@@ -94,6 +95,7 @@ class AdminApi {
       storage.setItem(STORAGE_KEYS.USER_ROLES, JSON.stringify(roles));
 
       // Логируем изменение
+      logger.info('admin-api', 'Роль пользователя установлена', { adminId, userId, role });
       this.logChange({
         userId: adminId,
         action: 'set_user_role',
@@ -104,7 +106,7 @@ class AdminApi {
 
       return true;
     } catch (error) {
-      console.error('Ошибка установки роли:', error);
+      logger.error('admin-api', error instanceof Error ? error : new Error('Ошибка установки роли'), { userId, role, adminId });
       return false;
     }
   }
@@ -173,7 +175,7 @@ class AdminApi {
         updatedAt: new Date().toISOString(),
       }));
     } catch (error) {
-      console.error('Ошибка получения пользователей с ролями:', error);
+      logger.error('admin-api', error instanceof Error ? error : new Error('Ошибка получения пользователей с ролями'));
       return [];
     }
   }
@@ -193,7 +195,7 @@ class AdminApi {
       const statuses: Record<string, CityStatus> = JSON.parse(statusData);
       return statuses[cityId]?.isActive ?? true;
     } catch (error) {
-      console.error('Ошибка получения статуса города:', error);
+      logger.error('admin-api', error instanceof Error ? error : new Error('Ошибка получения статуса города'), { cityId });
       return true;
     }
   }
@@ -204,7 +206,7 @@ class AdminApi {
   setCityStatus(cityId: string, isActive: boolean, userId: string): boolean {
     try {
       if (!this.hasPermission(userId, Permission.MANAGE_CITIES)) {
-        console.error('Недостаточно прав для изменения статуса города');
+        logger.warn('admin-api', 'Недостаточно прав для изменения статуса города', { userId, cityId, isActive });
         return false;
       }
 
@@ -221,6 +223,7 @@ class AdminApi {
       storage.setItem(STORAGE_KEYS.CITY_STATUS, JSON.stringify(statuses));
 
       // Логируем изменение
+      logger.info('admin-api', 'Статус города изменен', { userId, cityId, isActive });
       this.logChange({
         userId,
         action: isActive ? 'activate_city' : 'deactivate_city',
@@ -231,7 +234,7 @@ class AdminApi {
 
       return true;
     } catch (error) {
-      console.error('Ошибка установки статуса города:', error);
+      logger.error('admin-api', error instanceof Error ? error : new Error('Ошибка установки статуса города'), { userId, cityId, isActive });
       return false;
     }
   }
@@ -242,12 +245,12 @@ class AdminApi {
   addCity(city: Omit<City, 'restaurants'>, userId: string): boolean {
     try {
       if (!this.hasPermission(userId, Permission.MANAGE_CITIES)) {
-        console.error('Недостаточно прав для добавления города');
+        logger.warn('admin-api', 'Недостаточно прав для добавления города', { userId, cityId: city.id });
         return false;
       }
 
       // В реальном приложении здесь будет запрос к серверу
-      console.log('Добавление города:', city);
+      logger.info('admin-api', 'Добавление города', { userId, city });
 
       // Логируем изменение
       this.logChange({
@@ -260,7 +263,7 @@ class AdminApi {
 
       return true;
     } catch (error) {
-      console.error('Ошибка добавления города:', error);
+      logger.error('admin-api', error instanceof Error ? error : new Error('Ошибка добавления города'), { userId, city });
       return false;
     }
   }
@@ -271,12 +274,12 @@ class AdminApi {
   deleteCity(cityId: string, userId: string): boolean {
     try {
       if (!this.hasPermission(userId, Permission.MANAGE_CITIES)) {
-        console.error('Недостаточно прав для удаления города');
+        logger.warn('admin-api', 'Недостаточно прав для удаления города', { userId, cityId });
         return false;
       }
 
       // В реальном приложении здесь будет запрос к серверу
-      console.log('Удаление города:', cityId);
+      logger.info('admin-api', 'Удаление города', { userId, cityId });
 
       // Логируем изменение
       this.logChange({
@@ -289,7 +292,7 @@ class AdminApi {
 
       return true;
     } catch (error) {
-      console.error('Ошибка удаления города:', error);
+      logger.error('admin-api', error instanceof Error ? error : new Error('Ошибка удаления города'), { userId, cityId });
       return false;
     }
   }
@@ -302,12 +305,12 @@ class AdminApi {
   addRestaurant(cityId: string, restaurant: Restaurant, userId: string): boolean {
     try {
       if (!this.hasPermission(userId, Permission.MANAGE_RESTAURANTS)) {
-        console.error('Недостаточно прав для добавления ресторана');
+        logger.warn('admin-api', 'Недостаточно прав для добавления ресторана', { userId, cityId, restaurantId: restaurant.id });
         return false;
       }
 
       // В реальном приложении здесь будет запрос к серверу
-      console.log('Добавление ресторана:', { cityId, restaurant });
+      logger.info('admin-api', 'Добавление ресторана', { userId, cityId, restaurant });
 
       // Логируем изменение
       this.logChange({
@@ -320,7 +323,7 @@ class AdminApi {
 
       return true;
     } catch (error) {
-      console.error('Ошибка добавления ресторана:', error);
+      logger.error('admin-api', error instanceof Error ? error : new Error('Ошибка добавления ресторана'), { userId, cityId, restaurant });
       return false;
     }
   }
@@ -331,12 +334,12 @@ class AdminApi {
   deleteRestaurant(restaurantId: string, userId: string): boolean {
     try {
       if (!this.hasPermission(userId, Permission.MANAGE_RESTAURANTS)) {
-        console.error('Недостаточно прав для удаления ресторана');
+        logger.warn('admin-api', 'Недостаточно прав для удаления ресторана', { userId, restaurantId });
         return false;
       }
 
       // В реальном приложении здесь будет запрос к серверу
-      console.log('Удаление ресторана:', restaurantId);
+      logger.info('admin-api', 'Удаление ресторана', { userId, restaurantId });
 
       // Логируем изменение
       this.logChange({
@@ -349,7 +352,7 @@ class AdminApi {
 
       return true;
     } catch (error) {
-      console.error('Ошибка удаления ресторана:', error);
+      logger.error('admin-api', error instanceof Error ? error : new Error('Ошибка удаления ресторана'), { userId, restaurantId });
       return false;
     }
   }
@@ -369,7 +372,7 @@ class AdminApi {
       const menus: Record<string, RestaurantMenu> = JSON.parse(menusData);
       return menus[restaurantId] || null;
     } catch (error) {
-      console.error('Ошибка получения меню:', error);
+      logger.error('admin-api', error instanceof Error ? error : new Error('Ошибка получения меню'), { restaurantId });
       return null;
     }
   }
@@ -380,7 +383,7 @@ class AdminApi {
   saveRestaurantMenu(menu: RestaurantMenu, userId: string): boolean {
     try {
       if (!this.hasPermission(userId, Permission.MANAGE_MENU)) {
-        console.error('Недостаточно прав для редактирования меню');
+        logger.warn('admin-api', 'Недостаточно прав для редактирования меню', { userId, restaurantId });
         return false;
       }
 
@@ -401,7 +404,7 @@ class AdminApi {
 
       return true;
     } catch (error) {
-      console.error('Ошибка сохранения меню:', error);
+      logger.error('admin-api', error instanceof Error ? error : new Error('Ошибка сохранения меню'), { userId, restaurantId: menu.restaurantId });
       return false;
     }
   }
@@ -416,7 +419,7 @@ class AdminApi {
   ): boolean {
     try {
       if (!this.hasPermission(userId, Permission.MANAGE_MENU)) {
-        console.error('Недостаточно прав для редактирования меню');
+        logger.warn('admin-api', 'Недостаточно прав для редактирования меню', { userId, restaurantId });
         return false;
       }
 
@@ -433,7 +436,7 @@ class AdminApi {
       menu.categories.push(category);
       return this.saveRestaurantMenu(menu, userId);
     } catch (error) {
-      console.error('Ошибка добавления категории:', error);
+      logger.error('admin-api', error instanceof Error ? error : new Error('Ошибка добавления категории'), { userId, restaurantId, categoryId: category.id });
       return false;
     }
   }
@@ -449,7 +452,7 @@ class AdminApi {
   ): boolean {
     try {
       if (!this.hasPermission(userId, Permission.MANAGE_MENU)) {
-        console.error('Недостаточно прав для редактирования меню');
+        logger.warn('admin-api', 'Недостаточно прав для редактирования меню', { userId, restaurantId });
         return false;
       }
 
@@ -470,7 +473,7 @@ class AdminApi {
 
       return this.saveRestaurantMenu(menu, userId);
     } catch (error) {
-      console.error('Ошибка обновления категории:', error);
+      logger.error('admin-api', error instanceof Error ? error : new Error('Ошибка обновления категории'), { userId, restaurantId, categoryId });
       return false;
     }
   }
@@ -485,7 +488,7 @@ class AdminApi {
   ): boolean {
     try {
       if (!this.hasPermission(userId, Permission.MANAGE_MENU)) {
-        console.error('Недостаточно прав для редактирования меню');
+        logger.warn('admin-api', 'Недостаточно прав для редактирования меню', { userId, restaurantId });
         return false;
       }
 
@@ -497,7 +500,7 @@ class AdminApi {
       menu.categories = menu.categories.filter((c) => c.id !== categoryId);
       return this.saveRestaurantMenu(menu, userId);
     } catch (error) {
-      console.error('Ошибка удаления категории:', error);
+      logger.error('admin-api', error instanceof Error ? error : new Error('Ошибка удаления категории'), { userId, restaurantId, categoryId });
       return false;
     }
   }
@@ -513,7 +516,7 @@ class AdminApi {
   ): boolean {
     try {
       if (!this.hasPermission(userId, Permission.MANAGE_MENU)) {
-        console.error('Недостаточно прав для редактирования меню');
+        logger.warn('admin-api', 'Недостаточно прав для редактирования меню', { userId, restaurantId });
         return false;
       }
 
@@ -530,7 +533,7 @@ class AdminApi {
       category.items.push(item);
       return this.saveRestaurantMenu(menu, userId);
     } catch (error) {
-      console.error('Ошибка добавления блюда:', error);
+      logger.error('admin-api', error instanceof Error ? error : new Error('Ошибка добавления блюда'), { userId, restaurantId, categoryId, itemId: item.id });
       return false;
     }
   }
@@ -547,7 +550,7 @@ class AdminApi {
   ): boolean {
     try {
       if (!this.hasPermission(userId, Permission.MANAGE_MENU)) {
-        console.error('Недостаточно прав для редактирования меню');
+        logger.warn('admin-api', 'Недостаточно прав для редактирования меню', { userId, restaurantId });
         return false;
       }
 
@@ -573,7 +576,7 @@ class AdminApi {
 
       return this.saveRestaurantMenu(menu, userId);
     } catch (error) {
-      console.error('Ошибка обновления блюда:', error);
+      logger.error('admin-api', error instanceof Error ? error : new Error('Ошибка обновления блюда'), { userId, restaurantId, categoryId, itemId });
       return false;
     }
   }
@@ -589,7 +592,7 @@ class AdminApi {
   ): boolean {
     try {
       if (!this.hasPermission(userId, Permission.MANAGE_MENU)) {
-        console.error('Недостаточно прав для редактирования меню');
+        logger.warn('admin-api', 'Недостаточно прав для редактирования меню', { userId, restaurantId });
         return false;
       }
 
@@ -606,7 +609,7 @@ class AdminApi {
       category.items = category.items.filter((i) => i.id !== itemId);
       return this.saveRestaurantMenu(menu, userId);
     } catch (error) {
-      console.error('Ошибка удаления блюда:', error);
+      logger.error('admin-api', error instanceof Error ? error : new Error('Ошибка удаления блюда'), { userId, restaurantId, categoryId, itemId });
       return false;
     }
   }
@@ -647,7 +650,7 @@ class AdminApi {
 
       storage.setItem(STORAGE_KEYS.CHANGE_LOG, JSON.stringify(logs));
     } catch (error) {
-      console.error('Ошибка записи в лог:', error);
+      logger.error('admin-api', error instanceof Error ? error : new Error('Ошибка записи в лог'), { params });
     }
   }
 
@@ -663,7 +666,7 @@ class AdminApi {
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
         .slice(0, limit);
     } catch (error) {
-      console.error('Ошибка получения логов:', error);
+      logger.error('admin-api', error instanceof Error ? error : new Error('Ошибка получения логов'), { limit });
       return [];
     }
   }
