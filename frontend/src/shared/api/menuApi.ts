@@ -89,3 +89,38 @@ export async function fetchMenuByRestaurantId(restaurantId: string): Promise<Res
     }
   }
 }
+
+export type MenuImageAsset = {
+  path: string;
+  url: string;
+  size: number;
+  updatedAt: string | null;
+};
+
+type UploadImageResult = {
+  url: string;
+};
+
+/**
+ * Загрузить изображение для меню
+ * TODO: Реализовать через Яндекс Облако Storage
+ */
+export async function uploadMenuImage(
+  restaurantId: string,
+  file: File,
+): Promise<UploadImageResult> {
+  // TODO: Реализовать загрузку через Яндекс Облако Storage
+  throw new Error('Загрузка изображений меню будет реализована через Яндекс Облако Storage');
+}
+
+/**
+ * Получить библиотеку изображений меню
+ * TODO: Реализовать через Яндекс Облако Storage
+ */
+export async function fetchMenuImageLibrary(
+  restaurantId: string,
+  scope: 'global' | 'restaurant' = 'global',
+): Promise<MenuImageAsset[]> {
+  // TODO: Реализовать получение списка изображений через Яндекс Облако Storage
+  return [];
+}
