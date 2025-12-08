@@ -106,8 +106,8 @@ function RandomBackgroundPattern() {
   function generatePositions(width: number, height: number): PatternPosition[] {
     const newPositions: PatternPosition[] = [];
     const placedRects: Array<{ x: number; y: number; width: number; height: number; rotation: number }> = [];
-    const minScale = 0.15; // Уменьшаем минимальный размер для более плотного размещения
-    const maxScale = 0.28; // Уменьшаем максимальный размер для более компактных элементов
+    const minScale = 0.20; // Увеличиваем минимальный размер элементов
+    const maxScale = 0.35; // Увеличиваем максимальный размер элементов
     const padding = 4; // Уменьшаем padding в 2 раза для более плотного размещения
 
     function getRandomPattern() {
@@ -192,8 +192,10 @@ function RandomBackgroundPattern() {
       const effectiveH = rotatedBounds.height;
       
       if (existingRects.length === 0) {
-        // Первый элемент размещаем в центре для равномерного старта
-        return { x: (width - w) / 2, y: (height - h) / 2 };
+        // Первый элемент размещаем со смещением вправо и вверх
+        const offsetX = width * 0.15; // Смещение вправо на 15% от ширины
+        const offsetY = height * 0.15; // Смещение вверх на 15% от высоты
+        return { x: (width - w) / 2 + offsetX, y: (height - h) / 2 - offsetY };
       }
 
       // Используем сетку для равномерного распределения
@@ -211,8 +213,13 @@ function RandomBackgroundPattern() {
         const x = col * cellWidth + Math.random() * Math.max(0, cellWidth - effectiveW);
         const y = row * cellHeight + Math.random() * Math.max(0, cellHeight - effectiveH);
         
-        const clampedX = Math.max(0, Math.min(x, width - w));
-        const clampedY = Math.max(0, Math.min(y, height - h));
+        // Добавляем смещение вправо и вверх ко всем позициям
+        const offsetX = width * 0.1; // Смещение вправо на 10% от ширины
+        const offsetY = height * 0.1; // Смещение вверх на 10% от высоты
+        const adjustedX = x + offsetX;
+        const adjustedY = y - offsetY;
+        const clampedX = Math.max(0, Math.min(adjustedX, width - w));
+        const clampedY = Math.max(0, Math.min(adjustedY, height - h));
         
         if (clampedX + w <= width && clampedY + h <= height) {
           if (!checkOverlap(clampedX, clampedY, w, h, rotation, existingRects)) {
@@ -252,8 +259,13 @@ function RandomBackgroundPattern() {
             y = randomRect.y;
         }
 
-        x = Math.max(0, Math.min(x, width - w));
-        y = Math.max(0, Math.min(y, height - h));
+        // Добавляем смещение вправо и вверх
+        const offsetX = width * 0.1; // Смещение вправо на 10% от ширины
+        const offsetY = height * 0.1; // Смещение вверх на 10% от высоты
+        const adjustedX = x + offsetX;
+        const adjustedY = y - offsetY;
+        x = Math.max(0, Math.min(adjustedX, width - w));
+        y = Math.max(0, Math.min(adjustedY, height - h));
 
         if (x + w <= width && y + h <= height) {
           if (!checkOverlap(x, y, w, h, rotation, existingRects)) {
@@ -264,9 +276,13 @@ function RandomBackgroundPattern() {
 
       // Если не удалось разместить рядом, ищем любое свободное место равномерно
       const randomAttempts = 3000; // Увеличиваем попытки в 2 раза для более плотного заполнения
+      const offsetX = width * 0.1; // Смещение вправо на 10% от ширины
+      const offsetY = height * 0.1; // Смещение вверх на 10% от высоты
       for (let i = 0; i < randomAttempts; i++) {
-        const x = Math.random() * Math.max(0, width - w);
-        const y = Math.random() * Math.max(0, height - h);
+        const baseX = Math.random() * Math.max(0, width - w);
+        const baseY = Math.random() * Math.max(0, height - h);
+        const x = Math.max(0, Math.min(baseX + offsetX, width - w));
+        const y = Math.max(0, Math.min(baseY - offsetY, height - h));
         
         if (!checkOverlap(x, y, w, h, rotation, existingRects)) {
           return { x, y };
