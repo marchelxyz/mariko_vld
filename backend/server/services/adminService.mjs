@@ -1,10 +1,17 @@
-import { supabase } from "../supabaseClient.mjs";
+import { queryOne, queryMany, db } from "../postgresClient.mjs";
 import { ADMIN_DEV_TOKEN, ADMIN_ROLE_VALUES, ADMIN_DEV_TELEGRAM_ID } from "../config.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
 
 export const parseRestaurantPermissions = (permissions) => {
   if (!permissions) {
     return [];
+  }
+  if (typeof permissions === "string") {
+    try {
+      permissions = JSON.parse(permissions);
+    } catch {
+      return [];
+    }
   }
   if (Array.isArray(permissions.restaurants)) {
     return permissions.restaurants
@@ -25,37 +32,53 @@ export const getTelegramIdFromRequest = (req) => {
 };
 
 export const fetchAdminRecordByTelegram = async (telegramId) => {
-  if (!supabase || !telegramId) {
+  if (!db || !telegramId) {
     return null;
   }
-  const numeric = Number(telegramId);
-  if (!Number.isFinite(numeric)) {
-    return null;
-  }
-  const { data, error } = await supabase
-    .from("admin_users")
-    .select("*")
-    .eq("telegram_id", numeric)
-    .maybeSingle();
-  if (error) {
+  try {
+    const numeric = Number(telegramId);
+    if (!Number.isFinite(numeric)) {
+      return null;
+    }
+    const result = await queryOne(`SELECT * FROM admin_users WHERE telegram_id = $1 LIMIT 1`, [numeric]);
+    if (result && result.permissions && typeof result.permissions === "string") {
+      try {
+        result.permissions = JSON.parse(result.permissions);
+      } catch {
+        result.permissions = {};
+      }
+    }
+    return result ?? null;
+  } catch (error) {
     console.error("Ошибка получения admin_users:", error);
     return null;
   }
-  return data ?? null;
 };
 
 export const listAdminRecords = async () => {
-  if (!supabase) {
+  if (!db) {
     return [];
   }
-  const { data, error } = await supabase
-    .from("admin_users")
-    .select("id,telegram_id,name,role,permissions,created_at,updated_at");
-  if (error) {
+  try {
+    const results = await queryMany(
+      `SELECT id, telegram_id, name, role, permissions, created_at, updated_at 
+       FROM admin_users 
+       ORDER BY created_at DESC`,
+    );
+    return results.map((row) => {
+      if (row.permissions && typeof row.permissions === "string") {
+        try {
+          row.permissions = JSON.parse(row.permissions);
+        } catch {
+          row.permissions = {};
+        }
+      }
+      return row;
+    });
+  } catch (error) {
     console.error("Ошибка загрузки admin_users:", error);
     return [];
   }
-  return Array.isArray(data) ? data : [];
 };
 
 export const resolveAdminContext = async (telegramId) => {

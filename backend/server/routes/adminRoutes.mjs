@@ -1,5 +1,5 @@
 import express from "express";
-import { supabase, ensureSupabase } from "../supabaseClient.mjs";
+import { db, ensureDatabase, queryMany, queryOne, query } from "../postgresClient.mjs";
 import {
   CART_ORDERS_TABLE,
   ORDER_STATUS_VALUES,
@@ -22,7 +22,7 @@ export function createAdminRouter() {
   const router = express.Router();
 
   router.use((req, res, next) => {
-    if (!ensureSupabase(res)) {
+    if (!ensureDatabase(res)) {
       return;
     }
     next();
@@ -32,7 +32,7 @@ export function createAdminRouter() {
     const telegramId = getTelegramIdFromRequest(req);
     const devToken = req.get("x-admin-token");
 
-    // Быстрый bypass: если пришёл dev-токен, отдаём супер-админа без обращения к Supabase
+    // Быстрый bypass: если пришёл dev-токен, отдаём супер-админа без обращения к БД
     if (ADMIN_DEV_TOKEN && devToken === ADMIN_DEV_TOKEN) {
       return res.json({
         success: true,
@@ -41,7 +41,7 @@ export function createAdminRouter() {
       });
     }
 
-    if (!ensureSupabase(res)) {
+    if (!ensureDatabase(res)) {
       return;
     }
     const devOverrideId =
@@ -62,7 +62,7 @@ export function createAdminRouter() {
   });
 
   router.get("/users", async (req, res) => {
-    if (!ensureSupabase(res)) {
+    if (!ensureDatabase(res)) {
       return;
     }
     const admin = await authoriseSuperAdmin(req, res);
@@ -107,7 +107,7 @@ export function createAdminRouter() {
   });
 
   router.patch("/users/:userId", async (req, res) => {
-    if (!ensureSupabase(res)) {
+    if (!ensureDatabase(res)) {
       return;
     }
     const admin = await authoriseSuperAdmin(req, res);
@@ -129,8 +129,9 @@ export function createAdminRouter() {
     }
     if (incomingRole === "user") {
       const numeric = Number(telegramId);
-      const { error } = await supabase.from("admin_users").delete().eq("telegram_id", numeric);
-      if (error) {
+      try {
+        await query(`DELETE FROM admin_users WHERE telegram_id = $1`, [numeric]);
+      } catch (error) {
         console.error("Ошибка удаления роли:", error);
         return res.status(500).json({ success: false, message: "Не удалось удалить роль" });
       }
@@ -152,30 +153,44 @@ export function createAdminRouter() {
       },
     };
 
-    const { data, error } = await supabase
-      .from("admin_users")
-      .upsert(payload, { onConflict: "telegram_id" })
-      .select()
-      .maybeSingle();
+    try {
+      const adminRecord = await queryOne(
+        `INSERT INTO admin_users (telegram_id, name, role, permissions, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, NOW(), NOW())
+         ON CONFLICT (telegram_id) 
+         DO UPDATE SET name = $2, role = $3, permissions = $4, updated_at = NOW()
+         RETURNING *`,
+        [payload.telegram_id, payload.name, payload.role, JSON.stringify(payload.permissions)],
+      );
 
-    if (error) {
+      if (!adminRecord) {
+        return res.status(500).json({ success: false, message: "Не удалось сохранить роль" });
+      }
+
+      // Парсим permissions если строка
+      if (adminRecord.permissions && typeof adminRecord.permissions === "string") {
+        try {
+          adminRecord.permissions = JSON.parse(adminRecord.permissions);
+        } catch {
+          adminRecord.permissions = payload.permissions;
+        }
+      }
+
+      // Если не нашли профиль, попробуем взять существующую запись из admin_users (для отображения имени)
+      const enrichedProfile = profile ?? (await fetchAdminRecordByTelegram(telegramId));
+
+      return res.json({
+        success: true,
+        user: buildUserWithRole(enrichedProfile, adminRecord),
+      });
+    } catch (error) {
       console.error("Ошибка сохранения роли:", error);
       return res.status(500).json({ success: false, message: "Не удалось сохранить роль" });
     }
-
-    const adminRecord = data ?? payload;
-
-    // Если не нашли профиль, попробуем взять существующую запись из admin_users (для отображения имени)
-    const enrichedProfile = profile ?? (await fetchAdminRecordByTelegram(telegramId));
-
-    return res.json({
-      success: true,
-      user: buildUserWithRole(enrichedProfile, adminRecord),
-    });
   });
 
   router.get("/orders", async (req, res) => {
-    if (!ensureSupabase(res)) {
+    if (!ensureDatabase(res)) {
       return;
     }
     const admin = await authoriseSuperAdmin(req, res);
@@ -194,43 +209,68 @@ export function createAdminRouter() {
     const restaurantFilter =
       typeof req.query?.restaurantId === "string" ? req.query.restaurantId.trim() : null;
 
-    let query = supabase
-      .from(CART_ORDERS_TABLE)
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(limit);
+    try {
+      let queryText = `SELECT * FROM ${CART_ORDERS_TABLE} WHERE 1=1`;
+      const params = [];
+      let paramIndex = 1;
 
-    if (statusFilters && statusFilters.length > 0) {
-      query = query.in("status", statusFilters);
-    }
-
-    if (restaurantFilter) {
-      query = query.eq("restaurant_id", restaurantFilter);
-    }
-
-    if (admin.role !== "super_admin") {
-      if (!admin.allowedRestaurants || admin.allowedRestaurants.length === 0) {
-        return res.json({ success: true, orders: [] });
+      if (statusFilters && statusFilters.length > 0) {
+        queryText += ` AND status = ANY($${paramIndex++})`;
+        params.push(statusFilters);
       }
-      query = query.in("restaurant_id", admin.allowedRestaurants);
-    }
 
-    const { data, error } = await query;
-    if (error) {
+      if (restaurantFilter) {
+        queryText += ` AND restaurant_id = $${paramIndex++}`;
+        params.push(restaurantFilter);
+      }
+
+      if (admin.role !== "super_admin") {
+        if (!admin.allowedRestaurants || admin.allowedRestaurants.length === 0) {
+          return res.json({ success: true, orders: [] });
+        }
+        queryText += ` AND restaurant_id = ANY($${paramIndex++})`;
+        params.push(admin.allowedRestaurants);
+      }
+
+      queryText += ` ORDER BY created_at DESC LIMIT $${paramIndex++}`;
+      params.push(limit);
+
+      const results = await queryMany(queryText, params);
+      
+      // Парсим JSON поля если они строки
+      const orders = results.map((order) => {
+        if (order.items && typeof order.items === "string") {
+          try {
+            order.items = JSON.parse(order.items);
+          } catch {}
+        }
+        if (order.meta && typeof order.meta === "string") {
+          try {
+            order.meta = JSON.parse(order.meta);
+          } catch {}
+        }
+        if (order.warnings && typeof order.warnings === "string") {
+          try {
+            order.warnings = JSON.parse(order.warnings);
+          } catch {}
+        }
+        return order;
+      });
+
+      return res.json({
+        success: true,
+        orders,
+      });
+    } catch (error) {
       console.error("Ошибка получения заказов (admin):", error);
       return res
         .status(500)
         .json({ success: false, message: "Не удалось получить список заказов" });
     }
-
-    return res.json({
-      success: true,
-      orders: Array.isArray(data) ? data : [],
-    });
   });
 
   router.patch("/orders/:orderId/status", async (req, res) => {
-    if (!ensureSupabase(res)) {
+    if (!ensureDatabase(res)) {
       return;
     }
     const admin = await authoriseAdmin(req, res);
@@ -242,15 +282,10 @@ export function createAdminRouter() {
     if (!status || !ORDER_STATUS_VALUES.has(status)) {
       return res.status(400).json({ success: false, message: "Некорректный статус" });
     }
-    const { data: order, error: fetchError } = await supabase
-      .from(CART_ORDERS_TABLE)
-      .select("id,restaurant_id")
-      .eq("id", orderId)
-      .maybeSingle();
-    if (fetchError) {
-      console.error("Ошибка поиска заказа:", fetchError);
-      return res.status(500).json({ success: false, message: "Не удалось найти заказ" });
-    }
+    const order = await queryOne(
+      `SELECT id, restaurant_id FROM ${CART_ORDERS_TABLE} WHERE id = $1 LIMIT 1`,
+      [orderId],
+    );
     if (!order) {
       return res.status(404).json({ success: false, message: "Заказ не найден" });
     }
@@ -260,11 +295,12 @@ export function createAdminRouter() {
       }
     }
 
-    const { error } = await supabase
-      .from(CART_ORDERS_TABLE)
-      .update({ status })
-      .eq("id", orderId);
-    if (error) {
+    try {
+      await query(`UPDATE ${CART_ORDERS_TABLE} SET status = $1, updated_at = NOW() WHERE id = $2`, [
+        status,
+        orderId,
+      ]);
+    } catch (error) {
       console.error("Ошибка обновления статуса:", error);
       return res.status(500).json({ success: false, message: "Не удалось обновить статус" });
     }
@@ -273,7 +309,7 @@ export function createAdminRouter() {
 
   // Toggle restaurant active status
   router.patch("/restaurants/:restaurantId/status", async (req, res) => {
-    if (!ensureSupabase(res)) {
+    if (!ensureDatabase(res)) {
       return;
     }
     const admin = await authoriseAdmin(req, res);
@@ -292,12 +328,12 @@ export function createAdminRouter() {
       }
     }
 
-    const { error } = await supabase
-      .from("restaurants")
-      .update({ is_active: isActive })
-      .eq("id", restaurantId);
-
-    if (error) {
+    try {
+      await query(`UPDATE restaurants SET is_active = $1, updated_at = NOW() WHERE id = $2`, [
+        isActive,
+        restaurantId,
+      ]);
+    } catch (error) {
       console.error("Ошибка обновления статуса ресторана:", error);
       return res.status(500).json({ success: false, message: "Не удалось обновить статус ресторана" });
     }

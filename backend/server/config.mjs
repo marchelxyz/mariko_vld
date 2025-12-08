@@ -37,8 +37,7 @@ export const INTEGRATION_CACHE_TTL_MS = Number.parseInt(
   10,
 ) ||
   5 * 60 * 1000;
-export const SUPABASE_URL = process.env.SUPABASE_URL;
-export const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+export const DATABASE_URL = process.env.DATABASE_URL;
 export const CART_SERVER_LOG_LEVEL = process.env.CART_SERVER_LOG_LEVEL ?? "info";
 export const GEOCODER_PROVIDER =
   (process.env.GEOCODER_PROVIDER || "photon").trim().toLowerCase();

@@ -4,7 +4,7 @@ import express from "express";
 import cors from "cors";
 
 import { PORT } from "./config.mjs";
-import { supabase } from "./supabaseClient.mjs";
+import { db } from "./postgresClient.mjs";
 import { registerCartRoutes } from "./routes/cartRoutes.mjs";
 import { createAdminRouter } from "./routes/adminRoutes.mjs";
 import { createPaymentRouter } from "./routes/paymentRoutes.mjs";
@@ -31,7 +31,7 @@ app.use((req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 Cart mock server (Express) listening on http://localhost:${PORT}`);
-  if (!supabase) {
-    console.log("ℹ️  SUPABASE_URL и SUPABASE_SERVICE_ROLE_KEY не заданы – сохраняем только в лог.");
+  if (!db) {
+    console.log("ℹ️  DATABASE_URL не задан – сохраняем только в лог.");
   }
 });
