@@ -138,7 +138,17 @@ export async function addRestaurantToSupabase(restaurant: {
 
 export async function updateRestaurantInSupabase(
   restaurantId: string,
-  updates: { name?: string; address?: string; isActive?: boolean; remarkedRestaurantId?: number },
+  updates: { 
+    name?: string; 
+    address?: string; 
+    isActive?: boolean; 
+    remarkedRestaurantId?: number;
+    phoneNumber?: string;
+    deliveryAggregators?: Array<{ name: string; url: string }>;
+    yandexMapsUrl?: string;
+    twoGisUrl?: string;
+    socialNetworks?: Array<{ name: string; url: string }>;
+  },
 ): Promise<boolean> {
   if (!isSupabaseConfigured()) {
     console.error('Supabase не настроен');
@@ -151,6 +161,11 @@ export async function updateRestaurantInSupabase(
     if (updates.address !== undefined) updateData.address = updates.address;
     if (updates.isActive !== undefined) updateData.is_active = updates.isActive;
     if (updates.remarkedRestaurantId !== undefined) updateData.remarked_restaurant_id = updates.remarkedRestaurantId;
+    if (updates.phoneNumber !== undefined) updateData.phone_number = updates.phoneNumber;
+    if (updates.deliveryAggregators !== undefined) updateData.delivery_aggregators = JSON.stringify(updates.deliveryAggregators);
+    if (updates.yandexMapsUrl !== undefined) updateData.yandex_maps_url = updates.yandexMapsUrl;
+    if (updates.twoGisUrl !== undefined) updateData.two_gis_url = updates.twoGisUrl;
+    if (updates.socialNetworks !== undefined) updateData.social_networks = JSON.stringify(updates.socialNetworks);
 
     const { error } = await supabase
       .from('restaurants')
@@ -226,13 +241,33 @@ export async function fetchActiveCitiesViaSupabase(): Promise<City[]> {
         name: cityRow.name,
         restaurants: (restaurantsData || [])
           .filter((r) => r.city_id === cityRow.id)
-          .map((r) => ({
-            id: r.id,
-            name: r.name,
-            address: r.address,
-            city: cityRow.name,
-            remarkedRestaurantId: r.remarked_restaurant_id,
-          })),
+          .map((r) => {
+            const restaurant: any = {
+              id: r.id,
+              name: r.name,
+              address: r.address,
+              city: cityRow.name,
+              remarkedRestaurantId: r.remarked_restaurant_id,
+            };
+            if (r.phone_number) restaurant.phoneNumber = r.phone_number;
+            if (r.delivery_aggregators) {
+              try {
+                restaurant.deliveryAggregators = typeof r.delivery_aggregators === 'string' 
+                  ? JSON.parse(r.delivery_aggregators) 
+                  : r.delivery_aggregators;
+              } catch {}
+            }
+            if (r.yandex_maps_url) restaurant.yandexMapsUrl = r.yandex_maps_url;
+            if (r.two_gis_url) restaurant.twoGisUrl = r.two_gis_url;
+            if (r.social_networks) {
+              try {
+                restaurant.socialNetworks = typeof r.social_networks === 'string' 
+                  ? JSON.parse(r.social_networks) 
+                  : r.social_networks;
+              } catch {}
+            }
+            return restaurant;
+          }),
       }))
       .filter((city) => city.restaurants.length > 0);
   } catch (error) {
@@ -276,14 +311,34 @@ export async function fetchAllCitiesViaSupabase(): Promise<Array<City & { is_act
       is_active: cityRow.is_active,
       restaurants: (restaurantsData || [])
         .filter((r) => r.city_id === cityRow.id)
-        .map((r) => ({
-          id: r.id,
-          name: r.name,
-          address: r.address,
-          city: cityRow.name,
-          isActive: r.is_active,
-          remarkedRestaurantId: r.remarked_restaurant_id,
-        })),
+        .map((r) => {
+          const restaurant: any = {
+            id: r.id,
+            name: r.name,
+            address: r.address,
+            city: cityRow.name,
+            isActive: r.is_active,
+            remarkedRestaurantId: r.remarked_restaurant_id,
+          };
+          if (r.phone_number) restaurant.phoneNumber = r.phone_number;
+          if (r.delivery_aggregators) {
+            try {
+              restaurant.deliveryAggregators = typeof r.delivery_aggregators === 'string' 
+                ? JSON.parse(r.delivery_aggregators) 
+                : r.delivery_aggregators;
+            } catch {}
+          }
+          if (r.yandex_maps_url) restaurant.yandexMapsUrl = r.yandex_maps_url;
+          if (r.two_gis_url) restaurant.twoGisUrl = r.two_gis_url;
+          if (r.social_networks) {
+            try {
+              restaurant.socialNetworks = typeof r.social_networks === 'string' 
+                ? JSON.parse(r.social_networks) 
+                : r.social_networks;
+            } catch {}
+          }
+          return restaurant;
+        }),
     }));
   } catch (error) {
     console.error('❌ Ошибка загрузки всех городов из Supabase:', error);

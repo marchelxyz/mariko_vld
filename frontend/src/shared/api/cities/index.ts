@@ -1,122 +1,68 @@
 import { adminServerApi } from "@shared/api/admin";
 import type { City } from "@shared/data";
-import { SERVER_POLL_INTERVAL_MS, shouldUseServerProxy } from "./config";
+import { SERVER_POLL_INTERVAL_MS } from "./config";
 import {
   fetchActiveCitiesViaServer,
   fetchAllCitiesViaServer,
   setCityStatusViaServer,
+  updateRestaurantViaServer,
 } from "./serverGateway";
-import {
-  addCityToSupabase,
-  addRestaurantToSupabase,
-  deleteCityFromSupabase,
-  deleteRestaurantFromSupabase,
-  fetchActiveCitiesViaSupabase,
-  fetchAllCitiesViaSupabase,
-  getCityStatusFromSupabase,
-  setCityStatusInSupabase,
-  subscribeToSupabaseCitiesChanges,
-  syncStaticDataToSupabase,
-  updateRestaurantInSupabase,
-} from "./supabaseStore";
-import { isSupabaseConfigured } from "@/lib/supabase";
 
 class CitiesApi {
   async getActiveCities(): Promise<City[]> {
-    if (shouldUseServerProxy()) {
-      try {
-        return await fetchActiveCitiesViaServer();
-      } catch (error) {
-        console.error('❌ Ошибка серверного API городов, используем Supabase:', error);
-      }
-    }
-    return await fetchActiveCitiesViaSupabase();
+    return await fetchActiveCitiesViaServer();
   }
 
   async getAllCities(): Promise<Array<City & { is_active?: boolean }>> {
-    if (shouldUseServerProxy()) {
-      try {
-        return await fetchAllCitiesViaServer();
-      } catch (error) {
-        console.error('❌ Ошибка серверного API всех городов, используем Supabase:', error);
-      }
-    }
-    return await fetchAllCitiesViaSupabase();
-  }
-
-  async getCityStatus(cityId: string): Promise<boolean> {
-    return await getCityStatusFromSupabase(cityId);
+    return await fetchAllCitiesViaServer();
   }
 
   async setCityStatus(cityId: string, isActive: boolean): Promise<{ success: boolean; errorMessage?: string }> {
-    if (shouldUseServerProxy()) {
-      try {
-        return await setCityStatusViaServer(cityId, isActive);
-      } catch (error) {
-        console.error('❌ Ошибка серверного API при изменении статуса города, fallback на Supabase:', error);
-      }
-    }
-    return await setCityStatusInSupabase(cityId, isActive);
+    return await setCityStatusViaServer(cityId, isActive);
   }
 
-  addCity = addCityToSupabase;
-  deleteCity = deleteCityFromSupabase;
-  addRestaurant = addRestaurantToSupabase;
-  updateRestaurant = async (restaurantId: string, updates: { name?: string; address?: string; isActive?: boolean; remarkedRestaurantId?: number }): Promise<boolean> => {
-    // Если есть серверный прокси — обновляем через него (service key, гарантированное подтверждение)
-    if (shouldUseServerProxy()) {
+  async updateRestaurant(restaurantId: string, updates: { 
+    name?: string; 
+    address?: string; 
+    isActive?: boolean; 
+    remarkedRestaurantId?: number;
+    phoneNumber?: string;
+    deliveryAggregators?: Array<{ name: string; url: string }>;
+    yandexMapsUrl?: string;
+    twoGisUrl?: string;
+    socialNetworks?: Array<{ name: string; url: string }>;
+  }): Promise<boolean> {
+    // Обновляем статус через admin API если нужно
+    if (updates.isActive !== undefined) {
       try {
-        if (updates.isActive !== undefined) {
-          await adminServerApi.updateRestaurantStatus(restaurantId, updates.isActive);
-        }
-        // Если требуется name/address — можно расширить payload; пока проксируем только статус
-        return true;
+        await adminServerApi.updateRestaurantStatus(restaurantId, updates.isActive);
       } catch (error) {
-        console.error('❌ Ошибка серверного API при обновлении ресторана, fallback на Supabase:', error);
+        console.error('Ошибка обновления статуса ресторана через admin API:', error);
       }
     }
-    return await updateRestaurantInSupabase(restaurantId, updates);
-  };
-  deleteRestaurant = deleteRestaurantFromSupabase;
+
+    // Обновляем остальные поля через cities API
+    const result = await updateRestaurantViaServer(restaurantId, updates);
+    return result.success;
+  }
 
   subscribeToCitiesChanges(callback: (cities: City[]) => void): () => void {
-    if (shouldUseServerProxy()) {
-      if (typeof window === 'undefined') {
-        return () => {};
-      }
-
-      const intervalId = window.setInterval(() => {
-        fetchActiveCitiesViaServer()
-          .then(callback)
-          .catch((error) => {
-            console.warn('⚠️ Не удалось обновить города через серверный API:', error);
-          });
-      }, SERVER_POLL_INTERVAL_MS);
-
-      return () => {
-        window.clearInterval(intervalId);
-      };
-    }
-
-    if (!isSupabaseConfigured()) {
+    if (typeof window === 'undefined') {
       return () => {};
     }
 
-    return subscribeToSupabaseCitiesChanges(callback);
-  }
+    const intervalId = window.setInterval(() => {
+      fetchActiveCitiesViaServer()
+        .then(callback)
+        .catch((error) => {
+          console.warn('⚠️ Не удалось обновить города через серверный API:', error);
+        });
+    }, SERVER_POLL_INTERVAL_MS);
 
-  async syncStaticData(): Promise<boolean> {
-    return await syncStaticDataToSupabase();
-  }
-}
-
-export const citiesSupabaseApi = new CitiesApi();
-
-export async function syncCitiesToSupabase(): Promise<void> {
-  const success = await citiesSupabaseApi.syncStaticData();
-  if (success) {
-    console.log('✅ Данные успешно синхронизированы с Supabase!');
-  } else {
-    console.error('❌ Ошибка синхронизации данных');
+    return () => {
+      window.clearInterval(intervalId);
+    };
   }
 }
+
+export const citiesApi = new CitiesApi();
