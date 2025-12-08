@@ -209,7 +209,11 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
 
   // Загрузка слотов через новый эндпоинт
   useEffect(() => {
-    if (!selectedDate || !isValidRestaurantId || !selectedRestaurant?.id) {
+    // Проверяем, что все необходимые данные доступны
+    const restaurantId = selectedRestaurant?.id;
+    const hasValidRestaurantId = restaurantId && restaurantId.trim() !== '';
+    
+    if (!selectedDate || !isValidRestaurantId || !hasValidRestaurantId) {
       setAvailableSlots([]);
       setSelectedTime("");
       setSelectedSlot(null);
@@ -229,8 +233,16 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     setLoadingSlots(true);
     const dateStr = format(selectedDate, "yyyy-MM-dd");
 
+    console.log('Загрузка слотов:', {
+      restaurantId: restaurantId,
+      date: dateStr,
+      guestsCount: guestsCount,
+      isValidRestaurantId: isValidRestaurantId,
+      remarkedRestaurantId: remarkedRestaurantId,
+    });
+
     getBookingSlots({
-      restaurantId: selectedRestaurant.id,
+      restaurantId: restaurantId!,
       date: dateStr,
       guestsCount: guestsCount,
       withRooms: true,
@@ -241,15 +253,27 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           return;
         }
 
+        console.log('Ответ API слотов:', {
+          success: response.success,
+          slotsCount: response.data?.slots?.length || 0,
+          error: response.error,
+          allSlots: response.data?.slots || [],
+        });
+
         if (response.success && response.data) {
+          const allSlots = response.data.slots || [];
+          console.log('Все слоты от API:', allSlots.length);
+          
           // Фильтруем только свободные слоты
-          const freeSlots = (response.data.slots || [])
+          const freeSlots = allSlots
             .filter((slot) => slot.is_free)
             .sort((a, b) => {
               const timeA = a.start_datetime.split(' ')[1]?.substring(0, 5) || '';
               const timeB = b.start_datetime.split(' ')[1]?.substring(0, 5) || '';
               return timeA.localeCompare(timeB);
             });
+
+          console.log('Свободные слоты после фильтрации:', freeSlots.length, freeSlots);
 
           setAvailableSlots(freeSlots);
           
@@ -273,6 +297,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
             return prevTime;
           });
         } else {
+          console.warn('Не удалось загрузить слоты:', response.error);
           setAvailableSlots([]);
           setSelectedTime("");
           setSelectedSlot(null);
@@ -281,6 +306,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       .catch((error) => {
         // Игнорируем ошибки отмены запроса
         if (error.name === 'AbortError') {
+          console.log('Запрос слотов отменен');
           return;
         }
         
@@ -290,7 +316,14 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         setSelectedSlot(null);
         
         // Не показываем toast для ошибок загрузки слотов, так как это может быть нормальной ситуацией
-        console.error('Ошибка загрузки слотов:', error);
+        console.error('Ошибка загрузки слотов:', {
+          error,
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          restaurantId: restaurantId,
+          date: dateStr,
+          guestsCount: guestsCount,
+        });
       })
       .finally(() => {
         if (!slotsAbortControllerRef.current?.signal.aborted) {
@@ -301,7 +334,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     return () => {
       slotsAbortControllerRef.current?.abort();
     };
-  }, [selectedDate, guestsCount, isValidRestaurantId, selectedRestaurant?.id]);
+  }, [selectedDate, guestsCount, isValidRestaurantId, selectedRestaurant?.id, remarkedRestaurantId]);
 
   // Автозаполнение из профиля
   useEffect(() => {
