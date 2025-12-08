@@ -117,26 +117,19 @@ export const listAdminRecords = async () => {
 };
 
 export const resolveAdminContext = async (telegramId) => {
-  console.log('[adminService] resolveAdminContext telegramId:', telegramId);
-  console.log('[adminService] ADMIN_TELEGRAM_IDS:', Array.from(ADMIN_TELEGRAM_IDS));
   if (!telegramId) {
-    console.log('[adminService] No telegramId, returning user role');
     return { role: "user", allowedRestaurants: [] };
   }
   // Проверяем, есть ли Telegram ID в списке администраторов из переменной окружения
   const normalizedId = normaliseTelegramId(telegramId);
-  console.log('[adminService] Normalized ID:', normalizedId);
   if (normalizedId && ADMIN_TELEGRAM_IDS.has(normalizedId)) {
-    console.log('[adminService] ID found in ADMIN_TELEGRAM_IDS, returning super_admin');
     return { role: "super_admin", allowedRestaurants: [] };
   }
   // Проверяем в базе данных
   const record = await fetchAdminRecordByTelegram(telegramId);
-  console.log('[adminService] Database record:', record);
   const permissions = record?.permissions ?? {};
   const allowedRestaurants = parseRestaurantPermissions(permissions);
   const role = ADMIN_ROLE_VALUES.has(record?.role) ? record.role : "user";
-  console.log('[adminService] Final role:', role, 'allowedRestaurants:', allowedRestaurants);
   return {
     role,
     allowedRestaurants,
@@ -166,21 +159,12 @@ export const buildUserWithRole = (profile, adminRecord) => {
 
 export const authoriseSuperAdmin = async (req, res) => {
   const telegramId = getTelegramIdFromRequest(req);
-  console.log('[adminService] authoriseSuperAdmin - telegramId:', telegramId);
-  console.log('[adminService] authoriseSuperAdmin - headers:', {
-    'x-telegram-id': req.get('x-telegram-id'),
-    'x-admin-telegram': req.get('x-admin-telegram'),
-    'x-telegram-init-data': req.get('x-telegram-init-data') ? 'present' : 'missing',
-  });
   if (!telegramId) {
-    console.log('[adminService] authoriseSuperAdmin - No telegramId found');
     res.status(401).json({ success: false, message: "Требуется Telegram ID администратора" });
     return null;
   }
   const context = await resolveAdminContext(telegramId);
-  console.log('[adminService] authoriseSuperAdmin - context:', context);
   if (context.role !== "super_admin") {
-    console.log('[adminService] authoriseSuperAdmin - Not super_admin, role:', context.role);
     res.status(403).json({ success: false, message: "Доступ только для супер-админа" });
     return null;
   }
@@ -196,6 +180,25 @@ export const authoriseAdmin = async (req, res) => {
   const context = await resolveAdminContext(telegramId);
   if (context.role !== "admin" && context.role !== "super_admin") {
     res.status(403).json({ success: false, message: "Нет прав администратора" });
+    return null;
+  }
+  return { ...context, telegramId };
+};
+
+/**
+ * Мягкая проверка авторизации - проверяет только, что пользователь является админом или супер-админом.
+ * Используется для чтения данных внутри админ-панели, где права уже проверены при входе.
+ */
+export const authoriseAnyAdmin = async (req, res) => {
+  const telegramId = getTelegramIdFromRequest(req);
+  if (!telegramId) {
+    res.status(401).json({ success: false, message: "Требуется Telegram ID администратора" });
+    return null;
+  }
+  const context = await resolveAdminContext(telegramId);
+  // Если пользователь не админ и не супер-админ, возвращаем null без ошибки
+  // (предполагается, что доступ к админ-панели уже проверен на фронтенде)
+  if (context.role !== "admin" && context.role !== "super_admin") {
     return null;
   }
   return { ...context, telegramId };
