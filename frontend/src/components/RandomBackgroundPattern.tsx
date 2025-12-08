@@ -192,9 +192,9 @@ function RandomBackgroundPattern() {
       const effectiveH = rotatedBounds.height;
       
       if (existingRects.length === 0) {
-        // Первый элемент размещаем со смещением вправо и вверх
-        const offsetX = width * 0.15; // Смещение вправо на 15% от ширины
-        const offsetY = height * 0.15; // Смещение вверх на 15% от высоты
+        // Первый элемент размещаем со смещением влево и вверх
+        const offsetX = width * -0.05; // Смещение влево на 5% от ширины
+        const offsetY = height * 0.2; // Смещение вверх на 20% от высоты
         return { x: (width - w) / 2 + offsetX, y: (height - h) / 2 - offsetY };
       }
 
@@ -213,9 +213,9 @@ function RandomBackgroundPattern() {
         const x = col * cellWidth + Math.random() * Math.max(0, cellWidth - effectiveW);
         const y = row * cellHeight + Math.random() * Math.max(0, cellHeight - effectiveH);
         
-        // Добавляем смещение вправо и вверх ко всем позициям
-        const offsetX = width * 0.1; // Смещение вправо на 10% от ширины
-        const offsetY = height * 0.1; // Смещение вверх на 10% от высоты
+        // Добавляем смещение влево и вверх ко всем позициям
+        const offsetX = width * -0.05; // Смещение влево на 5% от ширины
+        const offsetY = height * 0.15; // Смещение вверх на 15% от высоты
         const adjustedX = x + offsetX;
         const adjustedY = y - offsetY;
         const clampedX = Math.max(0, Math.min(adjustedX, width - w));
@@ -259,9 +259,9 @@ function RandomBackgroundPattern() {
             y = randomRect.y;
         }
 
-        // Добавляем смещение вправо и вверх
-        const offsetX = width * 0.1; // Смещение вправо на 10% от ширины
-        const offsetY = height * 0.1; // Смещение вверх на 10% от высоты
+        // Добавляем смещение влево и вверх
+        const offsetX = width * -0.05; // Смещение влево на 5% от ширины
+        const offsetY = height * 0.15; // Смещение вверх на 15% от высоты
         const adjustedX = x + offsetX;
         const adjustedY = y - offsetY;
         x = Math.max(0, Math.min(adjustedX, width - w));
@@ -276,8 +276,8 @@ function RandomBackgroundPattern() {
 
       // Если не удалось разместить рядом, ищем любое свободное место равномерно
       const randomAttempts = 3000; // Увеличиваем попытки в 2 раза для более плотного заполнения
-      const offsetX = width * 0.1; // Смещение вправо на 10% от ширины
-      const offsetY = height * 0.1; // Смещение вверх на 10% от высоты
+      const offsetX = width * -0.05; // Смещение влево на 5% от ширины
+      const offsetY = height * 0.15; // Смещение вверх на 15% от высоты
       for (let i = 0; i < randomAttempts; i++) {
         const baseX = Math.random() * Math.max(0, width - w);
         const baseY = Math.random() * Math.max(0, height - h);
