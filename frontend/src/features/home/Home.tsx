@@ -245,7 +245,10 @@ const Index = () => {
               icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Бронь столика"
               highlighted={cityChangedFlash}
-              onClick={handleBookingClick}
+              onClick={() => {
+                console.log("[Home] QuickActionButton onClick вызван напрямую");
+                handleBookingClick();
+              }}
             />
 
             <QuickActionButton
