@@ -1,5 +1,5 @@
 import express from "express";
-import { ensureSupabase, supabase } from "../supabaseClient.mjs";
+import { ensureDatabase, db, query } from "../postgresClient.mjs";
 import {
   findRestaurantPaymentConfig,
   findOrderById,
@@ -23,7 +23,7 @@ const FINAL_PAYMENT_STATUSES = new Set(["paid", "succeeded", "failed", "cancelle
 
 // Создание платежа ЮKassa (СБП)
 router.post("/yookassa/create", async (req, res) => {
-  if (!ensureSupabase(res)) return;
+  if (!ensureDatabase(res)) return;
 
   const { orderId, restaurantId: restaurantIdBody, returnUrl: returnUrlFromBody, mode: rawMode } = req.body ?? {};
   const mode = typeof rawMode === "string" ? rawMode.toLowerCase() : "test";
@@ -110,14 +110,12 @@ router.post("/yookassa/create", async (req, res) => {
     });
 
     if (ykResponse.paymentId) {
-      await supabase
-        .from(CART_ORDERS_TABLE)
-        .update({
-          payment_id: paymentRecord.id,
-          payment_status: ykResponse.status ?? "pending",
-          payment_provider: paymentConfig.provider_code,
-        })
-        .eq("id", order.id);
+      await query(
+        `UPDATE ${CART_ORDERS_TABLE} 
+         SET payment_id = $1, payment_status = $2, payment_provider = $3, updated_at = NOW() 
+         WHERE id = $4`,
+        [paymentRecord.id, ykResponse.status ?? "pending", paymentConfig.provider_code, order.id],
+      );
     }
 
     return res.json({
@@ -136,7 +134,7 @@ router.post("/yookassa/create", async (req, res) => {
 
 // Webhook от ЮKassa
 router.post("/yookassa/webhook", express.json(), async (req, res) => {
-  if (!ensureSupabase(res)) return;
+  if (!ensureDatabase(res)) return;
 
   try {
     const body = req.body ?? {};
@@ -193,7 +191,7 @@ router.post("/yookassa/webhook", express.json(), async (req, res) => {
 
 // Получить статус платежа
 router.get("/:paymentId", async (req, res) => {
-  if (!ensureSupabase(res)) return;
+  if (!ensureDatabase(res)) return;
   const paymentId = req.params.paymentId;
   if (!paymentId) {
     return res.status(400).json({ success: false, message: "paymentId обязателен" });
@@ -227,14 +225,12 @@ router.get("/:paymentId", async (req, res) => {
             const refreshed = await findPaymentById(paymentId);
             if (refreshed) {
               if (refreshed.order_id) {
-                await supabase
-                  .from(CART_ORDERS_TABLE)
-                  .update({
-                    payment_id: refreshed.id,
-                    payment_status: refreshed.status,
-                    payment_provider: refreshed.provider_code,
-                  })
-                  .eq("id", refreshed.order_id);
+                await query(
+                  `UPDATE ${CART_ORDERS_TABLE} 
+                   SET payment_id = $1, payment_status = $2, payment_provider = $3, updated_at = NOW() 
+                   WHERE id = $4`,
+                  [refreshed.id, refreshed.status, refreshed.provider_code, refreshed.order_id],
+                );
               }
               return res.json({ success: true, payment: refreshed, synced: true, source: "yookassa" });
             }
