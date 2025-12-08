@@ -8,6 +8,7 @@ import { Toaster } from "@shared/ui/toaster";
 import { TooltipProvider } from "@shared/ui/tooltip";
 import { isActive, onActivated, onDeactivated } from "@/lib/telegram";
 import { logger } from "@/lib/logger";
+import RandomBackgroundPattern from "@/components/RandomBackgroundPattern";
 
 // Lazy load pages for better code splitting
 const Index = lazy(() => import("./pages/home"));
@@ -71,6 +72,7 @@ function App() {
       <TooltipProvider>
         <RestaurantProvider>
           <CartProvider>
+            <RandomBackgroundPattern />
             <HashRouter>
               <Suspense fallback={<></>}>
                 <Routes>
