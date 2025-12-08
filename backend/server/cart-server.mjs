@@ -14,7 +14,27 @@ import { createCitiesRouter } from "./routes/citiesRoutes.mjs";
 import { logger } from "./utils/logger.mjs";
 
 const app = express();
-app.use(cors());
+
+// Настройка CORS с поддержкой credentials
+// При использовании credentials: true нельзя использовать wildcard '*'
+// Поэтому возвращаем конкретный origin из запроса
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Разрешаем запросы без origin (например, мобильные приложения или Postman)
+    if (!origin) {
+      return callback(null, true);
+    }
+    // Возвращаем конкретный origin из запроса (разрешаем все origins)
+    // Для production можно ограничить список разрешенных origins
+    callback(null, origin);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Telegram-Init-Data', 'X-Telegram-Id'],
+  exposedHeaders: ['Content-Type'],
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Эндпоинт для диагностики и инициализации БД
