@@ -193,8 +193,8 @@ function RandomBackgroundPattern() {
       
       if (existingRects.length === 0) {
         // Первый элемент размещаем со смещением влево и вверх
-        const offsetX = width * -0.05; // Смещение влево на 5% от ширины
-        const offsetY = height * 0.2; // Смещение вверх на 20% от высоты
+        const offsetX = width * -0.15; // Смещение влево на 15% от ширины
+        const offsetY = height * 0.3; // Смещение вверх на 30% от высоты
         return { x: (width - w) / 2 + offsetX, y: (height - h) / 2 - offsetY };
       }
 
@@ -214,14 +214,16 @@ function RandomBackgroundPattern() {
         const y = row * cellHeight + Math.random() * Math.max(0, cellHeight - effectiveH);
         
         // Добавляем смещение влево и вверх ко всем позициям
-        const offsetX = width * -0.05; // Смещение влево на 5% от ширины
-        const offsetY = height * 0.15; // Смещение вверх на 15% от высоты
+        const offsetX = width * -0.15; // Смещение влево на 15% от ширины
+        const offsetY = height * 0.3; // Смещение вверх на 30% от высоты
         const adjustedX = x + offsetX;
         const adjustedY = y - offsetY;
-        const clampedX = Math.max(0, Math.min(adjustedX, width - w));
-        const clampedY = Math.max(0, Math.min(adjustedY, height - h));
+        // Разрешаем элементам выходить за границы для полного заполнения экрана
+        const clampedX = Math.max(-w * 0.5, Math.min(adjustedX, width - w * 0.5));
+        const clampedY = Math.max(-h * 0.5, Math.min(adjustedY, height - h * 0.5));
         
-        if (clampedX + w <= width && clampedY + h <= height) {
+        // Разрешаем элементам выходить за границы для полного заполнения экрана
+        if (clampedX + w * 0.5 >= 0 && clampedY + h * 0.5 >= 0 && clampedX <= width && clampedY <= height) {
           if (!checkOverlap(clampedX, clampedY, w, h, rotation, existingRects)) {
             return { x: clampedX, y: clampedY };
           }
@@ -260,14 +262,16 @@ function RandomBackgroundPattern() {
         }
 
         // Добавляем смещение влево и вверх
-        const offsetX = width * -0.05; // Смещение влево на 5% от ширины
-        const offsetY = height * 0.15; // Смещение вверх на 15% от высоты
+        const offsetX = width * -0.15; // Смещение влево на 15% от ширины
+        const offsetY = height * 0.3; // Смещение вверх на 30% от высоты
         const adjustedX = x + offsetX;
         const adjustedY = y - offsetY;
-        x = Math.max(0, Math.min(adjustedX, width - w));
-        y = Math.max(0, Math.min(adjustedY, height - h));
+        // Разрешаем элементам выходить за границы для полного заполнения экрана
+        x = Math.max(-w * 0.5, Math.min(adjustedX, width - w * 0.5));
+        y = Math.max(-h * 0.5, Math.min(adjustedY, height - h * 0.5));
 
-        if (x + w <= width && y + h <= height) {
+        // Разрешаем элементам выходить за границы для полного заполнения экрана
+        if (x + w * 0.5 >= 0 && y + h * 0.5 >= 0 && x <= width && y <= height) {
           if (!checkOverlap(x, y, w, h, rotation, existingRects)) {
             return { x, y };
           }
@@ -276,13 +280,14 @@ function RandomBackgroundPattern() {
 
       // Если не удалось разместить рядом, ищем любое свободное место равномерно
       const randomAttempts = 3000; // Увеличиваем попытки в 2 раза для более плотного заполнения
-      const offsetX = width * -0.05; // Смещение влево на 5% от ширины
-      const offsetY = height * 0.15; // Смещение вверх на 15% от высоты
+      const offsetX = width * -0.15; // Смещение влево на 15% от ширины
+      const offsetY = height * 0.3; // Смещение вверх на 30% от высоты
       for (let i = 0; i < randomAttempts; i++) {
         const baseX = Math.random() * Math.max(0, width - w);
         const baseY = Math.random() * Math.max(0, height - h);
-        const x = Math.max(0, Math.min(baseX + offsetX, width - w));
-        const y = Math.max(0, Math.min(baseY - offsetY, height - h));
+        // Разрешаем элементам выходить за границы для полного заполнения экрана
+        const x = Math.max(-w * 0.5, Math.min(baseX + offsetX, width - w * 0.5));
+        const y = Math.max(-h * 0.5, Math.min(baseY - offsetY, height - h * 0.5));
         
         if (!checkOverlap(x, y, w, h, rotation, existingRects)) {
           return { x, y };
@@ -341,31 +346,28 @@ function RandomBackgroundPattern() {
   }
 
   function updatePositions() {
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const width = rect.width;
-      const height = rect.height;
+    // Используем размеры окна для генерации позиций, чтобы заполнить весь видимый экран
+    const width = window.innerWidth;
+    const height = window.innerHeight;
 
-      if (width > 0 && height > 0) {
-        const newPositions = generatePositions(width, height);
-        setPositions(newPositions);
-      }
+    if (width > 0 && height > 0) {
+      const newPositions = generatePositions(width, height);
+      setPositions(newPositions);
     }
   }
 
   useEffect(() => {
     updatePositions();
 
-    const resizeObserver = new ResizeObserver(() => {
+    // Слушаем изменения размера окна для обновления позиций
+    const handleResize = () => {
       updatePositions();
-    });
+    };
 
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
+    window.addEventListener("resize", handleResize);
 
     return () => {
-      resizeObserver.disconnect();
+      window.removeEventListener("resize", handleResize);
     };
   }, []);
 
@@ -376,13 +378,13 @@ function RandomBackgroundPattern() {
       ref={containerRef}
       style={{
         position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
+        top: "-20%",
+        left: "-20%",
+        width: "140%",
+        height: "140%",
         backgroundColor: "#830E0E",
         zIndex: -1,
-        overflow: "hidden",
+        overflow: "visible",
         pointerEvents: "none",
       }}
     >
