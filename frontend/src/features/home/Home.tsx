@@ -21,6 +21,7 @@ import { PromotionsCarousel, type PromotionSlide } from "./PromotionsCarousel";
 import { toast } from "@/hooks/use-toast";
 import { safeOpenLink, storage } from "@/lib/telegram";
 import { fetchPromotions } from "@shared/api/promotionsApi";
+import { useBookingSlotsPrefetch } from "@shared/hooks";
 
 const promotionsForCarousel: PromotionSlide[] = [
   {
@@ -58,6 +59,9 @@ const Index = () => {
 
   // 🔧 ВРЕМЕННОЕ СКРЫТИЕ: измените на true чтобы показать раздел "Рекомендуем попробовать"
   const showRecommendedSection = false;
+
+  // Предзагрузка слотов бронирования в фоновом режиме
+  useBookingSlotsPrefetch(selectedRestaurant);
 
   const handleBookingClick = () => {
     console.log("[Booking] handleBookingClick вызван", {
