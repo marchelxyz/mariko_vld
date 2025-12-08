@@ -12,14 +12,16 @@ import {
   MenuCategory,
   MenuItem,
 } from "@shared/data";
-import { QuickActionButton, ServiceCard, MenuItemComponent } from "@shared/ui";
 import {
+  QuickActionButton,
+  ServiceCard,
+  MenuItemComponent,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "@shared/ui/ui/dialog";
+} from "@shared/ui";
 import { BookingForm } from "@/features/booking/BookingForm";
 import { PromotionsCarousel, type PromotionSlide } from "./PromotionsCarousel";
 import { toast } from "@/hooks/use-toast";
