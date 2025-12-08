@@ -5,6 +5,7 @@ import cors from "cors";
 
 import { PORT } from "./config.mjs";
 import { db } from "./postgresClient.mjs";
+import { initializeDatabase } from "./databaseInit.mjs";
 import { registerCartRoutes } from "./routes/cartRoutes.mjs";
 import { createAdminRouter } from "./routes/adminRoutes.mjs";
 import { createPaymentRouter } from "./routes/paymentRoutes.mjs";
@@ -29,9 +30,21 @@ app.use((req, res) => {
   res.status(404).json({ success: false, message: "Not Found" });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Cart mock server (Express) listening on http://localhost:${PORT}`);
-  if (!db) {
-    console.log("ℹ️  DATABASE_URL не задан – сохраняем только в лог.");
+// Инициализируем БД при старте сервера
+async function startServer() {
+  if (db) {
+    await initializeDatabase();
   }
+
+  app.listen(PORT, () => {
+    console.log(`🚀 Cart mock server (Express) listening on http://localhost:${PORT}`);
+    if (!db) {
+      console.log("ℹ️  DATABASE_URL не задан – сохраняем только в лог.");
+    }
+  });
+}
+
+startServer().catch((error) => {
+  console.error("❌ Критическая ошибка запуска сервера:", error);
+  process.exit(1);
 });
