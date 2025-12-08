@@ -12,6 +12,7 @@ import { createPaymentRouter } from "./routes/paymentRoutes.mjs";
 import { createGeocodeRouter } from "./routes/geocodeRoutes.mjs";
 import { createCitiesRouter } from "./routes/citiesRoutes.mjs";
 import { createBookingRouter } from "./routes/bookingRoutes.mjs";
+import { createPromotionsRouter, createAdminPromotionsRouter } from "./routes/promotionsRoutes.mjs";
 import { logger } from "./utils/logger.mjs";
 
 const app = express();
@@ -136,6 +137,13 @@ app.use("/api/cart/cities", citiesRouter);
 const bookingRouter = createBookingRouter();
 app.use("/api/booking", bookingRouter);
 app.use("/api/cart/booking", bookingRouter);
+// Роуты для акций
+const promotionsRouter = createPromotionsRouter();
+app.use("/api/promotions", promotionsRouter);
+app.use("/api/cart/promotions", promotionsRouter);
+// Админские роуты для акций
+const adminPromotionsRouter = createAdminPromotionsRouter();
+app.use("/api/admin/promotions", adminPromotionsRouter);
 
 app.use((req, res) => {
   logger.warn('404 Not Found', { method: req.method, path: req.path });

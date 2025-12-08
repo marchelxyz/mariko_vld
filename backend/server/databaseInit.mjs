@@ -170,6 +170,21 @@ const SCHEMAS = {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `,
+
+  promotions: `
+    CREATE TABLE IF NOT EXISTS promotions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      city_id VARCHAR(255) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      description TEXT,
+      image_url TEXT,
+      badge VARCHAR(100),
+      display_order INTEGER DEFAULT 1,
+      is_active BOOLEAN DEFAULT true,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `,
 };
 
 /**
@@ -197,10 +212,13 @@ const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_restaurants_display_order ON restaurants(display_order);`,
   `CREATE INDEX IF NOT EXISTS idx_bookings_restaurant_id ON bookings(restaurant_id);`,
   `CREATE INDEX IF NOT EXISTS idx_bookings_remarked_restaurant_id ON bookings(remarked_restaurant_id);`,
-  `CREATE INDEX IF NOT EXISTS idx_bookings_remarked_reserve_id ON bookings(remarked_reserve_id);`,
-  `CREATE INDEX IF NOT EXISTS idx_bookings_customer_phone ON bookings(customer_phone);`,
-  `CREATE INDEX IF NOT EXISTS idx_bookings_booking_date ON bookings(booking_date);`,
-  `CREATE INDEX IF NOT EXISTS idx_bookings_created_at ON bookings(created_at DESC);`,
+    `CREATE INDEX IF NOT EXISTS idx_bookings_remarked_reserve_id ON bookings(remarked_reserve_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_bookings_customer_phone ON bookings(customer_phone);`,
+    `CREATE INDEX IF NOT EXISTS idx_bookings_booking_date ON bookings(booking_date);`,
+    `CREATE INDEX IF NOT EXISTS idx_bookings_created_at ON bookings(created_at DESC);`,
+    `CREATE INDEX IF NOT EXISTS idx_promotions_city_id ON promotions(city_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_promotions_is_active ON promotions(is_active);`,
+    `CREATE INDEX IF NOT EXISTS idx_promotions_display_order ON promotions(display_order);`,
 ];
 
 /**
@@ -246,6 +264,7 @@ export async function initializeDatabase() {
       "cities",             // cities независима
       "restaurants",        // restaurants зависит от cities
       "bookings",           // bookings зависит от restaurants
+      "promotions",         // promotions зависит от cities
     ];
 
     // Создаем таблицы в правильном порядке
@@ -298,6 +317,13 @@ export async function initializeDatabase() {
         sql: `ALTER TABLE bookings 
               ADD CONSTRAINT fk_bookings_restaurant 
               FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE`,
+      },
+      {
+        name: "fk_promotions_city",
+        table: "promotions",
+        sql: `ALTER TABLE promotions 
+              ADD CONSTRAINT fk_promotions_city 
+              FOREIGN KEY (city_id) REFERENCES cities(id) ON DELETE CASCADE`,
       },
     ];
 
@@ -381,6 +407,7 @@ export async function checkDatabaseTables() {
       "cities",
       "restaurants",
       "bookings",
+      "promotions",
     ];
     
     const result = await query(`
