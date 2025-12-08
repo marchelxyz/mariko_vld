@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Calendar } from "@shared/ui/calendar";
 import { Button } from "@shared/ui/button";
 import { Input } from "@shared/ui/input";
@@ -31,6 +32,7 @@ import { profileApi } from "@shared/api/profile";
 import { toast } from "@/hooks/use-toast";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { cn } from "@shared/utils";
+import { EmbeddedPageConfig } from "@/shared/config/webviewPages";
 
 type EventType = {
   id: string;
@@ -92,8 +94,10 @@ function isValidRemarkedId(id: number | undefined): boolean {
 }
 
 export function BookingForm({ onSuccess }: BookingFormProps) {
-  const { selectedRestaurant } = useCityContext();
+  const { selectedRestaurant, selectedCity } = useCityContext();
   const { profile } = useProfile();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Используем useMemo для today, чтобы избежать пересоздания при каждом рендере
   const today = useMemo(() => {
@@ -480,13 +484,6 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       const result = await createBooking(bookingRequest);
 
       if (result && result.success && result.booking) {
-        toast({
-          title: "Успешно!",
-          description: result.booking.reserveId 
-            ? `Бронирование создано. ID: ${result.booking.reserveId}`
-            : "Бронирование создано",
-        });
-
         // Обновление профиля
         const profileUpdates: Partial<typeof profile> = {};
         let shouldUpdateProfile = false;
@@ -514,6 +511,33 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
             // Игнорируем ошибки обновления профиля
           }
         }
+
+        // Если Remarked вернул form_url, открываем его в webview
+        if (result.booking.formUrl) {
+          const webviewConfig: EmbeddedPageConfig = {
+            title: "Бронирование столика",
+            url: result.booking.formUrl,
+            allowedCityId: selectedCity?.id,
+            description: "Завершите бронирование столика",
+            fallbackLabel: "Открыть бронирование во внешнем окне",
+          };
+
+          navigate(`/webview/booking-confirmation`, {
+            state: {
+              from: location.pathname,
+              embeddedPage: webviewConfig,
+            },
+          });
+          return;
+        }
+
+        // Если form_url нет, показываем обычное сообщение об успехе
+        toast({
+          title: "Успешно!",
+          description: result.booking.reserveId 
+            ? `Бронирование создано. ID: ${result.booking.reserveId}`
+            : "Бронирование создано",
+        });
 
         // Сброс формы
         setSelectedDate(today);
