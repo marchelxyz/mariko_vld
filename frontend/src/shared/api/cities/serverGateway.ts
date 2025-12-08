@@ -1,5 +1,5 @@
 import type { City } from "@shared/data";
-import { resolveServerUrl } from "./config";
+import { resolveServerUrl, RAW_SERVER_API_BASE } from "./config";
 import { getTg, getUser } from "@/lib/telegram";
 import { logger } from "@/lib/logger";
 
@@ -109,8 +109,17 @@ export async function setCityStatusViaServer(
 export async function createCityViaServer(
   city: { id: string; name: string; displayOrder?: number }
 ): Promise<{ success: boolean; errorMessage?: string }> {
+  const url = resolveServerUrl('/cities');
+  
+  // Логируем конфигурацию для диагностики
+  logger.info('cities', 'Конфигурация API', {
+    url,
+    rawServerApiBase: RAW_SERVER_API_BASE,
+    envVar: import.meta.env.VITE_SERVER_API_URL || 'не установлена',
+  });
+  
   try {
-    logger.info('cities', 'Создание города через сервер', city);
+    logger.info('cities', 'Создание города через сервер', { city, url });
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -124,8 +133,18 @@ export async function createCityViaServer(
       logger.warn('cities', 'Telegram initData не найден');
     }
 
-    const url = resolveServerUrl('/cities');
-    logger.debug('cities', 'Отправка запроса на создание города', { url });
+    // Также добавляем прямой Telegram ID, если доступен
+    const user = getUser();
+    if (user?.id) {
+      headers['X-Telegram-Id'] = String(user.id);
+    }
+
+    logger.debug('cities', 'Отправка запроса на создание города', { 
+      url,
+      method: 'POST',
+      headers: Object.keys(headers),
+      body: { id: city.id, name: city.name, displayOrder: city.displayOrder },
+    });
 
     const response = await fetch(url, {
       method: 'POST',
@@ -143,14 +162,17 @@ export async function createCityViaServer(
       status: response.status,
       statusText: response.statusText,
       ok: response.ok,
+      textLength: text.length,
+      headers: Object.fromEntries(response.headers.entries()),
     });
 
     if (!response.ok) {
-      const errorMessage = parseErrorPayload(text) ?? 'Ошибка серверного API при создании города';
+      const errorMessage = parseErrorPayload(text) ?? `Ошибка серверного API при создании города (${response.status})`;
       logger.error('cities', new Error(errorMessage), {
         status: response.status,
         statusText: response.statusText,
-        responseText: text,
+        responseText: text.substring(0, 500), // Ограничиваем длину лога
+        url,
       });
       return {
         success: false,
@@ -161,18 +183,29 @@ export async function createCityViaServer(
     logger.info('cities', 'Город успешно создан через сервер', { cityId: city.id });
     return { success: true };
   } catch (error) {
-    logger.error('cities', error instanceof Error ? error : new Error('Неожиданная ошибка'), {
-      city,
-    });
-    if (error instanceof Error) {
-      return {
-        success: false,
-        errorMessage: `Ошибка сети: ${error.message}`,
-      };
+    // Детальная обработка различных типов ошибок
+    let errorMessage = 'Неожиданная ошибка при создании города';
+    
+    if (error instanceof TypeError) {
+      if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
+        errorMessage = `Не удалось подключиться к серверу. Проверьте:\n1. Правильность URL: ${url}\n2. Доступность сервера\n3. Настройки CORS`;
+      } else {
+        errorMessage = `Ошибка сети: ${error.message}`;
+      }
+    } else if (error instanceof Error) {
+      errorMessage = `Ошибка: ${error.message}`;
     }
+    
+    logger.error('cities', error instanceof Error ? error : new Error(String(error)), {
+      city,
+      url,
+      errorType: error instanceof TypeError ? 'TypeError' : error instanceof Error ? 'Error' : 'Unknown',
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+    
     return {
       success: false,
-      errorMessage: 'Неожиданная ошибка при создании города',
+      errorMessage,
     };
   }
 }
