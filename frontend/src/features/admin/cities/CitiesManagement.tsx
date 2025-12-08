@@ -321,8 +321,15 @@ export function CitiesManagement(): JSX.Element {
         const details = result.errorMessage ? `\n\nДетали: ${result.errorMessage}` : '';
         logger.error('cities', new Error(result.errorMessage || 'Ошибка создания города'), {
           cityId: city.id,
+          errorMessage: result.errorMessage,
         });
-        alert(`❌ Ошибка создания города${details}`);
+        
+        // Более информативное сообщение об ошибке
+        let errorMsg = `❌ Ошибка создания города${details}`;
+        if (result.errorMessage?.includes('Не удалось подключиться к серверу')) {
+          errorMsg += '\n\nПроверьте:\n1. Доступность сервера\n2. Переменную VITE_SERVER_API_URL\n3. Настройки CORS';
+        }
+        alert(errorMsg);
       }
     } catch (error) {
       logger.error('cities', error instanceof Error ? error : new Error('Неожиданная ошибка'), {
