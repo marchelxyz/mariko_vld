@@ -17,10 +17,15 @@ if (typeof window !== "undefined") {
   window.addEventListener("error", (event) => {
     try {
       const message = `Runtime error: ${event.error?.message || event.message}`;
-      logger.error('global', event.error || new Error(message), {
+      // Убеждаемся, что передаем Error объект
+      const error = event.error instanceof Error 
+        ? event.error 
+        : new Error(message);
+      logger.error('global', error, {
         filename: event.filename,
         lineno: event.lineno,
         colno: event.colno,
+        originalError: event.error ? String(event.error) : undefined,
       });
       const instance = getTg();
       try {
@@ -44,8 +49,13 @@ if (typeof window !== "undefined") {
     try {
       const reason = event?.reason;
       const message = `Unhandled rejection: ${reason?.message || String(reason)}`;
-      logger.error('global', reason instanceof Error ? reason : new Error(message), {
+      // Убеждаемся, что передаем Error объект
+      const error = reason instanceof Error 
+        ? reason 
+        : new Error(message);
+      logger.error('global', error, {
         type: 'unhandledrejection',
+        originalReason: reason ? String(reason) : undefined,
       });
       const instance = getTg();
       try {
