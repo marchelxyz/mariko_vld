@@ -38,6 +38,47 @@ async function getRemarkedToken(restaurantId) {
 }
 
 /**
+ * Получить доступные временные слоты от Remarked API
+ */
+async function getRemarkedSlots(token, period, guestsCount, options = {}) {
+  const request = {
+    method: "GetSlots",
+    token,
+    reserve_date_period: period,
+    guests_count: guestsCount,
+  };
+
+  // Добавляем опциональные параметры
+  if (options.with_rooms !== undefined) {
+    request.with_rooms = options.with_rooms;
+  }
+  if (options.slot_duration !== undefined) {
+    request.slot_duration = options.slot_duration;
+  }
+
+  const response = await fetch(`${REMARKED_API_BASE}/ApiReservesWidget`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to get Remarked slots: ${response.status} ${text}`);
+  }
+
+  const data = await response.json();
+  
+  if (data.status === "error") {
+    throw new Error(data.message || "Ошибка получения слотов");
+  }
+  
+  return data;
+}
+
+/**
  * Создать бронирование в Remarked
  */
 async function createRemarkedReserve(token, reserve) {
@@ -138,6 +179,128 @@ export function createBookingRouter() {
       return;
     }
     next();
+  });
+
+  /**
+   * GET /booking/slots
+   * Получение доступных временных слотов со столами для бронирования
+   * 
+   * Query параметры:
+   * - restaurantId: string (UUID ресторана) - обязательный
+   * - date: string (Дата в формате YYYY-MM-DD) - обязательный
+   * - guests_count: number (Количество гостей) - обязательный
+   * - with_rooms: boolean (Получить информацию о залах и столах) - опционально, по умолчанию true
+   */
+  router.get("/slots", async (req, res) => {
+    const startTime = Date.now();
+    
+    try {
+      const { restaurantId, date, guests_count, with_rooms } = req.query;
+
+      // Валидация обязательных параметров
+      if (!restaurantId || !date || !guests_count) {
+        const duration = Date.now() - startTime;
+        logger.requestError('GET', '/slots', new Error('Отсутствуют обязательные параметры'), 400);
+        return res.status(400).json({
+          success: false,
+          error: 'Отсутствуют обязательные параметры: restaurantId, date, guests_count',
+        });
+      }
+
+      // Получаем ресторан из БД
+      const restaurant = await queryOne(
+        `SELECT id, name, remarked_restaurant_id FROM restaurants WHERE id = $1`,
+        [restaurantId]
+      );
+
+      if (!restaurant) {
+        const duration = Date.now() - startTime;
+        logger.requestError('GET', '/slots', new Error('Ресторан не найден'), 404);
+        return res.status(404).json({
+          success: false,
+          error: 'Ресторан не найден',
+        });
+      }
+
+      if (!restaurant.remarked_restaurant_id) {
+        const duration = Date.now() - startTime;
+        logger.requestError('GET', '/slots', new Error('У ресторана не настроен Remarked ID'), 400);
+        return res.status(400).json({
+          success: false,
+          error: 'Ресторан не настроен для бронирования. Обратитесь к администратору.',
+        });
+      }
+
+      // Получаем токен от ReMarked API
+      let token;
+      try {
+        const tokenData = await getRemarkedToken(restaurant.remarked_restaurant_id);
+        token = tokenData.token;
+      } catch (error) {
+        const duration = Date.now() - startTime;
+        logger.requestError('GET', '/slots', error, 500);
+        return res.status(500).json({
+          success: false,
+          error: 'Не удалось подключиться к сервису бронирования. Попробуйте позже.',
+        });
+      }
+
+      // Формируем период (одна дата)
+      const dateStr = date;
+      const period = {
+        from: dateStr,
+        to: dateStr,
+      };
+
+      const guestsCount = Number(guests_count);
+      const withRooms = with_rooms === 'true' || with_rooms === undefined || with_rooms === '';
+
+      // Получаем слоты со столами из ReMarked API
+      try {
+        const slotsResponse = await getRemarkedSlots(
+          token,
+          period,
+          guestsCount,
+          { with_rooms: withRooms }
+        );
+
+        const duration = Date.now() - startTime;
+        logger.requestSuccess('GET', '/slots', duration, 200);
+
+        return res.json({
+          success: true,
+          data: {
+            slots: slotsResponse.slots || [],
+            date: dateStr,
+            guests_count: guestsCount,
+          },
+        });
+      } catch (error) {
+        const duration = Date.now() - startTime;
+        logger.requestError('GET', '/slots', error, 500);
+        
+        if (error.message && error.message.includes('400')) {
+          return res.status(400).json({
+            success: false,
+            error: error.message || 'Неверные параметры запроса',
+          });
+        }
+
+        return res.status(500).json({
+          success: false,
+          error: error.message || 'Не удалось получить доступные слоты. Попробуйте позже.',
+        });
+      }
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.requestError('GET', '/slots', error, 500);
+      logger.error('Ошибка получения слотов', error);
+      
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Не удалось получить доступные слоты',
+      });
+    }
   });
 
   /**
@@ -331,6 +494,9 @@ export function createBookingRouter() {
         booking: {
           id: booking.id,
           reserveId: remarkedReserve.reserve_id,
+        },
+        data: {
+          form_url: remarkedReserve.form_url || undefined,
         },
       });
 
