@@ -105,10 +105,10 @@ function RandomBackgroundPattern() {
 
   function generatePositions(width: number, height: number): PatternPosition[] {
     const newPositions: PatternPosition[] = [];
-    const placedRects: Array<{ x: number; y: number; width: number; height: number }> = [];
+    const placedRects: Array<{ x: number; y: number; width: number; height: number; rotation: number }> = [];
     const minScale = 0.25;
     const maxScale = 0.45;
-    const padding = 10;
+    const padding = 20; // Увеличиваем padding для учета поворота
 
     function getRandomPattern() {
       const index = Math.floor(Math.random() * PATTERNS.length);
@@ -119,20 +119,60 @@ function RandomBackgroundPattern() {
       };
     }
 
+    /**
+     * Вычисляет реальные размеры повернутого элемента
+     * При повороте элемент занимает больше места из-за диагонали
+     */
+    function getRotatedBounds(w: number, h: number, rotationDeg: number): { width: number; height: number } {
+      const rotationRad = (rotationDeg * Math.PI) / 180;
+      const cos = Math.abs(Math.cos(rotationRad));
+      const sin = Math.abs(Math.sin(rotationRad));
+      
+      // Реальные размеры повернутого прямоугольника
+      const rotatedWidth = w * cos + h * sin;
+      const rotatedHeight = w * sin + h * cos;
+      
+      return {
+        width: rotatedWidth,
+        height: rotatedHeight,
+      };
+    }
+
     function checkOverlap(
       x: number,
       y: number,
       w: number,
       h: number,
-      existingRects: Array<{ x: number; y: number; width: number; height: number }>
+      rotation: number,
+      existingRects: Array<{ x: number; y: number; width: number; height: number; rotation: number }>
     ): boolean {
+      // Вычисляем реальные размеры текущего элемента с учетом поворота
+      const currentBounds = getRotatedBounds(w, h, rotation);
+      const currentEffectiveW = currentBounds.width;
+      const currentEffectiveH = currentBounds.height;
+      
+      // Центр текущего элемента
+      const currentCenterX = x + w / 2;
+      const currentCenterY = y + h / 2;
+
       for (const rect of existingRects) {
-        if (
-          x < rect.x + rect.width + padding &&
-          x + w + padding > rect.x &&
-          y < rect.y + rect.height + padding &&
-          y + h + padding > rect.y
-        ) {
+        // Вычисляем реальные размеры существующего элемента с учетом поворота
+        const existingBounds = getRotatedBounds(rect.width, rect.height, rect.rotation);
+        const existingEffectiveW = existingBounds.width;
+        const existingEffectiveH = existingBounds.height;
+        
+        // Центр существующего элемента
+        const existingCenterX = rect.x + rect.width / 2;
+        const existingCenterY = rect.y + rect.height / 2;
+        
+        // Проверяем перекрытие с учетом реальных размеров повернутых элементов
+        const minDistanceX = (currentEffectiveW + existingEffectiveW) / 2 + padding;
+        const minDistanceY = (currentEffectiveH + existingEffectiveH) / 2 + padding;
+        
+        const distanceX = Math.abs(currentCenterX - existingCenterX);
+        const distanceY = Math.abs(currentCenterY - existingCenterY);
+        
+        if (distanceX < minDistanceX && distanceY < minDistanceY) {
           return true;
         }
       }
@@ -140,11 +180,17 @@ function RandomBackgroundPattern() {
     }
 
     function findTouchingPosition(
-      existingRects: Array<{ x: number; y: number; width: number; height: number }>,
+      existingRects: Array<{ x: number; y: number; width: number; height: number; rotation: number }>,
       w: number,
       h: number,
+      rotation: number,
       attemptIndex: number
     ): { x: number; y: number } | null {
+      // Вычисляем реальные размеры с учетом поворота для корректного размещения
+      const rotatedBounds = getRotatedBounds(w, h, rotation);
+      const effectiveW = rotatedBounds.width;
+      const effectiveH = rotatedBounds.height;
+      
       if (existingRects.length === 0) {
         // Первый элемент размещаем в центре для равномерного старта
         return { x: (width - w) / 2, y: (height - h) / 2 };
@@ -162,14 +208,14 @@ function RandomBackgroundPattern() {
       for (let i = 0; i < gridAttempts; i++) {
         const col = Math.floor(Math.random() * gridCols);
         const row = Math.floor(Math.random() * gridRows);
-        const x = col * cellWidth + Math.random() * (cellWidth - w);
-        const y = row * cellHeight + Math.random() * (cellHeight - h);
+        const x = col * cellWidth + Math.random() * Math.max(0, cellWidth - effectiveW);
+        const y = row * cellHeight + Math.random() * Math.max(0, cellHeight - effectiveH);
         
         const clampedX = Math.max(0, Math.min(x, width - w));
         const clampedY = Math.max(0, Math.min(y, height - h));
         
         if (clampedX + w <= width && clampedY + h <= height) {
-          if (!checkOverlap(clampedX, clampedY, w, h, existingRects)) {
+          if (!checkOverlap(clampedX, clampedY, w, h, rotation, existingRects)) {
             return { x: clampedX, y: clampedY };
           }
         }
@@ -179,26 +225,27 @@ function RandomBackgroundPattern() {
       const attempts = 300;
       for (let i = 0; i < attempts; i++) {
         const randomRect = existingRects[Math.floor(Math.random() * existingRects.length)];
+        const existingBounds = getRotatedBounds(randomRect.width, randomRect.height, randomRect.rotation);
         const side = Math.floor(Math.random() * 4);
 
         let x: number, y: number;
 
         switch (side) {
           case 0:
-            x = randomRect.x + randomRect.width + padding;
+            x = randomRect.x + randomRect.width + padding + (existingBounds.width - randomRect.width) / 2;
             y = randomRect.y + Math.random() * randomRect.height - h / 2;
             break;
           case 1:
-            x = randomRect.x - w - padding;
+            x = randomRect.x - w - padding - (existingBounds.width - randomRect.width) / 2;
             y = randomRect.y + Math.random() * randomRect.height - h / 2;
             break;
           case 2:
             x = randomRect.x + Math.random() * randomRect.width - w / 2;
-            y = randomRect.y + randomRect.height + padding;
+            y = randomRect.y + randomRect.height + padding + (existingBounds.height - randomRect.height) / 2;
             break;
           case 3:
             x = randomRect.x + Math.random() * randomRect.width - w / 2;
-            y = randomRect.y - h - padding;
+            y = randomRect.y - h - padding - (existingBounds.height - randomRect.height) / 2;
             break;
           default:
             x = randomRect.x + randomRect.width + padding;
@@ -209,7 +256,7 @@ function RandomBackgroundPattern() {
         y = Math.max(0, Math.min(y, height - h));
 
         if (x + w <= width && y + h <= height) {
-          if (!checkOverlap(x, y, w, h, existingRects)) {
+          if (!checkOverlap(x, y, w, h, rotation, existingRects)) {
             return { x, y };
           }
         }
@@ -218,10 +265,10 @@ function RandomBackgroundPattern() {
       // Если не удалось разместить рядом, ищем любое свободное место равномерно
       const randomAttempts = 1000;
       for (let i = 0; i < randomAttempts; i++) {
-        const x = Math.random() * (width - w);
-        const y = Math.random() * (height - h);
+        const x = Math.random() * Math.max(0, width - w);
+        const y = Math.random() * Math.max(0, height - h);
         
-        if (!checkOverlap(x, y, w, h, existingRects)) {
+        if (!checkOverlap(x, y, w, h, rotation, existingRects)) {
           return { x, y };
         }
       }
@@ -247,7 +294,7 @@ function RandomBackgroundPattern() {
       const h = pattern.baseHeight * scale;
       const rotation = (Math.random() - 0.5) * 90;
 
-      const position = findTouchingPosition(placedRects, w, h, i);
+      const position = findTouchingPosition(placedRects, w, h, rotation, i);
 
       if (position) {
         newPositions.push({
@@ -265,6 +312,7 @@ function RandomBackgroundPattern() {
           y: position.y,
           width: w,
           height: h,
+          rotation,
         });
       } else {
         // Если не удалось разместить, уменьшаем счетчик попыток для повторной попытки
