@@ -176,6 +176,30 @@ export type CreateBookingRequest = {
   eventTags?: number[];
   source?: "site" | "mobile_app";
   duration?: number;
+  tableIds?: number[];
+};
+
+export type Slot = {
+  start_stamp: number;
+  end_stamp: number;
+  duration: number;
+  start_datetime: string;
+  end_datetime: string;
+  is_free: boolean;
+  tables_count?: number;
+  tables_ids?: number[];
+  table_bundles?: Array<number[]> | Array<{ tables: number[] }>;
+  rooms?: unknown[];
+};
+
+export type GetSlotsResponse = {
+  success: boolean;
+  data: {
+    slots: Slot[];
+    date: string;
+    guests_count: number;
+  };
+  error?: string;
 };
 
 export type CreateBookingResponse = {
@@ -183,6 +207,9 @@ export type CreateBookingResponse = {
   booking?: {
     id: string;
     reserveId?: number;
+  };
+  data?: {
+    form_url?: string;
   };
   error?: string;
 };
@@ -327,6 +354,47 @@ export async function createBooking(
 
     return {
       success: false,
+      error: message,
+    };
+  }
+}
+
+/**
+ * Получить доступные временные слоты для бронирования
+ */
+export async function getBookingSlots(params: {
+  restaurantId: string;
+  date: string;
+  guestsCount: number;
+  withRooms?: boolean;
+}): Promise<GetSlotsResponse> {
+  if (!shouldUseServerApi()) {
+    return { 
+      success: false, 
+      data: { slots: [], date: params.date, guests_count: params.guestsCount },
+      error: "Серверный API выключен"
+    };
+  }
+
+  try {
+    const queryParams = new URLSearchParams();
+    queryParams.set("restaurantId", params.restaurantId);
+    queryParams.set("date", params.date);
+    queryParams.set("guests_count", String(params.guestsCount));
+    if (params.withRooms !== undefined) {
+      queryParams.set("with_rooms", String(params.withRooms));
+    }
+
+    const url = `/booking/slots?${queryParams.toString()}`;
+    const result = await fetchFromServer<GetSlotsResponse>(url, {
+      method: "GET",
+    });
+    return result;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Неожиданная ошибка получения слотов";
+    return {
+      success: false,
+      data: { slots: [], date: params.date, guests_count: params.guestsCount },
       error: message,
     };
   }

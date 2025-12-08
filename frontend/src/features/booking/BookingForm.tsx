@@ -23,10 +23,14 @@ import { useProfile } from "@entities/user";
 import { useCityContext } from "@/contexts";
 import {
   getRemarkedToken,
-  getRemarkedSlots,
   getRemarkedReservesByPhone,
 } from "@shared/api/remarked";
-import { createBooking, type CreateBookingRequest } from "@shared/api/bookingApi";
+import { 
+  createBooking, 
+  getBookingSlots,
+  type CreateBookingRequest,
+  type Slot,
+} from "@shared/api/bookingApi";
 import { profileApi } from "@shared/api/profile";
 import { toast } from "@/hooks/use-toast";
 import { CalendarIcon, Loader2 } from "lucide-react";
@@ -111,15 +115,14 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
   const [comment, setComment] = useState<string>("");
   const [consentGiven, setConsentGiven] = useState<boolean>(false);
 
-  const [availableSlots, setAvailableSlots] = useState<
-    Array<{ time: string; datetime: string; isFree: boolean }>
-  >([]);
+  const [availableSlots, setAvailableSlots] = useState<Slot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [token, setToken] = useState<string | null>(null);
   const [hasPreviousBooking, setHasPreviousBooking] = useState<boolean>(false);
   const [checkingPreviousBooking, setCheckingPreviousBooking] = useState<boolean>(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
 
   // Refs для отмены запросов
   const tokenAbortControllerRef = useRef<AbortController | null>(null);
@@ -204,32 +207,12 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     };
   }, [remarkedRestaurantId, isValidRestaurantId]);
 
-  // Загрузка слотов
+  // Загрузка слотов через новый эндпоинт
   useEffect(() => {
-    if (!selectedDate || !isValidRestaurantId) {
+    if (!selectedDate || !isValidRestaurantId || !selectedRestaurant?.id) {
       setAvailableSlots([]);
       setSelectedTime("");
-      setLoadingSlots(false);
-      return;
-    }
-
-    // Если токен еще не загружен, но нет ошибки, ждем загрузки
-    if (!token && !tokenError) {
-      setLoadingSlots(true);
-      return;
-    }
-
-    // Если токен не загружен из-за ошибки, не пытаемся загружать слоты
-    if (!token && tokenError) {
-      setAvailableSlots([]);
-      setSelectedTime("");
-      setLoadingSlots(false);
-      return;
-    }
-
-    if (!token) {
-      setAvailableSlots([]);
-      setSelectedTime("");
+      setSelectedSlot(null);
       setLoadingSlots(false);
       return;
     }
@@ -246,62 +229,68 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     setLoadingSlots(true);
     const dateStr = format(selectedDate, "yyyy-MM-dd");
 
-    getRemarkedSlots(token, dateStr, guestsCount)
-      .then((data) => {
+    getBookingSlots({
+      restaurantId: selectedRestaurant.id,
+      date: dateStr,
+      guestsCount: guestsCount,
+      withRooms: true,
+    })
+      .then((response) => {
         // Проверяем, не был ли запрос отменен
         if (slotsAbortControllerRef.current?.signal.aborted) {
           return;
         }
 
-        const slots = (data.slots || [])
-          .filter((slot) => slot.is_free)
-          .map((slot) => {
-            try {
-              const date = new Date(slot.start_datetime);
-              if (isNaN(date.getTime())) {
-                return null;
-              }
-              return {
-                time: format(date, "HH:mm"),
-                datetime: slot.start_datetime,
-                isFree: slot.is_free,
-              };
-            } catch {
+        if (response.success && response.data) {
+          // Фильтруем только свободные слоты
+          const freeSlots = (response.data.slots || [])
+            .filter((slot) => slot.is_free)
+            .sort((a, b) => {
+              const timeA = a.start_datetime.split(' ')[1]?.substring(0, 5) || '';
+              const timeB = b.start_datetime.split(' ')[1]?.substring(0, 5) || '';
+              return timeA.localeCompare(timeB);
+            });
+
+          setAvailableSlots(freeSlots);
+          
+          // Сбрасываем выбранный слот, если он больше не доступен
+          setSelectedSlot((prevSlot) => {
+            if (prevSlot && !freeSlots.some((s) => s.start_stamp === prevSlot.start_stamp)) {
+              setSelectedTime("");
               return null;
             }
-          })
-          .filter((slot): slot is NonNullable<typeof slot> => slot !== null)
-          .sort((a, b) => a.time.localeCompare(b.time));
-
-        setAvailableSlots(slots);
-        setSelectedTime((prevTime) => {
-          if (prevTime && !slots.some((s) => s.time === prevTime)) {
-            return "";
-          }
-          return prevTime;
-        });
+            return prevSlot;
+          });
+          
+          // Сбрасываем время, если выбранный слот больше не доступен
+          setSelectedTime((prevTime) => {
+            if (prevTime && !freeSlots.some((s) => {
+              const timeStr = s.start_datetime.split(' ')[1]?.substring(0, 5) || '';
+              return timeStr === prevTime;
+            })) {
+              return "";
+            }
+            return prevTime;
+          });
+        } else {
+          setAvailableSlots([]);
+          setSelectedTime("");
+          setSelectedSlot(null);
+        }
       })
       .catch((error) => {
         // Игнорируем ошибки отмены запроса
-        if (error.name === 'AbortError' || error.name === 'AbortError') {
+        if (error.name === 'AbortError') {
           return;
         }
         
         // Очищаем слоты при ошибке
         setAvailableSlots([]);
         setSelectedTime("");
-        
-        // Показываем ошибку только если это не просто отсутствие слотов
-        let errorMessage = "Не удалось загрузить доступное время";
-        if (error instanceof Error) {
-          errorMessage = error.message.trim() || errorMessage;
-        } else if (typeof error === 'string') {
-          errorMessage = error.trim() || errorMessage;
-        }
+        setSelectedSlot(null);
         
         // Не показываем toast для ошибок загрузки слотов, так как это может быть нормальной ситуацией
-        // (например, все слоты заняты)
-        console.error('Ошибка загрузки слотов:', errorMessage);
+        console.error('Ошибка загрузки слотов:', error);
       })
       .finally(() => {
         if (!slotsAbortControllerRef.current?.signal.aborted) {
@@ -312,7 +301,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     return () => {
       slotsAbortControllerRef.current?.abort();
     };
-  }, [selectedDate, token, guestsCount, isValidRestaurantId, tokenError]);
+  }, [selectedDate, guestsCount, isValidRestaurantId, selectedRestaurant?.id]);
 
   // Автозаполнение из профиля
   useEffect(() => {
@@ -406,7 +395,15 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     if (date) {
       setSelectedDate(date);
       setSelectedTime("");
+      setSelectedSlot(null);
     }
+  }, []);
+
+  const handleSlotSelect = useCallback((slot: Slot) => {
+    setSelectedSlot(slot);
+    // Извлекаем время из start_datetime (формат: "YYYY-MM-DD HH:mm:ss")
+    const timeStr = slot.start_datetime.split(' ')[1]?.substring(0, 5) || '';
+    setSelectedTime(timeStr);
   }, []);
 
   const handleSubmit = useCallback(async () => {
@@ -498,6 +495,9 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         .filter((item) => Boolean(item))
         .join(". ");
 
+      // Вычисляем duration из выбранного слота (в минутах)
+      const duration = selectedSlot ? Math.round(selectedSlot.duration / 60) : undefined;
+
       const bookingRequest: CreateBookingRequest = {
         restaurantId: selectedRestaurant.id,
         name: name.trim(),
@@ -507,17 +507,31 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         guestsCount: guestsCount,
         comment: fullComment || undefined,
         source: "mobile_app",
+        duration: duration,
+        tableIds: selectedSlot?.tables_ids && selectedSlot.tables_ids.length > 0 
+          ? selectedSlot.tables_ids 
+          : undefined,
       };
 
       const result = await createBooking(bookingRequest);
 
       if (result && result.success && result.booking) {
+        const formUrl = result.data?.form_url;
         toast({
           title: "Успешно!",
-          description: result.booking.reserveId 
-            ? `Бронирование создано. ID: ${result.booking.reserveId}`
-            : "Бронирование создано",
+          description: formUrl
+            ? "Бронирование создано. Перейдите по ссылке для оплаты депозита."
+            : result.booking.reserveId 
+              ? `Бронирование создано. ID: ${result.booking.reserveId}`
+              : "Бронирование создано",
         });
+
+        // Если есть ссылка на оплату депозита, открываем её в новом окне
+        if (formUrl) {
+          setTimeout(() => {
+            window.open(formUrl, '_blank');
+          }, 1000);
+        }
 
         // Обновление профиля
         const profileUpdates: Partial<typeof profile> = {};
@@ -550,6 +564,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         // Сброс формы
         setSelectedDate(today);
         setSelectedTime("");
+        setSelectedSlot(null);
         setSelectedEvent(null);
         setComment("");
         if (!hasPreviousBooking) {
@@ -600,6 +615,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     profile,
     today,
     tokenError,
+    selectedSlot,
     onSuccess,
   ]);
 
@@ -680,23 +696,35 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
             <Loader2 className="h-6 w-6 animate-spin text-white" />
           </div>
         ) : availableSlots.length > 0 ? (
-          <div className="grid grid-cols-3 gap-2">
-            {availableSlots.map((slot) => (
-              <Button
-                key={slot.time}
-                type="button"
-                variant={selectedTime === slot.time ? "default" : "outline"}
-                onClick={() => setSelectedTime(slot.time)}
-                className={cn(
-                  "h-12",
-                  selectedTime === slot.time
-                    ? "bg-mariko-primary text-white"
-                    : "bg-white/10 border-white/20 text-white hover:bg-white/20"
-                )}
-              >
-                {slot.time}
-              </Button>
-            ))}
+          <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto p-1">
+            {availableSlots.map((slot) => {
+              const timeStr = slot.start_datetime.split(' ')[1]?.substring(0, 5) || '';
+              const isSelected = selectedSlot?.start_stamp === slot.start_stamp;
+              return (
+                <Button
+                  key={slot.start_stamp}
+                  type="button"
+                  variant={isSelected ? "default" : "outline"}
+                  onClick={() => handleSlotSelect(slot)}
+                  className={cn(
+                    "h-12 flex flex-col items-center justify-center",
+                    isSelected
+                      ? "bg-mariko-primary text-white"
+                      : "bg-white/10 border-white/20 text-white hover:bg-white/20"
+                  )}
+                >
+                  <span className="font-medium">{timeStr}</span>
+                  {slot.tables_count !== undefined && slot.tables_count > 0 && (
+                    <span className={cn(
+                      "text-xs mt-1",
+                      isSelected ? "opacity-90" : "opacity-60"
+                    )}>
+                      {slot.tables_count} {slot.tables_count === 1 ? 'стол' : slot.tables_count < 5 ? 'стола' : 'столов'}
+                    </span>
+                  )}
+                </Button>
+              );
+            })}
           </div>
         ) : (
           <p className="text-white/70 text-sm">
