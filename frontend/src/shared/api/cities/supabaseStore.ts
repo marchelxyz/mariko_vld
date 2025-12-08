@@ -1,4 +1,4 @@
-import { cities as staticCities, type City } from "@shared/data";
+import { type City } from "@shared/data";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 export async function getCityStatusFromSupabase(cityId: string): Promise<boolean> {
@@ -272,14 +272,15 @@ export async function fetchActiveCitiesViaSupabase(): Promise<City[]> {
       .filter((city) => city.restaurants.length > 0);
   } catch (error) {
     console.error('❌ Ошибка загрузки городов из Supabase:', error);
-    return getStaticActiveCities();
+    // Возвращаем пустой массив вместо статичных данных
+    return [];
   }
 }
 
 export async function fetchAllCitiesViaSupabase(): Promise<Array<City & { is_active?: boolean }>> {
   if (!isSupabaseConfigured()) {
-    console.warn('⚠️ Supabase не настроен, используем статичные данные');
-    return staticCities;
+    console.warn('⚠️ Supabase не настроен, возвращаем пустой массив');
+    return [];
   }
 
   try {
@@ -293,7 +294,7 @@ export async function fetchAllCitiesViaSupabase(): Promise<Array<City & { is_act
     }
 
     if (!citiesData || citiesData.length === 0) {
-      return staticCities;
+      return [];
     }
 
     const { data: restaurantsData, error: restaurantsError } = await supabase
@@ -342,7 +343,8 @@ export async function fetchAllCitiesViaSupabase(): Promise<Array<City & { is_act
     }));
   } catch (error) {
     console.error('❌ Ошибка загрузки всех городов из Supabase:', error);
-    return staticCities;
+    // Возвращаем пустой массив вместо статичных данных
+    return [];
   }
 }
 
@@ -382,78 +384,11 @@ export function subscribeToSupabaseCitiesChanges(callback: (cities: City[]) => v
   };
 }
 
+/**
+ * @deprecated Эта функция больше не используется, так как города создаются через админ-панель
+ * Удалена синхронизация статичных данных в Supabase
+ */
 export async function syncStaticDataToSupabase(): Promise<boolean> {
-  if (!isSupabaseConfigured()) {
-    console.error('Supabase не настроен');
-    return false;
-  }
-
-  try {
-    console.log('🔄 Начинаем синхронизацию данных с Supabase...');
-
-    const { ACTIVE_CITY_IDS } = await import('@/shared/config/activeCities');
-
-    for (let i = 0; i < staticCities.length; i++) {
-      const city = staticCities[i];
-      const isActive = ACTIVE_CITY_IDS.includes(city.id);
-
-      const { error: cityError } = await supabase
-        .from('cities')
-        .upsert({
-          id: city.id,
-          name: city.name,
-          is_active: isActive,
-          display_order: i + 1,
-        });
-
-      if (cityError) {
-        console.error(`Ошибка вставки города ${city.name}:`, cityError);
-        continue;
-      }
-
-      for (let j = 0; j < city.restaurants.length; j++) {
-        const restaurant = city.restaurants[j];
-
-        const { error: restError } = await supabase
-          .from('restaurants')
-          .upsert({
-            id: restaurant.id,
-            city_id: city.id,
-            name: restaurant.name,
-            address: restaurant.address,
-            is_active: true,
-            display_order: j + 1,
-          });
-
-        if (restError) {
-          console.error(`Ошибка вставки ресторана ${restaurant.address}:`, restError);
-        }
-      }
-
-      console.log(`✅ Город ${city.name}: ${city.restaurants.length} ресторанов`);
-    }
-
-    console.log('✅ Синхронизация завершена!');
-    console.log(`📊 Всего городов: ${staticCities.length}`);
-    return true;
-  } catch (error) {
-    console.error('Ошибка синхронизации:', error);
-    return false;
-  }
-}
-
-async function getStaticActiveCities(): Promise<City[]> {
-  const { ACTIVE_CITY_IDS, USE_ACTIVE_CITIES_FILTER, isRestaurantActive } = await import('@/shared/config/activeCities');
-
-  if (!USE_ACTIVE_CITIES_FILTER) {
-    return staticCities;
-  }
-
-  return staticCities
-    .filter((city) => ACTIVE_CITY_IDS.includes(city.id))
-    .map((city) => ({
-      ...city,
-      restaurants: city.restaurants.filter((restaurant) => isRestaurantActive(city.id, restaurant.id)),
-    }))
-    .filter((city) => city.restaurants.length > 0);
+  console.warn('⚠️ syncStaticDataToSupabase устарела. Используйте админ-панель для создания городов.');
+  return false;
 }

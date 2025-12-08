@@ -11,9 +11,8 @@ import {
   fetchMenuImageLibrary,
   MenuImageAsset,
 } from "@shared/api/menuApi";
-import { cities } from "@shared/data";
 import { type MenuCategory, type MenuItem, type RestaurantMenu } from "@shared/data";
-import { useAdmin } from "@shared/hooks";
+import { useAdmin, useCities } from "@shared/hooks";
 import { Permission } from "@shared/types";
 import { 
   AlertDialog,
@@ -37,34 +36,48 @@ interface MenuManagementProps {
 const createClientId = (prefix: string): string =>
   `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-const findCityIdByRestaurantId = (restaurantId?: string): string | null => {
-  if (!restaurantId) {
-    return null;
-  }
-  for (const city of cities) {
-    if (city.restaurants.some((restaurant) => restaurant.id === restaurantId)) {
-      return city.id;
-    }
-  }
-  return null;
+type RestaurantEntry = {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+  cityId: string;
+  cityName: string;
+  isActive?: boolean;
+  phoneNumber?: string;
+  deliveryAggregators?: Array<{ name: string; url: string }>;
+  yandexMapsUrl?: string;
+  twoGisUrl?: string;
+  socialNetworks?: Array<{ name: string; url: string }>;
+  remarkedRestaurantId?: number;
 };
-
-const buildRestaurantDictionary = () =>
-  cities.flatMap((city) =>
-    city.restaurants.map((restaurant) => ({
-      ...restaurant,
-      cityId: city.id,
-      cityName: city.name,
-    })),
-  );
-type RestaurantEntry = ReturnType<typeof buildRestaurantDictionary>[number];
 
 export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManagementProps): JSX.Element {
   const { hasPermission, allowedRestaurants, isSuperAdmin } = useAdmin();
+  const { cities: allCities, isLoading: isCitiesLoading } = useCities();
   const canManage = hasPermission(Permission.MANAGE_MENU);
   const superAdmin = isSuperAdmin();
 
-  const allRestaurants = useMemo(buildRestaurantDictionary, []);
+  const findCityIdByRestaurantId = useCallback((restaurantId?: string): string | null => {
+    if (!restaurantId) {
+      return null;
+    }
+    for (const city of allCities) {
+      if (city.restaurants.some((restaurant) => restaurant.id === restaurantId)) {
+        return city.id;
+      }
+    }
+    return null;
+  }, [allCities]);
+
+  const allRestaurants = useMemo(() => 
+    allCities.flatMap((city) =>
+      city.restaurants.map((restaurant) => ({
+        ...restaurant,
+        cityId: city.id,
+        cityName: city.name,
+      })),
+    ), [allCities]);
 
   const accessibleRestaurants = useMemo(() => {
     if (superAdmin) {
@@ -100,10 +113,17 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     });
     return Array.from(groups.values());
   }, [accessibleRestaurants]);
-  const initialCityId = findCityIdByRestaurantId(initialRestaurantId);
+  const initialCityId = useMemo(() => findCityIdByRestaurantId(initialRestaurantId), [findCityIdByRestaurantId, initialRestaurantId]);
 
-  const [selectedCityId, setSelectedCityId] = useState<string | null>(initialCityId);
+  const [selectedCityId, setSelectedCityId] = useState<string | null>(null);
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>(initialRestaurantId ?? '');
+
+  // Устанавливаем начальный город после загрузки городов
+  useEffect(() => {
+    if (!isCitiesLoading && initialCityId && !selectedCityId) {
+      setSelectedCityId(initialCityId);
+    }
+  }, [isCitiesLoading, initialCityId, selectedCityId]);
   const [menu, setMenu] = useState<RestaurantMenu | null>(null);
   const [isLoadingMenu, setIsLoadingMenu] = useState<boolean>(false);
   const [isSavingMenu, setIsSavingMenu] = useState<boolean>(false);
@@ -121,12 +141,19 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
 
   const [copyContext, setCopyContext] = useState<CopyContext | null>(null);
   const [sourceSelection, setSourceSelection] = useState<CopySourceSelection>({
-    cityId: initialCityId ?? null,
+    cityId: null,
     restaurantId: '',
     categoryId: '',
     itemId: '',
     importAllCategories: false,
   });
+
+  // Устанавливаем начальный cityId для копирования после загрузки городов
+  useEffect(() => {
+    if (!isCitiesLoading && initialCityId && !sourceSelection.cityId) {
+      setSourceSelection(prev => ({ ...prev, cityId: initialCityId }));
+    }
+  }, [isCitiesLoading, initialCityId, sourceSelection.cityId]);
   const [sourceMenu, setSourceMenu] = useState<RestaurantMenu | null>(null);
   const [isLoadingSourceMenu, setIsLoadingSourceMenu] = useState<boolean>(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState<boolean>(false);
