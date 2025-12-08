@@ -82,20 +82,28 @@ export const listAdminRecords = async () => {
 };
 
 export const resolveAdminContext = async (telegramId) => {
+  console.log('[adminService] resolveAdminContext telegramId:', telegramId);
+  console.log('[adminService] ADMIN_TELEGRAM_IDS:', Array.from(ADMIN_TELEGRAM_IDS));
   if (!telegramId) {
+    console.log('[adminService] No telegramId, returning user role');
     return { role: "user", allowedRestaurants: [] };
   }
   // Проверяем, есть ли Telegram ID в списке администраторов из переменной окружения
   const normalizedId = normaliseTelegramId(telegramId);
+  console.log('[adminService] Normalized ID:', normalizedId);
   if (normalizedId && ADMIN_TELEGRAM_IDS.has(normalizedId)) {
+    console.log('[adminService] ID found in ADMIN_TELEGRAM_IDS, returning super_admin');
     return { role: "super_admin", allowedRestaurants: [] };
   }
   // Проверяем в базе данных
   const record = await fetchAdminRecordByTelegram(telegramId);
+  console.log('[adminService] Database record:', record);
   const permissions = record?.permissions ?? {};
   const allowedRestaurants = parseRestaurantPermissions(permissions);
+  const role = ADMIN_ROLE_VALUES.has(record?.role) ? record.role : "user";
+  console.log('[adminService] Final role:', role, 'allowedRestaurants:', allowedRestaurants);
   return {
-    role: ADMIN_ROLE_VALUES.has(record?.role) ? record.role : "user",
+    role,
     allowedRestaurants,
   };
 };

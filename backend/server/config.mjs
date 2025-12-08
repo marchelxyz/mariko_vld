@@ -20,16 +20,20 @@ const maxOrdersLimitRaw = Number.parseInt(process.env.CART_ORDERS_MAX_LIMIT ?? "
 export const MAX_ORDERS_LIMIT = Number.isFinite(maxOrdersLimitRaw) ? maxOrdersLimitRaw : 50;
 // Парсим список Telegram ID администраторов (через запятую)
 const parseAdminTelegramIds = (raw) => {
+  console.log('[config] ADMIN_TELEGRAM_IDS raw:', raw);
   if (!raw) {
+    console.log('[config] ADMIN_TELEGRAM_IDS is empty, returning empty Set');
     return new Set();
   }
-  return new Set(
+  const parsed = new Set(
     raw
       .split(",")
       .map((id) => id.trim())
       .filter((id) => id && /^\d+$/.test(id))
       .map((id) => String(id))
   );
+  console.log('[config] ADMIN_TELEGRAM_IDS parsed:', Array.from(parsed));
+  return parsed;
 };
 export const ADMIN_TELEGRAM_IDS = parseAdminTelegramIds(process.env.ADMIN_TELEGRAM_IDS);
 export const ADMIN_ROLE_VALUES = new Set(["super_admin", "admin", "user"]);
