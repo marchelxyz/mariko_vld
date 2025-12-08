@@ -86,8 +86,12 @@ export function BookingForm() {
   const { selectedRestaurant } = useCityContext();
   const { profile } = useProfile();
 
+  // Устанавливаем текущую дату по умолчанию
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   const [guestsCount, setGuestsCount] = useState<number>(2);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedDate, setSelectedDate] = useState<Date>(today);
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [phone, setPhone] = useState<string>(profile.phone || "");
   const [name, setName] = useState<string>(profile.name || "");
@@ -122,7 +126,7 @@ export function BookingForm() {
     }
   }, [remarkedRestaurantId]);
 
-  // Загрузка доступных временных слотов при выборе даты
+  // Загрузка доступных временных слотов при выборе даты или изменении количества гостей
   useEffect(() => {
     if (!selectedDate || !token || !remarkedRestaurantId) {
       setAvailableSlots([]);
@@ -145,11 +149,24 @@ export function BookingForm() {
           .sort((a, b) => a.time.localeCompare(b.time));
 
         setAvailableSlots(slots);
+        // Сбрасываем выбранное время, если оно больше не доступно
+        setSelectedTime((prevTime) => {
+          if (prevTime && !slots.some((s) => s.time === prevTime)) {
+            return "";
+          }
+          return prevTime;
+        });
+        // Не показываем toast при первой загрузке для сегодняшней даты
         if (slots.length === 0) {
-          toast({
-            title: "Нет доступных слотов",
-            description: "На выбранную дату нет свободных столиков",
-          });
+          const todayStr = format(new Date(), "yyyy-MM-dd");
+          const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
+          // Показываем toast только если это не сегодняшняя дата (чтобы не показывать при первой загрузке)
+          if (selectedDateStr !== todayStr) {
+            toast({
+              title: "Нет доступных слотов",
+              description: "На выбранную дату нет свободных столиков",
+            });
+          }
         }
       })
       .catch((error) => {
@@ -338,24 +355,22 @@ export function BookingForm() {
           <PopoverTrigger asChild>
             <Button
               variant="outline"
-              className={cn(
-                "w-full justify-start text-left font-normal h-12 bg-white/10 border-white/20 text-white hover:bg-white/20",
-                !selectedDate && "text-muted-foreground"
-              )}
+              className="w-full justify-start text-left font-normal h-12 bg-white/10 border-white/20 text-white hover:bg-white/20"
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {selectedDate ? (
-                format(selectedDate, "d MMMM yyyy", { locale: ru })
-              ) : (
-                <span>Выберите дату</span>
-              )}
+              {format(selectedDate, "d MMMM yyyy", { locale: ru })}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar
               mode="single"
               selected={selectedDate}
-              onSelect={setSelectedDate}
+              onSelect={(date) => {
+                if (date) {
+                  setSelectedDate(date);
+                  setSelectedTime(""); // Сбрасываем время при смене даты
+                }
+              }}
               disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
               initialFocus
               locale={ru}
@@ -365,41 +380,39 @@ export function BookingForm() {
       </div>
 
       {/* Время */}
-      {selectedDate && (
-        <div className="space-y-2">
-          <Label className="text-white font-el-messiri text-base font-semibold">
-            Время *
-          </Label>
-          {loadingSlots ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-white" />
-            </div>
-          ) : availableSlots.length > 0 ? (
-            <div className="grid grid-cols-3 gap-2">
-              {availableSlots.map((slot) => (
-                <Button
-                  key={slot.time}
-                  type="button"
-                  variant={selectedTime === slot.time ? "default" : "outline"}
-                  onClick={() => setSelectedTime(slot.time)}
-                  className={cn(
-                    "h-12",
-                    selectedTime === slot.time
-                      ? "bg-mariko-primary text-white"
-                      : "bg-white/10 border-white/20 text-white hover:bg-white/20"
+      <div className="space-y-2">
+        <Label className="text-white font-el-messiri text-base font-semibold">
+          Время *
+        </Label>
+        {loadingSlots ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-white" />
+          </div>
+        ) : availableSlots.length > 0 ? (
+          <div className="grid grid-cols-3 gap-2">
+            {availableSlots.map((slot) => (
+              <Button
+                key={slot.time}
+                type="button"
+                variant={selectedTime === slot.time ? "default" : "outline"}
+                onClick={() => setSelectedTime(slot.time)}
+                className={cn(
+                  "h-12",
+                  selectedTime === slot.time
+                    ? "bg-mariko-primary text-white"
+                    : "bg-white/10 border-white/20 text-white hover:bg-white/20"
                   )}
-                >
-                  {slot.time}
-                </Button>
-              ))}
-            </div>
-          ) : (
-            <p className="text-white/70 text-sm">
-              Нет доступных временных слотов на эту дату
-            </p>
-          )}
-        </div>
-      )}
+              >
+                {slot.time}
+              </Button>
+            ))}
+          </div>
+        ) : (
+          <p className="text-white/70 text-sm">
+            Нет доступных временных слотов на эту дату
+          </p>
+        )}
+      </div>
 
       {/* Телефон */}
       <div className="space-y-2">
