@@ -166,12 +166,21 @@ export const buildUserWithRole = (profile, adminRecord) => {
 
 export const authoriseSuperAdmin = async (req, res) => {
   const telegramId = getTelegramIdFromRequest(req);
+  console.log('[adminService] authoriseSuperAdmin - telegramId:', telegramId);
+  console.log('[adminService] authoriseSuperAdmin - headers:', {
+    'x-telegram-id': req.get('x-telegram-id'),
+    'x-admin-telegram': req.get('x-admin-telegram'),
+    'x-telegram-init-data': req.get('x-telegram-init-data') ? 'present' : 'missing',
+  });
   if (!telegramId) {
+    console.log('[adminService] authoriseSuperAdmin - No telegramId found');
     res.status(401).json({ success: false, message: "Требуется Telegram ID администратора" });
     return null;
   }
   const context = await resolveAdminContext(telegramId);
+  console.log('[adminService] authoriseSuperAdmin - context:', context);
   if (context.role !== "super_admin") {
+    console.log('[adminService] authoriseSuperAdmin - Not super_admin, role:', context.role);
     res.status(403).json({ success: false, message: "Доступ только для супер-админа" });
     return null;
   }

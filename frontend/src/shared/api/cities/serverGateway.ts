@@ -1,6 +1,6 @@
 import type { City } from "@shared/data";
 import { resolveServerUrl } from "./config";
-import { getTg } from "@/lib/telegram";
+import { getTg, getUser } from "@/lib/telegram";
 import { logger } from "@/lib/logger";
 
 function parseErrorPayload(payload?: string): string | null {
@@ -22,14 +22,28 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
   
   logger.api(method, url, options?.body ? JSON.parse(options.body as string) : undefined);
   
+  // Добавляем заголовки авторизации для всех запросов
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    ...(options?.headers ?? {}),
+  };
+
+  const initData = getTg()?.initData;
+  if (initData) {
+    headers['X-Telegram-Init-Data'] = initData;
+  }
+
+  // Также добавляем прямой Telegram ID, если доступен
+  const user = getUser();
+  if (user?.id) {
+    headers['X-Telegram-Id'] = String(user.id);
+  }
+  
   try {
     const response = await fetch(url, {
       credentials: 'include',
       ...options,
-      headers: {
-        Accept: 'application/json',
-        ...(options?.headers ?? {}),
-      },
+      headers,
     });
 
     const duration = Date.now() - startTime;
