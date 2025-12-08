@@ -23,7 +23,15 @@ if (typeof window !== "undefined") {
         colno: event.colno,
       });
       const instance = getTg();
-      if (!instance?.showAlert?.(message)) {
+      try {
+        if (instance && typeof instance.showAlert === 'function') {
+          instance.showAlert(message);
+        } else {
+          alert(message);
+        }
+      } catch (alertError) {
+        // Если showAlert вызывает ошибку, используем обычный alert
+        console.warn('showAlert failed, using fallback', alertError);
         alert(message);
       }
     } catch (_) {
@@ -40,7 +48,15 @@ if (typeof window !== "undefined") {
         type: 'unhandledrejection',
       });
       const instance = getTg();
-      if (!instance?.showAlert?.(message)) {
+      try {
+        if (instance && typeof instance.showAlert === 'function') {
+          instance.showAlert(message);
+        } else {
+          alert(message);
+        }
+      } catch (alertError) {
+        // Если showAlert вызывает ошибку, используем обычный alert
+        console.warn('showAlert failed, using fallback', alertError);
         alert(message);
       }
     } catch (_) {
@@ -61,7 +77,16 @@ try {
   try {
     const message = err instanceof Error ? err.message : String(err);
     const instance = getTg();
-    instance?.showAlert?.(`Render error: ${message}`);
+    try {
+      if (instance && typeof instance.showAlert === 'function') {
+        instance.showAlert(`Render error: ${message}`);
+      } else {
+        alert(`Render error: ${message}`);
+      }
+    } catch (alertError) {
+      console.warn('showAlert failed, using fallback', alertError);
+      alert(`Render error: ${message}`);
+    }
   } catch (_) {
     const message = err instanceof Error ? err.message : String(err);
     alert(`Render error: ${message}`);

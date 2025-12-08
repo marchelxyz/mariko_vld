@@ -97,7 +97,12 @@ class Logger {
   private async sendToServer(entry: LogEntry): Promise<void> {
     try {
       // Отправляем только критические ошибки на сервер в production
-      await fetch('/api/logs', {
+      // Используем тот же базовый URL, что и другие API запросы
+      const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
+      const baseUrl = rawServerEnv ? rawServerEnv.replace(/\/$/, '') : '';
+      const url = baseUrl ? `${baseUrl}/logs` : '/api/logs';
+      
+      await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(entry),

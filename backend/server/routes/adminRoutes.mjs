@@ -330,5 +330,19 @@ export function createAdminRouter() {
     return res.json({ success: true });
   });
 
+  // Роут для приема логов с фронтенда
+  router.post("/logs", async (req, res) => {
+    // Логируем на сервере, но не требуем авторизации для этого эндпоинта
+    // чтобы не блокировать отправку ошибок
+    try {
+      const logEntry = req.body;
+      console.log("[client-log]", JSON.stringify(logEntry));
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Ошибка обработки лога", error);
+      return res.status(500).json({ success: false, message: "Ошибка обработки лога" });
+    }
+  });
+
   return router;
 }
