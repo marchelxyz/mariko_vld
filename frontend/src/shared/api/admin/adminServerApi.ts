@@ -14,7 +14,21 @@ const rawAdminBase = import.meta.env.VITE_ADMIN_API_URL;
 const cartBase = normalizeBaseUrl(`${getCartApiBaseUrl()}/cart`);
 // Админка всегда идёт на cart-server (4010) — не используем общий SERVER_API, чтобы не улетать на старый бэкенд.
 const ADMIN_API_BASE = normalizeBaseUrl(rawAdminBase || cartBase) + "/admin";
-const DEV_ADMIN_TOKEN = import.meta.env.VITE_DEV_ADMIN_TOKEN;
+
+// Парсим список Telegram ID администраторов (через запятую)
+const parseAdminTelegramIds = (raw: string | undefined): Set<string> => {
+  if (!raw) {
+    return new Set();
+  }
+  return new Set(
+    raw
+      .split(",")
+      .map((id) => id.trim())
+      .filter((id) => id && /^\d+$/.test(id))
+      .map((id) => String(id))
+  );
+};
+const ADMIN_TELEGRAM_IDS = parseAdminTelegramIds(import.meta.env.VITE_ADMIN_TELEGRAM_IDS);
 
 export type AdminRole = UserRole;
 
@@ -52,9 +66,13 @@ type FetchOrdersParams = {
   limit?: number;
 };
 
-const FALLBACK_SUPER_ID = (import.meta.env.VITE_DEV_ADMIN_TELEGRAM_ID ||
-  import.meta.env.VITE_FALLBACK_SUPER_ID ||
-  "577222108").toString();
+// Получаем первый Telegram ID из списка как fallback
+const getFallbackTelegramId = (): string | undefined => {
+  if (ADMIN_TELEGRAM_IDS.size > 0) {
+    return Array.from(ADMIN_TELEGRAM_IDS)[0];
+  }
+  return undefined;
+};
 
 const resolveTelegramId = (override?: string): string | undefined => {
   // Используем override только если это похоже на нормальный числовой telegram id
@@ -65,8 +83,8 @@ const resolveTelegramId = (override?: string): string | undefined => {
   if (user?.id) {
     return user.id.toString();
   }
-  // Жёсткий fallback, чтобы не терять доступ к админке вне Telegram
-  return FALLBACK_SUPER_ID;
+  // Fallback: используем первый ID из списка администраторов
+  return getFallbackTelegramId();
 };
 
 const buildHeaders = (overrideTelegramId?: string): Record<string, string> => {
@@ -76,10 +94,6 @@ const buildHeaders = (overrideTelegramId?: string): Record<string, string> => {
   const telegramId = resolveTelegramId(overrideTelegramId);
   if (telegramId) {
     headers["X-Telegram-Id"] = telegramId;
-  }
-  // Разрешаем dev-токен и в проде, если задан VITE_DEV_ADMIN_TOKEN
-  if (DEV_ADMIN_TOKEN) {
-    headers["X-Admin-Token"] = DEV_ADMIN_TOKEN;
   }
   return headers;
 };

@@ -163,16 +163,13 @@ for env in "${ENVIRONMENTS[@]}"; do
   set_vercel_var "VITE_ADMIN_API_URL" "${BACKEND_BASE}/api/cart" "$env"
   
   # Admin
-  ADMIN_TOKEN=$(read_env_value "$FRONTEND_ENV" "VITE_DEV_ADMIN_TOKEN")
-  ADMIN_TELEGRAM_ID=$(read_env_value "$FRONTEND_ENV" "VITE_DEV_ADMIN_TELEGRAM_ID")
+  ADMIN_TELEGRAM_IDS=$(read_env_value "$FRONTEND_ENV" "VITE_ADMIN_TELEGRAM_IDS")
   
   if [[ "$INTERACTIVE" == "--interactive" && "$env" == "production" ]]; then
-    ADMIN_TOKEN=$(prompt_value "VITE_DEV_ADMIN_TOKEN" "$ADMIN_TOKEN" "Токен для админ-доступа")
-    ADMIN_TELEGRAM_ID=$(prompt_value "VITE_DEV_ADMIN_TELEGRAM_ID" "$ADMIN_TELEGRAM_ID" "Telegram ID администратора")
+    ADMIN_TELEGRAM_IDS=$(prompt_value "VITE_ADMIN_TELEGRAM_IDS" "$ADMIN_TELEGRAM_IDS" "Telegram ID администраторов (через запятую)")
   fi
   
-  set_vercel_var "VITE_DEV_ADMIN_TOKEN" "$ADMIN_TOKEN" "$env"
-  set_vercel_var "VITE_DEV_ADMIN_TELEGRAM_ID" "$ADMIN_TELEGRAM_ID" "$env"
+  set_vercel_var "VITE_ADMIN_TELEGRAM_IDS" "$ADMIN_TELEGRAM_IDS" "$env"
   
   # Geocoder
   GEO_SUGGEST=$(read_env_value "$FRONTEND_ENV" "VITE_GEO_SUGGEST_URL")

@@ -46,7 +46,15 @@ export function useAdmin() {
         setIsLoading(true);
 
         const user = getUser();
-        const fallbackId = import.meta.env.VITE_DEV_ADMIN_TELEGRAM_ID;
+        // Парсим список Telegram ID администраторов (через запятую)
+        const adminIdsRaw = import.meta.env.VITE_ADMIN_TELEGRAM_IDS;
+        const adminIds = adminIdsRaw
+          ? adminIdsRaw
+              .split(",")
+              .map((id) => id.trim())
+              .filter((id) => id && /^\d+$/.test(id))
+          : [];
+        const fallbackId = adminIds.length > 0 ? adminIds[0] : undefined;
         const currentUserId = user?.id?.toString() || fallbackId || 'demo_user';
         setUserId(currentUserId);
 

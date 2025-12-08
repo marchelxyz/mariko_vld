@@ -1,5 +1,5 @@
 import type { City } from "@shared/data";
-import { DEV_ADMIN_TOKEN, resolveServerUrl } from "./config";
+import { resolveServerUrl } from "./config";
 import { getTg } from "@/lib/telegram";
 
 function parseErrorPayload(payload?: string): string | null {
@@ -48,8 +48,6 @@ export async function setCityStatusViaServer(
   const initData = getTg()?.initData;
   if (initData) {
     headers['X-Telegram-Init-Data'] = initData;
-  } else if (import.meta.env.DEV && DEV_ADMIN_TOKEN) {
-    headers['X-Admin-Token'] = DEV_ADMIN_TOKEN;
   }
 
   const response = await fetch(resolveServerUrl('/admin/cities/status'), {
