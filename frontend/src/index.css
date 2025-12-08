@@ -100,12 +100,12 @@
     min-height: 100%;
     padding-top: var(--tg-safe-area-top, 0px);
     padding-bottom: var(--tg-safe-area-bottom, 0px);
-    background-color: #830E0E;
+    background-color: transparent;
   }
 }
 
-/* Примечание: красный фон не гасим глобально, чтобы не ломать бейджи/кнопки.
-   Страницы переведены на bg-transparent локально. */
+/* Примечание: красный фон (#830E0E) устанавливается только в RandomBackgroundPattern компоненте.
+   Глобальный фон прозрачный, чтобы паттерн был виден. Страницы используют bg-transparent локально. */
 
 @layer utilities {
   /* Скрытие полосы прокрутки */
