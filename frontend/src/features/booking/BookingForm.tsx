@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { format as formatDate } from "date-fns";
+import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Calendar } from "@shared/ui/calendar";
 import { Button } from "@shared/ui/button";
@@ -51,14 +51,22 @@ const EVENT_TYPES: EventType[] = [
  * Проверка, что имя содержит только русские буквы
  */
 function isRussianName(name: string): boolean {
+  if (!name || typeof name !== "string") {
+    return false;
+  }
   const russianRegex = /^[А-Яа-яЁё\s-]+$/;
-  return russianRegex.test(name.trim());
+  const trimmed = name.trim();
+  return trimmed.length > 0 && russianRegex.test(trimmed);
 }
 
 /**
  * Форматирование телефона для Remarked API
  */
 function formatPhone(phone: string): string {
+  if (!phone || typeof phone !== "string") {
+    throw new Error("Некорректный номер телефона");
+  }
+  
   const cleaned = phone.replace(/\D/g, "");
   
   // Если номер начинается с 8, заменяем на 7
@@ -174,17 +182,38 @@ export function BookingForm({ onSuccess }: BookingFormProps = {}) {
     }
 
     setLoadingSlots(true);
-    const dateStr = formatDate(selectedDate, "yyyy-MM-dd");
+    
+    // Проверяем валидность даты перед форматированием
+    if (!selectedDate || !(selectedDate instanceof Date) || isNaN(selectedDate.getTime())) {
+      setLoadingSlots(false);
+      logger.error("booking", new Error("Некорректная дата при загрузке слотов"));
+      return;
+    }
+    
+    const dateStr = format(selectedDate, "yyyy-MM-dd");
 
     getRemarkedSlots(token, dateStr, guestsCount)
       .then((data) => {
         const slots = data.slots
           .filter((slot) => slot.is_free)
-          .map((slot) => ({
-            time: formatDate(new Date(slot.start_datetime), "HH:mm"),
-            datetime: slot.start_datetime,
-            isFree: slot.is_free,
-          }))
+          .map((slot) => {
+            try {
+              const date = new Date(slot.start_datetime);
+              if (isNaN(date.getTime())) {
+                logger.error("booking", new Error(`Invalid date: ${slot.start_datetime}`));
+                return null;
+              }
+              return {
+                time: format(date, "HH:mm"),
+                datetime: slot.start_datetime,
+                isFree: slot.is_free,
+              };
+            } catch (error) {
+              logger.error("booking", error instanceof Error ? error : new Error("Ошибка форматирования времени слота"));
+              return null;
+            }
+          })
+          .filter((slot): slot is NonNullable<typeof slot> => slot !== null)
           .sort((a, b) => a.time.localeCompare(b.time));
 
         setAvailableSlots(slots);
@@ -197,8 +226,10 @@ export function BookingForm({ onSuccess }: BookingFormProps = {}) {
         });
         // Не показываем toast при первой загрузке для сегодняшней даты
         if (slots.length === 0) {
-          const todayStr = formatDate(new Date(), "yyyy-MM-dd");
-          const selectedDateStr = formatDate(selectedDate, "yyyy-MM-dd");
+          const todayStr = format(new Date(), "yyyy-MM-dd");
+          const selectedDateStr = selectedDate && selectedDate instanceof Date && !isNaN(selectedDate.getTime()) 
+            ? format(selectedDate, "yyyy-MM-dd")
+            : "";
           // Показываем toast только если это не сегодняшняя дата (чтобы не показывать при первой загрузке)
           if (selectedDateStr !== todayStr) {
             toast({
@@ -353,19 +384,37 @@ export function BookingForm({ onSuccess }: BookingFormProps = {}) {
     setSubmitting(true);
 
     try {
+      // Проверяем валидность данных перед обработкой
+      if (!phone || typeof phone !== "string" || !phone.trim()) {
+        throw new Error("Некорректный номер телефона");
+      }
+      
+      if (!name || typeof name !== "string" || !name.trim()) {
+        throw new Error("Некорректное имя");
+      }
+      
+      if (!selectedDate || !(selectedDate instanceof Date) || isNaN(selectedDate.getTime())) {
+        throw new Error("Некорректная дата бронирования");
+      }
+      
+      if (!selectedTime || typeof selectedTime !== "string" || !selectedTime.trim()) {
+        throw new Error("Некорректное время бронирования");
+      }
+      
       const formattedPhone = formatPhone(phone);
-      const dateStr = formatDate(selectedDate, "yyyy-MM-dd");
+      const dateStr = format(selectedDate, "yyyy-MM-dd");
       const fullComment = [
         selectedEvent?.comment,
-        comment.trim(),
+        typeof comment === "string" ? comment.trim() : "",
       ]
         .filter((item) => Boolean(item))
         .join(". ");
 
       // Используем бэкенд API для создания бронирования
+      const trimmedName = typeof name === "string" ? name.trim() : "";
       const result = await createBooking({
         restaurantId: selectedRestaurant.id,
-        name: name.trim(),
+        name: trimmedName,
         phone: formattedPhone,
         date: dateStr,
         time: selectedTime,
@@ -374,11 +423,14 @@ export function BookingForm({ onSuccess }: BookingFormProps = {}) {
         source: "mobile_app",
       });
 
-      if (result.success && result.booking) {
+      if (result && result.success && result.booking) {
+        const reserveId = result.booking.reserveId;
+        const reserveIdStr = reserveId != null ? String(reserveId) : null;
+        
         toast({
           title: "Успешно!",
-          description: result.booking.reserveId 
-            ? `Бронирование создано. ID: ${result.booking.reserveId}`
+          description: reserveIdStr 
+            ? `Бронирование создано. ID: ${reserveIdStr}`
             : "Бронирование создано",
         });
 
@@ -387,8 +439,9 @@ export function BookingForm({ onSuccess }: BookingFormProps = {}) {
         let shouldUpdateProfile = false;
 
         // Сохраняем имя, если оно изменилось или отсутствовало
-        if (name.trim() && name.trim() !== profile.name) {
-          profileUpdates.name = name.trim();
+        const trimmedName = typeof name === "string" ? name.trim() : "";
+        if (trimmedName && trimmedName !== profile.name) {
+          profileUpdates.name = trimmedName;
           shouldUpdateProfile = true;
         }
 
@@ -517,7 +570,9 @@ export function BookingForm({ onSuccess }: BookingFormProps = {}) {
               className="w-full justify-start text-left font-normal h-12 bg-white/10 border-white/20 text-white hover:bg-white/20"
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {selectedDate ? formatDate(selectedDate, "d MMMM yyyy", { locale: ru }) : ""}
+              {selectedDate && selectedDate instanceof Date && !isNaN(selectedDate.getTime()) 
+                ? format(selectedDate, "d MMMM yyyy", { locale: ru }) 
+                : ""}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
