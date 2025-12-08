@@ -7,29 +7,18 @@ import { RestaurantReviews } from "@entities/restaurant";
 import { useCities } from "@shared/hooks";
 import { CitySelector } from "@shared/ui";
 import { safeOpenLink, storage } from "@/lib/telegram";
+import type { Restaurant } from "@shared/data";
 
-interface Restaurant {
-  id: string;
-  name: string;
-  address: string;
-  city: string;
+type RestaurantLinks = {
   yandexMapsUrl: string;
   gisUrl: string;
   yandexParkingUrl: string;
   gisParkingUrl: string;
   yandexReviewUrl: string;
   gisReviewUrl: string;
-}
+};
 
-type RestaurantLinks = Pick<
-  Restaurant,
-  | "yandexMapsUrl"
-  | "gisUrl"
-  | "yandexParkingUrl"
-  | "gisParkingUrl"
-  | "yandexReviewUrl"
-  | "gisReviewUrl"
->;
+type RestaurantWithLinks = Restaurant & RestaurantLinks;
 
 const Restaurants = () => {
   const navigate = useNavigate();
@@ -39,12 +28,9 @@ const Restaurants = () => {
   const { cities: availableCities } = useCities();
 
   // Получаем все рестораны из всех городов для поиска
-  const allRestaurants: Restaurant[] = availableCities.flatMap((city) =>
+  const allRestaurants: RestaurantWithLinks[] = availableCities.flatMap((city) =>
     city.restaurants.map((restaurant) => ({
-      id: restaurant.id,
-      name: restaurant.name,
-      address: restaurant.address,
-      city: restaurant.city,
+      ...restaurant,
       ...getRestaurantLinks(restaurant.id, restaurant.city, restaurant.address),
     })),
   );
@@ -401,7 +387,7 @@ const Restaurants = () => {
     }
   }, [restaurantId, selectedCity, setSelectedCity, allRestaurants]);
 
-  const selectRestaurant = (restaurant: Restaurant) => {
+  const selectRestaurant = (restaurant: RestaurantWithLinks) => {
     // Находим город этого ресторана и устанавливаем его как выбранный
     const restaurantCity = availableCities.find((city) =>
       city.restaurants.some((r) => r.id === restaurant.id),
