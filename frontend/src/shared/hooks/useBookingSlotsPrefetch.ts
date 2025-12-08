@@ -12,22 +12,12 @@ import type { Restaurant } from "@shared/data";
 export function useBookingSlotsPrefetch(selectedRestaurant: Restaurant | null) {
   const prefetchAbortControllerRef = useRef<AbortController | null>(null);
   const prefetchedRestaurantIdRef = useRef<string | null>(null);
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
+  const prefetchSlots = (restaurant: Restaurant) => {
     // Отменяем предыдущий запрос, если он еще выполняется
     if (prefetchAbortControllerRef.current) {
       prefetchAbortControllerRef.current.abort();
-    }
-
-    // Проверяем, что ресторан выбран и у него настроено бронирование
-    if (!selectedRestaurant?.remarkedRestaurantId) {
-      prefetchedRestaurantIdRef.current = null;
-      return;
-    }
-
-    // Если уже предзагружали для этого ресторана, не делаем повторный запрос
-    if (prefetchedRestaurantIdRef.current === selectedRestaurant.id) {
-      return;
     }
 
     // Получаем сегодняшнюю дату в формате YYYY-MM-DD
@@ -43,7 +33,7 @@ export function useBookingSlotsPrefetch(selectedRestaurant: Restaurant | null) {
 
     // Предзагружаем слоты в фоновом режиме
     getBookingSlots({
-      restaurantId: selectedRestaurant.id,
+      restaurantId: restaurant.id,
       date: todayStr,
       guestsCount: defaultGuestsCount,
       withRooms: true,
@@ -57,16 +47,16 @@ export function useBookingSlotsPrefetch(selectedRestaurant: Restaurant | null) {
         if (response.success && response.data?.slots) {
           // Сохраняем слоты в кэш
           cacheBookingSlots(
-            selectedRestaurant.id,
+            restaurant.id,
             todayStr,
             defaultGuestsCount,
             response.data.slots
           );
           
-          prefetchedRestaurantIdRef.current = selectedRestaurant.id;
+          prefetchedRestaurantIdRef.current = restaurant.id;
           
           console.log("[BookingPrefetch] Слоты предзагружены", {
-            restaurantId: selectedRestaurant.id,
+            restaurantId: restaurant.id,
             date: todayStr,
             guestsCount: defaultGuestsCount,
             slotsCount: response.data.slots.length,
@@ -82,9 +72,48 @@ export function useBookingSlotsPrefetch(selectedRestaurant: Restaurant | null) {
         // Тихо логируем ошибки предзагрузки (не показываем пользователю)
         console.debug("[BookingPrefetch] Ошибка предзагрузки слотов:", error);
       });
+  };
+
+  useEffect(() => {
+    // Проверяем, что ресторан выбран и у него настроено бронирование
+    if (!selectedRestaurant?.remarkedRestaurantId) {
+      prefetchedRestaurantIdRef.current = null;
+      // Очищаем интервал обновления
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+        refreshIntervalRef.current = null;
+      }
+      return;
+    }
+
+    // Если уже предзагружали для этого ресторана, не делаем повторный запрос сразу
+    // но устанавливаем интервал для обновления
+    if (prefetchedRestaurantIdRef.current === selectedRestaurant.id) {
+      // Устанавливаем интервал обновления каждую минуту
+      if (!refreshIntervalRef.current) {
+        refreshIntervalRef.current = setInterval(() => {
+          prefetchSlots(selectedRestaurant);
+        }, 60 * 1000); // 1 минута
+      }
+      return;
+    }
+
+    // Первая загрузка
+    prefetchSlots(selectedRestaurant);
+
+    // Устанавливаем интервал обновления каждую минуту
+    refreshIntervalRef.current = setInterval(() => {
+      prefetchSlots(selectedRestaurant);
+    }, 60 * 1000); // 1 минута
 
     return () => {
-      abortController.abort();
+      if (prefetchAbortControllerRef.current) {
+        prefetchAbortControllerRef.current.abort();
+      }
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+        refreshIntervalRef.current = null;
+      }
     };
   }, [selectedRestaurant?.id, selectedRestaurant?.remarkedRestaurantId]);
 }

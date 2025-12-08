@@ -19,7 +19,7 @@ export type CachedSlots = {
 };
 
 const CACHE_KEY_PREFIX = "booking_slots_cache_";
-const CACHE_TTL = 5 * 60 * 1000; // 5 минут
+const CACHE_TTL = 60 * 1000; // 1 минута
 
 /**
  * Генерирует ключ кэша для комбинации ресторана, даты и количества гостей

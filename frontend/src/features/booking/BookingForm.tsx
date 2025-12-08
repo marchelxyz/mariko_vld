@@ -33,7 +33,7 @@ import {
 } from "@shared/api/bookingApi";
 import { profileApi } from "@shared/api/profile";
 import { toast } from "@/hooks/use-toast";
-import { CalendarIcon, Loader2 } from "lucide-react";
+import { CalendarIcon, Loader2, RefreshCw } from "lucide-react";
 import { cn } from "@shared/utils";
 import { getCachedBookingSlots, cacheBookingSlots } from "@shared/utils/bookingSlotsCache";
 
@@ -107,7 +107,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     return date;
   }, []);
 
-  const [guestsCount, setGuestsCount] = useState<number>(1);
+  const [guestsCount, setGuestsCount] = useState<number>(2);
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [phone, setPhone] = useState<string>(profile.phone || "");
@@ -124,11 +124,14 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
   const [checkingPreviousBooking, setCheckingPreviousBooking] = useState<boolean>(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  const [showRefreshButton, setShowRefreshButton] = useState<boolean>(false);
 
   // Refs для отмены запросов
   const tokenAbortControllerRef = useRef<AbortController | null>(null);
   const slotsAbortControllerRef = useRef<AbortController | null>(null);
   const reservesAbortControllerRef = useRef<AbortController | null>(null);
+  const pageEnterTimeRef = useRef<number | null>(null);
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const remarkedRestaurantId = selectedRestaurant?.remarkedRestaurantId;
   const isValidRestaurantId = remarkedRestaurantId && isValidRemarkedId(remarkedRestaurantId);
@@ -207,6 +210,121 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       tokenAbortControllerRef.current?.abort();
     };
   }, [remarkedRestaurantId, isValidRestaurantId]);
+
+  // Отслеживание времени на странице для показа кнопки обновления
+  useEffect(() => {
+    // Записываем время входа на страницу
+    pageEnterTimeRef.current = Date.now();
+    setShowRefreshButton(false);
+
+    // Очищаем предыдущий таймер
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+
+    // Устанавливаем таймер на 1 минуту
+    refreshTimeoutRef.current = setTimeout(() => {
+      setShowRefreshButton(true);
+    }, 60 * 1000); // 1 минута
+
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    };
+  }, []); // Запускается только при монтировании компонента
+
+  // Функция для принудительного обновления слотов
+  const handleRefreshSlots = useCallback(() => {
+    const restaurantId = selectedRestaurant?.id;
+    if (!restaurantId || !isValidRestaurantId) {
+      return;
+    }
+
+    const dateStr = format(selectedDate, "yyyy-MM-dd");
+    
+    // Очищаем кэш для текущих параметров, чтобы загрузить свежие данные
+    setLoadingSlots(true);
+    setShowRefreshButton(false);
+
+    // Отменяем предыдущий запрос
+    slotsAbortControllerRef.current?.abort();
+    slotsAbortControllerRef.current = new AbortController();
+
+    getBookingSlots({
+      restaurantId,
+      date: dateStr,
+      guestsCount: guestsCount,
+      withRooms: true,
+    })
+      .then((response) => {
+        if (slotsAbortControllerRef.current?.signal.aborted) {
+          return;
+        }
+
+        if (response.success && response.data) {
+          const allSlots = response.data.slots || [];
+          cacheBookingSlots(restaurantId, dateStr, guestsCount, allSlots);
+          
+          const freeSlots = allSlots
+            .filter((slot) => slot.is_free)
+            .sort((a, b) => {
+              const timeA = a.start_datetime.split(' ')[1]?.substring(0, 5) || '';
+              const timeB = b.start_datetime.split(' ')[1]?.substring(0, 5) || '';
+              return timeA.localeCompare(timeB);
+            });
+
+          setAvailableSlots(freeSlots);
+          
+          setSelectedSlot((prevSlot) => {
+            if (prevSlot && !freeSlots.some((s) => s.start_stamp === prevSlot.start_stamp)) {
+              setSelectedTime("");
+              return null;
+            }
+            return prevSlot;
+          });
+          
+          setSelectedTime((prevTime) => {
+            if (prevTime && !freeSlots.some((s) => {
+              const timeStr = s.start_datetime.split(' ')[1]?.substring(0, 5) || '';
+              return timeStr === prevTime;
+            })) {
+              return "";
+            }
+            return prevTime;
+          });
+
+          toast({
+            title: "Обновлено",
+            description: "Список доступных слотов обновлен",
+          });
+
+          // Скрываем кнопку и устанавливаем новый таймер на следующее обновление
+          setShowRefreshButton(false);
+          if (refreshTimeoutRef.current) {
+            clearTimeout(refreshTimeoutRef.current);
+          }
+          refreshTimeoutRef.current = setTimeout(() => {
+            setShowRefreshButton(true);
+          }, 60 * 1000); // 1 минута
+        }
+      })
+      .catch((error) => {
+        if (error.name !== 'AbortError') {
+          console.error('Ошибка обновления слотов:', error);
+          toast({
+            title: "Ошибка",
+            description: "Не удалось обновить слоты. Попробуйте позже.",
+            variant: "destructive",
+          });
+        }
+      })
+      .finally(() => {
+        if (!slotsAbortControllerRef.current?.signal.aborted) {
+          setLoadingSlots(false);
+        }
+      });
+  }, [selectedRestaurant?.id, selectedDate, guestsCount, isValidRestaurantId]);
 
   // Загрузка слотов через новый эндпоинт
   useEffect(() => {
@@ -776,9 +894,23 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
 
       {/* Время */}
       <div className="space-y-2">
-        <Label className="text-white font-el-messiri text-base font-semibold">
-          Время *
-        </Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-white font-el-messiri text-base font-semibold">
+            Время *
+          </Label>
+          {showRefreshButton && !loadingSlots && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleRefreshSlots}
+              className="h-8 px-2 text-white/70 hover:text-white hover:bg-white/10"
+            >
+              <RefreshCw className="h-4 w-4 mr-1" />
+              <span className="text-xs">Обновить</span>
+            </Button>
+          )}
+        </div>
         {loadingSlots ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-white" />
