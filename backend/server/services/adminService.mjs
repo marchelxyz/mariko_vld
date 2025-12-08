@@ -26,9 +26,44 @@ export const parseRestaurantPermissions = (permissions) => {
   return [];
 };
 
+/**
+ * Парсит Telegram Init Data и извлекает Telegram ID пользователя
+ */
+const parseTelegramInitData = (rawData) => {
+  if (!rawData) {
+    return null;
+  }
+  try {
+    const params = new URLSearchParams(rawData);
+    const userData = params.get('user');
+    if (!userData) {
+      return null;
+    }
+    const user = JSON.parse(userData);
+    return user?.id ? String(user.id) : null;
+  } catch (error) {
+    console.error('Ошибка парсинга Telegram init data:', error);
+    return null;
+  }
+};
+
 export const getTelegramIdFromRequest = (req) => {
-  const raw = req.get("x-telegram-id") || req.get("x-admin-telegram");
-  return normaliseTelegramId(raw);
+  // Сначала проверяем прямые заголовки
+  const directId = req.get("x-telegram-id") || req.get("x-admin-telegram");
+  if (directId) {
+    return normaliseTelegramId(directId);
+  }
+  
+  // Затем пытаемся извлечь из X-Telegram-Init-Data
+  const initData = req.get("x-telegram-init-data");
+  if (initData) {
+    const telegramId = parseTelegramInitData(initData);
+    if (telegramId) {
+      return normaliseTelegramId(telegramId);
+    }
+  }
+  
+  return null;
 };
 
 export const fetchAdminRecordByTelegram = async (telegramId) => {
