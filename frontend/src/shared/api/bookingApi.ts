@@ -92,7 +92,27 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
     });
 
     if (!response.ok) {
-      const errorMessage = parseErrorPayload(responseText) ?? `Server API responded with ${response.status}`;
+      let errorMessage = parseErrorPayload(responseText);
+      
+      // Если не удалось извлечь сообщение из payload, формируем понятное сообщение
+      if (!errorMessage || errorMessage.trim() === "" || errorMessage.toLowerCase() === "unknown error") {
+        if (response.status === 400) {
+          errorMessage = "Неверный запрос. Проверьте введенные данные.";
+        } else if (response.status === 401) {
+          errorMessage = "Ошибка авторизации. Обновите страницу.";
+        } else if (response.status === 403) {
+          errorMessage = "Доступ запрещен.";
+        } else if (response.status === 404) {
+          errorMessage = "Ресурс не найден.";
+        } else if (response.status === 500) {
+          errorMessage = "Ошибка сервера. Попробуйте позже.";
+        } else if (response.status >= 500) {
+          errorMessage = "Сервер временно недоступен. Попробуйте позже.";
+        } else {
+          errorMessage = `Ошибка сервера (${response.status}). Попробуйте позже.`;
+        }
+      }
+      
       const error = new Error(errorMessage);
       
       logger.error('api', error, {
@@ -132,13 +152,35 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
       throw error;
     }
     
+    // Формируем понятное сообщение для сетевых ошибок
+    let errorMessage: string;
+    if (error instanceof Error) {
+      const message = error.message?.trim();
+      if (message && message.length > 0 && message.toLowerCase() !== "unknown error") {
+        if (message.includes("Failed to fetch") || message.includes("network") || message.includes("NetworkError")) {
+          errorMessage = "Проблема с подключением к интернету. Проверьте соединение и попробуйте снова.";
+        } else if (message.includes("timeout") || message.includes("Timeout")) {
+          errorMessage = "Превышено время ожидания ответа от сервера. Попробуйте позже.";
+        } else {
+          errorMessage = message;
+        }
+      } else {
+        errorMessage = "Ошибка подключения к серверу. Попробуйте позже.";
+      }
+    } else {
+      errorMessage = "Ошибка подключения к серверу. Попробуйте позже.";
+    }
+    
+    const apiError = new Error(errorMessage);
+    
     // Сетевая ошибка или другая ошибка
-    logger.error('api', error instanceof Error ? error : new Error('Неизвестная ошибка API'), {
+    logger.error('api', apiError, {
       apiNetworkError: {
         method,
         url,
         errorType: error instanceof Error ? error.name : 'Unknown',
-        errorMessage: error instanceof Error ? error.message : String(error),
+        originalErrorMessage: error instanceof Error ? error.message : String(error),
+        finalErrorMessage: errorMessage,
         duration: `${responseDuration.toFixed(2)}ms`,
         timestamp: new Date().toISOString(),
         networkInfo: {
@@ -148,7 +190,7 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
       },
     });
     
-    throw error;
+    throw apiError;
   }
 }
 
@@ -158,9 +200,24 @@ function parseErrorPayload(payload?: string): string | null {
   }
   try {
     const parsed = JSON.parse(payload);
-    return parsed?.error ?? parsed?.message ?? null;
+    const errorMessage = parsed?.error ?? parsed?.message ?? null;
+    
+    // Проверяем, что сообщение не пустое и не "Unknown error"
+    if (errorMessage && typeof errorMessage === 'string') {
+      const trimmed = errorMessage.trim();
+      if (trimmed.length > 0 && trimmed.toLowerCase() !== "unknown error") {
+        return trimmed;
+      }
+    }
+    
+    return null;
   } catch {
-    return payload;
+    // Если не удалось распарсить JSON, проверяем, что это не просто "Unknown error"
+    const trimmed = payload.trim();
+    if (trimmed.toLowerCase() === "unknown error" || trimmed.length === 0) {
+      return null;
+    }
+    return trimmed;
   }
 }
 
@@ -390,7 +447,42 @@ export async function getBookingSlots(params: {
     });
     return result;
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Неожиданная ошибка получения слотов";
+    let message = "Не удалось получить доступные слоты";
+    
+    if (error instanceof Error) {
+      const errorMessage = error.message?.trim();
+      if (errorMessage && errorMessage.length > 0) {
+        if (errorMessage.includes("Failed to fetch") || errorMessage.includes("network") || errorMessage.includes("NetworkError")) {
+          message = "Проблема с подключением к интернету. Проверьте соединение и попробуйте снова.";
+        } else if (errorMessage.includes("timeout") || errorMessage.includes("Timeout")) {
+          message = "Превышено время ожидания ответа от сервера. Попробуйте позже.";
+        } else if (errorMessage !== "Unknown error" && errorMessage !== "unknown error") {
+          message = errorMessage;
+        }
+      }
+    } else if (typeof error === 'string' && error.trim() && error.trim() !== "Unknown error" && error.trim() !== "unknown error") {
+      message = error.trim();
+    }
+    
+    // Убеждаемся, что сообщение не пустое
+    if (!message || message.trim() === "" || message.toLowerCase() === "unknown error") {
+      message = "Не удалось получить доступные слоты. Попробуйте позже.";
+    }
+    
+    logger.error('booking-api', error instanceof Error ? error : new Error(message), {
+      step: 'get_slots_error',
+      errorDetails: {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message,
+      },
+      params: {
+        restaurantId: params.restaurantId,
+        date: params.date,
+        guestsCount: params.guestsCount,
+      },
+      timestamp: new Date().toISOString(),
+    });
+    
     return {
       success: false,
       data: { slots: [], date: params.date, guests_count: params.guestsCount },

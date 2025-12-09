@@ -24,14 +24,40 @@ async function getRemarkedToken(restaurantId) {
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Failed to get Remarked token: ${response.status} ${text}`);
+    let errorMessage = `Не удалось получить токен от сервиса бронирования`;
+    try {
+      const text = await response.text();
+      let parsedError;
+      try {
+        parsedError = JSON.parse(text);
+      } catch {
+        parsedError = { message: text };
+      }
+      
+      if (parsedError.message && parsedError.message.trim() && parsedError.message.toLowerCase() !== "unknown error") {
+        errorMessage = parsedError.message.trim();
+      } else if (parsedError.error && parsedError.error.trim() && parsedError.error.toLowerCase() !== "unknown error") {
+        errorMessage = parsedError.error.trim();
+      } else if (response.status === 400) {
+        errorMessage = "Неверный запрос к сервису бронирования. Проверьте настройки ресторана.";
+      } else if (response.status === 404) {
+        errorMessage = "Ресторан не найден в системе бронирования. Проверьте настройки ресторана.";
+      } else if (response.status >= 500) {
+        errorMessage = "Сервис бронирования временно недоступен. Попробуйте позже.";
+      }
+    } catch {
+      // Используем дефолтное сообщение
+    }
+    throw new Error(errorMessage);
   }
 
   const data = await response.json();
   
   if (data.status === "error") {
-    throw new Error(data.message || `Ошибка получения токена для ресторана ${restaurantId}`);
+    const errorMessage = data.message && data.message.trim() && data.message.toLowerCase() !== "unknown error"
+      ? data.message.trim()
+      : `Ошибка получения токена для ресторана ${restaurantId}`;
+    throw new Error(errorMessage);
   }
   
   return data;
@@ -239,9 +265,16 @@ export function createBookingRouter() {
       } catch (error) {
         const duration = Date.now() - startTime;
         logger.requestError('GET', '/slots', error, 500);
+        
+        // Формируем понятное сообщение об ошибке
+        let errorMessage = 'Не удалось подключиться к сервису бронирования. Попробуйте позже.';
+        if (error instanceof Error && error.message && error.message.trim() && error.message.toLowerCase() !== "unknown error") {
+          errorMessage = error.message.trim();
+        }
+        
         return res.status(500).json({
           success: false,
-          error: 'Не удалось подключиться к сервису бронирования. Попробуйте позже.',
+          error: errorMessage,
         });
       }
 
@@ -279,16 +312,22 @@ export function createBookingRouter() {
         const duration = Date.now() - startTime;
         logger.requestError('GET', '/slots', error, 500);
         
-        if (error.message && error.message.includes('400')) {
+        // Формируем понятное сообщение об ошибке
+        let errorMessage = 'Не удалось получить доступные слоты. Попробуйте позже.';
+        if (error instanceof Error && error.message && error.message.trim() && error.message.toLowerCase() !== "unknown error") {
+          errorMessage = error.message.trim();
+        }
+        
+        if (error instanceof Error && error.message && error.message.includes('400')) {
           return res.status(400).json({
             success: false,
-            error: error.message || 'Неверные параметры запроса',
+            error: errorMessage,
           });
         }
 
         return res.status(500).json({
           success: false,
-          error: error.message || 'Не удалось получить доступные слоты. Попробуйте позже.',
+          error: errorMessage,
         });
       }
     } catch (error) {
@@ -296,9 +335,15 @@ export function createBookingRouter() {
       logger.requestError('GET', '/slots', error, 500);
       logger.error('Ошибка получения слотов', error);
       
+      // Формируем понятное сообщение об ошибке
+      let errorMessage = 'Не удалось получить доступные слоты. Попробуйте позже.';
+      if (error instanceof Error && error.message && error.message.trim() && error.message.toLowerCase() !== "unknown error") {
+        errorMessage = error.message.trim();
+      }
+      
       return res.status(500).json({
         success: false,
-        error: error.message || 'Не удалось получить доступные слоты',
+        error: errorMessage,
       });
     }
   });
@@ -517,9 +562,15 @@ export function createBookingRouter() {
       logger.requestError('POST', '/', error, 500);
       logger.error('Ошибка создания бронирования', error);
       
+      // Формируем понятное сообщение об ошибке
+      let errorMessage = "Не удалось создать бронирование. Попробуйте позже.";
+      if (error instanceof Error && error.message && error.message.trim() && error.message.toLowerCase() !== "unknown error") {
+        errorMessage = error.message.trim();
+      }
+      
       return res.status(500).json({ 
         success: false, 
-        error: error.message || "Не удалось создать бронирование" 
+        error: errorMessage
       });
     }
   });
@@ -604,9 +655,15 @@ export function createBookingRouter() {
       logger.requestError('GET', '/', error, 500);
       logger.error('Ошибка получения списка бронирований', error);
       
+      // Формируем понятное сообщение об ошибке
+      let errorMessage = "Не удалось получить список бронирований. Попробуйте позже.";
+      if (error instanceof Error && error.message && error.message.trim() && error.message.toLowerCase() !== "unknown error") {
+        errorMessage = error.message.trim();
+      }
+      
       return res.status(500).json({ 
         success: false, 
-        error: error.message || "Не удалось получить список бронирований" 
+        error: errorMessage
       });
     }
   });

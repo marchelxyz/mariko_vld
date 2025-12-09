@@ -205,28 +205,45 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           return;
         }
         
+        // Логируем ошибку для отладки
+        console.error('Ошибка получения токена:', {
+          error,
+          name: error instanceof Error ? error.name : 'Unknown',
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        
         // Формируем понятное сообщение об ошибке
         let errorMessage = "Не удалось подключиться к системе бронирования";
         
         if (error instanceof Error) {
           const message = error.message?.trim();
-          if (message) {
+          if (message && message.length > 0) {
             // Если сообщение содержит информацию об ошибке, используем его
             if (message.includes("Failed to get token") || message.includes("Restaurant ID")) {
               errorMessage = "Ошибка подключения к сервису бронирования. Проверьте настройки ресторана.";
             } else if (message.includes("Ошибка получения токена")) {
               errorMessage = message;
-            } else {
+            } else if (message.includes("Failed to fetch") || message.includes("network") || message.includes("NetworkError")) {
+              errorMessage = "Проблема с подключением к интернету. Проверьте соединение и попробуйте снова.";
+            } else if (message.includes("timeout") || message.includes("Timeout")) {
+              errorMessage = "Превышено время ожидания ответа от сервера. Попробуйте позже.";
+            } else if (message.length > 0 && message !== "Unknown error" && message !== "unknown error") {
               errorMessage = message;
             }
           }
-        } else if (typeof error === 'string' && error.trim()) {
+        } else if (typeof error === 'string' && error.trim() && error.trim() !== "Unknown error" && error.trim() !== "unknown error") {
           errorMessage = error.trim();
         } else if (error && typeof error === 'object' && 'message' in error) {
           const message = String(error.message)?.trim();
-          if (message) {
+          if (message && message.length > 0 && message !== "Unknown error" && message !== "unknown error") {
             errorMessage = message;
           }
+        }
+        
+        // Убеждаемся, что сообщение не пустое и не "Unknown error"
+        if (!errorMessage || errorMessage.trim() === "" || errorMessage.toLowerCase() === "unknown error") {
+          errorMessage = "Не удалось подключиться к системе бронирования. Попробуйте обновить страницу.";
         }
         
         setTokenError(errorMessage);
@@ -235,9 +252,10 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         // Сетевые ошибки обычно временные и не требуют немедленного внимания пользователя
         const isNetworkError = error instanceof TypeError || 
                               (error instanceof Error && (
-                                error.message.includes('fetch') ||
-                                error.message.includes('network') ||
-                                error.message.includes('Failed to fetch')
+                                error.message?.includes('fetch') ||
+                                error.message?.includes('network') ||
+                                error.message?.includes('Failed to fetch') ||
+                                error.message?.includes('NetworkError')
                               ));
         
         if (!isNetworkError) {
@@ -517,12 +535,29 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
             return prevTime;
           });
         } else {
-          console.warn('Не удалось загрузить слоты:', response.error);
+          // Обрабатываем ошибку из ответа
+          let errorMessage = response.error?.trim() || "Не удалось загрузить доступные слоты";
+          
+          // Проверяем, что сообщение не "Unknown error"
+          if (!errorMessage || errorMessage.toLowerCase() === "unknown error") {
+            errorMessage = "Не удалось загрузить доступные слоты. Попробуйте позже.";
+          }
+          
+          console.warn('Не удалось загрузить слоты:', {
+            error: errorMessage,
+            response: response,
+          });
+          
           // Если кэша не было, очищаем слоты при ошибке
           if (!hasCache) {
             setAvailableSlots([]);
             setSelectedTime("");
             setSelectedSlot(null);
+          }
+          
+          // Устанавливаем ошибку токена, если она связана с подключением
+          if (errorMessage.includes("подключ") || errorMessage.includes("сеть") || errorMessage.includes("интернет")) {
+            setTokenError(errorMessage);
           }
         }
       })
@@ -533,6 +568,29 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           return;
         }
         
+        // Формируем понятное сообщение об ошибке
+        let errorMessage = "Не удалось загрузить доступные слоты";
+        
+        if (error instanceof Error) {
+          const message = error.message?.trim();
+          if (message && message.length > 0 && message.toLowerCase() !== "unknown error") {
+            if (message.includes("Failed to fetch") || message.includes("network") || message.includes("NetworkError")) {
+              errorMessage = "Проблема с подключением к интернету. Проверьте соединение и попробуйте снова.";
+            } else if (message.includes("timeout") || message.includes("Timeout")) {
+              errorMessage = "Превышено время ожидания ответа от сервера. Попробуйте позже.";
+            } else {
+              errorMessage = message;
+            }
+          }
+        } else if (typeof error === 'string' && error.trim() && error.trim().toLowerCase() !== "unknown error") {
+          errorMessage = error.trim();
+        }
+        
+        // Убеждаемся, что сообщение не пустое
+        if (!errorMessage || errorMessage.trim() === "" || errorMessage.toLowerCase() === "unknown error") {
+          errorMessage = "Не удалось загрузить доступные слоты. Попробуйте позже.";
+        }
+        
         // Очищаем слоты при ошибке только если кэша не было
         if (!hasCache) {
           setAvailableSlots([]);
@@ -540,9 +598,15 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           setSelectedSlot(null);
         }
         
+        // Устанавливаем ошибку токена, если она связана с подключением
+        if (errorMessage.includes("подключ") || errorMessage.includes("сеть") || errorMessage.includes("интернет")) {
+          setTokenError(errorMessage);
+        }
+        
         // Не показываем toast для ошибок загрузки слотов, так как это может быть нормальной ситуацией
         console.error('Ошибка загрузки слотов:', {
           error,
+          errorMessage,
           message: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
           restaurantId: restaurantId,
@@ -1010,7 +1074,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
             </p>
           </div>
         )}
-        {tokenError && (
+        {tokenError && tokenError.trim() !== "" && tokenError.toLowerCase() !== "unknown error" && (
           <div className="mt-2 rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-3">
             <p className="text-yellow-300 text-xs font-medium">
               ⚠️ {tokenError}
