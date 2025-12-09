@@ -1,4 +1,4 @@
-import { supabase } from "../supabaseClient.mjs";
+import { queryOne, queryMany, db } from "../postgresClient.mjs";
 import { normaliseNullableString, normalisePhone, normaliseTelegramId } from "../utils.mjs";
 
 export const PROFILE_SELECT_FIELDS =
@@ -115,69 +115,83 @@ export const buildProfileUpsertPayload = (input) => {
 };
 
 export const upsertUserProfileRecord = async (input) => {
-  if (!supabase) {
-    throw new Error("Supabase is not configured");
+  if (!db) {
+    throw new Error("Database is not configured");
   }
   const payload = buildProfileUpsertPayload(input);
-  const { data, error } = await supabase
-    .from("user_profiles")
-    .upsert(payload, { onConflict: "id" })
-    .select(PROFILE_SELECT_FIELDS)
-    .maybeSingle();
-  if (error) {
+  const fields = Object.keys(payload);
+  const values = Object.values(payload);
+  const placeholders = fields.map((_, i) => `$${i + 1}`).join(", ");
+  const updateFields = fields
+    .filter((f) => f !== "id")
+    .map((f) => {
+      const index = fields.indexOf(f);
+      return `${f} = $${index + 1}`;
+    })
+    .join(", ");
+
+  try {
+    const result = await queryOne(
+      `INSERT INTO user_profiles (${fields.join(", ")}, created_at, updated_at)
+       VALUES (${placeholders}, NOW(), NOW())
+       ON CONFLICT (id) 
+       DO UPDATE SET ${updateFields}, updated_at = NOW()
+       RETURNING ${PROFILE_SELECT_FIELDS}`,
+      values,
+    );
+    return result;
+  } catch (error) {
+    console.error("Ошибка upsert профиля:", error);
     throw error;
   }
-  return data;
 };
 
 export const fetchUserProfile = async (identifier) => {
-  if (!supabase) {
+  if (!db) {
     return null;
   }
-  const asString = identifier ? String(identifier) : "";
-  const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(asString);
-  if (looksLikeUuid) {
-    const result = await supabase
-      .from("user_profiles")
-      .select(PROFILE_SELECT_FIELDS)
-      .eq("id", asString)
-      .maybeSingle();
-    if (result.error && result.error.code !== "PGRST116") {
-      console.error("Ошибка загрузки профиля:", result.error);
+  try {
+    const asString = identifier ? String(identifier) : "";
+    const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(asString);
+    
+    if (looksLikeUuid) {
+      const result = await queryOne(
+        `SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles WHERE id = $1 LIMIT 1`,
+        [asString],
+      );
+      if (result) {
+        return result;
+      }
     }
-    if (result.data) {
-      return result.data;
-    }
-  }
 
-  const numeric = Number(asString);
-  if (Number.isFinite(numeric)) {
-    const fallback = await supabase
-      .from("user_profiles")
-      .select(PROFILE_SELECT_FIELDS)
-      .eq("telegram_id", numeric)
-      .maybeSingle();
-    if (fallback.error && fallback.error.code !== "PGRST116") {
-      console.error("Ошибка поиска профиля по telegram_id:", fallback.error);
+    const numeric = Number(asString);
+    if (Number.isFinite(numeric)) {
+      const fallback = await queryOne(
+        `SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles WHERE telegram_id = $1 LIMIT 1`,
+        [numeric],
+      );
+      if (fallback) {
+        return fallback;
+      }
     }
-    if (fallback.data) {
-      return fallback.data;
-    }
+    return null;
+  } catch (error) {
+    console.error("Ошибка загрузки профиля:", error);
+    return null;
   }
-  return null;
 };
 
 export const listUserProfiles = async () => {
-  if (!supabase) {
+  if (!db) {
     return [];
   }
-  const { data, error } = await supabase
-    .from("user_profiles")
-    .select(PROFILE_SELECT_FIELDS)
-    .order("created_at", { ascending: false });
-  if (error) {
+  try {
+    const results = await queryMany(
+      `SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles ORDER BY created_at DESC`,
+    );
+    return results;
+  } catch (error) {
     console.error("Ошибка загрузки списка пользователей:", error);
     return [];
   }
-  return Array.isArray(data) ? data : [];
 };

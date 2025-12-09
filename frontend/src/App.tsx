@@ -7,6 +7,8 @@ import { Toaster as SonnerToaster } from "@shared/ui/sonner";
 import { Toaster } from "@shared/ui/toaster";
 import { TooltipProvider } from "@shared/ui/tooltip";
 import { isActive, onActivated, onDeactivated } from "@/lib/telegram";
+import { logger } from "@/lib/logger";
+import RandomBackgroundPattern from "@/components/RandomBackgroundPattern";
 
 // Lazy load pages for better code splitting
 const Index = lazy(() => import("./pages/home"));
@@ -42,15 +44,24 @@ function App() {
   useEnsureUserProfileSync();
 
   useEffect(() => {
+    logger.componentLifecycle('App', 'mount');
     const updateFocus = (focused: boolean) => {
       focusManager.setFocused(focused);
+      logger.debug('app', `Фокус приложения: ${focused ? 'активен' : 'неактивен'}`);
     };
 
     updateFocus(isActive());
-    const unsubscribeActivate = onActivated(() => updateFocus(true));
-    const unsubscribeDeactivate = onDeactivated(() => updateFocus(false));
+    const unsubscribeActivate = onActivated(() => {
+      logger.debug('app', 'Приложение активировано');
+      updateFocus(true);
+    });
+    const unsubscribeDeactivate = onDeactivated(() => {
+      logger.debug('app', 'Приложение деактивировано');
+      updateFocus(false);
+    });
 
     return () => {
+      logger.componentLifecycle('App', 'unmount');
       unsubscribeActivate();
       unsubscribeDeactivate();
     };
@@ -61,32 +72,35 @@ function App() {
       <TooltipProvider>
         <RestaurantProvider>
           <CartProvider>
-            <HashRouter>
-              <Suspense fallback={<></>}>
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/edit-profile" element={<EditProfile />} />
+            <RandomBackgroundPattern />
+            <div className="relative z-[1]">
+              <HashRouter>
+                <Suspense fallback={<></>}>
+                  <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/edit-profile" element={<EditProfile />} />
 
-                  <Route path="/restaurants/:id" element={<Restaurants />} />
-                  <Route path="/restaurants" element={<Restaurants />} />
-                  <Route path="/delivery" element={<Delivery />} />
-                  <Route path="/menu" element={<Menu />} />
-                  <Route path="/orders" element={<Orders />} />
-                  <Route path="/order-success" element={<OrderSuccess />} />
-                  <Route path="/review" element={<Review />} />
-                  <Route path="/select-restaurant-review" element={<SelectRestaurantForReview />} />
-                  <Route path="/booking" element={<Booking />} />
-                  <Route path="/franchise" element={<Franchise />} />
-                  <Route path="/webview/:slug" element={<WebViewPage />} />
-                  <Route path="/about" element={<About />} />
-                  <Route path="/admin" element={<AdminPanel />} />
-                  {/* 404 → домой, чтобы избежать белого экрана в WebView */}
-                  <Route path="/404" element={<NotFound />} />
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </Suspense>
-            </HashRouter>
+                    <Route path="/restaurants/:id" element={<Restaurants />} />
+                    <Route path="/restaurants" element={<Restaurants />} />
+                    <Route path="/delivery" element={<Delivery />} />
+                    <Route path="/menu" element={<Menu />} />
+                    <Route path="/orders" element={<Orders />} />
+                    <Route path="/order-success" element={<OrderSuccess />} />
+                    <Route path="/review" element={<Review />} />
+                    <Route path="/select-restaurant-review" element={<SelectRestaurantForReview />} />
+                    <Route path="/booking" element={<Booking />} />
+                    <Route path="/franchise" element={<Franchise />} />
+                    <Route path="/webview/:slug" element={<WebViewPage />} />
+                    <Route path="/about" element={<About />} />
+                    <Route path="/admin" element={<AdminPanel />} />
+                    {/* 404 → домой, чтобы избежать белого экрана в WebView */}
+                    <Route path="/404" element={<NotFound />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </Suspense>
+              </HashRouter>
+            </div>
             <Toaster />
             <SonnerToaster />
           </CartProvider>

@@ -1,5 +1,15 @@
-import { citiesSupabaseApi } from '@/shared/api/cities';
+import { citiesApi } from '@/shared/api/cities';
 import { ACTIVE_CITY_IDS, USE_ACTIVE_CITIES_FILTER, isRestaurantActive } from '@/shared/config/activeCities';
+
+export type DeliveryAggregator = {
+  name: string;
+  url: string;
+};
+
+export type SocialNetwork = {
+  name: string;
+  url: string;
+};
 
 export interface Restaurant {
   id: string;
@@ -8,6 +18,11 @@ export interface Restaurant {
   city: string;
   isActive?: boolean;
   remarkedRestaurantId?: number;
+  phoneNumber?: string;
+  deliveryAggregators?: DeliveryAggregator[];
+  yandexMapsUrl?: string;
+  twoGisUrl?: string;
+  socialNetworks?: SocialNetwork[];
 }
 
 export interface City {
@@ -16,7 +31,15 @@ export interface City {
   restaurants: Restaurant[];
 }
 
-// Полный список городов (ранее хранился в CitySelector.tsx)
+/**
+ * @deprecated УСТАРЕВШИЙ статичный массив городов
+ * 
+ * ⚠️ ВНИМАНИЕ: Этот массив больше не используется в продакшене!
+ * Все города теперь создаются через админ-панель и хранятся в базе данных.
+ * 
+ * Этот массив оставлен только для обратной совместимости и может быть удален в будущем.
+ * Используйте getAvailableCitiesAsync() или getAllCitiesAsync() для получения городов из БД.
+ */
 export const cities: City[] = [
   {
     id: "nizhny-novgorod",
@@ -357,53 +380,48 @@ export const cities: City[] = [
 ];
 
 /**
- * Получить список городов в зависимости от конфигурации
- * Возвращает только активные города, которые видят ВСЕ пользователи
+ * @deprecated УСТАРЕВШАЯ функция - использует статичные данные
  * 
- * ⚠️ УСТАРЕВШАЯ функция - использует статичные данные
- * Для продакшена используйте getAvailableCitiesAsync() с Supabase!
+ * ⚠️ ВНИМАНИЕ: Эта функция больше не используется в продакшене!
+ * Все города теперь создаются через админ-панель и хранятся в базе данных.
+ * 
+ * Для получения городов используйте getAvailableCitiesAsync() или getAllCitiesAsync()
  */
 export function getAvailableCities(): City[] {
-  // Если фильтр отключен - возвращаем все города
-  // (Supabase сам управляет активностью)
-  if (!USE_ACTIVE_CITIES_FILTER) {
-    return cities;
-  }
-
-  // Фильтруем города и рестораны по конфигурации (старая система)
-  return cities
-    .filter(city => ACTIVE_CITY_IDS.includes(city.id))
-    .map(city => ({
-      ...city,
-      restaurants: city.restaurants.filter(restaurant => 
-        isRestaurantActive(city.id, restaurant.id)
-      ),
-    }))
-    .filter(city => city.restaurants.length > 0);
+  console.warn('⚠️ getAvailableCities() устарела. Используйте getAvailableCitiesAsync() для получения городов из БД.');
+  // Возвращаем пустой массив, так как города теперь в БД
+  return [];
   }
 
 /**
- * Получить список активных городов из Supabase (асинхронно)
- * Используйте эту функцию для real-time данных
+ * Получить список активных городов из базы данных (асинхронно)
+ * Используйте эту функцию для получения актуальных данных
  */
 export async function getAvailableCitiesAsync(): Promise<City[]> {
-  return await citiesSupabaseApi.getActiveCities();
+  return await citiesApi.getActiveCities();
 }
 
 /**
- * Получить ВСЕ города (для админ-панели)
- * Не фильтрует по активности
+ * @deprecated УСТАРЕВШАЯ функция - использует статичные данные
+ * 
+ * ⚠️ ВНИМАНИЕ: Эта функция больше не используется в продакшене!
+ * Все города теперь создаются через админ-панель и хранятся в базе данных.
+ * 
+ * Для получения всех городов используйте getAllCitiesAsync()
  */
 export function getAllCities(): City[] {
-  return cities;
+  console.warn('⚠️ getAllCities() устарела. Используйте getAllCitiesAsync() для получения городов из БД.');
+  // Возвращаем пустой массив, так как города теперь в БД
+  return [];
 }
 
 /**
- * Получить ВСЕ города из Supabase (асинхронно)
+ * Получить ВСЕ города из базы данных (асинхронно)
  */
 export async function getAllCitiesAsync(): Promise<City[]> {
-  return await citiesSupabaseApi.getAllCities();
+  return await citiesApi.getAllCities();
 }
 
-// Полный список городов уже экспортирован выше
-// В новом коде используйте getAvailableCities() для получения доступных городов
+// ⚠️ ВАЖНО: Статичный массив cities устарел и больше не используется!
+// Все города теперь создаются через админ-панель и хранятся в базе данных.
+// Используйте getAvailableCitiesAsync() или getAllCitiesAsync() для получения городов из БД.

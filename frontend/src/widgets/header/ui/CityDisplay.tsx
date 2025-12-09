@@ -1,17 +1,5 @@
 import { MapPin } from "lucide-react";
-
-interface City {
-  id: string;
-  name: string;
-  restaurants: Restaurant[];
-}
-
-interface Restaurant {
-  id: string;
-  name: string;
-  address: string;
-  city: string;
-}
+import type { City } from "@shared/data";
 
 interface CityDisplayProps {
   selectedCity: City | null;

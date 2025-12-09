@@ -11,7 +11,6 @@ export const RAW_SERVER_API_BASE = normalizeBaseUrl(rawServerEnv || "/api");
 export const HAS_CUSTOM_SERVER_BASE = Boolean(rawServerEnv);
 export const USE_SERVER_API = (import.meta.env.VITE_USE_SERVER_API ?? "true") !== "false";
 export const FORCE_SERVER_API_IN_DEV = import.meta.env.VITE_FORCE_SERVER_API === "true";
-export const DEV_ADMIN_TOKEN = import.meta.env.VITE_DEV_ADMIN_TOKEN;
 export const SERVER_POLL_INTERVAL_MS = Number(import.meta.env.VITE_SERVER_POLL_INTERVAL_MS || 15000);
 
 export function resolveServerUrl(path: string): string {

@@ -40,11 +40,18 @@ export class HttpClient {
       throw new Error("API base URL is not configured");
     }
 
+    // Динамический импорт для избежания циклических зависимостей
+    const { logger } = await import("@/lib/logger");
+    
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    const method = options?.method ?? "GET";
+    const url = `${this.baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+    const startTime = Date.now();
 
     try {
-      const url = `${this.baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+      logger.api(method, url, options?.body);
+      
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
         ...(options?.headers ?? {}),
@@ -55,23 +62,38 @@ export class HttpClient {
       }
 
       const response = await fetch(url, {
-        method: options?.method ?? "GET",
+        method,
         headers,
         body: options?.body ? JSON.stringify(options.body) : undefined,
         signal: options?.signal ?? controller.signal,
       });
 
+      const duration = Date.now() - startTime;
+
       if (!response.ok) {
         const text = await response.text().catch(() => "");
-        throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+        const error = new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+        logger.apiError(method, url, error, response.status);
+        throw error;
       }
 
       // Пустой ответ
       if (response.status === 204) {
+        logger.apiSuccess(method, url, undefined);
         return undefined as unknown as TResponse;
       }
 
-      return (await response.json()) as TResponse;
+      const data = await response.json() as TResponse;
+      logger.apiSuccess(method, url, data);
+      return data;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      if (error instanceof Error && error.name === 'AbortError') {
+        logger.warn('http', `Запрос прерван по таймауту: ${method} ${url}`, { duration });
+      } else {
+        logger.apiError(method, url, error as Error);
+      }
+      throw error;
     } finally {
       clearTimeout(timeout);
     }

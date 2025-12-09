@@ -293,44 +293,10 @@ const resolvePromotionImageUrl = (url?: string | null) => {
   if (!url) return "";
   const trimmed = url.trim();
   if (!trimmed) return "";
+  // Если URL уже полный, возвращаем как есть
   if (/^https?:\/\//i.test(trimmed)) {
-    try {
-      const parsed = new URL(trimmed);
-      const host = parsed.host.replace(".storage.supabase.", ".supabase.");
-      if (host !== parsed.host) {
-        return `${parsed.protocol}//${host}${parsed.pathname}${parsed.search}${parsed.hash}`;
-      }
-    } catch {
-      // ignore
-    }
     return trimmed;
   }
-  const normalizeBase = (raw: string) => {
-    try {
-      const parsed = new URL(raw);
-      const host = parsed.host.replace(".storage.supabase.", ".supabase.");
-      return `${parsed.protocol}//${host}`;
-    } catch {
-      return raw
-        .replace(/\/storage\/v1.*$/, "")
-        .replace(".storage.supabase.", ".supabase.")
-        .replace(/\/$/, "");
-    }
-  };
-  const encodeSegments = (path: string) =>
-    path
-      .split("/")
-      .map((seg) => {
-        try {
-          return encodeURIComponent(decodeURIComponent(seg));
-        } catch {
-          return encodeURIComponent(seg);
-        }
-      })
-      .join("/");
-  const base = normalizeBase(import.meta.env.VITE_SUPABASE_URL || "");
-  if (!base) return trimmed;
-  const clean = trimmed.replace(/^\/+/, "").replace(/^promotion-images\//, "");
-  const encoded = encodeSegments(clean);
-  return `${base}/storage/v1/object/public/promotion-images/${encoded}`;
+  // Для относительных путей возвращаем как есть (обрабатывается на сервере)
+  return trimmed;
 };

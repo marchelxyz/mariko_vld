@@ -8,14 +8,16 @@ import {
   Eye,
   EyeOff,
   Trash2,
-  Shield,
+  Edit,
+  Plus,
 } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { adminApi } from "@shared/api/admin";
-import { citiesSupabaseApi } from "@shared/api/cities";
-import { getAllCitiesAsync, type City } from "@shared/data";
+import { citiesApi } from "@shared/api/cities";
+import { getAllCitiesAsync, type City, type Restaurant } from "@shared/data";
 import { useAdmin } from "@shared/hooks";
-import { Permission } from "@shared/types";
+import { EditRestaurantModal, CreateCityModal } from "./ui";
+import { logger } from "@/lib/logger";
 import {
   Button,
   Input,
@@ -28,7 +30,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@shared/ui";
-import { isSupabaseConfigured } from "@/lib/supabase";
 
 type RestaurantWithStatus = City['restaurants'][number] & { isActive: boolean };
 
@@ -52,58 +53,62 @@ const normalizeCity = (city: City & { is_active?: boolean }): CityWithStatus => 
  * Компонент управления городами
  */
 export function CitiesManagement(): JSX.Element {
-  const { userId, hasPermission, isSuperAdmin } = useAdmin();
+  const { userId } = useAdmin();
   const [citiesWithStatus, setCitiesWithStatus] = useState<CityWithStatus[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [cityToDelete, setCityToDelete] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const useSupabase = isSupabaseConfigured();
+  const [restaurantToEdit, setRestaurantToEdit] = useState<Restaurant | null>(null);
+  const [isCreateCityModalOpen, setIsCreateCityModalOpen] = useState(false);
 
-  // Права доступа
-  const canManage = isSuperAdmin() && hasPermission(Permission.MANAGE_CITIES);
-
-  // Загрузка городов из Supabase
+  // Загрузка городов из базы данных
   useEffect(() => {
     const loadCities = async () => {
       setIsLoading(true);
+      logger.info('cities', 'Начало загрузки городов');
       try {
         const cities = await getAllCitiesAsync();
         const citiesWithStatus = cities.map((city) => normalizeCity(city as City & { is_active?: boolean }));
 
-        console.log('📊 Загружено городов:', citiesWithStatus.length);
-        console.log('✅ Активных:', citiesWithStatus.filter(c => c.isActive).length);
+        logger.info('cities', 'Города загружены', {
+          total: citiesWithStatus.length,
+          active: citiesWithStatus.filter(c => c.isActive).length,
+        });
         
         setCitiesWithStatus(citiesWithStatus);
       } catch (error) {
-        console.error('Ошибка загрузки городов:', error);
+        logger.error('cities', error instanceof Error ? error : new Error('Ошибка загрузки городов'));
+        // Показываем сообщение об ошибке пользователю
+        alert('❌ Не удалось загрузить города. Проверьте подключение к серверу.');
       } finally {
         setIsLoading(false);
       }
     };
 
     loadCities();
-  }, [useSupabase]);
+  }, []);
 
   // Real-time подписка на изменения
   useEffect(() => {
-    if (!useSupabase) return;
+    logger.info('cities', 'Подписка на изменения городов активирована');
 
-    console.log('🔄 Подписка на изменения городов активирована');
-
-    const unsubscribe = citiesSupabaseApi.subscribeToCitiesChanges(async () => {
+    const unsubscribe = citiesApi.subscribeToCitiesChanges(async () => {
       // Перезагружаем все города при любом изменении
+      logger.debug('cities', 'Обновление городов через подписку');
       const cities = await getAllCitiesAsync();
       const citiesWithStatus = cities.map((city) => normalizeCity(city as City & { is_active?: boolean }));
       
       setCitiesWithStatus(citiesWithStatus);
-      console.log('✅ Города обновлены в реальном времени');
+      logger.info('cities', 'Города обновлены в реальном времени', {
+        total: citiesWithStatus.length,
+      });
     });
 
     return () => {
-      console.log('❌ Отписка от изменений городов');
+      logger.info('cities', 'Отписка от изменений городов');
       unsubscribe();
     };
-  }, [useSupabase]);
+  }, []);
 
   // Фильтрация городов
   const filteredCities = useMemo(() => {
@@ -120,11 +125,6 @@ export function CitiesManagement(): JSX.Element {
    * Переключить активность города
    */
   const handleToggleActive = async (cityId: string) => {
-    if (!canManage) {
-      alert('У вас нет прав для изменения статуса городов');
-      return;
-    }
-
     const city = citiesWithStatus.find((c) => c.id === cityId);
     if (!city) return;
 
@@ -134,30 +134,24 @@ export function CitiesManagement(): JSX.Element {
       return;
     }
 
-    if (useSupabase) {
-      // Используем Supabase - изменения применяются моментально для всех
-      const result = await citiesSupabaseApi.setCityStatus(cityId, newStatus);
+    const result = await citiesApi.setCityStatus(cityId, newStatus);
 
-      if (result.success) {
-        // Обновляем локальное состояние
-        setCitiesWithStatus((prev) =>
-          prev.map((c) =>
-            c.id === cityId ? { ...c, isActive: newStatus } : c
-          )
-        );
+    if (result.success) {
+      // Обновляем локальное состояние
+      setCitiesWithStatus((prev) =>
+        prev.map((c) =>
+          c.id === cityId ? { ...c, isActive: newStatus } : c
+        )
+      );
 
-        // Логируем изменение (внутренний аудит, не влияет на Supabase)
-        adminApi.setCityStatus(cityId, newStatus, userId);
+      // Логируем изменение (внутренний аудит)
+      adminApi.setCityStatus(cityId, newStatus, userId);
 
-        // Короткое сообщение без лишней информации
-        alert(`✅ Готово! Город ${newStatus ? 'активирован' : 'деактивирован'}`);
-      } else {
-        const details = result.errorMessage ? `\n\nДетали: ${result.errorMessage}` : '';
-        alert(`❌ Ошибка изменения статуса${details}`);
-      }
+      // Короткое сообщение без лишней информации
+      alert(`✅ Готово! Город ${newStatus ? 'активирован' : 'деактивирован'}`);
     } else {
-      // Fallback: используем файл конфигурации
-      alert('⚠️ Supabase не подключен. Обратитесь к администратору.');
+      const details = result.errorMessage ? `\n\nДетали: ${result.errorMessage}` : '';
+      alert(`❌ Ошибка изменения статуса${details}`);
     }
   };
 
@@ -165,7 +159,7 @@ export function CitiesManagement(): JSX.Element {
    * Удалить город
    */
   const handleDeleteCity = () => {
-    if (!cityToDelete || !canManage) {
+    if (!cityToDelete) {
       return;
     }
 
@@ -185,11 +179,6 @@ export function CitiesManagement(): JSX.Element {
    * Переключить активность ресторана
    */
   const handleToggleRestaurantActive = async (restaurantId: string, cityId: string) => {
-    if (!canManage) {
-      alert('У вас нет прав для изменения статуса ресторанов');
-      return;
-    }
-
     const city = citiesWithStatus.find((c) => c.id === cityId);
     const restaurant = city?.restaurants.find((r) => r.id === restaurantId);
     if (!restaurant) return;
@@ -200,7 +189,7 @@ export function CitiesManagement(): JSX.Element {
       return;
     }
 
-    const result = await citiesSupabaseApi.updateRestaurant(restaurantId, {
+    const result = await citiesApi.updateRestaurant(restaurantId, {
       isActive: newStatus,
     });
 
@@ -224,14 +213,136 @@ export function CitiesManagement(): JSX.Element {
   };
 
   /**
+   * Сохранить изменения ресторана
+   */
+  const handleSaveRestaurant = async (updates: {
+    name: string;
+    address: string;
+    phoneNumber: string;
+    deliveryAggregators: Array<{ name: string; url: string }>;
+    yandexMapsUrl: string;
+    twoGisUrl: string;
+    socialNetworks: Array<{ name: string; url: string }>;
+    remarkedRestaurantId?: number;
+  }) => {
+    if (!restaurantToEdit) return;
+
+    const result = await citiesApi.updateRestaurant(restaurantToEdit.id, {
+      name: updates.name,
+      address: updates.address,
+      phoneNumber: updates.phoneNumber.trim() ? updates.phoneNumber : undefined,
+      deliveryAggregators: updates.deliveryAggregators.length > 0 ? updates.deliveryAggregators : undefined,
+      yandexMapsUrl: updates.yandexMapsUrl.trim() ? updates.yandexMapsUrl : undefined,
+      twoGisUrl: updates.twoGisUrl.trim() ? updates.twoGisUrl : undefined,
+      socialNetworks: updates.socialNetworks.length > 0 ? updates.socialNetworks : undefined,
+      remarkedRestaurantId: updates.remarkedRestaurantId,
+    });
+
+    if (result) {
+      // Перезагружаем города для обновления данных
+      const cities = await getAllCitiesAsync();
+      const citiesWithStatus = cities.map((city) => normalizeCity(city as City & { is_active?: boolean }));
+      setCitiesWithStatus(citiesWithStatus);
+      alert('✅ Ресторан успешно обновлен');
+      setRestaurantToEdit(null);
+    } else {
+      alert('❌ Ошибка обновления ресторана');
+    }
+  };
+
+  /**
+   * Создать новый город
+   */
+  const handleCreateCity = async (city: {
+    id: string;
+    name: string;
+    displayOrder?: number;
+    restaurant?: {
+      name: string;
+      address: string;
+      phoneNumber?: string;
+      deliveryAggregators?: Array<{ name: string; url: string }>;
+      yandexMapsUrl?: string;
+      twoGisUrl?: string;
+      socialNetworks?: Array<{ name: string; url: string }>;
+      remarkedRestaurantId?: number;
+    };
+  }) => {
+    try {
+      logger.userAction('create_city', { cityId: city.id, cityName: city.name });
+      logger.info('cities', 'Начинаем создание города', { id: city.id, name: city.name, displayOrder: city.displayOrder });
+      
+      const result = await citiesApi.createCity({
+        id: city.id,
+        name: city.name,
+        displayOrder: city.displayOrder,
+      });
+
+      logger.debug('cities', 'Результат создания города', result);
+
+      if (result.success) {
+        logger.info('cities', 'Город успешно создан, создаем ресторан если нужно');
+        
+        // Если указаны данные ресторана, создаем ресторан
+        if (city.restaurant) {
+          logger.info('cities', 'Создаем ресторан для города', { cityId: city.id });
+          const restaurantResult = await citiesApi.createRestaurant({
+            cityId: city.id,
+            name: city.restaurant.name,
+            address: city.restaurant.address,
+            phoneNumber: city.restaurant.phoneNumber,
+            deliveryAggregators: city.restaurant.deliveryAggregators,
+            yandexMapsUrl: city.restaurant.yandexMapsUrl,
+            twoGisUrl: city.restaurant.twoGisUrl,
+            socialNetworks: city.restaurant.socialNetworks,
+            remarkedRestaurantId: city.restaurant.remarkedRestaurantId,
+          });
+
+          logger.debug('cities', 'Результат создания ресторана', restaurantResult);
+
+          if (!restaurantResult.success) {
+            const details = restaurantResult.errorMessage ? `\n\nДетали: ${restaurantResult.errorMessage}` : '';
+            logger.error('cities', new Error(restaurantResult.errorMessage || 'Ошибка создания ресторана'), {
+              cityId: city.id,
+            });
+            alert(`✅ Город "${city.name}" создан, но не удалось создать ресторан${details}`);
+          }
+        }
+
+        // Перезагружаем города для обновления данных
+        logger.debug('cities', 'Перезагружаем список городов');
+        const cities = await getAllCitiesAsync();
+        const citiesWithStatus = cities.map((city) => normalizeCity(city as City & { is_active?: boolean }));
+        setCitiesWithStatus(citiesWithStatus);
+        logger.info('cities', 'Список городов обновлен');
+        alert(`✅ Город "${city.name}" успешно создан${city.restaurant ? ' с рестораном' : ''}`);
+        setIsCreateCityModalOpen(false);
+      } else {
+        const details = result.errorMessage ? `\n\nДетали: ${result.errorMessage}` : '';
+        logger.error('cities', new Error(result.errorMessage || 'Ошибка создания города'), {
+          cityId: city.id,
+          errorMessage: result.errorMessage,
+        });
+        
+        // Более информативное сообщение об ошибке
+        let errorMsg = `❌ Ошибка создания города${details}`;
+        if (result.errorMessage?.includes('Не удалось подключиться к серверу')) {
+          errorMsg += '\n\nПроверьте:\n1. Доступность сервера\n2. Переменную VITE_SERVER_API_URL\n3. Настройки CORS';
+        }
+        alert(errorMsg);
+      }
+    } catch (error) {
+      logger.error('cities', error instanceof Error ? error : new Error('Неожиданная ошибка'), {
+        cityId: city.id,
+      });
+      alert(`❌ Неожиданная ошибка при создании города: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    }
+  };
+
+  /**
    * Обновить ID Remarked для ресторана
    */
   const handleUpdateRemarkedId = async (restaurantId: string, cityId: string) => {
-    if (!canManage) {
-      alert('У вас нет прав для изменения настроек ресторанов');
-      return;
-    }
-
     const city = citiesWithStatus.find((c) => c.id === cityId);
     const restaurant = city?.restaurants.find((r) => r.id === restaurantId);
     if (!restaurant) return;
@@ -251,7 +362,16 @@ export function CitiesManagement(): JSX.Element {
       return;
     }
 
-    const result = await citiesSupabaseApi.updateRestaurant(restaurantId, {
+    // Проверяем, что ID является 6-значным кодом
+    if (parsedId !== undefined) {
+      const idStr = parsedId.toString();
+      if (!/^\d{6}$/.test(idStr)) {
+        alert('❌ ID Remarked должен быть 6-значным кодом (например: 123456)');
+        return;
+      }
+    }
+
+    const result = await citiesApi.updateRestaurant(restaurantId, {
       remarkedRestaurantId: parsedId,
     });
 
@@ -274,16 +394,6 @@ export function CitiesManagement(): JSX.Element {
     }
   };
 
-  if (!isSuperAdmin()) {
-    return (
-      <div className="bg-mariko-secondary rounded-[24px] p-12 text-center">
-        <Shield className="w-12 h-12 text-white/30 mx-auto mb-4" />
-        <h3 className="text-white font-el-messiri text-xl font-bold mb-2">Доступ запрещен</h3>
-        <p className="text-white/70">Управление городами доступно только супер-администратору</p>
-      </div>
-    );
-  }
-
   // Индикатор загрузки
   if (isLoading) {
     return (
@@ -296,16 +406,14 @@ export function CitiesManagement(): JSX.Element {
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Компактная информационная панель */}
-      {useSupabase && (
-        <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-3">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-            <p className="text-green-200 text-sm font-medium">
-              Real-time режим активен
-            </p>
-          </div>
+      <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-3">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+          <p className="text-green-200 text-sm font-medium">
+            Real-time режим активен
+          </p>
         </div>
-      )}
+      </div>
 
       {/* Заголовок и поиск */}
       <div className="space-y-3">
@@ -326,6 +434,13 @@ export function CitiesManagement(): JSX.Element {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1"
           />
+          <Button
+            onClick={() => setIsCreateCityModalOpen(true)}
+            className="bg-mariko-primary hover:bg-mariko-primary/90"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Создать город
+          </Button>
         </div>
       </div>
 
@@ -360,33 +475,31 @@ export function CitiesManagement(): JSX.Element {
               </div>
 
               {/* Кнопки управления */}
-              {canManage && (
-                <div className="flex gap-1 md:gap-2 flex-shrink-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleToggleActive(city.id)}
-                    title={city.isActive ? 'Деактивировать' : 'Активировать'}
-                    className="h-8 w-8 md:h-9 md:w-9 p-0"
-                  >
-                    {city.isActive ? (
-                      <EyeOff className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                    ) : (
-                      <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                    )}
-                  </Button>
+              <div className="flex gap-1 md:gap-2 flex-shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleToggleActive(city.id)}
+                  title={city.isActive ? 'Деактивировать' : 'Активировать'}
+                  className="h-8 w-8 md:h-9 md:w-9 p-0"
+                >
+                  {city.isActive ? (
+                    <EyeOff className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  ) : (
+                    <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  )}
+                </Button>
 
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => setCityToDelete(city.id)}
-                    title="Удалить"
-                    className="h-8 w-8 md:h-9 md:w-9 p-0"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                  </Button>
-                </div>
-              )}
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setCityToDelete(city.id)}
+                  title="Удалить"
+                  className="h-8 w-8 md:h-9 md:w-9 p-0"
+                >
+                  <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                </Button>
+              </div>
             </div>
 
             {/* Список ресторанов */}
@@ -410,32 +523,39 @@ export function CitiesManagement(): JSX.Element {
                       </p>
                     )}
                   </div>
-                  {canManage && (
-                    <div className="flex gap-1 md:gap-2 flex-shrink-0">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleUpdateRemarkedId(restaurant.id, city.id)}
-                        title="Настроить ID Remarked"
-                        className="h-8 w-8 md:h-9 md:w-9 p-0 text-xs"
-                      >
-                        🎯
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleToggleRestaurantActive(restaurant.id, city.id)}
-                        title={restaurant.isActive ? 'Деактивировать ресторан' : 'Активировать ресторан'}
-                        className="h-8 w-8 md:h-9 md:w-9 p-0"
-                      >
-                        {restaurant.isActive ? (
-                          <EyeOff className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                        ) : (
-                          <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                        )}
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex gap-1 md:gap-2 flex-shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setRestaurantToEdit(restaurant)}
+                      title="Редактировать ресторан"
+                      className="h-8 w-8 md:h-9 md:w-9 p-0"
+                    >
+                      <Edit className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleUpdateRemarkedId(restaurant.id, city.id)}
+                      title="Настроить ID Remarked"
+                      className="h-8 w-8 md:h-9 md:w-9 p-0 text-xs"
+                    >
+                      🎯
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleToggleRestaurantActive(restaurant.id, city.id)}
+                      title={restaurant.isActive ? 'Деактивировать ресторан' : 'Активировать ресторан'}
+                      className="h-8 w-8 md:h-9 md:w-9 p-0"
+                    >
+                      {restaurant.isActive ? (
+                        <EyeOff className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                      ) : (
+                        <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -470,6 +590,21 @@ export function CitiesManagement(): JSX.Element {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Модальное окно редактирования ресторана */}
+      <EditRestaurantModal
+        restaurant={restaurantToEdit}
+        isOpen={!!restaurantToEdit}
+        onClose={() => setRestaurantToEdit(null)}
+        onSave={handleSaveRestaurant}
+      />
+
+      {/* Модальное окно создания города */}
+      <CreateCityModal
+        isOpen={isCreateCityModalOpen}
+        onClose={() => setIsCreateCityModalOpen(false)}
+        onSave={handleCreateCity}
+      />
     </div>
   );
 }

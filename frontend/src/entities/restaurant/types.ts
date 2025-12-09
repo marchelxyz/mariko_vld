@@ -1,6 +1,2 @@
-export type Restaurant = {
-  id: string;
-  name: string;
-  address: string;
-  city: string;
-}; 
+// Реэкспортируем единый тип Restaurant из @shared/data
+export type { Restaurant } from "@shared/data"; 

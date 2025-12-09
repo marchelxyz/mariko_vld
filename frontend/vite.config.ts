@@ -25,10 +25,14 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     outDir: "dist",
-    sourcemap: false,
+    sourcemap: mode === 'production' ? 'hidden' : false,
     minify: "esbuild",
     target: "es2017",
     cssCodeSplit: true,
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true,
+    },
     rollupOptions: {
       output: {
         // Оптимизированный code splitting

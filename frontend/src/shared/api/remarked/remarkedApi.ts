@@ -39,10 +39,27 @@ export async function getRemarkedToken(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to get token: ${response.statusText}`);
+    let errorMessage = `Failed to get token: ${response.statusText}`;
+    try {
+      const errorData = await response.json();
+      if (errorData.message) {
+        errorMessage = errorData.message;
+      } else if (errorData.error) {
+        errorMessage = errorData.error;
+      }
+    } catch {
+      // Если не удалось распарсить JSON, используем стандартное сообщение
+    }
+    throw new Error(`${errorMessage} (Restaurant ID: ${restaurantId})`);
   }
 
   const data = await response.json();
+  
+  // Проверяем наличие ошибки в ответе
+  if (data.status === "error") {
+    throw new Error(data.message || `Ошибка получения токена для ресторана ${restaurantId}`);
+  }
+  
   return data;
 }
 
@@ -85,10 +102,27 @@ export async function getRemarkedSlots(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to get slots: ${response.statusText}`);
+    let errorMessage = `Failed to get slots: ${response.statusText}`;
+    try {
+      const errorData = await response.json();
+      if (errorData.message) {
+        errorMessage = errorData.message;
+      } else if (errorData.error) {
+        errorMessage = errorData.error;
+      }
+    } catch {
+      // Если не удалось распарсить JSON, используем стандартное сообщение
+    }
+    throw new Error(errorMessage);
   }
 
   const data = await response.json();
+  
+  // Проверяем наличие ошибки в ответе
+  if (data.status === "error") {
+    throw new Error(data.message || "Ошибка получения слотов");
+  }
+  
   return data;
 }
 
@@ -197,6 +231,61 @@ export async function createRemarkedReserve(
   // Проверяем наличие ошибки в ответе
   if (data.status === "error") {
     throw new Error(data.message || "Ошибка создания бронирования");
+  }
+  
+  return data;
+}
+
+/**
+ * Получить брони по номеру телефона
+ */
+export async function getRemarkedReservesByPhone(
+  token: string,
+  phone: string,
+  limit: number = 1,
+  guestsCount?: number
+): Promise<{
+  status: string;
+  total: number;
+  count: number;
+  reserves: Array<{
+    id: number;
+    name: string;
+    phone: string;
+    estimated_time: string;
+    guests_count: string;
+    inner_status: string;
+  }>;
+}> {
+  // Согласно спецификации Remarked, guests_count обязателен для GetReservesByPhone
+  // Если не передан, используем 1 по умолчанию
+  const request: RemarkedRequest = {
+    method: "GetReservesByPhone",
+    token,
+    phone,
+    guests_count: guestsCount ?? 1,
+    limit: limit.toString(),
+    offset: "0",
+    sort_by: "id",
+    sort_direction: "DESC",
+  };
+
+  const response = await fetch(`${REMARKED_API_BASE}/ApiReservesWidget`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get reserves: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  
+  if (data.status === "error") {
+    throw new Error(data.message || "Ошибка получения броней");
   }
   
   return data;

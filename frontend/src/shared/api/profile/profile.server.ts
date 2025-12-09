@@ -1,7 +1,18 @@
-import { getCartApiBaseUrl } from "@shared/api/cart";
 import type { UserProfile } from "@shared/types";
 
-const PROFILE_ENDPOINT = `${getCartApiBaseUrl()}/cart/profile/me`;
+function getProfileApiBaseUrl(): string {
+  // Используем VITE_SERVER_API_URL если он установлен (предпочтительный вариант)
+  const serverApiUrl = import.meta.env.VITE_SERVER_API_URL;
+  if (serverApiUrl) {
+    return serverApiUrl.replace(/\/$/, "");
+  }
+  
+  // Fallback на VITE_CART_API_URL
+  const cartApiUrl = import.meta.env.VITE_CART_API_URL ?? "/api/cart/submit";
+  return cartApiUrl.replace(/\/cart\/submit\/?$/, "");
+}
+
+const PROFILE_ENDPOINT = `${getProfileApiBaseUrl()}/cart/profile/me`;
 
 type ProfileResponse = {
   success: boolean;

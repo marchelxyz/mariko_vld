@@ -48,7 +48,7 @@ const SectionLoader = () => (
  */
 export default function AdminPanel(): JSX.Element {
   const navigate = useNavigate();
-  const { isAdmin, isLoading, userRole, isSuperAdmin } = useAdmin();
+  const { isAdmin, isLoading, userRole } = useAdmin();
   const [activeSection, setActiveSection] = useState<AdminSection>(null);
 
   // Проверка прав доступа
@@ -119,16 +119,14 @@ export default function AdminPanel(): JSX.Element {
         {/* Контент */}
         {!activeSection ? (
           <div className="grid gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {/* Управление городами (только супер-админ) */}
-            {isSuperAdmin() && (
-              <AdminCard
-                icon={<Building2 className="w-8 h-8" />}
-                title="Управление ресторанами"
-                description="Добавляйте города и рестораны, активируйте и деактивируйте их"
-                onClick={() => setActiveSection('cities')}
-                highlighted
-              />
-            )}
+            {/* Управление городами */}
+            <AdminCard
+              icon={<Building2 className="w-8 h-8" />}
+              title="Управление ресторанами"
+              description="Добавляйте города и рестораны, активируйте и деактивируйте их"
+              onClick={() => setActiveSection('cities')}
+              highlighted
+            />
 
             {/* Управление меню */}
             <AdminCard
@@ -154,20 +152,18 @@ export default function AdminPanel(): JSX.Element {
               onClick={() => setActiveSection('promotions')}
             />
 
-            {/* Управление ролями (только для супер-админа) */}
-            {isSuperAdmin() && (
-              <AdminCard
-                icon={<Shield className="w-8 h-8" />}
-                title="Управление ролями"
-                description="Выдавайте админ-права сотрудникам ресторана"
-                onClick={() => setActiveSection('roles')}
-                highlighted
-              />
-            )}
+            {/* Управление ролями */}
+            <AdminCard
+              icon={<Shield className="w-8 h-8" />}
+              title="Управление ролями"
+              description="Выдавайте админ-права сотрудникам ресторана"
+              onClick={() => setActiveSection('roles')}
+              highlighted
+            />
           </div>
         ) : (
           <div>
-            {activeSection === 'cities' && isSuperAdmin() && (
+            {activeSection === 'cities' && (
               <Suspense fallback={<SectionLoader />}>
                 <CitiesManagementLazy />
               </Suspense>
@@ -187,7 +183,7 @@ export default function AdminPanel(): JSX.Element {
                 <PromotionsManagementLazy />
               </Suspense>
             )}
-            {activeSection === 'roles' && isSuperAdmin() && (
+            {activeSection === 'roles' && (
               <Suspense fallback={<SectionLoader />}>
                 <RolesManagementLazy />
               </Suspense>
