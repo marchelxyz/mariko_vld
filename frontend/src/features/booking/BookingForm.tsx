@@ -316,7 +316,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       restaurantId,
       date: dateStr,
       guestsCount: guestsCount,
-      withRooms: true,
+      withRooms: false, // Не запрашиваем данные о столах, нужны только временные слоты
     })
       .then((response) => {
         if (slotsAbortControllerRef.current?.signal.aborted) {

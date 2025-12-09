@@ -215,7 +215,7 @@ export function createBookingRouter() {
    * - restaurantId: string (UUID ресторана) - обязательный
    * - date: string (Дата в формате YYYY-MM-DD) - обязательный
    * - guests_count: number (Количество гостей) - обязательный
-   * - with_rooms: boolean (Получить информацию о залах и столах) - опционально, по умолчанию true
+   * - with_rooms: boolean (Получить информацию о залах и столах) - опционально, по умолчанию false (не запрашиваем данные о столах, только временные слоты)
    */
   router.get("/slots", async (req, res) => {
     const startTime = Date.now();
@@ -286,7 +286,8 @@ export function createBookingRouter() {
       };
 
       const guestsCount = Number(guests_count);
-      const withRooms = with_rooms === 'true' || with_rooms === undefined || with_rooms === '';
+      // По умолчанию не запрашиваем данные о столах, только временные слоты
+      const withRooms = with_rooms === 'true';
 
       // Получаем слоты со столами из ReMarked API
       try {
