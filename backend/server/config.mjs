@@ -18,8 +18,24 @@ export const PORT = Number(process.env.CART_SERVER_PORT ?? process.env.PORT ?? 4
 export const CART_ORDERS_TABLE = process.env.CART_ORDERS_TABLE ?? "cart_orders";
 const maxOrdersLimitRaw = Number.parseInt(process.env.CART_ORDERS_MAX_LIMIT ?? "", 10);
 export const MAX_ORDERS_LIMIT = Number.isFinite(maxOrdersLimitRaw) ? maxOrdersLimitRaw : 50;
-export const ADMIN_DEV_TOKEN = process.env.ADMIN_DEV_TOKEN;
-export const ADMIN_DEV_TELEGRAM_ID = process.env.ADMIN_DEV_TELEGRAM_ID || null;
+// Парсим список Telegram ID администраторов (через запятую)
+const parseAdminTelegramIds = (raw) => {
+  console.log('[config] ADMIN_TELEGRAM_IDS raw:', raw);
+  if (!raw) {
+    console.log('[config] ADMIN_TELEGRAM_IDS is empty, returning empty Set');
+    return new Set();
+  }
+  const parsed = new Set(
+    raw
+      .split(",")
+      .map((id) => id.trim())
+      .filter((id) => id && /^\d+$/.test(id))
+      .map((id) => String(id))
+  );
+  console.log('[config] ADMIN_TELEGRAM_IDS parsed:', Array.from(parsed));
+  return parsed;
+};
+export const ADMIN_TELEGRAM_IDS = parseAdminTelegramIds(process.env.ADMIN_TELEGRAM_IDS);
 export const ADMIN_ROLE_VALUES = new Set(["super_admin", "admin", "user"]);
 export const ORDER_STATUS_VALUES = new Set([
   "draft",
@@ -37,8 +53,7 @@ export const INTEGRATION_CACHE_TTL_MS = Number.parseInt(
   10,
 ) ||
   5 * 60 * 1000;
-export const SUPABASE_URL = process.env.SUPABASE_URL;
-export const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+export const DATABASE_URL = process.env.DATABASE_URL;
 export const CART_SERVER_LOG_LEVEL = process.env.CART_SERVER_LOG_LEVEL ?? "info";
 export const GEOCODER_PROVIDER =
   (process.env.GEOCODER_PROVIDER || "photon").trim().toLowerCase();
@@ -56,3 +71,11 @@ export const YOOKASSA_TEST_SECRET_KEY = process.env.YOOKASSA_TEST_SECRET_KEY ?? 
 export const YOOKASSA_TEST_CALLBACK_URL =
   process.env.YOOKASSA_TEST_CALLBACK_URL ?? "https://example.com/yookassa/webhook";
 export const TELEGRAM_WEBAPP_RETURN_URL = process.env.TELEGRAM_WEBAPP_RETURN_URL ?? null;
+
+// Yandex Object Storage
+export const YANDEX_STORAGE_ACCESS_KEY_ID = process.env.YANDEX_STORAGE_ACCESS_KEY_ID ?? null;
+export const YANDEX_STORAGE_SECRET_ACCESS_KEY = process.env.YANDEX_STORAGE_SECRET_ACCESS_KEY ?? null;
+export const YANDEX_STORAGE_BUCKET_NAME = process.env.YANDEX_STORAGE_BUCKET_NAME ?? null;
+export const YANDEX_STORAGE_REGION = process.env.YANDEX_STORAGE_REGION ?? 'ru-central1';
+export const YANDEX_STORAGE_ENDPOINT = process.env.YANDEX_STORAGE_ENDPOINT ?? 'https://storage.yandexcloud.net';
+export const YANDEX_STORAGE_PUBLIC_URL = process.env.YANDEX_STORAGE_PUBLIC_URL ?? null;

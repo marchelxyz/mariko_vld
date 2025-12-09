@@ -30,59 +30,20 @@ const resolvePromotionImageUrl = (url?: string | null) => {
   if (!url) return "";
   const trimmed = url.trim();
   if (!trimmed) return "";
+  // Если URL уже полный, возвращаем как есть
   if (/^https?:\/\//i.test(trimmed)) {
-    try {
-      const parsed = new URL(trimmed);
-      const host = parsed.host.replace(".storage.supabase.", ".supabase.");
-      if (host !== parsed.host) {
-        return `${parsed.protocol}//${host}${parsed.pathname}${parsed.search}${parsed.hash}`;
-      }
-    } catch {
-      // ignore
-    }
     return trimmed;
   }
-  const normalizeBase = (raw: string) => {
-    try {
-      const parsed = new URL(raw);
-      const host = parsed.host.replace(".storage.supabase.", ".supabase.");
-      return `${parsed.protocol}//${host}`;
-    } catch {
-      return raw
-        .replace(/\/storage\/v1.*$/, "")
-        .replace(".storage.supabase.", ".supabase.")
-        .replace(/\/$/, "");
-    }
-  };
-  const encodeSegments = (path: string) =>
-    path
-      .split("/")
-      .map((seg) => {
-        try {
-          return encodeURIComponent(decodeURIComponent(seg));
-        } catch {
-          return encodeURIComponent(seg);
-        }
-      })
-      .join("/");
-  const base = normalizeBase(import.meta.env.VITE_SUPABASE_URL || "");
-  if (!base) return trimmed;
-  const clean = trimmed.replace(/^\/+/, "").replace(/^promotion-images\//, "");
-  const encoded = encodeSegments(clean);
-  return `${base}/storage/v1/object/public/promotion-images/${encoded}`;
+  // Для относительных путей возвращаем как есть (обрабатывается на сервере)
+  return trimmed;
 };
 
 const buildLibraryImageUrl = (asset: PromotionImageAsset) => {
   if (asset?.url) {
-    return asset.url; // уже публичный URL с корректным кодированием
+    return asset.url; // уже публичный URL
   }
-  const base = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "");
-  if (!base || !asset?.path) return "";
-  const encoded = asset.path
-    .split("/")
-    .map((seg) => encodeURIComponent(seg))
-    .join("/");
-  return `${base}/storage/v1/object/public/promotion-images/${encoded}`;
+  // Если нет URL, возвращаем пустую строку
+  return "";
 };
 
 const normalizeImageUrl = (raw?: string | null) => {
@@ -100,7 +61,6 @@ const normalizeImageUrl = (raw?: string | null) => {
 };
 
 export function PromotionsManagement(): JSX.Element {
-  const { isAdmin } = useAdmin();
   const { cities, isLoading: isCitiesLoading } = useCities();
   const { toast } = useToast();
   const [promotions, setPromotions] = useState<PromotionCardData[]>([]);
@@ -394,14 +354,6 @@ export function PromotionsManagement(): JSX.Element {
       })),
     [filteredLibrary],
   );
-
-  if (!isAdmin) {
-    return (
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-white/80">
-        Нет доступа к управлению акциями.
-      </div>
-    );
-  }
 
   if (isLoadingPromos && !promotions.length) {
     return (

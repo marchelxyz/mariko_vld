@@ -16,10 +16,20 @@ export const QuickActionButton = ({
   className,
   highlighted = false,
 }: QuickActionButtonProps) => {
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    console.log("[QuickActionButton] handleClick вызван", {
+      title,
+      hasOnClick: !!onClick,
+      event: e,
+    });
+    e.preventDefault();
+    e.stopPropagation();
     try {
       if (onClick) {
+        console.log("[QuickActionButton] Вызываю onClick");
         onClick();
+      } else {
+        console.warn("[QuickActionButton] onClick не передан");
       }
     } catch (error) {
       console.error("Ошибка в QuickActionButton onClick:", error);
@@ -33,6 +43,7 @@ export const QuickActionButton = ({
         "flex flex-col items-center font-el-messiri font-semibold transition-transform hover:scale-105 active:scale-95 select-none",
         className,
       )}
+      style={{ pointerEvents: "auto", zIndex: 10 }}
     >
       <div
         className={cn(

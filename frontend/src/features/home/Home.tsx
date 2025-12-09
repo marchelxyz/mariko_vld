@@ -5,7 +5,6 @@ import { useCityContext } from "@/contexts";
 import { BottomNavigation, Header } from "@shared/ui/widgets";
 import { EmbeddedPageConfig } from "@/shared/config/webviewPages";
 import {
-  CITY_BOOKING_LINKS,
   CITY_PROMOTION_LINKS,
   RESTAURANT_REVIEW_LINKS,
   VACANCIES_LINK,
@@ -13,12 +12,16 @@ import {
   MenuCategory,
   MenuItem,
 } from "@shared/data";
-import { QuickActionButton, ServiceCard, MenuItemComponent } from "@shared/ui";
+import {
+  QuickActionButton,
+  ServiceCard,
+  MenuItemComponent,
+} from "@shared/ui";
 import { PromotionsCarousel, type PromotionSlide } from "./PromotionsCarousel";
 import { toast } from "@/hooks/use-toast";
 import { safeOpenLink, storage } from "@/lib/telegram";
 import { fetchPromotions } from "@shared/api/promotionsApi";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { useBookingSlotsPrefetch } from "@shared/hooks";
 
 const promotionsForCarousel: PromotionSlide[] = [
   {
@@ -57,8 +60,20 @@ const Index = () => {
   // 🔧 ВРЕМЕННОЕ СКРЫТИЕ: измените на true чтобы показать раздел "Рекомендуем попробовать"
   const showRecommendedSection = false;
 
+  // Предзагрузка слотов бронирования в фоновом режиме
+  useBookingSlotsPrefetch(selectedRestaurant);
+
   const handleBookingClick = () => {
-    if (!selectedCity?.id || !selectedCity?.name) {
+    console.log("[Booking] handleBookingClick вызван", {
+      selectedCity: selectedCity?.id,
+      selectedCityName: selectedCity?.name,
+      selectedRestaurant: selectedRestaurant?.id,
+      remarkedRestaurantId: selectedRestaurant?.remarkedRestaurantId,
+      locationPathname: location.pathname,
+    });
+
+    if (!selectedCity?.id) {
+      console.log("[Booking] Блокировка: город не выбран (нет id)");
       toast({
         title: "Выберите город",
         description: "Бронирование доступно после выбора города.",
@@ -66,23 +81,36 @@ const Index = () => {
       return;
     }
 
-    const bookingLink = CITY_BOOKING_LINKS[selectedCity.id];
-
-    if (!bookingLink) {
+    if (!selectedRestaurant?.remarkedRestaurantId) {
+      console.log("[Booking] Блокировка: remarkedRestaurantId отсутствует", {
+        restaurantId: selectedRestaurant?.id,
+        restaurantName: selectedRestaurant?.name,
+      });
       toast({
-        title: "Бронь скоро появится",
-        description: "Для выбранного города пока нет ссылки на бронь.",
+        title: "Бронь недоступна",
+        description: "Бронирование пока недоступно для этого ресторана. Обратитесь к администратору.",
+        variant: "destructive",
       });
       return;
     }
 
-    openBookingPage({
-      title: `Бронь — ${selectedCity.name}`,
-      url: bookingLink,
-      allowedCityId: selectedCity.id,
-      description: `Забронируйте столик в ресторане ${selectedCity.name}.`,
-      fallbackLabel: "Открыть форму бронирования",
-    });
+    console.log("[Booking] Переход на /booking");
+    try {
+      // Переходим на страницу бронирования
+      navigate("/booking", {
+        state: {
+          from: location.pathname,
+        },
+      });
+      console.log("[Booking] navigate вызван успешно");
+    } catch (error) {
+      console.error("[Booking] Ошибка при вызове navigate:", error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось открыть страницу бронирования",
+        variant: "destructive",
+      });
+    }
   };
 
   // Подтягиваем акции из localStorage (управляются через админку)
@@ -113,22 +141,6 @@ const Index = () => {
 
     void loadPromotions();
 
-    if (isSupabaseConfigured() && selectedCity?.id) {
-      const channel = supabase
-        .channel(`promotions-${selectedCity.id}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "promotions", filter: `city_id=eq.${selectedCity.id}` },
-          () => void loadPromotions(),
-        )
-        .subscribe();
-
-      return () => {
-        cancelled = true;
-        supabase.removeChannel(channel);
-      };
-    }
-
     return () => {
       cancelled = true;
     };
@@ -143,14 +155,6 @@ const Index = () => {
     });
   };
 
-  const openBookingPage = (config: EmbeddedPageConfig) => {
-    navigate("/booking", {
-      state: {
-        from: location.pathname,
-        bookingConfig: config,
-      },
-    });
-  };
 
   const handleReviewClick = () => {
     const externalReviewLink = RESTAURANT_REVIEW_LINKS[selectedRestaurant.id];
@@ -245,7 +249,10 @@ const Index = () => {
               icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
               title="Бронь столика"
               highlighted={cityChangedFlash}
-              onClick={handleBookingClick}
+              onClick={() => {
+                console.log("[Home] QuickActionButton onClick вызван напрямую");
+                handleBookingClick();
+              }}
             />
 
             <QuickActionButton
@@ -399,6 +406,7 @@ const Index = () => {
         <div className="absolute bottom-0 left-0 right-0 z-50">
           <BottomNavigation currentPage="home" />
         </div>
+
 
 
         {activeDish && (

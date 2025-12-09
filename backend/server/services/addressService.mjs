@@ -1,4 +1,4 @@
-import { supabase } from "../supabaseClient.mjs";
+import { queryOne, queryMany, query, db } from "../postgresClient.mjs";
 import { upsertUserProfileRecord } from "./profileService.mjs";
 
 const ADDRESS_TABLE = "user_addresses";
@@ -7,22 +7,23 @@ const normalizeBool = (value) => (typeof value === "boolean" ? value : Boolean(v
 
 export const addressService = {
   async listByUser(userId) {
-    if (!supabase || !userId) return [];
-    const { data, error } = await supabase
-      .from(ADDRESS_TABLE)
-      .select("*")
-      .eq("user_id", userId)
-      .order("is_primary", { ascending: false })
-      .order("updated_at", { ascending: false });
-    if (error) {
+    if (!db || !userId) return [];
+    try {
+      const results = await queryMany(
+        `SELECT * FROM ${ADDRESS_TABLE} 
+         WHERE user_id = $1 
+         ORDER BY is_primary DESC, updated_at DESC`,
+        [userId],
+      );
+      return results;
+    } catch (error) {
       console.error("addressService.listByUser error:", error);
       return [];
     }
-    return Array.isArray(data) ? data : [];
   },
 
   async createOrUpdate(userId, payload) {
-    if (!supabase || !userId) return null;
+    if (!db || !userId) return null;
     const safePayload = {
       user_id: userId,
       label: payload.label ?? null,
@@ -38,80 +39,102 @@ export const addressService = {
       is_primary: normalizeBool(payload.is_primary ?? payload.isPrimary ?? false),
     };
 
-    // Если новый адрес помечен как основной — сбросить у других
-    if (safePayload.is_primary) {
-      await supabase.from(ADDRESS_TABLE).update({ is_primary: false }).eq("user_id", userId);
-    }
+    try {
+      // Если новый адрес помечен как основной — сбросить у других
+      if (safePayload.is_primary) {
+        await query(`UPDATE ${ADDRESS_TABLE} SET is_primary = false WHERE user_id = $1`, [userId]);
+      }
 
-    const { data, error } = await supabase
-      .from(ADDRESS_TABLE)
-      .upsert(safePayload, { onConflict: "id" })
-      .select("*")
-      .maybeSingle();
-    if (error) {
+      // Используем upsert с ON CONFLICT если есть id
+      const fields = Object.keys(safePayload);
+      const placeholders = fields.map((_, i) => `$${i + 1}`).join(", ");
+      const values = Object.values(safePayload);
+
+      let result;
+      if (payload.id) {
+        // Upsert с ON CONFLICT
+        const updateFields = fields.map((f, i) => `${f} = $${i + 1}`).join(", ");
+        const insertFields = [...fields, "id"];
+        const insertPlaceholders = [...placeholders.split(", "), `$${fields.length + 1}`].join(", ");
+        const insertValues = [...values, payload.id];
+        
+        result = await queryOne(
+          `INSERT INTO ${ADDRESS_TABLE} (${insertFields.join(", ")}, created_at, updated_at)
+           VALUES (${insertPlaceholders}, NOW(), NOW())
+           ON CONFLICT (id) DO UPDATE SET ${updateFields}, updated_at = NOW()
+           RETURNING *`,
+          insertValues,
+        );
+      } else {
+        // Простой INSERT
+        result = await queryOne(
+          `INSERT INTO ${ADDRESS_TABLE} (${fields.join(", ")}, created_at, updated_at)
+           VALUES (${placeholders}, NOW(), NOW())
+           RETURNING *`,
+          values,
+        );
+      }
+
+        // Если стал основным — обновляем профиль
+        if (result?.id && safePayload.is_primary) {
+          const lastAddressText = [result.street, result.house, result.apartment].filter(Boolean).join(", ");
+          upsertUserProfileRecord({
+            id: userId,
+            telegramId: userId,
+            primaryAddressId: result.id,
+            lastAddressText,
+            lastAddressLat: result.latitude,
+            lastAddressLon: result.longitude,
+            lastAddressUpdatedAt: new Date().toISOString(),
+          }).catch((profileError) =>
+            console.warn("addressService: failed to update profile with primary address", profileError),
+          );
+        }
+
+        return result;
+    } catch (error) {
       console.error("addressService.createOrUpdate error:", error);
       return null;
     }
-
-    // Если стал основным — обновляем профиль (primary_address_id + last_address_*)
-    if (data?.id && safePayload.is_primary) {
-      const lastAddressText = [data.street, data.house, data.apartment].filter(Boolean).join(", ");
-      upsertUserProfileRecord({
-        id: userId,
-        telegramId: userId,
-        primaryAddressId: data.id,
-        lastAddressText,
-        lastAddressLat: data.latitude,
-        lastAddressLon: data.longitude,
-        lastAddressUpdatedAt: new Date().toISOString(),
-      }).catch((profileError) =>
-        console.warn("addressService: failed to update profile with primary address", profileError),
-      );
-    }
-
-    return data;
   },
 
   async deleteById(userId, addressId) {
-    if (!supabase || !userId || !addressId) return false;
-    const { error } = await supabase
-      .from(ADDRESS_TABLE)
-      .delete()
-      .eq("id", addressId)
-      .eq("user_id", userId);
-    if (error) {
+    if (!db || !userId || !addressId) return false;
+    try {
+      await query(`DELETE FROM ${ADDRESS_TABLE} WHERE id = $1 AND user_id = $2`, [addressId, userId]);
+      return true;
+    } catch (error) {
       console.error("addressService.deleteById error:", error);
       return false;
     }
-    return true;
   },
 
   async setPrimary(userId, addressId) {
-    if (!supabase || !userId || !addressId) return false;
+    if (!db || !userId || !addressId) return false;
     try {
-      await supabase.from(ADDRESS_TABLE).update({ is_primary: false }).eq("user_id", userId);
-      const { data, error } = await supabase
-        .from(ADDRESS_TABLE)
-        .update({ is_primary: true })
-        .eq("id", addressId)
-        .eq("user_id", userId)
-        .select("*")
-        .maybeSingle();
-      if (error) throw error;
+      await query(`UPDATE ${ADDRESS_TABLE} SET is_primary = false WHERE user_id = $1`, [userId]);
+      const result = await queryOne(
+        `UPDATE ${ADDRESS_TABLE} 
+         SET is_primary = true, updated_at = NOW() 
+         WHERE id = $1 AND user_id = $2 
+         RETURNING *`,
+        [addressId, userId],
+      );
 
-      const lastAddressText = data
-        ? [data.street, data.house, data.apartment].filter(Boolean).join(", ")
-        : null;
-      await upsertUserProfileRecord({
-        id: userId,
-        telegramId: userId,
-        primaryAddressId: addressId,
-        lastAddressText,
-        lastAddressLat: data?.latitude ?? null,
-        lastAddressLon: data?.longitude ?? null,
-        lastAddressUpdatedAt: new Date().toISOString(),
-      });
-      return true;
+      if (result) {
+        const lastAddressText = [result.street, result.house, result.apartment].filter(Boolean).join(", ");
+        await upsertUserProfileRecord({
+          id: userId,
+          telegramId: userId,
+          primaryAddressId: addressId,
+          lastAddressText,
+          lastAddressLat: result.latitude ?? null,
+          lastAddressLon: result.longitude ?? null,
+          lastAddressUpdatedAt: new Date().toISOString(),
+        });
+        return true;
+      }
+      return false;
     } catch (error) {
       console.error("addressService.setPrimary error:", error);
       return false;

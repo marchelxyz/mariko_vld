@@ -1,15 +1,14 @@
 /**
- * Хук для работы с городами из Supabase
- * Поддерживает real-time обновления
+ * Хук для работы с городами из серверного API (PostgreSQL на Railway)
+ * Поддерживает polling обновления
  */
 
 import { useState, useEffect } from 'react';
-import { citiesSupabaseApi } from "@shared/api/cities";
+import { citiesApi } from "@shared/api/cities";
 import { getAvailableCitiesAsync, type City } from "@shared/data";
-import { isSupabaseConfigured } from "@/lib/supabase";
 
 /**
- * Хук для получения активных городов с real-time обновлениями
+ * Хук для получения активных городов с polling обновлениями
  */
 export function useCities() {
   const [cities, setCities] = useState<City[]>([]);
@@ -34,15 +33,11 @@ export function useCities() {
     loadCities();
   }, []);
 
-  // Real-time подписка на изменения
+  // Polling подписка на изменения через серверный API
   useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      return;
-    }
-
-    const unsubscribe = citiesSupabaseApi.subscribeToCitiesChanges((updatedCities) => {
+    const unsubscribe = citiesApi.subscribeToCitiesChanges((updatedCities) => {
       setCities(updatedCities);
-      console.log('🔄 Список городов обновлен в реальном времени');
+      console.log('🔄 Список городов обновлен');
     });
 
     return () => {

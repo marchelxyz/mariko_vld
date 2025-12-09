@@ -2,6 +2,7 @@ import { getCartApiBaseUrl } from "@shared/api/cart";
 import type { CartOrderRecord } from "@shared/api/cart";
 import type { UserRole } from "@shared/types";
 import { getUser } from "@/lib/telegram";
+import { logger } from "@/lib/logger";
 
 function normalizeBaseUrl(base: string | undefined): string {
   if (!base || base === "/") {
@@ -11,10 +12,61 @@ function normalizeBaseUrl(base: string | undefined): string {
 }
 
 const rawAdminBase = import.meta.env.VITE_ADMIN_API_URL;
+const rawServerApiUrl = import.meta.env.VITE_SERVER_API_URL;
 const cartBase = normalizeBaseUrl(`${getCartApiBaseUrl()}/cart`);
+
+// Определяем базовый URL для админ API с приоритетом:
+// 1. VITE_ADMIN_API_URL (если установлен)
+// 2. VITE_SERVER_API_URL + /cart (если установлен, предпочтительный fallback)
+// 3. cartBase (из VITE_CART_API_URL, может быть относительным)
+const resolvedBase = rawAdminBase || (rawServerApiUrl ? `${normalizeBaseUrl(rawServerApiUrl)}/cart` : cartBase);
 // Админка всегда идёт на cart-server (4010) — не используем общий SERVER_API, чтобы не улетать на старый бэкенд.
-const ADMIN_API_BASE = normalizeBaseUrl(rawAdminBase || cartBase) + "/admin";
-const DEV_ADMIN_TOKEN = import.meta.env.VITE_DEV_ADMIN_TOKEN;
+const ADMIN_API_BASE = normalizeBaseUrl(resolvedBase) + "/admin";
+
+// Проверяем, что URL указывает на правильный backend (не относительный путь в production)
+function validateAdminApiBase(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  
+  const isRelative = ADMIN_API_BASE.startsWith("/");
+  const isProduction = import.meta.env.PROD;
+  
+  if (isRelative && isProduction) {
+    logger.warn('admin-api', 'ADMIN_API_BASE использует относительный путь в production', {
+      adminApiBase: ADMIN_API_BASE,
+      message: 'Запросы будут идти на Vercel вместо Railway backend. Убедитесь, что переменная VITE_ADMIN_API_URL установлена и указывает на Railway backend.',
+      example: 'https://your-backend.up.railway.app/api/cart',
+    });
+  }
+}
+
+// Логируем используемый базовый URL для диагностики
+if (typeof window !== "undefined") {
+  logger.debug('admin-api', 'Admin API configuration', {
+    viteAdminApiUrl: rawAdminBase,
+    viteServerApiUrl: rawServerApiUrl,
+    cartBase,
+    resolvedBase,
+    adminApiBase: ADMIN_API_BASE,
+  });
+  validateAdminApiBase();
+}
+
+// Парсим список Telegram ID администраторов (через запятую)
+const parseAdminTelegramIds = (raw: string | undefined): Set<string> => {
+  if (!raw) {
+    return new Set();
+  }
+  return new Set(
+    raw
+      .split(",")
+      .map((id) => id.trim())
+      .filter((id) => id && /^\d+$/.test(id))
+      .map((id) => String(id))
+  );
+};
+const ADMIN_TELEGRAM_IDS = parseAdminTelegramIds(import.meta.env.VITE_ADMIN_TELEGRAM_IDS);
 
 export type AdminRole = UserRole;
 
@@ -52,21 +104,33 @@ type FetchOrdersParams = {
   limit?: number;
 };
 
-const FALLBACK_SUPER_ID = (import.meta.env.VITE_DEV_ADMIN_TELEGRAM_ID ||
-  import.meta.env.VITE_FALLBACK_SUPER_ID ||
-  "577222108").toString();
+// Получаем первый Telegram ID из списка как fallback
+const getFallbackTelegramId = (): string | undefined => {
+  if (ADMIN_TELEGRAM_IDS.size > 0) {
+    return Array.from(ADMIN_TELEGRAM_IDS)[0];
+  }
+  return undefined;
+};
 
 const resolveTelegramId = (override?: string): string | undefined => {
+  logger.debug('admin-api', 'resolveTelegramId', {
+    override,
+    adminTelegramIds: Array.from(ADMIN_TELEGRAM_IDS),
+  });
   // Используем override только если это похоже на нормальный числовой telegram id
   if (override && /^\d+$/.test(override)) {
+    logger.debug('admin-api', 'Using override ID', { override });
     return override;
   }
   const user = getUser();
   if (user?.id) {
+    logger.debug('admin-api', 'Using Telegram user ID', { userId: user.id });
     return user.id.toString();
   }
-  // Жёсткий fallback, чтобы не терять доступ к админке вне Telegram
-  return FALLBACK_SUPER_ID;
+  // Fallback: используем первый ID из списка администраторов
+  const fallback = getFallbackTelegramId();
+  logger.debug('admin-api', 'Using fallback ID', { fallback });
+  return fallback;
 };
 
 const buildHeaders = (overrideTelegramId?: string): Record<string, string> => {
@@ -77,26 +141,50 @@ const buildHeaders = (overrideTelegramId?: string): Record<string, string> => {
   if (telegramId) {
     headers["X-Telegram-Id"] = telegramId;
   }
-  // Разрешаем dev-токен и в проде, если задан VITE_DEV_ADMIN_TOKEN
-  if (DEV_ADMIN_TOKEN) {
-    headers["X-Admin-Token"] = DEV_ADMIN_TOKEN;
-  }
   return headers;
 };
 
 const handleResponse = async <T>(response: Response): Promise<T> => {
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    throw new Error(text || `Ошибка запроса (${response.status})`);
+    const errorMessage = text || `Ошибка запроса (${response.status})`;
+    
+    // Если получили 404, это может означать, что backend не настроен правильно
+    if (response.status === 404) {
+      const isRelative = ADMIN_API_BASE.startsWith("/");
+      if (isRelative && import.meta.env.PROD) {
+        logger.error('admin-api', new Error('404 ошибка: Backend не найден'), {
+          adminApiBase: ADMIN_API_BASE,
+          possibleCauses: [
+            'Переменная VITE_ADMIN_API_URL не установлена или указывает на неправильный домен',
+            'Backend на Railway не запущен или недоступен',
+            'URL указывает на Vercel вместо Railway backend',
+          ],
+        });
+      }
+    }
+    
+    throw new Error(errorMessage);
   }
   return (await response.json()) as T;
 };
 
 export const adminServerApi = {
   async getCurrentAdmin(overrideTelegramId?: string): Promise<AdminMeResponse> {
-    const response = await fetch(`${ADMIN_API_BASE}/me`, {
+    const url = `${ADMIN_API_BASE}/me`;
+    logger.debug('admin-api', 'getCurrentAdmin', { url });
+    const response = await fetch(url, {
       headers: buildHeaders(overrideTelegramId),
     });
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      logger.error('admin-api', new Error('getCurrentAdmin error'), {
+        status: response.status,
+        statusText: response.statusText,
+        url,
+        errorText,
+      });
+    }
     return handleResponse<AdminMeResponse>(response);
   },
 

@@ -1,1 +1,1 @@
-export { citiesSupabaseApi, syncCitiesToSupabase } from './cities';
+export { citiesApi } from './cities';
