@@ -99,6 +99,63 @@ const PATTERN_SIZES = [
   { width: 282, height: 174 },
 ];
 
+// Ключ для сохранения позиций в localStorage
+const STORAGE_KEY = "background_pattern_positions";
+const STORAGE_VERSION = "1.0"; // Версия для инвалидации кеша при необходимости
+
+type StoredPositions = {
+  version: string;
+  viewportWidth: number;
+  viewportHeight: number;
+  positions: PatternPosition[];
+};
+
+/**
+ * Загружает сохраненные позиции из localStorage
+ */
+function loadStoredPositions(): StoredPositions | null {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return null;
+
+    const parsed: StoredPositions = JSON.parse(stored);
+    
+    // Проверяем версию и размер экрана (допускаем отклонение до 10%)
+    const currentWidth = window.innerWidth;
+    const currentHeight = window.innerHeight;
+    const widthDiff = Math.abs(parsed.viewportWidth - currentWidth) / currentWidth;
+    const heightDiff = Math.abs(parsed.viewportHeight - currentHeight) / currentHeight;
+
+    if (
+      parsed.version === STORAGE_VERSION &&
+      widthDiff < 0.1 &&
+      heightDiff < 0.1
+    ) {
+      return parsed;
+    }
+  } catch (error) {
+    console.warn("Не удалось загрузить сохраненные позиции фона:", error);
+  }
+  return null;
+}
+
+/**
+ * Сохраняет позиции в localStorage
+ */
+function savePositions(viewportWidth: number, viewportHeight: number, positions: PatternPosition[]) {
+  try {
+    const data: StoredPositions = {
+      version: STORAGE_VERSION,
+      viewportWidth,
+      viewportHeight,
+      positions,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.warn("Не удалось сохранить позиции фона:", error);
+  }
+}
+
 function RandomBackgroundPattern() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [positions, setPositions] = useState<PatternPosition[]>([]);
@@ -333,7 +390,7 @@ function RandomBackgroundPattern() {
     return newPositions;
   }
 
-  function updatePositions() {
+  function updatePositions(forceRegenerate = false) {
     // Используем размеры окна для генерации позиций, чтобы заполнить весь видимый экран
     // Контейнер имеет размеры 140% с отступами -20%, поэтому генерируем позиции для всего контейнера
     const viewportWidth = window.innerWidth;
@@ -342,18 +399,48 @@ function RandomBackgroundPattern() {
     const width = viewportWidth * 1.4;
     const height = viewportHeight * 1.4;
 
-    if (width > 0 && height > 0) {
-      const newPositions = generatePositions(width, height);
-      setPositions(newPositions);
+    if (width <= 0 || height <= 0) return;
+
+    // Пытаемся загрузить сохраненные позиции, если не требуется принудительная регенерация
+    if (!forceRegenerate) {
+      const stored = loadStoredPositions();
+      if (stored && stored.positions.length > 0) {
+        setPositions(stored.positions);
+        return;
+      }
     }
+
+    // Генерируем новые позиции
+    const newPositions = generatePositions(width, height);
+    setPositions(newPositions);
+    
+    // Сохраняем позиции для будущего использования
+    savePositions(viewportWidth, viewportHeight, newPositions);
   }
 
   useEffect(() => {
-    updatePositions();
+    // Загружаем сохраненные позиции или генерируем новые при первом монтировании
+    updatePositions(false);
 
-    // Слушаем изменения размера окна для обновления позиций
+    // Слушаем изменения размера окна для обновления позиций только при значительном изменении
     const handleResize = () => {
-      updatePositions();
+      const stored = loadStoredPositions();
+      const currentWidth = window.innerWidth;
+      const currentHeight = window.innerHeight;
+      
+      // Если сохраненные позиции есть, проверяем, нужно ли перегенерировать
+      if (stored) {
+        const widthDiff = Math.abs(stored.viewportWidth - currentWidth) / stored.viewportWidth;
+        const heightDiff = Math.abs(stored.viewportHeight - currentHeight) / stored.viewportHeight;
+        
+        // Перегенерируем только если изменение размера больше 10%
+        if (widthDiff >= 0.1 || heightDiff >= 0.1) {
+          updatePositions(true);
+        }
+      } else {
+        // Если сохраненных позиций нет, генерируем новые
+        updatePositions(true);
+      }
     };
 
     window.addEventListener("resize", handleResize);
