@@ -143,26 +143,87 @@ export async function savePromotions(
 
 /**
  * Загрузить изображение для акции
- * TODO: Реализовать через Яндекс Облако Storage
  */
 export async function uploadPromotionImage(
   file: File,
   cityId?: string,
 ): Promise<UploadImageResult> {
-  // TODO: Реализовать загрузку через Яндекс Облако Storage
-  throw new Error('Загрузка изображений акций будет реализована через Яндекс Облако Storage');
+  if (!shouldUseServerApi()) {
+    throw new Error('Серверный API выключен');
+  }
+
+  if (!cityId) {
+    throw new Error('Не указан cityId');
+  }
+
+  const headers = buildAdminHeaders();
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const response = await fetch(
+      resolveServerUrl(`/storage/promotions/${encodeURIComponent(cityId)}`),
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: formData,
+      }
+    );
+
+    const text = await response.text();
+    if (!response.ok) {
+      const errorMessage = parseErrorPayload(text) ?? `Server API responded with ${response.status}`;
+      throw new Error(errorMessage);
+    }
+
+    const data = JSON.parse(text);
+    return { url: data.url };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Неожиданная ошибка при загрузке изображения';
+    throw new Error(message);
+  }
 }
 
 /**
  * Получить библиотеку изображений акций
- * TODO: Реализовать через Яндекс Облако Storage
  */
 export async function fetchPromotionImageLibrary(
   cityId?: string,
   scope: "global" | "city" = "global",
 ): Promise<PromotionImageAsset[]> {
-  // TODO: Реализовать получение списка изображений через Яндекс Облако Storage
-  return [];
+  if (!shouldUseServerApi()) {
+    return [];
+  }
+
+  if (!cityId) {
+    return [];
+  }
+
+  const headers = buildAdminHeaders();
+
+  try {
+    const response = await fetch(
+      resolveServerUrl(`/storage/promotions/${encodeURIComponent(cityId)}?scope=${scope}`),
+      {
+        method: 'GET',
+        credentials: 'include',
+        headers,
+      }
+    );
+
+    const text = await response.text();
+    if (!response.ok) {
+      const errorMessage = parseErrorPayload(text) ?? `Server API responded with ${response.status}`;
+      throw new Error(errorMessage);
+    }
+
+    const assets = JSON.parse(text) as PromotionImageAsset[];
+    return assets;
+  } catch (error) {
+    console.error('Ошибка получения библиотеки изображений акций:', error);
+    return [];
+  }
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {

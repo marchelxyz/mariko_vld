@@ -71,3 +71,11 @@ export const YOOKASSA_TEST_SECRET_KEY = process.env.YOOKASSA_TEST_SECRET_KEY ?? 
 export const YOOKASSA_TEST_CALLBACK_URL =
   process.env.YOOKASSA_TEST_CALLBACK_URL ?? "https://example.com/yookassa/webhook";
 export const TELEGRAM_WEBAPP_RETURN_URL = process.env.TELEGRAM_WEBAPP_RETURN_URL ?? null;
+
+// Yandex Object Storage
+export const YANDEX_STORAGE_ACCESS_KEY_ID = process.env.YANDEX_STORAGE_ACCESS_KEY_ID ?? null;
+export const YANDEX_STORAGE_SECRET_ACCESS_KEY = process.env.YANDEX_STORAGE_SECRET_ACCESS_KEY ?? null;
+export const YANDEX_STORAGE_BUCKET_NAME = process.env.YANDEX_STORAGE_BUCKET_NAME ?? null;
+export const YANDEX_STORAGE_REGION = process.env.YANDEX_STORAGE_REGION ?? 'ru-central1';
+export const YANDEX_STORAGE_ENDPOINT = process.env.YANDEX_STORAGE_ENDPOINT ?? 'https://storage.yandexcloud.net';
+export const YANDEX_STORAGE_PUBLIC_URL = process.env.YANDEX_STORAGE_PUBLIC_URL ?? null;

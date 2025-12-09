@@ -14,6 +14,7 @@ import { createCitiesRouter } from "./routes/citiesRoutes.mjs";
 import { createBookingRouter } from "./routes/bookingRoutes.mjs";
 import { createPromotionsRouter, createAdminPromotionsRouter } from "./routes/promotionsRoutes.mjs";
 import { createMenuRouter, createAdminMenuRouter } from "./routes/menuRoutes.mjs";
+import { createStorageRouter } from "./routes/storageRoutes.mjs";
 import { logger } from "./utils/logger.mjs";
 
 const app = express();
@@ -152,6 +153,10 @@ app.use("/api/cart/menu", menuRouter);
 // Админские роуты для меню
 const adminMenuRouter = createAdminMenuRouter();
 app.use("/api/admin/menu", adminMenuRouter);
+// Роуты для работы с хранилищем файлов
+const storageRouter = createStorageRouter();
+app.use("/api/storage", storageRouter);
+app.use("/api/admin/storage", storageRouter);
 
 app.use((req, res) => {
   logger.warn('404 Not Found', { method: req.method, path: req.path });
