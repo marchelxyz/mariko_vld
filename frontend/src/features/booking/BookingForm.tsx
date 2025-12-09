@@ -22,12 +22,12 @@ import {
 import { useProfile } from "@entities/user";
 import { useCityContext } from "@/contexts";
 import {
-  getRemarkedToken,
   getRemarkedReservesByPhone,
 } from "@shared/api/remarked";
 import { 
   createBooking, 
   getBookingSlots,
+  getBookingToken,
   type CreateBookingRequest,
   type Slot,
 } from "@shared/api/bookingApi";
@@ -190,14 +190,25 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
 
     setTokenError(null);
     
-    getRemarkedToken(remarkedRestaurantId!, true)
-      .then((data) => {
+    const restaurantId = selectedRestaurant?.id;
+    if (!restaurantId) {
+      return;
+    }
+    
+    getBookingToken(restaurantId)
+      .then((response) => {
         // Проверяем, не был ли запрос отменен
         if (tokenAbortControllerRef.current?.signal.aborted) {
           return;
         }
-        setToken(data.token);
-        setTokenError(null);
+        
+        if (response.success && response.data?.token) {
+          setToken(response.data.token);
+          setTokenError(null);
+        } else {
+          const errorMessage = response.error || "Не удалось получить токен";
+          setTokenError(errorMessage);
+        }
       })
       .catch((error) => {
         // Игнорируем ошибки отмены запроса
@@ -270,7 +281,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     return () => {
       tokenAbortControllerRef.current?.abort();
     };
-  }, [remarkedRestaurantId, isValidRestaurantId]);
+  }, [selectedRestaurant?.id, isValidRestaurantId]);
 
   // Отслеживание времени на странице для показа кнопки обновления
   useEffect(() => {

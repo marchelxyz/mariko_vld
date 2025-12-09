@@ -208,6 +208,100 @@ export function createBookingRouter() {
   });
 
   /**
+   * GET /booking/token
+   * Получение токена для работы с системой бронирования Remarked
+   * 
+   * Query параметры:
+   * - restaurantId: string (UUID ресторана) - обязательный
+   */
+  router.get("/token", async (req, res) => {
+    const startTime = Date.now();
+    
+    try {
+      const { restaurantId } = req.query;
+
+      // Валидация обязательных параметров
+      if (!restaurantId) {
+        const duration = Date.now() - startTime;
+        logger.requestError('GET', '/token', new Error('Отсутствует обязательный параметр restaurantId'), 400);
+        return res.status(400).json({
+          success: false,
+          error: 'Отсутствует обязательный параметр: restaurantId',
+        });
+      }
+
+      // Получаем ресторан из БД
+      const restaurant = await queryOne(
+        `SELECT id, name, remarked_restaurant_id FROM restaurants WHERE id = $1`,
+        [restaurantId]
+      );
+
+      if (!restaurant) {
+        const duration = Date.now() - startTime;
+        logger.requestError('GET', '/token', new Error('Ресторан не найден'), 404);
+        return res.status(404).json({
+          success: false,
+          error: 'Ресторан не найден',
+        });
+      }
+
+      if (!restaurant.remarked_restaurant_id) {
+        const duration = Date.now() - startTime;
+        logger.requestError('GET', '/token', new Error('У ресторана не настроен Remarked ID'), 400);
+        return res.status(400).json({
+          success: false,
+          error: 'Ресторан не настроен для бронирования. Обратитесь к администратору.',
+        });
+      }
+
+      // Получаем токен от ReMarked API
+      try {
+        const tokenData = await getRemarkedToken(restaurant.remarked_restaurant_id);
+        
+        const duration = Date.now() - startTime;
+        logger.requestSuccess('GET', '/token', duration, 200);
+
+        return res.json({
+          success: true,
+          data: {
+            token: tokenData.token,
+            capacity: tokenData.capacity,
+          },
+        });
+      } catch (error) {
+        const duration = Date.now() - startTime;
+        logger.requestError('GET', '/token', error, 500);
+        
+        // Формируем понятное сообщение об ошибке
+        let errorMessage = 'Не удалось подключиться к сервису бронирования. Попробуйте позже.';
+        if (error instanceof Error && error.message && error.message.trim() && error.message.toLowerCase() !== "unknown error") {
+          errorMessage = error.message.trim();
+        }
+        
+        return res.status(500).json({
+          success: false,
+          error: errorMessage,
+        });
+      }
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.requestError('GET', '/token', error, 500);
+      logger.error('Ошибка получения токена', error);
+      
+      // Формируем понятное сообщение об ошибке
+      let errorMessage = 'Не удалось получить токен. Попробуйте позже.';
+      if (error instanceof Error && error.message && error.message.trim() && error.message.toLowerCase() !== "unknown error") {
+        errorMessage = error.message.trim();
+      }
+      
+      return res.status(500).json({
+        success: false,
+        error: errorMessage,
+      });
+    }
+  });
+
+  /**
    * GET /booking/slots
    * Получение доступных временных слотов со столами для бронирования
    * 
