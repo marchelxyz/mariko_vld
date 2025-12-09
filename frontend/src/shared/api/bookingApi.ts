@@ -416,6 +416,75 @@ export async function createBooking(
 }
 
 /**
+ * Получить токен для работы с системой бронирования
+ */
+export async function getBookingToken(restaurantId: string): Promise<{
+  success: boolean;
+  data?: {
+    token: string;
+    capacity?: { min: number; max: number };
+  };
+  error?: string;
+}> {
+  if (!shouldUseServerApi()) {
+    return {
+      success: false,
+      error: "Серверный API выключен",
+    };
+  }
+
+  logger.info('booking-api', '🔑 Начало получения токена через API', {
+    restaurantId,
+  });
+
+  try {
+    const response = await fetchFromServer<{
+      success: boolean;
+      data?: {
+        token: string;
+        capacity?: { min: number; max: number };
+      };
+      error?: string;
+    }>(`/booking/token?restaurantId=${encodeURIComponent(restaurantId)}`, {
+      method: 'GET',
+    });
+
+    if (response.success && response.data) {
+      logger.info('booking-api', '✅ Токен получен через API', {
+        restaurantId,
+        hasToken: !!response.data.token,
+        hasCapacity: !!response.data.capacity,
+      });
+      return response;
+    }
+
+    const errorMessage = response.error || 'Не удалось получить токен';
+    logger.error('booking-api', new Error(errorMessage), {
+      restaurantId,
+      response,
+    });
+    return {
+      success: false,
+      error: errorMessage,
+    };
+  } catch (error) {
+    logger.error('booking-api', error instanceof Error ? error : new Error(String(error)), {
+      restaurantId,
+      errorType: error instanceof Error ? error.name : 'Unknown',
+    });
+
+    let message = "Не удалось получить токен";
+    if (error instanceof Error) {
+      message = error.message || message;
+    }
+    return {
+      success: false,
+      error: message,
+    };
+  }
+}
+
+/**
  * Получить доступные временные слоты для бронирования
  */
 export async function getBookingSlots(params: {
