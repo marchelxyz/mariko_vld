@@ -270,7 +270,7 @@ const PromotionSlideCard = ({
     <button
       type="button"
       onClick={onClick}
-      className="relative block w-full overflow-hidden rounded-[18px] text-left aspect-[16/9] max-h-[260px] md:max-h-[300px]"
+      className="relative block w-full overflow-hidden rounded-[18px] text-left aspect-[4/3] max-h-[180px] md:max-h-[200px]"
     >
       {resolvedUrl && !failed ? (
         <img
