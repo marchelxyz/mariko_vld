@@ -258,7 +258,7 @@ const Index = () => {
             {/* Promotions Carousel */}
             {promotions.length > 0 && (
               <div className="mt-6 md:mt-8 flex justify-center lg:justify-start">
-                <div className="w-full max-w-4xl">
+                <div className="w-full max-w-[420px] md:max-w-[520px]">
                   <PromotionsCarousel
                     promotions={promotions}
                     onBookTable={handleBookingClick}
@@ -275,7 +275,7 @@ const Index = () => {
                   imageUrl="/images/services/MENU-CARD.png"
                   aspectRatio="aspect-[4/3]"
                   imageClassName="object-left translate-x-[2px]"
-                  className="max-w-[200px] md:max-w-[240px] mx-auto w-full"
+                  className="max-w-[200px] md:max-w-[240px] w-full"
                   highlighted={cityChangedFlash}
                   onClick={() => navigate("/menu")}
                 />
@@ -284,7 +284,7 @@ const Index = () => {
                   imageUrl="/images/services/JOBCARD.png"
                   aspectRatio="aspect-[4/3]"
                   imageClassName="object-left translate-x-[2px]"
-                  className="max-w-[200px] md:max-w-[240px] mx-auto w-full"
+                  className="max-w-[200px] md:max-w-[240px] w-full"
                   highlighted={cityChangedFlash}
                   onClick={() => {
                     if (selectedCity?.id && selectedCity?.name) {
