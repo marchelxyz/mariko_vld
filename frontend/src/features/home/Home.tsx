@@ -258,7 +258,7 @@ const Index = () => {
             {/* Promotions Carousel */}
             {promotions.length > 0 && (
               <div className="mt-6 md:mt-8 flex justify-center">
-                <div className="w-full max-w-5xl">
+                <div className="w-full max-w-4xl">
                   <PromotionsCarousel
                     promotions={promotions}
                     onBookTable={handleBookingClick}
