@@ -1,75 +1,37 @@
-# Railway: развертывание backend и bot
+# Railway: специфичные настройки и команды
 
-**Архитектура проекта:**
-- **Frontend**: Vercel (статический хостинг)
-- **Backend**: Railway (Express cart-server)
-- **Bot**: Railway (Telegraf)
-- **Database**: PostgreSQL на Railway
-- **Storage**: Yandex Cloud (планируется)
-- **Зеркало**: Timeweb (планируется)
+> **Примечание:** Общее руководство по развертыванию см. в [`DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md)
 
-Проект разделён на `frontend/` (Vite), `backend/server` (Express cart-server) и `backend/bot` (Telegraf). 
+## Конфигурация сервисов на Railway
 
-**См. также:**
-- `ARCHITECTURE.md` — полное описание архитектуры
-- `scripts/setup-vercel-env.sh` — настройка переменных для Vercel (Frontend)
+### Backend (Express cart-server)
+- **Root Directory**: `/backend`
+- **Build Command**: `npm ci --omit=dev`
+- **Start Command**: `node server/cart-server.mjs`
+- **Port**: Используйте `$PORT` (Railway предоставляет автоматически) или установите `CART_SERVER_PORT=$PORT`
 
-## Сервисы и команды
+### Bot (Telegraf)
+- **Root Directory**: `/backend/bot`
+- **Build Command**: `npm ci --omit=dev`
+- **Start Command**: `node main-bot.cjs`
+- **Port**: Используйте `$PORT` или `API_PORT=$PORT`
 
-- **Frontend (Vite, static)**  
-  Root: `/frontend`  
-  Install: `npm ci`  
-  Build: `npm run build`  
-  Start: Static service, Output dir: `dist`
+## Railway CLI команды
 
-- **Backend (Express cart-server)**  
-  Root: `/backend`  
-  Install: `npm ci --omit=dev`  
-  Start: `node server/cart-server.mjs`  
-  Порт: использовать `$PORT` (Railway) или выставить `CART_SERVER_PORT=$PORT`.
-
-- **Bot (Telegraf + mock API)**  
-  Root: `/backend/bot`  
-  Install: `npm ci --omit=dev`  
-  Start: `node main-bot.cjs`  
-  Порт: `$PORT` или `API_PORT`.
-
-## Переменные окружения
-
-### Автоматическая настройка через скрипт
-
-Самый простой способ настроить все переменные окружения — использовать скрипт `setup-railway-env.sh`:
+### Установка и авторизация
 
 ```bash
-# 1. Установите Railway CLI (если ещё не установлен)
+# Установка Railway CLI
 npm i -g @railway/cli
 
-# 2. Войдите в Railway
+# Вход в Railway
 railway login
 
-# 3. Свяжите проект с Railway (выберите проект)
+# Связывание проекта с Railway
 railway link
-
-# 4. Запустите скрипт (автоматически читает из локальных .env файлов)
-bash scripts/setup-railway-env.sh
-
-# Или в интерактивном режиме (для ввода значений вручную)
-bash scripts/setup-railway-env.sh --interactive
 ```
 
-Скрипт автоматически:
-- Читает значения из локальных `.env` файлов (`frontend/.env`, `backend/server/.env`, `backend/bot/.env`)
-- Устанавливает переменные для каждого сервиса на Railway
-- Предупреждает о пустых значениях
-
-### Ручная настройка через веб-интерфейс
-
-1. Откройте ваш проект на [Railway](https://railway.app)
-2. Выберите сервис (Frontend, Backend или Bot)
-3. Перейдите в **Variables** → **New Variable**
-4. Добавьте переменные согласно списку ниже
-
-### Ручная настройка через CLI
+### Работа с переменными окружения
 
 ```bash
 # Установить переменную для конкретного сервиса
@@ -78,163 +40,137 @@ railway variables set KEY=value --service <service-name>
 # Примеры:
 railway variables set DATABASE_URL=postgresql://... --service backend
 railway variables set BOT_TOKEN=xxx --service bot
-railway variables set VITE_SERVER_API_URL=https://xxx.up.railway.app/api --service frontend
+railway variables set CART_SERVER_PORT=$PORT --service backend
 
 # Просмотр всех переменных
 railway variables
 
 # Просмотр переменных конкретного сервиса
 railway variables --service <service-name>
+
+# Удалить переменную
+railway variables delete KEY --service <service-name>
 ```
 
-### Список переменных по сервисам
+### Автоматическая настройка переменных
 
-#### Frontend (Vercel)
-
-**Обязательные:**
-- `VITE_SERVER_API_URL` → `https://<backend>.up.railway.app/api` (рекомендуется использовать эту переменную)
-
-**Опциональные** (если не используется `VITE_SERVER_API_URL`):
-- `VITE_CART_API_URL` → `https://<backend>.up.railway.app/api/cart/submit`
-- `VITE_CART_RECALC_URL` → `https://<backend>.up.railway.app/api/cart/recalculate`
-- `VITE_CART_ORDERS_URL` → `https://<backend>.up.railway.app/api/cart/orders`
-- `VITE_ADMIN_API_URL` → `https://<backend>.up.railway.app/api/cart`
-
-**Дополнительные:**
-- `VITE_DEV_ADMIN_TOKEN` — токен для админ-доступа
-- `VITE_DEV_ADMIN_TELEGRAM_ID` — Telegram ID администратора
-- `VITE_GEO_SUGGEST_URL` — URL для геокодирования (по умолчанию: `https://photon.komoot.io/api`)
-- `VITE_GEO_REVERSE_URL` — URL для обратного геокодирования (по умолчанию: `https://photon.komoot.io/reverse`)
-
-**Примечание:** Все переменные должны быть установлены для всех окружений (Production, Preview, Development) в Vercel Dashboard.
-
-#### Backend (cart-server)
-- `DATABASE_URL` — PostgreSQL connection string (Railway предоставляет автоматически при добавлении PostgreSQL)
-- `CART_ORDERS_TABLE` — название таблицы заказов (по умолчанию: `cart_orders`)
-- `ADMIN_SUPER_IDS` — Telegram ID администраторов (через запятую)
-- `ADMIN_DEV_TOKEN` — токен для админ-доступа
-- `ADMIN_DEV_TELEGRAM_ID` — Telegram ID администратора
-- `YOOKASSA_TEST_SHOP_ID` — ID магазина YooKassa
-- `YOOKASSA_TEST_SECRET_KEY` — секретный ключ YooKassa
-- `YOOKASSA_TEST_CALLBACK_URL` — URL для webhook YooKassa
-- `TELEGRAM_WEBAPP_RETURN_URL` — URL возврата в Telegram Mini App
-- `CART_ORDERS_MAX_LIMIT` — максимальное количество заказов (по умолчанию: `200`)
-- `INTEGRATION_CACHE_TTL_MS` — TTL кэша интеграций в мс (по умолчанию: `300000`)
-- `CART_SERVER_LOG_LEVEL` — уровень логирования (по умолчанию: `info`)
-- `GEOCODER_PROVIDER` — провайдер геокодирования (по умолчанию: `photon`)
-- `VITE_YANDEX_GEOCODE_API_KEY` — API ключ Yandex Geocoder (опционально)
-- `GEOCODER_CACHE_TTL_MS` — TTL кэша геокодера в мс (по умолчанию: `300000`)
-- `GEOCODER_RATE_LIMIT_PER_IP` — лимит запросов на IP (по умолчанию: `30`)
-- `GEOCODER_RATE_LIMIT_WINDOW_MS` — окно лимита в мс (по умолчанию: `5000`)
-- `CART_SERVER_PORT` → `$PORT` (Railway автоматически предоставляет `PORT`)
-
-#### Bot
-- `BOT_TOKEN` — токен Telegram бота
-- `WEBAPP_URL` — **домен Vercel frontend** (например: `https://your-app.vercel.app`)
-- `PROFILE_SYNC_URL` — URL синхронизации профиля (обычно: `https://<backend>.up.railway.app/api/cart/profile/sync`)
-- `VITE_USE_SERVER_API` — использовать серверный API (по умолчанию: `true`)
-- `VITE_SERVER_API_URL` → `https://<backend>.up.railway.app/api`
-- `VITE_FORCE_SERVER_API` — принудительно использовать серверный API (по умолчанию: `true`)
-- `ADMIN_PANEL_TOKEN` — токен для админ-панели
-- `ADMIN_TELEGRAM_IDS` — Telegram ID администраторов
-- `VITE_DEV_ADMIN_TOKEN` — токен для админ-доступа
-- `VITE_YANDEX_GEOCODE_API_KEY` — API ключ Yandex Geocoder
-- `API_PORT` → `$PORT` (Railway автоматически предоставляет `PORT`)
-
-## Как мигрировать
-
-1. **Создайте проект на Railway:**
-   - Откройте [Railway](https://railway.app)
-   - Создайте новый проект
-   - Подключите репозиторий GitHub/GitLab
-
-2. **Добавьте два сервиса на Railway:**
-   - **Backend:** root `/backend`, install `npm ci --omit=dev`, start `node server/cart-server.mjs`
-   - **Bot:** root `/backend/bot`, install `npm ci --omit=dev`, start `node main-bot.cjs`
-   
-   **Примечание:** Frontend разворачивается на Vercel (см. раздел "Vercel" ниже)
-
-3. **Добавьте PostgreSQL:**
-   - В проекте Railway нажмите **New** → **Database** → **Add PostgreSQL**
-   - Railway автоматически создаст переменную `DATABASE_URL`
-
-4. **Настройте переменные окружения:**
-   - Используйте скрипт: `bash scripts/setup-railway-env.sh`
-   - Или настройте вручную через веб-интерфейс/CLI (см. выше)
-
-5. **Важно:** После деплоя замените в переменных:
-   - `your-backend.up.railway.app` → реальный домен backend сервиса на Railway
-   - В переменной `WEBAPP_URL` бота укажите домен Vercel (например: `https://your-app.vercel.app`)
-
-6. **Проверьте логи:**
-   ```bash
-   railway logs --service backend
-   railway logs --service bot
-   ```
-
-7. **Включите автоматический деплой:**
-   - В настройках каждого сервиса включите **Deploy on Push**
-   
-8. **Настройте Frontend на Vercel:**
-   - См. раздел "Vercel (frontend)" ниже
-   - Используйте скрипт: `bash scripts/setup-vercel-env.sh`
-
-## Vercel (frontend)
-
-**Платформа**: [Vercel](https://vercel.com)
-
-**Конфигурация**:
-- Root: `/frontend`
-- Build Command: `npm run build`
-- Output Directory: `dist`
-- Framework: Vite (React SPA)
-- Конфиг: `vercel.json` указывает на `frontend/package.json`, маршрутизация SPA (`/.* -> /index.html`)
-
-### Настройка переменных окружения
-
-#### Автоматическая настройка (рекомендуется)
+Используйте скрипт для автоматической настройки всех переменных:
 
 ```bash
-# 1. Установите Vercel CLI (если ещё не установлен)
-npm i -g vercel
+# Автоматически читает из локальных .env файлов
+bash scripts/setup-railway-env.sh
 
-# 2. Войдите в Vercel
-vercel login
-
-# 3. Свяжите проект с Vercel (выберите проект)
-vercel link
-
-# 4. Запустите скрипт (автоматически читает из локальных .env файлов)
-bash scripts/setup-vercel-env.sh
-
-# Или в интерактивном режиме
-bash scripts/setup-vercel-env.sh --interactive
+# Интерактивный режим (для ввода значений вручную)
+bash scripts/setup-railway-env.sh --interactive
 ```
 
-#### Ручная настройка
+Скрипт автоматически:
+- Читает значения из локальных `.env` файлов (`backend/server/.env`, `backend/bot/.env`)
+- Устанавливает переменные для каждого сервиса на Railway
+- Предупреждает о пустых значениях
 
-1. Откройте [Vercel Dashboard](https://vercel.com)
-2. Выберите проект
-3. Перейдите в **Settings** → **Environment Variables**
-4. Добавьте переменные для всех окружений (Production, Preview, Development)
+### Работа с логами
 
-**Обязательные переменные:**
-- `VITE_SERVER_API_URL` → `https://<backend>.up.railway.app/api` (URL backend на Railway)
+```bash
+# Просмотр логов конкретного сервиса
+railway logs --service backend
+railway logs --service bot
 
-**Полный список переменных** см. в разделе "Frontend" выше.
+# Логи в реальном времени
+railway logs --service backend --follow
 
-### Деплой
+# Логи последнего деплоя
+railway logs
+```
 
-- Автоматический деплой при push в main ветку
-- Preview деплои для pull requests
-- Настраивается через Vercel Dashboard или `vercel.json`
+### Деплой и управление
 
-### Домены
+```bash
+# Ручной деплой
+railway up
 
-- Production: `https://your-app.vercel.app`
-- Custom domain: настраивается в Vercel Dashboard → **Settings** → **Domains**
+# Открыть проект в браузере
+railway open
 
-## Зеркало на Timeweb
-- Пока основной хостинг — Timeweb, продолжайте деплой командой `bash scripts/deploy-local.sh` и доставку env `bash scripts/push-env.sh`.  
-- Timeweb будет запасным после переезда: держите `.env.deploy` актуальным, чтобы в любой момент выполнить деплой/горячую замену.  
-- После успешного Railway/Vercel деплоя прогоняйте `deploy-local.sh`, чтобы Timeweb оставался синхронным.***
+# Просмотр статуса сервисов
+railway status
+```
+
+## Переменные окружения для Railway
+
+> **Подробное описание переменных:** см. [`RAILWAY_ENV_VARIABLES_EXPLAINED.md`](./RAILWAY_ENV_VARIABLES_EXPLAINED.md)
+
+### Backend (cart-server)
+
+**Обязательные:**
+- `DATABASE_URL` — PostgreSQL connection string (Railway предоставляет автоматически при добавлении PostgreSQL)
+- `CART_SERVER_PORT=$PORT` — порт (Railway предоставляет `$PORT` автоматически)
+
+**Рекомендуемые:**
+- `CART_ORDERS_TABLE` — название таблицы заказов (по умолчанию: `cart_orders`)
+- `ADMIN_TELEGRAM_IDS` — Telegram ID администраторов через запятую
+- `CART_SERVER_LOG_LEVEL` — уровень логирования (по умолчанию: `info`)
+
+**Полный список переменных:** см. [`DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md#backend-railway)
+
+### Bot
+
+**Обязательные:**
+- `BOT_TOKEN` — токен Telegram бота
+- `WEBAPP_URL` — домен Vercel frontend (например: `https://your-app.vercel.app`)
+- `API_PORT=$PORT` — порт (Railway предоставляет `$PORT` автоматически)
+
+**Рекомендуемые:**
+- `VITE_SERVER_API_URL` — URL backend на Railway
+- `ADMIN_TELEGRAM_IDS` — Telegram ID администраторов
+
+**Полный список переменных:** см. [`DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md#bot-railway)
+
+## PostgreSQL на Railway
+
+### Добавление базы данных
+
+1. В проекте Railway нажмите **New** → **Database** → **Add PostgreSQL**
+2. Railway автоматически создаст переменную `DATABASE_URL`
+3. Эта переменная автоматически доступна всем сервисам в проекте
+
+### Резервное копирование
+
+- Railway автоматически создаёт резервные копии
+- Настраивается в Railway Dashboard → **Database** → **Backups**
+
+## Домены и сеть
+
+### Получение домена
+
+1. Откройте Railway Dashboard → выберите сервис
+2. Перейдите в **Settings** → **Networking**
+3. Скопируйте домен (например: `backend.up.railway.app`)
+4. Обновите переменные окружения:
+   - В Vercel: `VITE_SERVER_API_URL=https://backend.up.railway.app/api`
+   - В Railway Bot: `WEBAPP_URL=https://your-app.vercel.app`
+
+### Custom домены
+
+- Настраиваются в Railway Dashboard → **Settings** → **Networking** → **Custom Domain**
+- Требуется настройка DNS записей
+
+## Troubleshooting
+
+### Сервис не запускается
+
+1. Проверьте логи: `railway logs --service <service-name>`
+2. Убедитесь, что порт использует `$PORT`: `CART_SERVER_PORT=$PORT` или `API_PORT=$PORT`
+3. Проверьте переменные окружения: `railway variables --service <service-name>`
+
+### Проблемы с базой данных
+
+1. Убедитесь, что PostgreSQL добавлен в проект
+2. Проверьте переменную `DATABASE_URL`: `railway variables --service backend`
+3. Проверьте подключение в логах: `railway logs --service backend`
+
+## Дополнительные ресурсы
+
+- [`DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md) — полное руководство по развертыванию
+- [`RAILWAY_ENV_VARIABLES_EXPLAINED.md`](./RAILWAY_ENV_VARIABLES_EXPLAINED.md) — объяснение переменных окружения
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md) — архитектура проекта
