@@ -11,13 +11,13 @@ export const Header = ({
   const { selectedRestaurant, setSelectedRestaurant } = useCityContext();
 
   return (
-    <div className="px-3 md:px-6 max-w-sm md:max-w-6xl mx-auto w-full">
+    <div className="app-shell app-shell-wide app-hero-space">
       {/* Логотип по центру */}
       <div className="mt-6 md:mt-8 flex justify-center">
         <img
           src="/images/heroes/hero-image.svg"
           alt="Хачапури логотип"
-          className="h-auto max-w-32 md:max-w-md"
+          className="h-auto max-w-[clamp(180px,28vw,320px)]"
         />
       </div>
 

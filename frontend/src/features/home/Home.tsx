@@ -208,145 +208,148 @@ const Index = () => {
   }, [selectedCity?.id]);
 
   return (
-    <div className="min-h-screen overflow-hidden flex flex-col bg-transparent">
+    <div className="app-screen overflow-hidden bg-transparent">
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
-      <div className="bg-transparent pb-6 md:pb-8 relative">
+      <div className="bg-transparent pb-5 md:pb-6 relative">
         <Header showCitySelector={true} />
       </div>
 
       {/* СРЕДНЯЯ СЕКЦИЯ: Main Content */}
-      <div className="flex-1 bg-transparent relative pb-24 md:pb-32">
-        <div className="px-3 md:px-6 max-w-sm md:max-w-6xl mx-auto w-full">
+      <div className="app-content bg-transparent relative app-bottom-space">
+        <div className="app-shell app-shell-wide w-full">
 
-          {/* Quick Action Buttons Grid */}
-          <div className="mt-6 md:mt-8 grid grid-cols-4 gap-2 md:gap-3">
-            <QuickActionButton
-              icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
-              title="Бронь столика"
-              highlighted={cityChangedFlash}
-              onClick={() => {
-                console.log("[Home] QuickActionButton onClick вызван напрямую");
-                handleBookingClick();
-              }}
-            />
+          <div className="space-y-6 md:space-y-8">
+            <div className="grid gap-6 lg:gap-8 lg:grid-cols-12 lg:items-start">
+              {/* Quick Action Buttons Grid */}
+              <div className="mt-6 md:mt-8 lg:mt-2 lg:col-span-7">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4">
+                  <QuickActionButton
+                    icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
+                    title="Бронь столика"
+                    highlighted={cityChangedFlash}
+                    onClick={() => {
+                      console.log("[Home] QuickActionButton onClick вызван напрямую");
+                      handleBookingClick();
+                    }}
+                  />
 
-            <QuickActionButton
-              icon={<Truck className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
-              title="Заказать доставку"
-              highlighted={cityChangedFlash}
-              onClick={() => navigate("/delivery")}
-            />
+                  <QuickActionButton
+                    icon={<Truck className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
+                    title="Заказать доставку"
+                    highlighted={cityChangedFlash}
+                    onClick={() => navigate("/delivery")}
+                  />
 
-            <QuickActionButton
-              icon={<StarIcon className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary fill-none" strokeWidth={2} />}
-              title="Оставить отзыв"
-              highlighted={cityChangedFlash}
-              onClick={handleReviewClick}
-            />
+                  <QuickActionButton
+                    icon={<StarIcon className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary fill-none" strokeWidth={2} />}
+                    title="Оставить отзыв"
+                    highlighted={cityChangedFlash}
+                    onClick={handleReviewClick}
+                  />
 
-            <QuickActionButton
-              icon={<MapPin className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
-              title="Как нас найти?"
-              highlighted={cityChangedFlash}
-              onClick={() => navigate("/about")}
-            />
-          </div>
-
-          {/* Promotions Carousel */}
-          {promotions.length > 0 && (
-            <div className="mt-6 md:mt-8">
-              <PromotionsCarousel
-                promotions={promotions}
-                onBookTable={handleBookingClick}
-              />
-            </div>
-          )}
-
-          {/* Menu and Vacancies */}
-          <div className="mt-6 md:mt-8 mb-24 md:mb-28 grid grid-cols-2 gap-3 md:gap-6">
-            <ServiceCard
-              title="Меню"
-              imageUrl="/images/services/MENU-CARD.png"
-              aspectRatio="aspect-[4/3]"
-              imageClassName="object-left translate-x-[2px]"
-              className="max-w-[180px] md:max-w-[220px] mx-auto"
-              highlighted={cityChangedFlash}
-              onClick={() => navigate("/menu")}
-            />
-            <ServiceCard
-              title="Вакансии"
-              imageUrl="/images/services/JOBCARD.png"
-              aspectRatio="aspect-[4/3]"
-              imageClassName="object-left translate-x-[2px]"
-              className="max-w-[180px] md:max-w-[220px] mx-auto"
-              highlighted={cityChangedFlash}
-              onClick={() => {
-                if (selectedCity?.id && selectedCity?.name) {
-                  openEmbeddedPage(`vacancies-${selectedCity.id}`, {
-                    title: `Вакансии — ${selectedCity.name}`,
-                    url: VACANCIES_LINK,
-                    allowedCityId: selectedCity.id,
-                    description: "Актуальные вакансии сети «Хачапури Марико».",
-                    fallbackLabel: "Открыть вакансии во внешнем окне",
-                  });
-                  return;
-                }
-
-                safeOpenLink(VACANCIES_LINK, {
-                  try_instant_view: true,
-                });
-              }}
-            />
-          </div>
-
-          {/* Recommended Section (временно скрыто) */}
-          {showRecommendedSection && (
-            <div className="mt-10 md:mt-12 -mx-3 md:-mx-6">
-              {/* Heading bar */}
-              <div className="w-full bg-white py-3 md:py-4 flex items-center justify-between px-4 md:px-6 mb-4 md:mb-6">
-                <span className="font-el-messiri text-base md:text-lg font-semibold text-black">
-                  Рекомендуем попробовать
-                </span>
-                <ChevronDown className="w-5 h-5 md:w-6 md:h-6 text-black" />
+                  <QuickActionButton
+                    icon={<MapPin className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
+                    title="Как нас найти?"
+                    highlighted={cityChangedFlash}
+                    onClick={() => navigate("/about")}
+                  />
+                </div>
               </div>
 
-              <div className="px-3 md:px-6 mb-16 md:mb-20">
-                {/* Random recommended menu items grid */}
-                {/* Компактная сетка 2x2 на мобильных, адаптивная на больших экранах */}
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
-                  {recommended.map((item) => (
-                    <div key={item.id}>
-                      {/* Мобильный вариант для экранов < 768px */}
-                      <div className="block md:hidden">
-                        <MenuItemComponent
-                          item={item}
-                          variant="mobile"
-                          onClick={() => handleDishClick(item)}
-                        />
-                      </div>
-                      {/* Компактный вариант для экранов >= 768px */}
-                      <div className="hidden md:block">
-                        <MenuItemComponent
-                          item={item}
-                          variant="compact"
-                          onClick={() => handleDishClick(item)}
-                        />
-                      </div>
-                    </div>
-                  ))}
+              {/* Promotions Carousel */}
+              {promotions.length > 0 && (
+                <div className="mt-6 md:mt-8 lg:mt-2 lg:col-span-5">
+                  <PromotionsCarousel
+                    promotions={promotions}
+                    onBookTable={handleBookingClick}
+                  />
+                </div>
+              )}
+
+              {/* Menu and Vacancies */}
+              <div className="mt-6 md:mt-8 lg:col-span-7">
+                <div className="grid grid-cols-2 gap-3 md:gap-4 lg:gap-5">
+                  <ServiceCard
+                    title="Меню"
+                    imageUrl="/images/services/MENU-CARD.png"
+                    aspectRatio="aspect-[4/3]"
+                    imageClassName="object-left translate-x-[2px]"
+                    className="max-w-[200px] md:max-w-[240px] mx-auto w-full"
+                    highlighted={cityChangedFlash}
+                    onClick={() => navigate("/menu")}
+                  />
+                  <ServiceCard
+                    title="Вакансии"
+                    imageUrl="/images/services/JOBCARD.png"
+                    aspectRatio="aspect-[4/3]"
+                    imageClassName="object-left translate-x-[2px]"
+                    className="max-w-[200px] md:max-w-[240px] mx-auto w-full"
+                    highlighted={cityChangedFlash}
+                    onClick={() => {
+                      if (selectedCity?.id && selectedCity?.name) {
+                        openEmbeddedPage(`vacancies-${selectedCity.id}`, {
+                          title: `Вакансии — ${selectedCity.name}`,
+                          url: VACANCIES_LINK,
+                          allowedCityId: selectedCity.id,
+                          description: "Актуальные вакансии сети «Хачапури Марико».",
+                          fallbackLabel: "Открыть вакансии во внешнем окне",
+                        });
+                        return;
+                      }
+
+                      safeOpenLink(VACANCIES_LINK, {
+                        try_instant_view: true,
+                      });
+                    }}
+                  />
                 </div>
               </div>
             </div>
-          )}
+
+            {/* Recommended Section (временно скрыто) */}
+            {showRecommendedSection && (
+              <div className="mt-10 md:mt-12 -mx-3 md:-mx-6">
+                {/* Heading bar */}
+                <div className="w-full bg-white py-3 md:py-4 flex items-center justify-between px-4 md:px-6 mb-4 md:mb-6">
+                  <span className="font-el-messiri text-base md:text-lg font-semibold text-black">
+                    Рекомендуем попробовать
+                  </span>
+                  <ChevronDown className="w-5 h-5 md:w-6 md:h-6 text-black" />
+                </div>
+
+                <div className="px-3 md:px-6 mb-16 md:mb-20">
+                  {/* Random recommended menu items grid */}
+                  {/* Компактная сетка 2x2 на мобильных, адаптивная на больших экранах */}
+                  <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
+                    {recommended.map((item) => (
+                      <div key={item.id}>
+                        {/* Мобильный вариант для экранов < 768px */}
+                        <div className="block md:hidden">
+                          <MenuItemComponent
+                            item={item}
+                            variant="mobile"
+                            onClick={() => handleDishClick(item)}
+                          />
+                        </div>
+                        {/* Компактный вариант для экранов >= 768px */}
+                        <div className="hidden md:block">
+                          <MenuItemComponent
+                            item={item}
+                            variant="compact"
+                            onClick={() => handleDishClick(item)}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
         </div>
 
-        {/* НАВИГАЦИЯ: позиционирована поверх белого фона */}
-        <div className="absolute bottom-0 left-0 right-0 z-50">
-          <BottomNavigation currentPage="home" />
-        </div>
-
-
+        <BottomNavigation currentPage="home" />
 
         {activeDish && (
           <div

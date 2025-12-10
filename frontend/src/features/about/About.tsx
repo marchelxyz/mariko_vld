@@ -57,22 +57,25 @@ const About = () => {
   const filteredContacts = CONTACTS.filter((c) => c.city === selectedCity.name);
 
   return (
-    <div className="min-h-screen overflow-hidden flex flex-col bg-transparent">
+    <div className="app-screen overflow-hidden bg-transparent">
       {/* Header */}
-      <div className="bg-transparent pb-6 md:pb-8">
+      <div className="bg-transparent pb-5 md:pb-6">
         <Header />
       </div>
 
       {/* Main Content */}
       <div
-        className="flex-1 bg-transparent relative overflow-hidden pt-0 md:pt-2"
+        className="app-content bg-transparent relative overflow-hidden pt-0 md:pt-2 app-bottom-space"
       >
-        <div className="px-4 md:px-6 max-w-6xl mx-auto w-full">
+        <div className="app-shell app-shell-wide w-full">
           {/* Page title */}
           <PageHeader title="О нас" variant="white" onBackClick={() => navigate(-1)} />
 
           {/* Contacts list (filtered by selected city) */}
-          <div className="space-y-6 pb-[10rem] md:pb-[12rem]">
+          <div
+            className="space-y-6"
+            style={{ paddingBottom: "calc(var(--app-bottom-inset) + 48px)" }}
+          >
             {filteredContacts.map((contact) => (
               <div
                 key={contact.id}
@@ -232,9 +235,7 @@ const About = () => {
         </div>
 
         {/* Bottom Navigation */}
-        <div className="absolute bottom-0 left-0 right-0 z-50">
-          <BottomNavigation currentPage="about" />
-        </div>
+        <BottomNavigation currentPage="about" />
       </div>
     </div>
   );

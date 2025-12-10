@@ -14,15 +14,15 @@ const Profile = () => {
   const deliveryAddress = (profile.lastAddressText || "").trim();
 
   return (
-    <div className="min-h-screen overflow-hidden flex flex-col bg-transparent">
+    <div className="app-screen overflow-hidden bg-transparent">
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
-      <div className="bg-transparent pb-6 md:pb-8">
+      <div className="bg-transparent pb-5 md:pb-6">
         <Header />
       </div>
 
       {/* СРЕДНЯЯ СЕКЦИЯ: Main Content с белым фоном, расширенная до низа */}
-      <div className="flex-1 bg-transparent relative overflow-hidden pt-0 md:pt-2">
-        <div className="px-4 md:px-6 max-w-6xl mx-auto w-full">
+      <div className="app-content bg-transparent relative overflow-hidden pt-0 md:pt-2 app-bottom-space">
+        <div className="app-shell app-shell-wide w-full">
           {/* Page Header */}
           <div className="mt-0 md:mt-1">
             <PageHeader title="Профиль" />
@@ -47,7 +47,10 @@ const Profile = () => {
           </div>
 
           {/* Profile Action Buttons */}
-          <div className="relative z-20 mt-6 md:mt-8 space-y-3 md:space-y-6 pb-[72rem] md:pb-[84rem]">
+          <div
+            className="relative z-20 mt-6 md:mt-8 space-y-3 md:space-y-6"
+            style={{ paddingBottom: "calc(var(--app-bottom-inset) + 160px)" }}
+          >
             <div className="bg-mariko-field rounded-[16px] px-5 md:px-7 py-3 md:py-4">
               <p className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-1">
                 Адрес доставки
@@ -65,7 +68,10 @@ const Profile = () => {
         </div>
 
         {/* Decorative Georgian Pottery Image - Позиционируем ниже, чтобы не перекрывать контент профиля */}
-        <div className="absolute -bottom-20 md:-bottom-24 right-0 z-10 pointer-events-none">
+        <div
+          className="absolute right-0 z-10 pointer-events-none"
+          style={{ bottom: "calc(var(--app-bottom-bar-height) - 40px)" }}
+        >
           <img
             src="/images/characters/character-bonus.png"
             alt="Грузинские кувшины"
@@ -79,9 +85,7 @@ const Profile = () => {
         </div>
 
         {/* НАВИГАЦИЯ: позиционирована поверх белого фона */}
-        <div className="absolute bottom-0 left-0 right-0 z-50">
-          <BottomNavigation currentPage="profile" />
-        </div>
+        <BottomNavigation currentPage="profile" />
       </div>
     </div>
   );

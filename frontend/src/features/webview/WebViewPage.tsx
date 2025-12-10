@@ -130,13 +130,13 @@ const WebViewPage = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col overflow-hidden bg-transparent">
-      <div className="bg-transparent pb-6 md:pb-8">
+    <div className="app-screen overflow-hidden bg-transparent">
+      <div className="bg-transparent pb-5 md:pb-6">
         <Header />
       </div>
 
-      <div className="relative flex-1 bg-transparent pt-0 md:pt-2">
-        <div className="mx-auto flex h-full w-full max-w-6xl flex-col px-4 pb-32 md:px-6 md:pb-40">
+      <div className="relative flex-1 bg-transparent pt-0 md:pt-2 app-bottom-space">
+        <div className="app-shell app-shell-wide mx-auto flex h-full w-full flex-col pb-6 md:pb-8">
           <PageHeader
             title={pageConfig?.title ?? "Встроенная страница"}
             variant="white"
@@ -150,9 +150,7 @@ const WebViewPage = () => {
           {renderIframe()}
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0">
-          <BottomNavigation currentPage="home" />
-        </div>
+        <BottomNavigation currentPage="home" />
       </div>
     </div>
   );
