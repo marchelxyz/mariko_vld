@@ -301,6 +301,23 @@ function PromotionsManagementContent({
     }
   }, [currentCityId, noPromotionsAccess]);
 
+  const emptyState = useMemo(() => promotions.length === 0, [promotions.length]);
+
+  const filteredLibrary = useMemo(() => {
+    if (!librarySearch.trim()) return imageLibrary;
+    const query = librarySearch.trim().toLowerCase();
+    return imageLibrary.filter((img) => img.path.toLowerCase().includes(query));
+  }, [imageLibrary, librarySearch]);
+
+  const preparedLibrary = useMemo(
+    () =>
+      filteredLibrary.map((img) => ({
+        ...img,
+        url: normalizeImageUrl(img.url || buildLibraryImageUrl(img)),
+      })),
+    [filteredLibrary],
+  );
+
   if (noPromotionsAccess) {
     return null;
   }
@@ -492,23 +509,6 @@ function PromotionsManagementContent({
       setUploadTargetId(null);
     }
   };
-
-  const emptyState = useMemo(() => promotions.length === 0, [promotions.length]);
-
-  const filteredLibrary = useMemo(() => {
-    if (!librarySearch.trim()) return imageLibrary;
-    const query = librarySearch.trim().toLowerCase();
-    return imageLibrary.filter((img) => img.path.toLowerCase().includes(query));
-  }, [imageLibrary, librarySearch]);
-
-  const preparedLibrary = useMemo(
-    () =>
-      filteredLibrary.map((img) => ({
-        ...img,
-        url: normalizeImageUrl(img.url || buildLibraryImageUrl(img)),
-      })),
-    [filteredLibrary],
-  );
 
   if (isLoadingPromos && !promotions.length) {
     return (
