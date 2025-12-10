@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Component, type ErrorInfo, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Image as ImageIcon, Megaphone, Plus, Save, Trash2, Copy, Upload } from "lucide-react";
 import { useAdmin, useCities } from "@shared/hooks";
 import { Permission, UserRole } from "@shared/types";
@@ -61,7 +61,99 @@ const normalizeImageUrl = (raw?: string | null) => {
   }
 };
 
-export function PromotionsManagement(): JSX.Element {
+type PromotionsErrorContext = {
+  currentCityId: string | null;
+  copyFromCityId: string | null;
+  accessibleCitiesCount: number;
+  promotionsCount: number;
+  allowedRestaurants: string[];
+  isSuperAdmin: boolean;
+  userRole: UserRole;
+};
+
+type PromotionsErrorBoundaryProps = {
+  children: ReactNode;
+  context?: () => PromotionsErrorContext | undefined;
+};
+
+type PromotionsErrorBoundaryState = {
+  hasError: boolean;
+  error?: Error | null;
+};
+
+const normalizeBaseUrl = (value?: string) => {
+  if (!value) return "";
+  return value.endsWith("/") ? value.slice(0, -1) : value;
+};
+
+const resolveAdminLogsUrl = () => {
+  const adminBase = normalizeBaseUrl(import.meta.env.VITE_ADMIN_API_URL);
+  const serverBase = normalizeBaseUrl(import.meta.env.VITE_SERVER_API_URL);
+  if (adminBase) {
+    return `${adminBase}/admin/logs`;
+  }
+  if (serverBase) {
+    return `${serverBase}/cart/admin/logs`;
+  }
+  return "/api/cart/admin/logs";
+};
+
+const ADMIN_LOGS_URL = resolveAdminLogsUrl();
+
+async function reportPromotionsError(
+  error: Error,
+  info: ErrorInfo,
+  context?: PromotionsErrorContext,
+): Promise<void> {
+  try {
+    await fetch(ADMIN_LOGS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        level: "error",
+        category: "promotions",
+        message: error.message,
+        stack: error.stack,
+        componentStack: info.componentStack,
+        context,
+        timestamp: new Date().toISOString(),
+      }),
+    });
+  } catch {
+    // Игнорируем сбои логирования, чтобы не мешать пользователю
+  }
+}
+
+class PromotionsErrorBoundary extends Component<
+  PromotionsErrorBoundaryProps,
+  PromotionsErrorBoundaryState
+> {
+  state: PromotionsErrorBoundaryState = { hasError: false, error: null };
+
+  async componentDidCatch(error: Error, info: ErrorInfo) {
+    this.setState({ hasError: true, error });
+    const context = this.props.context ? this.props.context() : undefined;
+    await reportPromotionsError(error, info, context);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white/80">
+          <p className="font-semibold text-white">Не удалось загрузить «Управление акциями».</p>
+          <p className="text-sm text-white/70 mt-1">Обновите страницу или попробуйте позже.</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function PromotionsManagementContent({
+  onContextChange,
+}: {
+  onContextChange?: (context: PromotionsErrorContext) => void;
+}): JSX.Element {
   const { cities: allCities, isLoading: isCitiesLoading } = useCities();
   const { isSuperAdmin, allowedRestaurants, hasPermission, userRole } = useAdmin();
   const { toast } = useToast();
@@ -105,6 +197,27 @@ export function PromotionsManagement(): JSX.Element {
       setCopyFromCityId(null);
     }
   }, [accessibleCities, copyFromCityId]);
+
+  useEffect(() => {
+    onContextChange?.({
+      currentCityId,
+      copyFromCityId,
+      accessibleCitiesCount: accessibleCities.length,
+      promotionsCount: promotions.length,
+      allowedRestaurants: allowedRestaurants ?? [],
+      isSuperAdmin: isSuperAdmin(),
+      userRole,
+    });
+  }, [
+    accessibleCities.length,
+    allowedRestaurants,
+    copyFromCityId,
+    currentCityId,
+    isSuperAdmin,
+    onContextChange,
+    promotions.length,
+    userRole,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -681,3 +794,27 @@ export function PromotionsManagement(): JSX.Element {
     </div>
   );
 }
+
+export function PromotionsManagement(): JSX.Element {
+  const contextRef = useRef<PromotionsErrorContext>({
+    currentCityId: null,
+    copyFromCityId: null,
+    accessibleCitiesCount: 0,
+    promotionsCount: 0,
+    allowedRestaurants: [],
+    isSuperAdmin: false,
+    userRole: UserRole.USER,
+  });
+
+  return (
+    <PromotionsErrorBoundary context={() => contextRef.current}>
+      <PromotionsManagementContent
+        onContextChange={(ctx) => {
+          contextRef.current = ctx;
+        }}
+      />
+    </PromotionsErrorBoundary>
+  );
+}
+
+export default PromotionsManagement;
