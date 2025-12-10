@@ -353,13 +353,13 @@ const Index = () => {
 
                 {featuredDishes.length > 0 && (
                   <div className="mt-6 lg:mt-0 lg:ml-auto">
-                    <div className="rounded-[18px] bg-white/10 border border-white/15 backdrop-blur-sm p-4">
+                    <div className="rounded-[18px] bg-white/10 border border-white/15 backdrop-blur-sm p-4 h-[200px] md:h-[220px] flex flex-col">
                       <div className="flex items-center justify-between mb-3">
                         <span className="font-el-messiri text-lg font-semibold text-white">
                           Рекомендуем попробовать
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-3 overflow-y-auto">
                         {featuredDishes.map((item) => (
                           <MenuItemComponent
                             key={item.id}
