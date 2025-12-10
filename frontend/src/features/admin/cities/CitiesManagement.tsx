@@ -11,7 +11,7 @@ import {
   Edit,
   Plus,
 } from 'lucide-react';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { adminApi } from "@shared/api/admin";
 import { citiesApi } from "@shared/api/cities";
 import { getAllCitiesAsync, type City, type Restaurant } from "@shared/data";
@@ -54,7 +54,7 @@ const normalizeCity = (city: City & { is_active?: boolean }): CityWithStatus => 
  * Компонент управления городами
  */
 export function CitiesManagement(): JSX.Element {
-  const { userId, allowedRestaurants, isSuperAdmin, userRole, hasPermission } = useAdmin();
+  const { userId, allowedRestaurants, isSuperAdmin, userRole, hasPermission, isLoading: isAdminLoading } = useAdmin();
   const [citiesWithStatus, setCitiesWithStatus] = useState<CityWithStatus[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [cityToDelete, setCityToDelete] = useState<string | null>(null);
@@ -63,25 +63,31 @@ export function CitiesManagement(): JSX.Element {
   const [isCreateCityModalOpen, setIsCreateCityModalOpen] = useState(false);
   const canManageCities = isSuperAdmin() || userRole === UserRole.ADMIN;
 
-  const filterCitiesByAccess = (cities: CityWithStatus[]): CityWithStatus[] => {
-    if (isSuperAdmin() || userRole === UserRole.ADMIN) {
-      return cities;
-    }
-    if (!allowedRestaurants?.length) {
-      return [];
-    }
-    const allowed = new Set(allowedRestaurants);
-    return cities
-      .map((city) => ({
-        ...city,
-        restaurants: city.restaurants.filter((restaurant) => allowed.has(restaurant.id)),
-      }))
-      .filter((city) => city.restaurants.length > 0);
-  };
+  const filterCitiesByAccess = useCallback(
+    (cities: CityWithStatus[]): CityWithStatus[] => {
+      if (isSuperAdmin() || userRole === UserRole.ADMIN) {
+        return cities;
+      }
+      if (!allowedRestaurants?.length) {
+        return [];
+      }
+      const allowed = new Set(allowedRestaurants);
+      return cities
+        .map((city) => ({
+          ...city,
+          restaurants: city.restaurants.filter((restaurant) => allowed.has(restaurant.id)),
+        }))
+        .filter((city) => city.restaurants.length > 0);
+    },
+    [allowedRestaurants, isSuperAdmin, userRole],
+  );
 
   // Загрузка городов из базы данных
   useEffect(() => {
     const loadCities = async () => {
+      if (isAdminLoading || !hasPermission(Permission.MANAGE_RESTAURANTS)) {
+        return;
+      }
       setIsLoading(true);
       logger.info('cities', 'Начало загрузки городов');
       try {
@@ -106,10 +112,13 @@ export function CitiesManagement(): JSX.Element {
     };
 
     loadCities();
-  }, []);
+  }, [filterCitiesByAccess, hasPermission, isAdminLoading]);
 
   // Real-time подписка на изменения
   useEffect(() => {
+    if (isAdminLoading || !hasPermission(Permission.MANAGE_RESTAURANTS)) {
+      return;
+    }
     logger.info('cities', 'Подписка на изменения городов активирована');
 
     const unsubscribe = citiesApi.subscribeToCitiesChanges(async () => {
@@ -130,7 +139,7 @@ export function CitiesManagement(): JSX.Element {
       logger.info('cities', 'Отписка от изменений городов');
       unsubscribe();
     };
-  }, []);
+  }, [filterCitiesByAccess, hasPermission, isAdminLoading]);
 
   // Фильтрация городов
   const filteredCities = useMemo(() => {
