@@ -258,7 +258,7 @@ const Index = () => {
             {/* Promotions Carousel */}
             {promotions.length > 0 && (
               <div className="mt-6 md:mt-8 flex justify-center lg:justify-start">
-                <div className="w-full max-w-[420px] md:max-w-[520px]">
+                <div className="w-full max-w-4xl">
                   <PromotionsCarousel
                     promotions={promotions}
                     onBookTable={handleBookingClick}
@@ -269,7 +269,7 @@ const Index = () => {
 
             {/* Menu and Vacancies */}
             <div className="mt-6 md:mt-8 flex justify-center lg:justify-start">
-              <div className="grid grid-cols-2 gap-3 md:gap-4 lg:gap-5 max-w-4xl w-full lg:max-w-3xl">
+              <div className="grid grid-cols-2 gap-3 md:gap-4 lg:gap-5 max-w-4xl w-full">
                 <ServiceCard
                   title="Меню"
                   imageUrl="/images/services/MENU-CARD.png"
