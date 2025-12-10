@@ -220,7 +220,7 @@ const Index = () => {
 
           <div className="space-y-6 md:space-y-8">
             {/* Quick Action Buttons */}
-            <div className="mt-6 md:mt-8 flex justify-center">
+            <div className="mt-6 md:mt-8 flex justify-center lg:justify-start">
               <div className="grid grid-cols-4 gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4 max-w-4xl w-full">
                 <QuickActionButton
                   icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
@@ -257,8 +257,8 @@ const Index = () => {
 
             {/* Promotions Carousel */}
             {promotions.length > 0 && (
-              <div className="mt-6 md:mt-8 flex justify-center">
-                <div className="w-full max-w-[420px] md:max-w-[520px]">
+              <div className="mt-6 md:mt-8 flex justify-center lg:justify-start">
+                <div className="w-full max-w-[420px] md:max-w-[520px] lg:max-w-[480px]">
                   <PromotionsCarousel
                     promotions={promotions}
                     onBookTable={handleBookingClick}
@@ -268,8 +268,8 @@ const Index = () => {
             )}
 
             {/* Menu and Vacancies */}
-            <div className="mt-6 md:mt-8 flex justify-center">
-              <div className="grid grid-cols-2 gap-3 md:gap-4 lg:gap-5 max-w-4xl w-full">
+            <div className="mt-6 md:mt-8 flex justify-center lg:justify-start">
+              <div className="grid grid-cols-2 gap-3 md:gap-4 lg:gap-5 max-w-4xl w-full lg:max-w-3xl">
                 <ServiceCard
                   title="Меню"
                   imageUrl="/images/services/MENU-CARD.png"
