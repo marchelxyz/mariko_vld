@@ -5,7 +5,7 @@ import { adminServerApi } from "@shared/api/admin";
 import type { CartOrderRecord } from "@shared/api/cart";
 import { getAllCitiesAsync, type City } from "@shared/data";
 import { useAdmin } from "@shared/hooks";
-import { Permission } from "@shared/types";
+import { Permission, UserRole } from "@shared/types";
 import {
   Button,
   Select,
@@ -71,7 +71,7 @@ const mapCitiesToRestaurantOptions = (cities: City[]): RestaurantOption[] =>
   );
 
 export function DeliveryManagement(): JSX.Element {
-  const { isSuperAdmin, allowedRestaurants, hasPermission } = useAdmin();
+  const { isSuperAdmin, allowedRestaurants, hasPermission, userRole } = useAdmin();
   const canManageDeliveries = hasPermission(Permission.MANAGE_DELIVERIES);
   const [pendingChange, setPendingChange] = useState<{ orderId: string; status: string } | null>(
     null,
@@ -91,13 +91,11 @@ export function DeliveryManagement(): JSX.Element {
   }, [canManageDeliveries]);
 
   const availableRestaurants = useMemo(() => {
-    if (isSuperAdmin()) {
+    if (isSuperAdmin() || userRole === UserRole.ADMIN) {
       return restaurantOptions;
     }
-    return restaurantOptions.filter((option) =>
-      allowedRestaurants.includes(option.id),
-    );
-  }, [allowedRestaurants, isSuperAdmin, restaurantOptions]);
+    return restaurantOptions.filter((option) => allowedRestaurants.includes(option.id));
+  }, [allowedRestaurants, isSuperAdmin, restaurantOptions, userRole]);
 
   const currentRestaurantFilter =
     selectedRestaurant === "all" ? undefined : selectedRestaurant;

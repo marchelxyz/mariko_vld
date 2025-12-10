@@ -37,7 +37,7 @@ export function RolesManagement(): JSX.Element {
     { id: string; label: string; cityName: string; address: string }[]
   >([]);
 
-  const { isSuperAdmin, allowedRestaurants: myAllowedRestaurants, hasPermission } = useAdmin();
+  const { isSuperAdmin, allowedRestaurants: myAllowedRestaurants, hasPermission, userRole } = useAdmin();
   const canManageRoles = hasPermission(Permission.MANAGE_ROLES);
 
   const { data: users = [], isLoading, refetch } = useQuery({
@@ -88,7 +88,7 @@ export function RolesManagement(): JSX.Element {
   }, [users, searchQuery]);
 
   const scopedRestaurantOptions = useMemo(() => {
-    if (isSuperAdmin()) {
+    if (isSuperAdmin() || userRole === UserRole.ADMIN) {
       return restaurantOptions;
     }
     if (!myAllowedRestaurants?.length) {
@@ -96,7 +96,7 @@ export function RolesManagement(): JSX.Element {
     }
     const allowed = new Set(myAllowedRestaurants);
     return restaurantOptions.filter((restaurant) => allowed.has(restaurant.id));
-  }, [isSuperAdmin, myAllowedRestaurants, restaurantOptions]);
+  }, [isSuperAdmin, myAllowedRestaurants, restaurantOptions, userRole]);
 
   const filteredRestaurants = useMemo(() => {
     const source = scopedRestaurantOptions;
@@ -115,7 +115,7 @@ export function RolesManagement(): JSX.Element {
   }, [restaurantSearch, scopedRestaurantOptions]);
 
   const roleRequiresRestaurants = (role: UserRole): boolean => {
-    return ![UserRole.SUPER_ADMIN, UserRole.USER].includes(role);
+    return ![UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.USER].includes(role);
   };
 
   const getRoleLabel = (role: UserRole): string => {

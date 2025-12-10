@@ -150,7 +150,7 @@ export function createAdminPromotionsRouter() {
         return res.status(404).json({ success: false, message: "Город не найден" });
       }
 
-      if (admin.role !== "super_admin") {
+      if (admin.role !== "super_admin" && admin.role !== "admin") {
         if (!admin.allowedRestaurants?.length) {
           const duration = Date.now() - startTime;
           logger.requestError('POST', '/:cityId', new Error('Нет доступа к городам'), 403);

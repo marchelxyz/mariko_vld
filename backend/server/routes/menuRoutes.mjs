@@ -174,7 +174,7 @@ export function createAdminMenuRouter() {
         return res.status(404).json({ success: false, message: "Ресторан не найден" });
       }
 
-      if (admin.role !== "super_admin" && !admin.allowedRestaurants?.includes(restaurantId)) {
+      if (admin.role !== "super_admin" && admin.role !== "admin" && !admin.allowedRestaurants?.includes(restaurantId)) {
         const duration = Date.now() - startTime;
         logger.requestError('POST', '/:restaurantId', new Error('Нет доступа к ресторану'), 403);
         return res.status(403).json({ success: false, message: "Нет доступа к этому ресторану" });

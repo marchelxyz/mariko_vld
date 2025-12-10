@@ -141,11 +141,15 @@ export function createAdminRouter() {
     const restaurantsForRole =
       incomingRole === "super_admin"
         ? []
-        : admin.role === "super_admin"
+        : admin.role === "super_admin" || admin.role === "admin"
           ? requestedRestaurants
           : requestedRestaurants.filter((id) => admin.allowedRestaurants?.includes(id));
 
-    if (admin.role !== "super_admin" && restaurantsForRole.length !== requestedRestaurants.length) {
+    if (
+      admin.role !== "super_admin" &&
+      admin.role !== "admin" &&
+      restaurantsForRole.length !== requestedRestaurants.length
+    ) {
       return res.status(403).json({
         success: false,
         message: "Нельзя выдавать доступ к ресторанам вне вашей зоны ответственности",
@@ -157,7 +161,7 @@ export function createAdminRouter() {
       name: overrideName ?? profile?.name ?? null,
       role: incomingRole,
       permissions: {
-        restaurants: restaurantsForRole,
+        restaurants: incomingRole === "admin" ? [] : restaurantsForRole,
       },
     };
 
@@ -234,7 +238,7 @@ export function createAdminRouter() {
         params.push(restaurantFilter);
       }
 
-      if (admin.role !== "super_admin") {
+      if (admin.role !== "super_admin" && admin.role !== "admin") {
         if (!admin.allowedRestaurants || admin.allowedRestaurants.length === 0) {
           return res.json({ success: true, orders: [] });
         }
@@ -299,7 +303,7 @@ export function createAdminRouter() {
     if (!order) {
       return res.status(404).json({ success: false, message: "Заказ не найден" });
     }
-    if (admin.role !== "super_admin") {
+    if (admin.role !== "super_admin" && admin.role !== "admin") {
       if (!admin.allowedRestaurants.includes(order.restaurant_id)) {
         return res.status(403).json({ success: false, message: "Нет доступа к ресторану заказа" });
       }
@@ -332,7 +336,7 @@ export function createAdminRouter() {
       return res.status(400).json({ success: false, message: "Некорректный статус" });
     }
 
-    if (admin.role !== "super_admin") {
+    if (admin.role !== "super_admin" && admin.role !== "admin") {
       if (!admin.allowedRestaurants?.includes(restaurantId)) {
         return res.status(403).json({ success: false, message: "Нет доступа к ресторану" });
       }

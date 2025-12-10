@@ -13,7 +13,7 @@ import {
 } from "@shared/api/menuApi";
 import { type MenuCategory, type MenuItem, type RestaurantMenu } from "@shared/data";
 import { useAdmin, useCities } from "@shared/hooks";
-import { Permission } from "@shared/types";
+import { Permission, UserRole } from "@shared/types";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -53,7 +53,7 @@ type RestaurantEntry = {
 };
 
 export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManagementProps): JSX.Element {
-  const { hasPermission, allowedRestaurants, isSuperAdmin } = useAdmin();
+  const { hasPermission, allowedRestaurants, isSuperAdmin, userRole } = useAdmin();
   const { cities: allCities, isLoading: isCitiesLoading } = useCities();
   const canManage = hasPermission(Permission.MANAGE_MENU);
   const superAdmin = isSuperAdmin();
@@ -80,7 +80,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     ), [allCities]);
 
   const accessibleRestaurants = useMemo(() => {
-    if (superAdmin) {
+    if (superAdmin || userRole === UserRole.ADMIN) {
       return allRestaurants;
     }
     if (!allowedRestaurants?.length) {
@@ -88,7 +88,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     }
     const allowedSet = new Set(allowedRestaurants);
     return allRestaurants.filter((restaurant) => allowedSet.has(restaurant.id));
-  }, [allRestaurants, allowedRestaurants, superAdmin]);
+  }, [allRestaurants, allowedRestaurants, superAdmin, userRole]);
 
   const accessibleCityGroups = useMemo(() => {
     const groups = new Map<

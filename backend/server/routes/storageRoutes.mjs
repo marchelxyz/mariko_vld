@@ -63,7 +63,7 @@ export function createStorageRouter() {
       return res.status(401).json({ success: false, message: "Не авторизован" });
     }
 
-    if (admin.role !== "super_admin" && !admin.allowedRestaurants?.includes(restaurantId)) {
+    if (admin.role !== "super_admin" && admin.role !== "admin" && !admin.allowedRestaurants?.includes(restaurantId)) {
       const duration = Date.now() - startTime;
       logger.requestError('POST', '/menu/:restaurantId', new Error('Нет доступа к ресторану'), 403);
       return res.status(403).json({ success: false, message: "Нет доступа к этому ресторану" });
@@ -125,12 +125,12 @@ export function createStorageRouter() {
       return res.status(401).json({ success: false, message: "Не авторизован" });
     }
 
-    if (admin.role !== "super_admin" && !admin.allowedRestaurants?.includes(restaurantId)) {
+    if (admin.role !== "super_admin" && admin.role !== "admin" && !admin.allowedRestaurants?.includes(restaurantId)) {
       const duration = Date.now() - startTime;
       logger.requestError('GET', '/menu/:restaurantId', new Error('Нет доступа к ресторану'), 403);
       return res.status(403).json({ success: false, message: "Нет доступа к этому ресторану" });
     }
-    if (scope === "global" && admin.role !== "super_admin") {
+    if (scope === "global" && admin.role !== "super_admin" && admin.role !== "admin") {
       const duration = Date.now() - startTime;
       logger.requestError('GET', '/menu/:restaurantId', new Error('Глобальная библиотека недоступна'), 403);
       return res.status(403).json({ success: false, message: "Недостаточно прав для глобальной библиотеки" });
@@ -183,7 +183,7 @@ export function createStorageRouter() {
       return res.status(401).json({ success: false, message: "Не авторизован" });
     }
 
-    if (admin.role !== "super_admin") {
+    if (admin.role !== "super_admin" && admin.role !== "admin") {
       if (!admin.allowedRestaurants?.length) {
         const duration = Date.now() - startTime;
         logger.requestError('POST', '/promotions/:cityId', new Error('Нет доступных ресторанов'), 403);
@@ -252,7 +252,7 @@ export function createStorageRouter() {
       logger.requestError('GET', '/promotions/:cityId', new Error('Не авторизован'), 401);
       return res.status(401).json({ success: false, message: "Не авторизован" });
     }
-    if (admin.role !== "super_admin") {
+    if (admin.role !== "super_admin" && admin.role !== "admin") {
       if (!admin.allowedRestaurants?.length) {
         const duration = Date.now() - startTime;
         logger.requestError('GET', '/promotions/:cityId', new Error('Нет доступных ресторанов'), 403);
@@ -264,7 +264,7 @@ export function createStorageRouter() {
         logger.requestError('GET', '/promotions/:cityId', new Error('Город недоступен'), 403);
         return res.status(403).json({ success: false, message: "Нет доступа к этому городу" });
       }
-      if (scope === "global") {
+      if (scope === "global" && admin.role !== "super_admin" && admin.role !== "admin") {
         const duration = Date.now() - startTime;
         logger.requestError('GET', '/promotions/:cityId', new Error('Глобальная библиотека недоступна'), 403);
         return res.status(403).json({ success: false, message: "Недостаточно прав для глобальной библиотеки" });
@@ -328,7 +328,7 @@ export function createStorageRouter() {
       return res.status(400).json({ success: false, message: "Необходимо передать key файла" });
     }
 
-    if (admin.role !== "super_admin") {
+    if (admin.role !== "super_admin" && admin.role !== "admin") {
       if (isMenuKey) {
         const match = key.match(/menu\/restaurant-([^/]+)/);
         const restaurantId = match?.[1];

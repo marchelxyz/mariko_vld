@@ -64,7 +64,7 @@ export function CitiesManagement(): JSX.Element {
   const canManageCities = isSuperAdmin() || userRole === UserRole.ADMIN;
 
   const filterCitiesByAccess = (cities: CityWithStatus[]): CityWithStatus[] => {
-    if (isSuperAdmin()) {
+    if (isSuperAdmin() || userRole === UserRole.ADMIN) {
       return cities;
     }
     if (!allowedRestaurants?.length) {

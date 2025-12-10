@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Image as ImageIcon, Megaphone, Plus, Save, Trash2, Copy, Upload } from "lucide-react";
 import { useAdmin, useCities } from "@shared/hooks";
-import { Permission } from "@shared/types";
+import { Permission, UserRole } from "@shared/types";
 import { type PromotionCardData } from "@shared/data";
 import {
   fetchPromotionImageLibrary,
@@ -63,7 +63,7 @@ const normalizeImageUrl = (raw?: string | null) => {
 
 export function PromotionsManagement(): JSX.Element {
   const { cities: allCities, isLoading: isCitiesLoading } = useCities();
-  const { isSuperAdmin, allowedRestaurants, hasPermission } = useAdmin();
+  const { isSuperAdmin, allowedRestaurants, hasPermission, userRole } = useAdmin();
   const { toast } = useToast();
   const [promotions, setPromotions] = useState<PromotionCardData[]>([]);
   const [currentCityId, setCurrentCityId] = useState<string | null>(null);
@@ -81,7 +81,7 @@ export function PromotionsManagement(): JSX.Element {
   const noPromotionsAccess = !hasPermission(Permission.MANAGE_PROMOTIONS);
 
   const accessibleCities = useMemo(() => {
-    if (isSuperAdmin()) {
+    if (isSuperAdmin() || userRole === UserRole.ADMIN) {
       return allCities;
     }
     if (!allowedRestaurants?.length) {
@@ -89,7 +89,7 @@ export function PromotionsManagement(): JSX.Element {
     }
     const allowedSet = new Set(allowedRestaurants);
     return allCities.filter((city) => city.restaurants?.some((restaurant) => allowedSet.has(restaurant.id)));
-  }, [allCities, allowedRestaurants, isSuperAdmin]);
+  }, [allCities, allowedRestaurants, isSuperAdmin, userRole]);
 
   useEffect(() => {
     if (!isCitiesLoading && accessibleCities.length && !currentCityId) {
