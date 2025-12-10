@@ -269,7 +269,7 @@ const Index = () => {
 
             {/* Menu and Vacancies */}
             <div className="mt-6 md:mt-8 flex justify-center lg:justify-start">
-              <div className="grid grid-cols-2 gap-3 md:gap-4 lg:gap-5 max-w-4xl w-full">
+              <div className="grid grid-cols-2 gap-3 md:gap-4 lg:gap-4 max-w-[440px] md:max-w-[520px] w-full">
                 <ServiceCard
                   title="Меню"
                   imageUrl="/images/services/MENU-CARD.png"
