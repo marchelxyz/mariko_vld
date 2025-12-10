@@ -313,7 +313,7 @@ const Index = () => {
                 )}
 
                 {featuredDishes.length > 0 && (
-                  <div className="mt-6 lg:mt-0 w-full max-w-[520px]">
+                  <div className="mt-6 lg:mt-0 w-full max-w-[520px] lg:ml-auto flex lg:justify-end">
                     <div className="rounded-[18px] bg-white/10 border border-white/15 backdrop-blur-sm p-4 h-[200px] md:h-[220px] flex flex-col">
                       <div className="flex items-center justify-between mb-3">
                         <span className="font-el-messiri text-lg font-semibold text-white">
