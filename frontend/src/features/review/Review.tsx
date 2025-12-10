@@ -252,19 +252,19 @@ const Review = () => {
 
   if (showExternalReviews) {
     return (
-      <div className="min-h-screen overflow-hidden flex flex-col bg-transparent">
+      <div className="app-screen overflow-hidden bg-transparent">
         {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
-        <div className="bg-transparent pb-6 md:pb-8">
+        <div className="bg-transparent pb-5 md:pb-6">
           <Header />
         </div>
         
         {/* СРЕДНЯЯ СЕКЦИЯ: Main Content с белым фоном, расширенная до низа */}
-        <div className="flex-1 bg-transparent relative overflow-hidden rounded-t-[24px] md:rounded-t-[32px] pt-6 md:pt-8
+        <div className="app-content bg-transparent relative overflow-hidden rounded-t-[24px] md:rounded-t-[32px] pt-6 md:pt-8 app-bottom-space
           before:content-[''] before:absolute before:top-0 before:left-0 before:right-0
           before:h-[28px] md:before:h-[32px]
           before:bg-gradient-to-b before:from-black/30 before:to-transparent
           before:rounded-t-[24px] md:before:rounded-t-[32px] flex items-center justify-center">
-          <div className="px-4 md:px-6 max-w-md mx-auto">
+          <div className="app-shell app-shell-wide max-w-md w-full">
             <div className="bg-mariko-secondary rounded-[90px] p-8 text-center">
               <h2 className="text-white font-el-messiri text-2xl font-bold mb-6">
                 Спасибо за положительный отзыв!
@@ -295,29 +295,26 @@ const Review = () => {
             </div>
           </div>
           
-          {/* НАВИГАЦИЯ: позиционирована поверх белого фона */}
-          <div className="absolute bottom-0 left-0 right-0 z-50">
-            <BottomNavigation currentPage="home" />
-          </div>
+          <BottomNavigation currentPage="home" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen overflow-hidden flex flex-col bg-transparent">
+    <div className="app-screen overflow-hidden flex flex-col bg-transparent">
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
-      <div className="bg-transparent pb-6 md:pb-8">
+      <div className="bg-transparent pb-5 md:pb-6">
         <Header />
       </div>
 
       {/* СРЕДНЯЯ СЕКЦИЯ: Main Content с белым фоном, расширенная до низа */}
-      <div className="flex-1 bg-transparent relative overflow-hidden rounded-t-[24px] md:rounded-t-[32px] pt-6 md:pt-8
+      <div className="app-content bg-transparent relative overflow-hidden rounded-t-[24px] md:rounded-t-[32px] pt-6 md:pt-8 app-bottom-space
         before:content-[''] before:absolute before:top-0 before:left-0 before:right-0
         before:h-[28px] md:before:h-[32px]
         before:bg-gradient-to-b before:from-black/30 before:to-transparent
         before:rounded-t-[24px] md:before:rounded-t-[32px]">
-        <div className="px-4 md:px-6 max-w-4xl mx-auto w-full">
+        <div className="app-shell app-shell-wide max-w-4xl w-full">
           {/* Back Button and Title */}
           <div className="mt-6 md:mt-8 flex items-center gap-4 mb-8">
             <button
@@ -448,12 +445,10 @@ const Review = () => {
               </div>
             )}
           </div>
-        </div>
+          </div>
 
         {/* НАВИГАЦИЯ: позиционирована поверх белого фона */}
-        <div className="absolute bottom-0 left-0 right-0 z-50">
-          <BottomNavigation currentPage="home" />
-        </div>
+        <BottomNavigation currentPage="home" />
       </div>
     </div>
   );

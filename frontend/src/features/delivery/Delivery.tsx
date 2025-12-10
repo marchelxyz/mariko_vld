@@ -112,22 +112,25 @@ const Delivery = () => {
   };
 
   return (
-    <div className="min-h-screen overflow-hidden flex flex-col bg-transparent">
+    <div className="app-screen overflow-hidden bg-transparent">
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
-      <div className="bg-transparent pb-6 md:pb-8">
+      <div className="bg-transparent pb-5 md:pb-6">
         <Header />
       </div>
 
       {/* СРЕДНЯЯ СЕКЦИЯ: Main Content с белым фоном, расширенная до низа */}
-      <div className="flex-1 bg-transparent relative overflow-hidden rounded-t-[24px] md:rounded-t-[32px] pt-0 md:pt-2">
-        <div className="px-4 md:px-6 max-w-6xl mx-auto w-full">
+      <div className="app-content bg-transparent relative overflow-hidden rounded-t-[24px] md:rounded-t-[32px] pt-0 md:pt-2 app-bottom-space">
+        <div className="app-shell app-shell-wide w-full">
           {/* Page Header */}
           <div className="mt-0 md:mt-1 mb-6">
             <PageHeader title="Доставка" variant="white" />
           </div>
           
           {/* Delivery Options */}
-          <div className="relative z-20 mt-6 md:mt-8 space-y-6 md:space-y-8 pb-[24rem] md:pb-[28rem]">
+          <div
+            className="relative z-20 mt-6 md:mt-8 space-y-6 md:space-y-8"
+            style={{ paddingBottom: "calc(var(--app-bottom-inset) + 140px)" }}
+          >
             {getDeliveryOptions().map((option, index) => (
               <ActionButton
                 key={index}
@@ -144,7 +147,7 @@ const Delivery = () => {
         <div
           className="absolute z-10 pointer-events-none w-full flex justify-center"
           style={{
-            bottom: '70px',
+            bottom: 'calc(var(--app-bottom-bar-height) - 10px)',
             left: '60%',
             transform: 'translateX(-35%)',
           }}
@@ -152,7 +155,7 @@ const Delivery = () => {
           <img
             src="/images/delivery/delivery_mariko.png"
             alt="Доставка Марико"
-            className="w-auto h-auto max-w-sm md:max-w-lg"
+            className="w-auto h-auto max-w-[clamp(260px,48vw,540px)]"
             style={{
               objectFit: "contain",
             }}
@@ -160,9 +163,7 @@ const Delivery = () => {
         </div>
 
         {/* НАВИГАЦИЯ: позиционирована поверх белого фона */}
-        <div className="absolute bottom-0 left-0 right-0 z-50">
-          <BottomNavigation currentPage="home" />
-        </div>
+        <BottomNavigation currentPage="home" />
       </div>
     </div>
   );

@@ -162,12 +162,16 @@ const Menu = (): JSX.Element => {
   // Индикатор загрузки
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-transparent overflow-hidden flex flex-col">
-        <Header />
-        <div className="flex-1 px-4 md:px-6 max-w-4xl mx-auto w-full flex items-center justify-center">
-          <div className="w-12 h-12 border-4 border-mariko-primary border-t-transparent rounded-full animate-spin" />
+      <div className="app-screen bg-transparent overflow-hidden">
+        <div className="bg-transparent pb-5 md:pb-6">
+          <Header />
         </div>
-        <BottomNavigation currentPage="home" />
+        <div className="app-content app-bottom-space">
+          <div className="app-shell app-shell-wide w-full flex items-center justify-center">
+            <div className="w-12 h-12 border-4 border-mariko-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+          <BottomNavigation currentPage="home" />
+        </div>
       </div>
     );
   }
@@ -175,44 +179,50 @@ const Menu = (): JSX.Element => {
   // Если нет меню для этого ресторана, показываем заглушку
   if (!menu || !visibleMenu) {
     return (
-      <div className="min-h-screen bg-transparent overflow-hidden flex flex-col">
-        <Header />
-        <div className="flex-1 px-4 md:px-6 max-w-4xl mx-auto w-full">
-          <div className="mt-10 flex items-center gap-4 mb-8">
-            <button
-              onClick={() => navigate("/")}
-              className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
-            >
-              <ArrowLeft className="w-6 h-6" />
-            </button>
-            <h1 className="text-white font-el-messiri text-3xl md:text-4xl font-bold flex-1">
-              Меню
-            </h1>
-          </div>
-          <div className="bg-mariko-secondary rounded-[24px] p-8 text-center">
-            <p className="text-white font-el-messiri text-xl mb-4">
-              Меню для этого ресторана пока не доступно
-            </p>
-            <button
-              onClick={() => navigate("/")}
-              className="bg-white text-mariko-primary px-6 py-3 rounded-full font-el-messiri font-bold hover:bg-white/90 transition-colors"
-            >
-              На главную
-            </button>
-          </div>
+      <div className="app-screen bg-transparent overflow-hidden">
+        <div className="bg-transparent pb-5 md:pb-6">
+          <Header />
         </div>
-        <BottomNavigation currentPage="home" />
+        <div className="app-content app-bottom-space">
+          <div className="app-shell app-shell-wide w-full">
+            <div className="mt-10 flex items-center gap-4 mb-8">
+              <button
+                onClick={() => navigate("/")}
+                className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+              <h1 className="text-white font-el-messiri text-3xl md:text-4xl font-bold flex-1">
+                Меню
+              </h1>
+            </div>
+            <div className="bg-mariko-secondary rounded-[24px] p-8 text-center">
+              <p className="text-white font-el-messiri text-xl mb-4">
+                Меню для этого ресторана пока не доступно
+              </p>
+              <button
+                onClick={() => navigate("/")}
+                className="bg-white text-mariko-primary px-6 py-3 rounded-full font-el-messiri font-bold hover:bg-white/90 transition-colors"
+              >
+                На главную
+              </button>
+            </div>
+          </div>
+          <BottomNavigation currentPage="home" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-transparent overflow-hidden flex flex-col">
-      {/* Header */}
-      <Header />
+    <div className="app-screen bg-transparent overflow-hidden">
+      <div className="bg-transparent pb-5 md:pb-6">
+        <Header />
+      </div>
 
       {/* Main Content */}
-      <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full pb-28">
+      <div className="app-content app-bottom-space">
+        <div className="app-shell app-shell-wide w-full pb-6 md:pb-8">
         {/* Back Button and Title */}
         <div className="mt-10 flex items-center gap-4 mb-6">
           <button
@@ -433,7 +443,8 @@ const Menu = (): JSX.Element => {
         </div>
       )}
     </div>
-  );
+  </div>
+);
 };
 
 export default Menu;

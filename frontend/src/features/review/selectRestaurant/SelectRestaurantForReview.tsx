@@ -27,18 +27,21 @@ const SelectRestaurantForReview = () => {
   };
 
   return (
-    <div className="min-h-screen bg-transparent overflow-hidden flex flex-col">
+    <div className="app-screen bg-transparent overflow-hidden flex flex-col">
       {/* Header */}
-      <Header />
+      <div className="bg-transparent pb-5 md:pb-6">
+        <Header />
+      </div>
 
       {/* Main Content */}
-      <div className="flex-1 px-4 md:px-6 max-w-4xl mx-auto w-full">
-        {/* Page Header */}
-        <PageHeader 
-          title="Выберите ресторан"
-          onBackClick={() => navigate("/")}
-          className="!mt-0 md:!mt-1"
-        />
+      <div className="app-content app-bottom-space">
+        <div className="app-shell app-shell-wide max-w-4xl w-full">
+          {/* Page Header */}
+          <PageHeader 
+            title="Выберите ресторан"
+            onBackClick={() => navigate("/")}
+            className="!mt-0 md:!mt-1"
+          />
 
         {/* Subtitle */}
         <div className="mb-6">
@@ -102,6 +105,7 @@ const SelectRestaurantForReview = () => {
             💡 Ваш отзыв поможет нам улучшить качество обслуживания в выбранном ресторане
           </p>
         </div>
+      </div>
       </div>
 
       {/* Bottom Navigation */}

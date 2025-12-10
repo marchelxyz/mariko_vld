@@ -7,13 +7,16 @@ const FranchisePage = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   return (
-    <div className="flex min-h-screen flex-col bg-transparent">
-      <div className="bg-transparent pb-6 md:pb-8">
+    <div className="app-screen bg-transparent">
+      <div className="bg-transparent pb-5 md:pb-6">
         <Header />
       </div>
 
-      <div className="relative flex-1 bg-transparent pt-0 md:pt-2">
-        <div className="mx-auto flex h-full w-full flex-col px-0 pb-[92px] md:pb-[104px]">
+      <div className="app-content relative bg-transparent pt-0 md:pt-2 app-bottom-space">
+        <div
+          className="mx-auto flex h-full w-full flex-col px-0"
+          style={{ paddingBottom: "var(--app-bottom-inset)" }}
+        >
           <div className="relative flex min-h-[calc(100vh-140px)] flex-1 flex-col">
             {isLoading && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/90 text-mariko-dark">
@@ -36,9 +39,7 @@ const FranchisePage = () => {
           </div>
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0">
-          <BottomNavigation currentPage="franchise" />
-        </div>
+        <BottomNavigation currentPage="franchise" />
       </div>
     </div>
   );

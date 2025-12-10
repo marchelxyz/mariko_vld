@@ -1,5 +1,5 @@
 import { Compass, Home, Shield, User } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdmin } from "@shared/hooks";
 import { cn } from "@shared/utils";
@@ -18,6 +18,31 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
   const activeKey = useMemo(() => currentPage, [currentPage]);
   const { isAdmin, isSuperAdmin } = useAdmin();
   const showAdmin = isAdmin || isSuperAdmin();
+  const navRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const updateNavHeight = () => {
+      const height = navRef.current?.getBoundingClientRect().height;
+      if (height) {
+        document.documentElement.style.setProperty("--app-bottom-bar-height", `${Math.ceil(height)}px`);
+      }
+    };
+
+    updateNavHeight();
+    const handleResize = () => updateNavHeight();
+
+    window.addEventListener("resize", handleResize);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", handleResize);
+    }
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", handleResize);
+      }
+    };
+  }, []);
 
   const items: NavItem[] = [
     { key: "home", label: "Главная", path: "/", icon: Home },
@@ -35,12 +60,14 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
 
   return (
     <nav
+      ref={navRef}
       className={cn(
         // Чёрный фон 30% и сильный blur
         "fixed bottom-0 left-0 right-0 z-40 rounded-t-2xl bg-black/30 backdrop-blur-3xl border-t border-white/5 shadow-[0_-12px_28px_rgba(0,0,0,0.3)]",
         "md:static md:rounded-2xl md:mx-auto md:max-w-4xl md:mb-4 md:shadow-none",
         className,
       )}
+      style={{ paddingBottom: "calc(6px + var(--tg-safe-area-bottom, 0px))" }}
     >
       <div className="flex items-stretch justify-between px-3 py-2 md:px-6 md:py-3">
         {items.map(({ key, label, icon: Icon, ...rest }) => {
