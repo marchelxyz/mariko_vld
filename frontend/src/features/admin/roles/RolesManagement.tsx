@@ -316,7 +316,7 @@ export function RolesManagement(): JSX.Element {
               )}
             </div>
 
-            {selectedRole === UserRole.ADMIN && (
+            {roleRequiresRestaurants(selectedRole) && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Доступные рестораны</Label>
