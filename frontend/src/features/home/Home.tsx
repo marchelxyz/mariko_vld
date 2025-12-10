@@ -5,7 +5,6 @@ import { useCityContext } from "@/contexts";
 import { BottomNavigation, Header } from "@shared/ui/widgets";
 import { EmbeddedPageConfig } from "@/shared/config/webviewPages";
 import {
-  CITY_PROMOTION_LINKS,
   RESTAURANT_REVIEW_LINKS,
   VACANCIES_LINK,
   getMenuByRestaurantId,
@@ -263,52 +262,16 @@ const Index = () => {
             </div>
           )}
 
-          {/* Menu Button (Full Width) */}
-          <div className="mt-6 md:mt-8">
+          {/* Menu and Vacancies */}
+          <div className="mt-6 md:mt-8 mb-24 md:mb-28 grid grid-cols-2 gap-3 md:gap-6">
             <ServiceCard
               title="Меню"
               imageUrl="/images/services/MENU-CARD.png"
-              aspectRatio="aspect-[3/1]"
-              imageClassName="object-left translate-x-[2px]"
-              className="w-full"
-              highlighted={cityChangedFlash}
-              onClick={() => navigate('/menu')}
-            />
-          </div>
-
-          {/* Actions and Vacancies Services */}
-          <div className="mt-6 md:mt-8 mb-24 md:mb-28 grid grid-cols-2 gap-3 md:gap-6">
-            <ServiceCard
-              title="Акции"
-              imageUrl="/images/services/promo self delivery 1.png"
               aspectRatio="aspect-[4/3]"
               imageClassName="object-left translate-x-[2px]"
               className="max-w-[180px] md:max-w-[220px] mx-auto"
               highlighted={cityChangedFlash}
-              onClick={() => {
-                const promoLink = selectedCity?.id ? CITY_PROMOTION_LINKS[selectedCity.id] : null;
-
-                if (promoLink && selectedCity?.id && selectedCity?.name) {
-                  openEmbeddedPage(`promotions-${selectedCity.id}`, {
-                    title: `Акции — ${selectedCity.name}`,
-                    url: promoLink,
-                    allowedCityId: selectedCity.id,
-                    description: `Специальные предложения для гостей ресторана в ${selectedCity.name}.`,
-                    fallbackLabel: "Открыть акции во внешнем окне",
-                  });
-                  return;
-                }
-
-                if (!promoLink) {
-                  toast({
-                    title: 'Акции скоро появятся',
-                    description: 'Для вашего города пока нет ссылки на акции.',
-                  });
-                  return;
-                }
-
-                safeOpenLink(promoLink, { try_instant_view: true });
-              }}
+              onClick={() => navigate("/menu")}
             />
             <ServiceCard
               title="Вакансии"
