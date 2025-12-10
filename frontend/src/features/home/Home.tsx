@@ -1,4 +1,4 @@
-import { CalendarDays, MapPin, Star as StarIcon, Truck } from "lucide-react";
+import { CalendarDays, ChevronDown, MapPin, Star as StarIcon, Truck } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useCityContext } from "@/contexts";
@@ -22,30 +22,6 @@ import { toast } from "@/hooks/use-toast";
 import { safeOpenLink, storage } from "@/lib/telegram";
 import { fetchPromotions } from "@shared/api/promotionsApi";
 import { useBookingSlotsPrefetch } from "@shared/hooks";
-
-const promotionsForCarousel: PromotionSlide[] = [
-  {
-    id: "birthday",
-    title: "Именинникам — праздник в Mariko",
-    description: "Теплые скидки и десерт для компании в день рождения.",
-    imageUrl: "/images/promotions/zhukovsky/promo birhtday.jpg",
-    badge: "Жуковский",
-  },
-  {
-    id: "self-delivery",
-    title: "Самовывоз выгоднее",
-    description: "Заказывайте онлайн, забирайте сами и экономьте на доставке.",
-    imageUrl: "/images/promotions/zhukovsky/promo self delivery.jpg",
-    badge: "Жуковский",
-  },
-  {
-    id: "women",
-    title: "Девичники и встречи с подругами",
-    description: "Сеты для компании и бокал игристого для уютного вечера.",
-    imageUrl: "/images/promotions/zhukovsky/promo women.jpg",
-    badge: "Жуковский",
-  },
-];
 
 const Index = () => {
   const navigate = useNavigate();

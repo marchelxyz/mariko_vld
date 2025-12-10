@@ -92,7 +92,6 @@ export const useProfile = () => {
       setError(null); // Очищаем предыдущие ошибки
       const telegramPhotoUrl = (getUser()?.photo_url ?? "").trim();
       const resolvedPhoto = telegramPhotoUrl || defaultProfile.photo;
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { photo: _ignoredPhoto, ...restUpdates } = updates;
       const updatedProfile = { ...profile, ...restUpdates, photo: resolvedPhoto };
 

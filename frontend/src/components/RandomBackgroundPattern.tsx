@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 
-// Импортируем SVG файлы напрямую как raw строки для правильной работы после деплоя
 import vectorSvgRaw from "@/assets/backgrounds/patterns/Vector.svg?raw";
 import vector1SvgRaw from "@/assets/backgrounds/patterns/Vector-1.svg?raw";
 import vector2SvgRaw from "@/assets/backgrounds/patterns/Vector-2.svg?raw";

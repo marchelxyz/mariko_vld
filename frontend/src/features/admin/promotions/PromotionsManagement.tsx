@@ -186,7 +186,6 @@ export function PromotionsManagement(): JSX.Element {
     } else {
       setImageLibrary([]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentCityId, noPromotionsAccess]);
 
   if (noPromotionsAccess) {

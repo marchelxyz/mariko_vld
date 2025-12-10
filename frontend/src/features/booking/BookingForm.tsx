@@ -55,6 +55,23 @@ type BookingFormProps = {
   onSuccess?: () => void;
 };
 
+const normalizeSlots = (slots: Array<Partial<Slot> & { start_datetime: string; start_stamp: number; is_free: boolean; duration: number }>): Slot[] =>
+  slots.map((slot) => {
+    const endStamp = typeof slot.end_stamp === "number" ? slot.end_stamp : slot.start_stamp + slot.duration * 60;
+    return {
+      start_stamp: slot.start_stamp,
+      end_stamp: endStamp,
+      duration: slot.duration,
+      start_datetime: slot.start_datetime,
+      end_datetime: typeof slot.end_datetime === "string" ? slot.end_datetime : slot.start_datetime,
+      is_free: slot.is_free,
+      tables_count: slot.tables_count ?? 0,
+      tables_ids: slot.tables_ids ?? [],
+      table_bundles: slot.table_bundles ?? [],
+      rooms: slot.rooms ?? [],
+    };
+  });
+
 function isRussianName(name: string): boolean {
   if (!name || typeof name !== "string") {
     return false;
@@ -459,12 +476,13 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           const timeB = b.start_datetime.split(' ')[1]?.substring(0, 5) || '';
           return timeA.localeCompare(timeB);
         });
+      const normalizedFreeSlots = normalizeSlots(freeSlots);
 
-      setAvailableSlots(freeSlots);
+      setAvailableSlots(normalizedFreeSlots);
       
       // Сбрасываем выбранный слот, если он больше не доступен
       setSelectedSlot((prevSlot) => {
-        if (prevSlot && !freeSlots.some((s) => s.start_stamp === prevSlot.start_stamp)) {
+        if (prevSlot && !normalizedFreeSlots.some((s) => s.start_stamp === prevSlot.start_stamp)) {
           setSelectedTime("");
           return null;
         }
@@ -473,7 +491,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       
       // Сбрасываем время, если выбранный слот больше не доступен
       setSelectedTime((prevTime) => {
-        if (prevTime && !freeSlots.some((s) => {
+        if (prevTime && !normalizedFreeSlots.some((s) => {
           const timeStr = s.start_datetime.split(' ')[1]?.substring(0, 5) || '';
           return timeStr === prevTime;
         })) {
@@ -521,14 +539,15 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
               const timeB = b.start_datetime.split(' ')[1]?.substring(0, 5) || '';
               return timeA.localeCompare(timeB);
             });
+          const normalizedFreeSlots = normalizeSlots(freeSlots);
 
           console.log('Свободные слоты после фильтрации:', freeSlots.length, freeSlots);
 
-          setAvailableSlots(freeSlots);
+          setAvailableSlots(normalizedFreeSlots);
           
           // Сбрасываем выбранный слот, если он больше не доступен
           setSelectedSlot((prevSlot) => {
-            if (prevSlot && !freeSlots.some((s) => s.start_stamp === prevSlot.start_stamp)) {
+            if (prevSlot && !normalizedFreeSlots.some((s) => s.start_stamp === prevSlot.start_stamp)) {
               setSelectedTime("");
               return null;
             }
@@ -537,7 +556,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           
           // Сбрасываем время, если выбранный слот больше не доступен
           setSelectedTime((prevTime) => {
-            if (prevTime && !freeSlots.some((s) => {
+            if (prevTime && !normalizedFreeSlots.some((s) => {
               const timeStr = s.start_datetime.split(' ')[1]?.substring(0, 5) || '';
               return timeStr === prevTime;
             })) {

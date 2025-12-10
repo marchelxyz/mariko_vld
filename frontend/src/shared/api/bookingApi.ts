@@ -39,13 +39,22 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
   const url = resolveServerUrl(path);
   const method = options?.method || "GET";
   
+  const bodySize = (() => {
+    const body = options?.body;
+    if (!body) return 0;
+    if (typeof body === "string") return new Blob([body]).size;
+    if (body instanceof Blob) return body.size;
+    if (body instanceof ArrayBuffer || ArrayBuffer.isView(body)) return body.byteLength;
+    return undefined;
+  })();
+
   logger.debug('api', `🌐 Начало запроса: ${method} ${url}`, {
     apiCall: {
       method,
       url,
       path,
       hasBody: !!options?.body,
-      bodySize: options?.body ? new Blob([options.body]).size : 0,
+      bodySize,
       timestamp: new Date().toISOString(),
     },
   });

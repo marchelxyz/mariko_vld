@@ -15,8 +15,7 @@ export interface RequestOptions<TBody = unknown> {
 
 function getEnv(key: string): string | undefined {
   // Vite заменит import.meta.env на конкретные значения во время сборки
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const env = (import.meta as any).env as Record<string, string | undefined>;
+  const env = (import.meta as Record<string, unknown>).env as Record<string, string | undefined>;
   return env[key];
 }
 
@@ -101,5 +100,4 @@ export class HttpClient {
 }
 
 export const httpClient = new HttpClient();
-
 

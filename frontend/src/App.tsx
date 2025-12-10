@@ -1,14 +1,14 @@
-import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
 import { Suspense, lazy, useEffect } from "react";
-import { Navigate, HashRouter, Route, Routes } from "react-router-dom";
+import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
+import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
+import RandomBackgroundPattern from "@/components/RandomBackgroundPattern";
 import { CartProvider, RestaurantProvider } from "@/contexts";
 import { useEnsureUserProfileSync } from "@/hooks";
+import { logger } from "@/lib/logger";
+import { isActive, onActivated, onDeactivated } from "@/lib/telegram";
 import { Toaster as SonnerToaster } from "@shared/ui/sonner";
 import { Toaster } from "@shared/ui/toaster";
 import { TooltipProvider } from "@shared/ui/tooltip";
-import { isActive, onActivated, onDeactivated } from "@/lib/telegram";
-import { logger } from "@/lib/logger";
-import RandomBackgroundPattern from "@/components/RandomBackgroundPattern";
 
 // Lazy load pages for better code splitting
 const Index = lazy(() => import("./pages/home"));

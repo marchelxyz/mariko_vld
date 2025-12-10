@@ -14,5 +14,16 @@
     "backend:start": "npm start --prefix backend",
     "backend:dev": "npm run dev --prefix backend",
     "bot:start": "npm start --prefix backend/bot"
+  },
+  "devDependencies": {
+    "@feature-sliced/eslint-config": "^0.1.1",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.1",
+    "eslint-plugin-boundaries": "^3.1.0",
+    "eslint-import-resolver-typescript": "^3.5.5",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-import": "^2.29.2",
+    "typescript": "^5.3.3"
   }
 }

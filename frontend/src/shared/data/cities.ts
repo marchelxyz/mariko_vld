@@ -1,5 +1,4 @@
-import { citiesApi } from '@/shared/api/cities';
-import { ACTIVE_CITY_IDS, USE_ACTIVE_CITIES_FILTER, isRestaurantActive } from '@/shared/config/activeCities';
+import { citiesApi } from "@/shared/api/cities";
 
 export type DeliveryAggregator = {
   name: string;
