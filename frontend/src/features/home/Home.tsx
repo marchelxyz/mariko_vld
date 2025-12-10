@@ -28,7 +28,6 @@ const Index = () => {
   const { selectedRestaurant, selectedCity } = useCityContext();
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
   const [recommended, setRecommended] = useState<MenuItem[]>([]);
-  const [featuredDishes, setFeaturedDishes] = useState<MenuItem[]>([]);
   const [cityChangedFlash, setCityChangedFlash] = useState(false);
   const prevCityIdRef = useRef<string | null>(null);
   const [promotions, setPromotions] = useState<PromotionSlide[]>([]);
@@ -192,50 +191,6 @@ const Index = () => {
     };
   }, [selectedRestaurant?.id, showRecommendedSection]);
 
-  // Подбор блока "Рекомендуем попробовать" на главной
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadFeatured = async () => {
-      if (!selectedRestaurant?.id) {
-        setFeaturedDishes([]);
-        return;
-      }
-
-      try {
-        const menu = await getMenuByRestaurantId(selectedRestaurant.id);
-        if (cancelled || !menu) {
-          if (!menu) setFeaturedDishes([]);
-          return;
-        }
-
-        const allItems: MenuItem[] = menu.categories.flatMap((c: MenuCategory) =>
-          c.items.filter((i) => i.isActive !== false),
-        );
-        const candidates = allItems.filter((i) => i.isNew || i.isRecommended);
-
-        if (!candidates.length) {
-          setFeaturedDishes([]);
-          return;
-        }
-
-        const shuffled = [...candidates].sort(() => 0.5 - Math.random());
-        setFeaturedDishes(shuffled.slice(0, 4));
-      } catch (error) {
-        console.error("Ошибка загрузки рекомендуемых блюд:", error);
-        if (!cancelled) {
-          setFeaturedDishes([]);
-        }
-      }
-    };
-
-    void loadFeatured();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedRestaurant?.id]);
-
   // Легкая подсветка всех CTA при смене города, чтобы показать изменение контекста
   useEffect(() => {
     if (!selectedCity?.id) return;
@@ -300,45 +255,21 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Promotions + Featured row (desktop), Promotions only on mobile */}
-            {(promotions.length > 0 || featuredDishes.length > 0) && (
-              <div className="mt-6 md:mt-8 flex flex-col lg:flex-row lg:items-start lg:gap-6 justify-center lg:justify-start">
-                {promotions.length > 0 && (
-                  <div className="w-full max-w-[420px] md:max-w-[520px] lg:max-w-[520px]">
-                    <PromotionsCarousel
-                      promotions={promotions}
-                      onBookTable={handleBookingClick}
-                    />
-                  </div>
-                )}
-
-                {featuredDishes.length > 0 && (
-                  <div className="hidden lg:flex flex-1 lg:justify-end">
-                    <div className="rounded-[18px] bg-white/10 border border-white/15 backdrop-blur-sm p-4 h-[220px] flex flex-col w-full max-w-[640px]">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="font-el-messiri text-lg font-semibold text-white">
-                          Рекомендуем попробовать
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4 overflow-y-auto">
-                        {featuredDishes.map((item) => (
-                          <MenuItemComponent
-                            key={item.id}
-                            item={item}
-                            variant="default"
-                            onClick={() => handleDishClick(item)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
+            {/* Promotions */}
+            {promotions.length > 0 && (
+              <div className="mt-6 md:mt-8 flex justify-center lg:justify-start">
+                <div className="w-full max-w-[420px] md:max-w-[520px]">
+                  <PromotionsCarousel
+                    promotions={promotions}
+                    onBookTable={handleBookingClick}
+                  />
+                </div>
               </div>
             )}
 
             {/* Menu and Vacancies */}
             <div className="mt-6 md:mt-8 flex justify-center lg:justify-start">
-              <div className="w-full max-w-4xl lg:max-w-6xl lg:grid lg:grid-cols-[minmax(0,520px)_minmax(360px,1fr)] lg:gap-6 items-start">
+              <div className="w-full max-w-4xl">
                 <div className="grid grid-cols-2 gap-3 md:gap-4 lg:gap-4 max-w-[440px] md:max-w-[520px] w-full">
                   <ServiceCard
                     title="Меню"
@@ -368,36 +299,13 @@ const Index = () => {
                         return;
                       }
 
-                    safeOpenLink(VACANCIES_LINK, {
-                      try_instant_view: true,
-                    });
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Featured block on mobile/tablet under service cards */}
-            {featuredDishes.length > 0 && (
-              <div className="mt-6 lg:hidden">
-                <div className="rounded-[18px] bg-white/10 border border-white/15 backdrop-blur-sm p-4 h-[200px] flex flex-col w-full max-w-4xl mx-auto">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="font-el-messiri text-lg font-semibold text-white">
-                      Рекомендуем попробовать
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 overflow-y-auto">
-                    {featuredDishes.map((item) => (
-                      <MenuItemComponent
-                        key={item.id}
-                        item={item}
-                        variant="compact"
-                        onClick={() => handleDishClick(item)}
-                      />
-                    ))}
-                  </div>
+                      safeOpenLink(VACANCIES_LINK, {
+                        try_instant_view: true,
+                      });
+                    }}
+                  />
                 </div>
               </div>
-            )}
             </div>
 
             {/* Recommended Section (временно скрыто) */}
