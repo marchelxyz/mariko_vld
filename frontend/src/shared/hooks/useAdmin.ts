@@ -25,18 +25,54 @@ export function useAdmin() {
         return Object.values(Permission);
       case UserRole.ADMIN:
         return [
-          // Админы видят справочники, но не могут ими управлять
+          Permission.MANAGE_ROLES,
+          Permission.MANAGE_RESTAURANTS,
+          Permission.MANAGE_MENU,
+          Permission.MANAGE_PROMOTIONS,
+          Permission.MANAGE_DELIVERIES,
           Permission.VIEW_CITIES,
           Permission.VIEW_RESTAURANTS,
-          // Админы управляют меню и операционными процессами
-          Permission.MANAGE_MENU,
-          Permission.VIEW_MENU,
           Permission.VIEW_USERS,
-          Permission.MANAGE_REVIEWS,
-          Permission.VIEW_REVIEWS,
+          Permission.VIEW_MENU,
         ];
+      case UserRole.MANAGER:
+        return [
+          Permission.MANAGE_RESTAURANTS,
+          Permission.MANAGE_MENU,
+          Permission.MANAGE_PROMOTIONS,
+          Permission.MANAGE_DELIVERIES,
+          Permission.VIEW_RESTAURANTS,
+          Permission.VIEW_MENU,
+        ];
+      case UserRole.RESTAURANT_MANAGER:
+        return [
+          Permission.MANAGE_MENU,
+          Permission.MANAGE_DELIVERIES,
+          Permission.VIEW_MENU,
+        ];
+      case UserRole.MARKETER:
+        return [Permission.MANAGE_PROMOTIONS];
+      case UserRole.DELIVERY_MANAGER:
+        return [Permission.MANAGE_DELIVERIES];
       default:
         return [];
+    }
+  };
+
+  const isPermissionValue = (value: unknown): value is Permission =>
+    Object.values(Permission).includes(value as Permission);
+
+  const mapRole = (value: string): UserRole => {
+    switch (value) {
+      case UserRole.SUPER_ADMIN:
+      case UserRole.ADMIN:
+      case UserRole.MANAGER:
+      case UserRole.RESTAURANT_MANAGER:
+      case UserRole.MARKETER:
+      case UserRole.DELIVERY_MANAGER:
+        return value;
+      default:
+        return UserRole.USER;
     }
   };
 
@@ -67,21 +103,23 @@ export function useAdmin() {
         // Передаем undefined, если нет валидного ID - resolveTelegramId сам использует fallback
         const response = await adminServerApi.getCurrentAdmin(currentUserId);
         logger.debug('admin', 'Admin response', { response });
-        const mappedRole =
-          response.role === 'super_admin'
-            ? UserRole.SUPER_ADMIN
-            : response.role === 'admin'
-              ? UserRole.ADMIN
-              : UserRole.USER;
+        const mappedRole = mapRole(response.role);
+        const serverPermissions = Array.isArray(response.permissions)
+          ? response.permissions.filter(isPermissionValue)
+          : null;
+        const resolvedPermissions =
+          serverPermissions && serverPermissions.length > 0
+            ? serverPermissions
+            : derivePermissions(mappedRole);
 
         if (disposed) {
           return;
         }
 
         setUserRole(mappedRole);
-        setPermissions(derivePermissions(mappedRole));
+        setPermissions(resolvedPermissions);
         setAllowedRestaurants(response.allowedRestaurants ?? []);
-        setIsAdmin(mappedRole === UserRole.ADMIN || mappedRole === UserRole.SUPER_ADMIN);
+        setIsAdmin(mappedRole !== UserRole.USER && resolvedPermissions.length > 0);
       } catch (error) {
         logger.error('admin', error instanceof Error ? error : new Error('Ошибка проверки прав администратора'), {
           error: error instanceof Error ? error.message : String(error),

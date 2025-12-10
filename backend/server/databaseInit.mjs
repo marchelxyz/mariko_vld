@@ -81,7 +81,17 @@ const SCHEMAS = {
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       telegram_id BIGINT UNIQUE NOT NULL,
       name VARCHAR(255) NOT NULL,
-      role VARCHAR(50) NOT NULL DEFAULT 'admin' CHECK (role IN ('super_admin', 'admin', 'user')),
+      role VARCHAR(50) NOT NULL DEFAULT 'admin' CHECK (
+        role IN (
+          'super_admin',
+          'admin',
+          'manager',
+          'restaurant_manager',
+          'marketer',
+          'delivery_manager',
+          'user'
+        )
+      ),
       permissions JSONB DEFAULT '{}'::jsonb,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -325,6 +335,27 @@ export async function initializeDatabase() {
         console.error(`SQL запрос:`, SCHEMAS[tableName]?.substring(0, 200) + "...");
         throw error;
       }
+    }
+
+    // Обновляем constraint по ролям админов на случай, если таблица уже существовала
+    try {
+      await query(`ALTER TABLE admin_users DROP CONSTRAINT IF EXISTS admin_users_role_check`);
+      await query(
+        `ALTER TABLE admin_users 
+         ADD CONSTRAINT admin_users_role_check CHECK (
+           role IN (
+             'super_admin',
+             'admin',
+             'manager',
+             'restaurant_manager',
+             'marketer',
+             'delivery_manager',
+             'user'
+           )
+         )`,
+      );
+    } catch (error) {
+      console.warn("⚠️  Не удалось обновить constraint ролей админов:", error?.message || error);
     }
 
     // Создаем foreign keys отдельно (после создания всех таблиц)

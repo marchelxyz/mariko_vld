@@ -1,7 +1,7 @@
 import express from "express";
-import { db, ensureDatabase, queryMany, queryOne, query } from "../postgresClient.mjs";
+import { ensureDatabase, queryMany, queryOne, query } from "../postgresClient.mjs";
 import { createLogger } from "../utils/logger.mjs";
-import { authoriseAdmin } from "../services/adminService.mjs";
+import { ADMIN_PERMISSION, authoriseAdmin } from "../services/adminService.mjs";
 
 const logger = createLogger('menu');
 
@@ -146,7 +146,7 @@ export function createAdminMenuRouter() {
     });
 
     // Проверка авторизации
-    const admin = await authoriseAdmin(req, res);
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_MENU);
     if (!admin) {
       const duration = Date.now() - startTime;
       logger.requestError('POST', '/:restaurantId', new Error('Не авторизован'), 401);
@@ -172,6 +172,12 @@ export function createAdminMenuRouter() {
         const duration = Date.now() - startTime;
         logger.requestError('POST', '/:restaurantId', new Error('Ресторан не найден'), 404);
         return res.status(404).json({ success: false, message: "Ресторан не найден" });
+      }
+
+      if (admin.role !== "super_admin" && !admin.allowedRestaurants?.includes(restaurantId)) {
+        const duration = Date.now() - startTime;
+        logger.requestError('POST', '/:restaurantId', new Error('Нет доступа к ресторану'), 403);
+        return res.status(403).json({ success: false, message: "Нет доступа к этому ресторану" });
       }
 
       // Удаляем все существующие категории и блюда для ресторана

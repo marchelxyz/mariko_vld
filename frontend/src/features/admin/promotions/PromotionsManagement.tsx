@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Image as ImageIcon, Megaphone, Plus, Save, Trash2, Copy, Upload } from "lucide-react";
 import { useAdmin, useCities } from "@shared/hooks";
+import { Permission } from "@shared/types";
 import { type PromotionCardData } from "@shared/data";
 import {
   fetchPromotionImageLibrary,
@@ -61,7 +62,8 @@ const normalizeImageUrl = (raw?: string | null) => {
 };
 
 export function PromotionsManagement(): JSX.Element {
-  const { cities, isLoading: isCitiesLoading } = useCities();
+  const { cities: allCities, isLoading: isCitiesLoading } = useCities();
+  const { isSuperAdmin, allowedRestaurants, hasPermission } = useAdmin();
   const { toast } = useToast();
   const [promotions, setPromotions] = useState<PromotionCardData[]>([]);
   const [currentCityId, setCurrentCityId] = useState<string | null>(null);
@@ -76,16 +78,41 @@ export function PromotionsManagement(): JSX.Element {
   const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
   const [openLibraryForId, setOpenLibraryForId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const noPromotionsAccess = !hasPermission(Permission.MANAGE_PROMOTIONS);
+
+  const accessibleCities = useMemo(() => {
+    if (isSuperAdmin()) {
+      return allCities;
+    }
+    if (!allowedRestaurants?.length) {
+      return [];
+    }
+    const allowedSet = new Set(allowedRestaurants);
+    return allCities.filter((city) => city.restaurants?.some((restaurant) => allowedSet.has(restaurant.id)));
+  }, [allCities, allowedRestaurants, isSuperAdmin]);
 
   useEffect(() => {
-    if (!isCitiesLoading && cities.length && !currentCityId) {
-      setCurrentCityId(cities[0].id);
+    if (!isCitiesLoading && accessibleCities.length && !currentCityId) {
+      setCurrentCityId(accessibleCities[0].id);
     }
-  }, [cities, currentCityId, isCitiesLoading]);
+    if (!isCitiesLoading && currentCityId && !accessibleCities.some((city) => city.id === currentCityId)) {
+      setCurrentCityId(accessibleCities[0]?.id ?? null);
+    }
+  }, [accessibleCities, currentCityId, isCitiesLoading]);
+
+  useEffect(() => {
+    if (copyFromCityId && !accessibleCities.some((city) => city.id === copyFromCityId)) {
+      setCopyFromCityId(null);
+    }
+  }, [accessibleCities, copyFromCityId]);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
+      if (noPromotionsAccess) {
+        setPromotions([]);
+        return;
+      }
       if (!currentCityId) {
         setPromotions([]);
         return;
@@ -121,7 +148,7 @@ export function PromotionsManagement(): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [currentCityId, toast]);
+  }, [currentCityId, noPromotionsAccess, toast]);
 
   useEffect(() => {
     if (!copyFromCityId) {
@@ -129,6 +156,10 @@ export function PromotionsManagement(): JSX.Element {
       return;
     }
     const loadSource = async () => {
+      if (noPromotionsAccess) {
+        setSourcePromotions([]);
+        return;
+      }
       try {
         const source = await fetchPromotions(copyFromCityId);
         const normalized = (source ?? []).map((p, index) => ({
@@ -143,16 +174,28 @@ export function PromotionsManagement(): JSX.Element {
       }
     };
     void loadSource();
-  }, [copyFromCityId]);
+  }, [copyFromCityId, noPromotionsAccess]);
 
   useEffect(() => {
+    if (noPromotionsAccess) {
+      setImageLibrary([]);
+      return;
+    }
     if (currentCityId) {
       void loadImageLibrary();
     } else {
       setImageLibrary([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentCityId]);
+  }, [currentCityId, noPromotionsAccess]);
+
+  if (noPromotionsAccess) {
+    return null;
+  }
+
+  if (!isCitiesLoading && accessibleCities.length === 0) {
+    return null;
+  }
 
   const handleAdd = () => {
     const id = ensureUuid();
@@ -412,11 +455,16 @@ export function PromotionsManagement(): JSX.Element {
                 <SelectValue placeholder={isCitiesLoading ? "Загрузка..." : "Выберите город"} />
               </SelectTrigger>
               <SelectContent>
-                {cities.map((city) => (
+                {accessibleCities.map((city) => (
                   <SelectItem key={city.id} value={city.id}>
                     {city.name}
                   </SelectItem>
                 ))}
+                {!accessibleCities.length && (
+                  <div className="px-3 py-2 text-sm text-white/60">
+                    Нет доступных городов
+                  </div>
+                )}
               </SelectContent>
             </Select>
             {isLoadingPromos && (
@@ -444,13 +492,18 @@ export function PromotionsManagement(): JSX.Element {
                   <SelectValue placeholder="Выберите город-источник" />
                 </SelectTrigger>
                 <SelectContent>
-                  {cities
+                  {accessibleCities
                     .filter((city) => city.id !== currentCityId)
                     .map((city) => (
                       <SelectItem key={city.id} value={city.id}>
                         {city.name}
                       </SelectItem>
                     ))}
+                  {!accessibleCities.length && (
+                    <div className="px-3 py-2 text-sm text-white/60">
+                      Нет доступных городов
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
               <Button onClick={handleCopyFrom} variant="secondary" className="bg-white/10 text-white">

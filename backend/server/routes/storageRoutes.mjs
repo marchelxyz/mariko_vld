@@ -2,7 +2,7 @@ import express from "express";
 import multer from "multer";
 import { randomUUID } from "crypto";
 import { createLogger } from "../utils/logger.mjs";
-import { authoriseAdmin } from "../services/adminService.mjs";
+import { ADMIN_PERMISSION, authoriseAdmin, resolveAllowedCitiesByRestaurants } from "../services/adminService.mjs";
 import { uploadFile, listFiles, deleteFile, isStorageConfigured } from "../services/storageService.mjs";
 
 const logger = createLogger('storage-routes');
@@ -56,11 +56,17 @@ export function createStorageRouter() {
     const restaurantId = req.params.restaurantId;
 
     // Проверка авторизации
-    const admin = await authoriseAdmin(req, res);
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_MENU);
     if (!admin) {
       const duration = Date.now() - startTime;
       logger.requestError('POST', '/menu/:restaurantId', new Error('Не авторизован'), 401);
       return res.status(401).json({ success: false, message: "Не авторизован" });
+    }
+
+    if (admin.role !== "super_admin" && !admin.allowedRestaurants?.includes(restaurantId)) {
+      const duration = Date.now() - startTime;
+      logger.requestError('POST', '/menu/:restaurantId', new Error('Нет доступа к ресторану'), 403);
+      return res.status(403).json({ success: false, message: "Нет доступа к этому ресторану" });
     }
 
     if (!restaurantId) {
@@ -112,11 +118,22 @@ export function createStorageRouter() {
     const scope = req.query.scope || 'restaurant';
 
     // Проверка авторизации
-    const admin = await authoriseAdmin(req, res);
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_MENU);
     if (!admin) {
       const duration = Date.now() - startTime;
       logger.requestError('GET', '/menu/:restaurantId', new Error('Не авторизован'), 401);
       return res.status(401).json({ success: false, message: "Не авторизован" });
+    }
+
+    if (admin.role !== "super_admin" && !admin.allowedRestaurants?.includes(restaurantId)) {
+      const duration = Date.now() - startTime;
+      logger.requestError('GET', '/menu/:restaurantId', new Error('Нет доступа к ресторану'), 403);
+      return res.status(403).json({ success: false, message: "Нет доступа к этому ресторану" });
+    }
+    if (scope === "global" && admin.role !== "super_admin") {
+      const duration = Date.now() - startTime;
+      logger.requestError('GET', '/menu/:restaurantId', new Error('Глобальная библиотека недоступна'), 403);
+      return res.status(403).json({ success: false, message: "Недостаточно прав для глобальной библиотеки" });
     }
 
     try {
@@ -159,11 +176,25 @@ export function createStorageRouter() {
     const cityId = req.params.cityId;
 
     // Проверка авторизации
-    const admin = await authoriseAdmin(req, res);
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_PROMOTIONS);
     if (!admin) {
       const duration = Date.now() - startTime;
       logger.requestError('POST', '/promotions/:cityId', new Error('Не авторизован'), 401);
       return res.status(401).json({ success: false, message: "Не авторизован" });
+    }
+
+    if (admin.role !== "super_admin") {
+      if (!admin.allowedRestaurants?.length) {
+        const duration = Date.now() - startTime;
+        logger.requestError('POST', '/promotions/:cityId', new Error('Нет доступных ресторанов'), 403);
+        return res.status(403).json({ success: false, message: "Нет доступа к городам" });
+      }
+      const allowedCities = await resolveAllowedCitiesByRestaurants(admin.allowedRestaurants);
+      if (!allowedCities.includes(cityId)) {
+        const duration = Date.now() - startTime;
+        logger.requestError('POST', '/promotions/:cityId', new Error('Город недоступен'), 403);
+        return res.status(403).json({ success: false, message: "Нет доступа к этому городу" });
+      }
     }
 
     if (!cityId) {
@@ -215,11 +246,29 @@ export function createStorageRouter() {
     const scope = req.query.scope || 'city';
 
     // Проверка авторизации
-    const admin = await authoriseAdmin(req, res);
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_PROMOTIONS);
     if (!admin) {
       const duration = Date.now() - startTime;
       logger.requestError('GET', '/promotions/:cityId', new Error('Не авторизован'), 401);
       return res.status(401).json({ success: false, message: "Не авторизован" });
+    }
+    if (admin.role !== "super_admin") {
+      if (!admin.allowedRestaurants?.length) {
+        const duration = Date.now() - startTime;
+        logger.requestError('GET', '/promotions/:cityId', new Error('Нет доступных ресторанов'), 403);
+        return res.status(403).json({ success: false, message: "Нет доступа к городам" });
+      }
+      const allowedCities = await resolveAllowedCitiesByRestaurants(admin.allowedRestaurants);
+      if (!allowedCities.includes(cityId)) {
+        const duration = Date.now() - startTime;
+        logger.requestError('GET', '/promotions/:cityId', new Error('Город недоступен'), 403);
+        return res.status(403).json({ success: false, message: "Нет доступа к этому городу" });
+      }
+      if (scope === "global") {
+        const duration = Date.now() - startTime;
+        logger.requestError('GET', '/promotions/:cityId', new Error('Глобальная библиотека недоступна'), 403);
+        return res.status(403).json({ success: false, message: "Недостаточно прав для глобальной библиотеки" });
+      }
     }
 
     try {
@@ -261,8 +310,12 @@ export function createStorageRouter() {
     const startTime = Date.now();
     const key = decodeURIComponent(req.params.key);
 
+    const isMenuKey = key.startsWith("menu/");
+    const isPromotionKey = key.startsWith("promotions/");
+    const requiredPermission = isPromotionKey ? ADMIN_PERMISSION.MANAGE_PROMOTIONS : ADMIN_PERMISSION.MANAGE_MENU;
+
     // Проверка авторизации
-    const admin = await authoriseAdmin(req, res);
+    const admin = await authoriseAdmin(req, res, requiredPermission);
     if (!admin) {
       const duration = Date.now() - startTime;
       logger.requestError('DELETE', '/:key', new Error('Не авторизован'), 401);
@@ -273,6 +326,29 @@ export function createStorageRouter() {
       const duration = Date.now() - startTime;
       logger.requestError('DELETE', '/:key', new Error('Не указан key'), 400);
       return res.status(400).json({ success: false, message: "Необходимо передать key файла" });
+    }
+
+    if (admin.role !== "super_admin") {
+      if (isMenuKey) {
+        const match = key.match(/menu\/restaurant-([^/]+)/);
+        const restaurantId = match?.[1];
+        if (restaurantId && !admin.allowedRestaurants?.includes(restaurantId)) {
+          const duration = Date.now() - startTime;
+          logger.requestError('DELETE', '/:key', new Error('Нет доступа к ресторану'), 403);
+          return res.status(403).json({ success: false, message: "Нет доступа к этому ресторану" });
+        }
+      } else if (isPromotionKey) {
+        const match = key.match(/promotions\/city-([^/]+)/);
+        const cityId = match?.[1];
+        if (cityId) {
+          const allowedCities = await resolveAllowedCitiesByRestaurants(admin.allowedRestaurants ?? []);
+          if (!allowedCities.includes(cityId)) {
+            const duration = Date.now() - startTime;
+            logger.requestError('DELETE', '/:key', new Error('Нет доступа к городу'), 403);
+            return res.status(403).json({ success: false, message: "Нет доступа к этому городу" });
+          }
+        }
+      }
     }
 
     try {

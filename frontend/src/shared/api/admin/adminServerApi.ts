@@ -1,6 +1,6 @@
 import { getCartApiBaseUrl } from "@shared/api/cart";
 import type { CartOrderRecord } from "@shared/api/cart";
-import type { UserRole } from "@shared/types";
+import type { Permission, UserRole } from "@shared/types";
 import { getUser } from "@/lib/telegram";
 import { logger } from "@/lib/logger";
 
@@ -79,6 +79,7 @@ export type AdminPanelUser = {
   allowedRestaurants: string[];
   createdAt: string | null;
   updatedAt: string | null;
+  permissions?: Permission[];
 };
 
 export type AdminOrdersResponse = {
@@ -90,6 +91,7 @@ type AdminMeResponse = {
   success: boolean;
   role: UserRole;
   allowedRestaurants: string[];
+  permissions?: Permission[];
 };
 
 type UpdateRolePayload = {

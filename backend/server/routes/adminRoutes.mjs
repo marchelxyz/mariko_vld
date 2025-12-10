@@ -1,8 +1,9 @@
 import express from "express";
-import { db, ensureDatabase, queryMany, queryOne, query } from "../postgresClient.mjs";
+import { ensureDatabase, queryMany, queryOne, query } from "../postgresClient.mjs";
 import {
   CART_ORDERS_TABLE,
   ORDER_STATUS_VALUES,
+  ADMIN_ROLE_VALUES,
 } from "../config.mjs";
 import {
   authoriseAdmin,
@@ -13,6 +14,8 @@ import {
   listAdminRecords,
   fetchAdminRecordByTelegram,
   resolveAdminContext,
+  ADMIN_PERMISSION,
+  canAssignRole,
 } from "../services/adminService.mjs";
 import { listUserProfiles, fetchUserProfile } from "../services/profileService.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
@@ -45,6 +48,7 @@ export function createAdminRouter() {
       success: true,
       role: context.role,
       allowedRestaurants: context.allowedRestaurants,
+      permissions: context.permissions ?? [],
     });
   });
 
@@ -52,7 +56,7 @@ export function createAdminRouter() {
     if (!ensureDatabase(res)) {
       return;
     }
-    const admin = await authoriseSuperAdmin(req, res);
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_ROLES);
     if (!admin) {
       return;
     }
@@ -97,14 +101,17 @@ export function createAdminRouter() {
     if (!ensureDatabase(res)) {
       return;
     }
-    const admin = await authoriseSuperAdmin(req, res);
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_ROLES);
     if (!admin) {
       return;
     }
     const userIdentifier = req.params.userId;
     const { role: incomingRole, allowedRestaurants = [], name: overrideName } = req.body ?? {};
-    if (!incomingRole || !["user", "admin", "super_admin"].includes(incomingRole)) {
+    if (!incomingRole || !ADMIN_ROLE_VALUES.has(incomingRole)) {
       return res.status(400).json({ success: false, message: "Некорректная роль" });
+    }
+    if (!canAssignRole(admin.role, incomingRole)) {
+      return res.status(403).json({ success: false, message: "Недостаточно прав для назначения роли" });
     }
     const profile = await fetchUserProfile(userIdentifier);
     const telegramId = profile?.telegram_id ? String(profile.telegram_id) : normaliseTelegramId(userIdentifier);
@@ -128,15 +135,29 @@ export function createAdminRouter() {
       });
     }
 
+    const requestedRestaurants = Array.isArray(allowedRestaurants)
+      ? allowedRestaurants.filter((id) => typeof id === "string")
+      : [];
+    const restaurantsForRole =
+      incomingRole === "super_admin"
+        ? []
+        : admin.role === "super_admin"
+          ? requestedRestaurants
+          : requestedRestaurants.filter((id) => admin.allowedRestaurants?.includes(id));
+
+    if (admin.role !== "super_admin" && restaurantsForRole.length !== requestedRestaurants.length) {
+      return res.status(403).json({
+        success: false,
+        message: "Нельзя выдавать доступ к ресторанам вне вашей зоны ответственности",
+      });
+    }
+
     const payload = {
       telegram_id: Number(telegramId),
       name: overrideName ?? profile?.name ?? null,
       role: incomingRole,
       permissions: {
-        restaurants:
-          incomingRole === "admin" && Array.isArray(allowedRestaurants)
-            ? allowedRestaurants.filter((id) => typeof id === "string")
-            : [],
+        restaurants: restaurantsForRole,
       },
     };
 
@@ -181,7 +202,7 @@ export function createAdminRouter() {
       return;
     }
     // Используем мягкую проверку - права уже проверены при входе в админ-панель
-    const admin = await authoriseAnyAdmin(req, res);
+    const admin = await authoriseAnyAdmin(req, res, ADMIN_PERMISSION.MANAGE_DELIVERIES);
     if (!admin) {
       // Если пользователь не админ, возвращаем пустой список
       return res.json({ success: true, orders: [] });
@@ -262,7 +283,7 @@ export function createAdminRouter() {
     if (!ensureDatabase(res)) {
       return;
     }
-    const admin = await authoriseAdmin(req, res);
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_DELIVERIES);
     if (!admin) {
       return;
     }
@@ -301,7 +322,7 @@ export function createAdminRouter() {
     if (!ensureDatabase(res)) {
       return;
     }
-    const admin = await authoriseAdmin(req, res);
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_RESTAURANTS);
     if (!admin) {
       return;
     }

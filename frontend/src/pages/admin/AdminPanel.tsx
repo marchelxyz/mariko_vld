@@ -3,10 +3,11 @@
  */
 
 import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck, Megaphone } from 'lucide-react';
-import { useState, Suspense, lazy } from 'react';
+import { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNavigation, Header } from "@shared/ui/widgets";
 import { useAdmin } from "@shared/hooks";
+import { Permission, UserRole } from "@shared/types";
 import { Button } from "@shared/ui";
 
 const CitiesManagementLazy = lazy(() =>
@@ -48,8 +49,75 @@ const SectionLoader = () => (
  */
 export default function AdminPanel(): JSX.Element {
   const navigate = useNavigate();
-  const { isAdmin, isLoading, userRole } = useAdmin();
+  const { isAdmin, isLoading, userRole, hasPermission } = useAdmin();
   const [activeSection, setActiveSection] = useState<AdminSection>(null);
+
+  const availableSections = useMemo(
+    () =>
+      [
+        {
+          key: 'cities' as AdminSection,
+          icon: <Building2 className="w-8 h-8" />,
+          title: "Управление ресторанами",
+          description: "Добавляйте города и рестораны, активируйте и деактивируйте их",
+          permission: Permission.MANAGE_RESTAURANTS,
+        },
+        {
+          key: 'menu' as AdminSection,
+          icon: <UtensilsCrossed className="w-8 h-8" />,
+          title: "Управление меню",
+          description: "Редактируйте меню ресторанов, добавляйте блюда и категории",
+          permission: Permission.MANAGE_MENU,
+        },
+        {
+          key: 'deliveries' as AdminSection,
+          icon: <Truck className="w-8 h-8" />,
+          title: "Управление доставками",
+          description: "Следите за заказами, меняйте статусы и детали доставки",
+          permission: Permission.MANAGE_DELIVERIES,
+        },
+        {
+          key: 'promotions' as AdminSection,
+          icon: <Megaphone className="w-8 h-8" />,
+          title: "Управление акциями",
+          description: "Заполняйте карточки для карусели на главной",
+          permission: Permission.MANAGE_PROMOTIONS,
+        },
+        {
+          key: 'roles' as AdminSection,
+          icon: <Shield className="w-8 h-8" />,
+          title: "Управление ролями",
+          description: "Выдавайте админ-права сотрудникам ресторана",
+          permission: Permission.MANAGE_ROLES,
+        },
+      ].filter((section) => hasPermission(section.permission)),
+    [hasPermission],
+  );
+
+  useEffect(() => {
+    if (activeSection && !availableSections.some((section) => section.key === activeSection)) {
+      setActiveSection(null);
+    }
+  }, [activeSection, availableSections]);
+
+  const roleLabel = (() => {
+    switch (userRole) {
+      case UserRole.SUPER_ADMIN:
+        return 'Супер-админ';
+      case UserRole.ADMIN:
+        return 'Админ';
+      case UserRole.MANAGER:
+        return 'Управляющий';
+      case UserRole.RESTAURANT_MANAGER:
+        return 'Менеджер ресторана';
+      case UserRole.MARKETER:
+        return 'Маркетолог';
+      case UserRole.DELIVERY_MANAGER:
+        return 'Менеджер по доставке';
+      default:
+        return 'Пользователь';
+    }
+  })();
 
   // Проверка прав доступа
   if (isLoading) {
@@ -111,7 +179,7 @@ export default function AdminPanel(): JSX.Element {
               Админ-панель
             </h1>
             <p className="text-white/70 text-sm md:text-base mt-1">
-              {userRole === 'super_admin' ? 'Супер-админ' : 'Админ'}
+              {roleLabel}
             </p>
           </div>
         </div>
@@ -119,47 +187,20 @@ export default function AdminPanel(): JSX.Element {
         {/* Контент */}
         {!activeSection ? (
           <div className="grid gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {/* Управление городами */}
-            <AdminCard
-              icon={<Building2 className="w-8 h-8" />}
-              title="Управление ресторанами"
-              description="Добавляйте города и рестораны, активируйте и деактивируйте их"
-              onClick={() => setActiveSection('cities')}
-              highlighted
-            />
-
-            {/* Управление меню */}
-            <AdminCard
-              icon={<UtensilsCrossed className="w-8 h-8" />}
-              title="Управление меню"
-              description="Редактируйте меню ресторанов, добавляйте блюда и категории"
-              onClick={() => setActiveSection('menu')}
-            />
-
-            {/* Управление доставками */}
-            <AdminCard
-              icon={<Truck className="w-8 h-8" />}
-              title="Управление доставками"
-              description="Следите за заказами, меняйте статусы и детали доставки"
-              onClick={() => setActiveSection('deliveries')}
-            />
-
-            {/* Управление акциями */}
-            <AdminCard
-              icon={<Megaphone className="w-8 h-8" />}
-              title="Управление акциями"
-              description="Заполняйте карточки для карусели на главной"
-              onClick={() => setActiveSection('promotions')}
-            />
-
-            {/* Управление ролями */}
-            <AdminCard
-              icon={<Shield className="w-8 h-8" />}
-              title="Управление ролями"
-              description="Выдавайте админ-права сотрудникам ресторана"
-              onClick={() => setActiveSection('roles')}
-              highlighted
-            />
+            {availableSections.map((section) => (
+              <AdminCard
+                key={section.key}
+                icon={section.icon}
+                title={section.title}
+                description={section.description}
+                onClick={() => setActiveSection(section.key)}
+              />
+            ))}
+            {!availableSections.length && (
+              <div className="col-span-full bg-white/5 border border-white/10 rounded-2xl p-6 text-center text-white/70">
+                Нет доступных разделов. Обратитесь к администратору для получения доступа.
+              </div>
+            )}
           </div>
         ) : (
           <div>
@@ -205,10 +246,9 @@ interface AdminCardProps {
   title: string;
   description: string;
   onClick: () => void;
-  highlighted?: boolean;
 }
 
-function AdminCard({ icon, title, description, onClick, highlighted }: AdminCardProps): JSX.Element {
+function AdminCard({ icon, title, description, onClick }: AdminCardProps): JSX.Element {
   return (
     <button
       onClick={onClick}
@@ -217,7 +257,6 @@ function AdminCard({ icon, title, description, onClick, highlighted }: AdminCard
         bg-mariko-secondary rounded-2xl md:rounded-[24px] p-4 md:p-6
         active:scale-95 md:hover:scale-105 transition-all duration-300
         text-left
-        ${highlighted ? 'ring-2 ring-mariko-primary' : ''}
       `}
     >
       {/* Фоновый градиент при наведении */}
@@ -243,12 +282,6 @@ function AdminCard({ icon, title, description, onClick, highlighted }: AdminCard
         <span>Открыть</span>
         <ChevronRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
       </div>
-
-      {highlighted && (
-        <div className="absolute top-3 md:top-4 right-3 md:right-4 px-2 py-0.5 md:py-1 bg-mariko-primary rounded text-white text-xs font-bold">
-          Только для вас
-        </div>
-      )}
     </button>
   );
 }

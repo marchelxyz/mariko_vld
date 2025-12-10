@@ -5,6 +5,7 @@ import { adminServerApi } from "@shared/api/admin";
 import type { CartOrderRecord } from "@shared/api/cart";
 import { getAllCitiesAsync, type City } from "@shared/data";
 import { useAdmin } from "@shared/hooks";
+import { Permission } from "@shared/types";
 import {
   Button,
   Select,
@@ -70,7 +71,8 @@ const mapCitiesToRestaurantOptions = (cities: City[]): RestaurantOption[] =>
   );
 
 export function DeliveryManagement(): JSX.Element {
-  const { isSuperAdmin, allowedRestaurants } = useAdmin();
+  const { isSuperAdmin, allowedRestaurants, hasPermission } = useAdmin();
+  const canManageDeliveries = hasPermission(Permission.MANAGE_DELIVERIES);
   const [pendingChange, setPendingChange] = useState<{ orderId: string; status: string } | null>(
     null,
   );
@@ -83,8 +85,10 @@ export function DeliveryManagement(): JSX.Element {
       const cities = await getAllCitiesAsync();
       setRestaurantOptions(mapCitiesToRestaurantOptions(cities));
     };
-    void loadRestaurants();
-  }, []);
+    if (canManageDeliveries) {
+      void loadRestaurants();
+    }
+  }, [canManageDeliveries]);
 
   const availableRestaurants = useMemo(() => {
     if (isSuperAdmin()) {
@@ -110,6 +114,7 @@ export function DeliveryManagement(): JSX.Element {
         restaurantId: currentRestaurantFilter,
         status: activeStatuses,
       }),
+    enabled: canManageDeliveries,
   });
 
   const {
@@ -124,6 +129,7 @@ export function DeliveryManagement(): JSX.Element {
         restaurantId: currentRestaurantFilter,
         status: historyStatuses,
       }),
+    enabled: canManageDeliveries,
   });
 
   const handleStatusChange = async (orderId: string, status: string) => {
@@ -141,6 +147,10 @@ export function DeliveryManagement(): JSX.Element {
     await handleStatusChange(pendingChange.orderId, pendingChange.status);
     setPendingChange(null);
   };
+
+  if (!canManageDeliveries) {
+    return null;
+  }
 
   return (
     <div className="space-y-6">
