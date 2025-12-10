@@ -342,18 +342,18 @@ function RandomBackgroundPattern() {
     }
 
     // Увеличиваем плотность для лучшего заполнения фона
-    const targetDensity = 1.0; // Чуть ниже плотность для ускорения генерации
+    const targetDensity = 0.85; // Ещё ниже плотность для ускорения генерации
     const area = width * height;
     // Уменьшаем среднюю площадь элемента для увеличения количества элементов
     const avgElementArea = (150 * 120) / 4; // Средняя площадь элемента с учетом масштабирования
     const targetElements = Math.min(
-      220,
-      Math.max(180, Math.floor((area * targetDensity) / avgElementArea)),
+      180,
+      Math.max(140, Math.floor((area * targetDensity) / avgElementArea)),
     ); // ограничиваем количество элементов для скорости на широких экранах
 
     // Размещаем паттерны до достижения целевого количества или пока есть место
     let attempts = 0;
-    const maxAttempts = Math.min(6000, targetElements * 6); // ограничиваем попытки чтобы не тормозить на больших экранах
+    const maxAttempts = Math.min(4000, targetElements * 5); // ограничиваем попытки чтобы не тормозить на больших экранах
     
     for (let i = 0; i < targetElements && attempts < maxAttempts; i++) {
       attempts++;
@@ -397,9 +397,9 @@ function RandomBackgroundPattern() {
     // Контейнер имеет размеры 140% с отступами -20%, поэтому генерируем позиции для всего контейнера
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
-    // Размеры контейнера (140% от viewport) с лёгким ограничением на десктопе, чтобы ускорить генерацию
-    const width = Math.min(viewportWidth * 1.4, 1800);
-    const height = Math.min(viewportHeight * 1.4, 1800);
+    // Размеры контейнера (135% от viewport) с ограничением на десктопе для ускорения
+    const width = Math.min(viewportWidth * 1.35, 1600);
+    const height = Math.min(viewportHeight * 1.35, 1600);
 
     if (width <= 0 || height <= 0) return;
 

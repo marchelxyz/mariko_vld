@@ -59,8 +59,8 @@
     --app-bottom-bar-height: clamp(82px, 9vh, 118px);
     --app-bottom-inset: calc(var(--app-bottom-bar-height) + var(--tg-safe-area-bottom, 0px) + 18px);
     --app-top-inset: var(--tg-safe-area-top, 0px);
-    --app-rail-width: 120px;
-    --app-rail-gap: 18px;
+    --app-rail-width: 160px;
+    --app-rail-gap: 22px;
     --app-rail-offset: 0px;
   }
 
