@@ -300,7 +300,7 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Promotions + Featured row */}
+            {/* Promotions + Featured row (desktop), Promotions only on mobile */}
             {(promotions.length > 0 || featuredDishes.length > 0) && (
               <div className="mt-6 md:mt-8 flex flex-col lg:flex-row lg:items-start lg:gap-6 justify-center lg:justify-start">
                 {promotions.length > 0 && (
@@ -313,19 +313,19 @@ const Index = () => {
                 )}
 
                 {featuredDishes.length > 0 && (
-                  <div className="mt-6 lg:mt-0 w-full max-w-[520px] lg:ml-auto flex lg:justify-end">
-                    <div className="rounded-[18px] bg-white/10 border border-white/15 backdrop-blur-sm p-4 h-[200px] md:h-[220px] flex flex-col">
+                  <div className="hidden lg:flex flex-1 lg:justify-end">
+                    <div className="rounded-[18px] bg-white/10 border border-white/15 backdrop-blur-sm p-4 h-[220px] flex flex-col w-full max-w-[640px]">
                       <div className="flex items-center justify-between mb-3">
                         <span className="font-el-messiri text-lg font-semibold text-white">
                           Рекомендуем попробовать
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 gap-3 overflow-y-auto">
+                      <div className="grid grid-cols-2 gap-4 overflow-y-auto">
                         {featuredDishes.map((item) => (
                           <MenuItemComponent
                             key={item.id}
                             item={item}
-                            variant="compact"
+                            variant="default"
                             onClick={() => handleDishClick(item)}
                           />
                         ))}
@@ -374,7 +374,30 @@ const Index = () => {
                   }}
                 />
               </div>
+            </div>
+
+            {/* Featured block on mobile/tablet under service cards */}
+            {featuredDishes.length > 0 && (
+              <div className="mt-6 lg:hidden">
+                <div className="rounded-[18px] bg-white/10 border border-white/15 backdrop-blur-sm p-4 h-[200px] flex flex-col w-full max-w-4xl mx-auto">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-el-messiri text-lg font-semibold text-white">
+                      Рекомендуем попробовать
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 overflow-y-auto">
+                    {featuredDishes.map((item) => (
+                      <MenuItemComponent
+                        key={item.id}
+                        item={item}
+                        variant="compact"
+                        onClick={() => handleDishClick(item)}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
+            )}
             </div>
 
             {/* Recommended Section (временно скрыто) */}
