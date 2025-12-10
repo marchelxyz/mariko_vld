@@ -22,7 +22,7 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
   const [isRail, setIsRail] = useState(false);
 
   useEffect(() => {
-    const mql = window.matchMedia("(min-width: 1280px)");
+    const mql = window.matchMedia("(min-width: 1100px)");
     const handleMedia = (event: MediaQueryListEvent | MediaQueryList) => {
       const matches = "matches" in event ? event.matches : event.matches;
       setIsRail(matches);
@@ -113,9 +113,6 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
               </button>
             );
           })}
-          <div className="mt-auto rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-[11px] text-white/60">
-            Навигация закреплена слева для широких экранов.
-          </div>
         </div>
       </aside>
     );

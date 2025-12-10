@@ -219,90 +219,90 @@ const Index = () => {
         <div className="app-shell app-shell-wide w-full">
 
           <div className="space-y-6 md:space-y-8">
-            <div className="grid gap-6 lg:gap-8 lg:grid-cols-12 lg:items-start">
-              {/* Quick Action Buttons Grid */}
-              <div className="mt-6 md:mt-8 lg:mt-2 lg:col-span-7">
-                <div className="grid grid-cols-4 gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4">
-                  <QuickActionButton
-                    icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
-                    title="Бронь столика"
-                    highlighted={cityChangedFlash}
-                    onClick={() => {
-                      console.log("[Home] QuickActionButton onClick вызван напрямую");
-                      handleBookingClick();
-                    }}
-                  />
+            {/* Quick Action Buttons */}
+            <div className="mt-6 md:mt-8 flex justify-center">
+              <div className="grid grid-cols-4 gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4 max-w-4xl w-full">
+                <QuickActionButton
+                  icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
+                  title="Бронь столика"
+                  highlighted={cityChangedFlash}
+                  onClick={() => {
+                    console.log("[Home] QuickActionButton onClick вызван напрямую");
+                    handleBookingClick();
+                  }}
+                />
 
-                  <QuickActionButton
-                    icon={<Truck className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
-                    title="Заказать доставку"
-                    highlighted={cityChangedFlash}
-                    onClick={() => navigate("/delivery")}
-                  />
+                <QuickActionButton
+                  icon={<Truck className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
+                  title="Заказать доставку"
+                  highlighted={cityChangedFlash}
+                  onClick={() => navigate("/delivery")}
+                />
 
-                  <QuickActionButton
-                    icon={<StarIcon className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary fill-none" strokeWidth={2} />}
-                    title="Оставить отзыв"
-                    highlighted={cityChangedFlash}
-                    onClick={handleReviewClick}
-                  />
+                <QuickActionButton
+                  icon={<StarIcon className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary fill-none" strokeWidth={2} />}
+                  title="Оставить отзыв"
+                  highlighted={cityChangedFlash}
+                  onClick={handleReviewClick}
+                />
 
-                  <QuickActionButton
-                    icon={<MapPin className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
-                    title="Как нас найти?"
-                    highlighted={cityChangedFlash}
-                    onClick={() => navigate("/about")}
-                  />
-                </div>
+                <QuickActionButton
+                  icon={<MapPin className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
+                  title="Как нас найти?"
+                  highlighted={cityChangedFlash}
+                  onClick={() => navigate("/about")}
+                />
               </div>
+            </div>
 
-              {/* Promotions Carousel */}
-              {promotions.length > 0 && (
-                <div className="mt-6 md:mt-8 lg:mt-2 lg:col-span-5">
+            {/* Promotions Carousel */}
+            {promotions.length > 0 && (
+              <div className="mt-6 md:mt-8 flex justify-center">
+                <div className="w-full max-w-5xl">
                   <PromotionsCarousel
                     promotions={promotions}
                     onBookTable={handleBookingClick}
                   />
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Menu and Vacancies */}
-              <div className="mt-6 md:mt-8 lg:col-span-7">
-                <div className="grid grid-cols-2 gap-3 md:gap-4 lg:gap-5">
-                  <ServiceCard
-                    title="Меню"
-                    imageUrl="/images/services/MENU-CARD.png"
-                    aspectRatio="aspect-[4/3]"
-                    imageClassName="object-left translate-x-[2px]"
-                    className="max-w-[200px] md:max-w-[240px] mx-auto w-full"
-                    highlighted={cityChangedFlash}
-                    onClick={() => navigate("/menu")}
-                  />
-                  <ServiceCard
-                    title="Вакансии"
-                    imageUrl="/images/services/JOBCARD.png"
-                    aspectRatio="aspect-[4/3]"
-                    imageClassName="object-left translate-x-[2px]"
-                    className="max-w-[200px] md:max-w-[240px] mx-auto w-full"
-                    highlighted={cityChangedFlash}
-                    onClick={() => {
-                      if (selectedCity?.id && selectedCity?.name) {
-                        openEmbeddedPage(`vacancies-${selectedCity.id}`, {
-                          title: `Вакансии — ${selectedCity.name}`,
-                          url: VACANCIES_LINK,
-                          allowedCityId: selectedCity.id,
-                          description: "Актуальные вакансии сети «Хачапури Марико».",
-                          fallbackLabel: "Открыть вакансии во внешнем окне",
-                        });
-                        return;
-                      }
-
-                      safeOpenLink(VACANCIES_LINK, {
-                        try_instant_view: true,
+            {/* Menu and Vacancies */}
+            <div className="mt-6 md:mt-8 flex justify-center">
+              <div className="grid grid-cols-2 gap-3 md:gap-4 lg:gap-5 max-w-4xl w-full">
+                <ServiceCard
+                  title="Меню"
+                  imageUrl="/images/services/MENU-CARD.png"
+                  aspectRatio="aspect-[4/3]"
+                  imageClassName="object-left translate-x-[2px]"
+                  className="max-w-[200px] md:max-w-[240px] mx-auto w-full"
+                  highlighted={cityChangedFlash}
+                  onClick={() => navigate("/menu")}
+                />
+                <ServiceCard
+                  title="Вакансии"
+                  imageUrl="/images/services/JOBCARD.png"
+                  aspectRatio="aspect-[4/3]"
+                  imageClassName="object-left translate-x-[2px]"
+                  className="max-w-[200px] md:max-w-[240px] mx-auto w-full"
+                  highlighted={cityChangedFlash}
+                  onClick={() => {
+                    if (selectedCity?.id && selectedCity?.name) {
+                      openEmbeddedPage(`vacancies-${selectedCity.id}`, {
+                        title: `Вакансии — ${selectedCity.name}`,
+                        url: VACANCIES_LINK,
+                        allowedCityId: selectedCity.id,
+                        description: "Актуальные вакансии сети «Хачапури Марико».",
+                        fallbackLabel: "Открыть вакансии во внешнем окне",
                       });
-                    }}
-                  />
-                </div>
+                      return;
+                    }
+
+                    safeOpenLink(VACANCIES_LINK, {
+                      try_instant_view: true,
+                    });
+                  }}
+                />
               </div>
             </div>
 
