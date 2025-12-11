@@ -304,12 +304,12 @@ const Index = () => {
             </div>
 
             {/* Promotions and Menu/Vacancies Layout */}
-            <div className="mt-6 md:mt-8">
-              <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 lg:justify-center items-center">
+            <div className="mt-6 md:mt-8 flex justify-center">
+              <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 items-center max-w-4xl w-full mx-auto">
                 {/* Promotions */}
                 {promotions.length > 0 && (
-                  <div className="flex justify-center lg:justify-start mb-6 lg:mb-0 w-full lg:w-auto lg:flex-none">
-                    <div className="w-full max-w-[420px] md:max-w-[520px] lg:max-w-[520px] mx-auto lg:mx-0 [&>div]:lg:!mx-0">
+                  <div className="flex justify-center mb-6 lg:mb-0 w-full lg:w-auto">
+                    <div className="w-full max-w-[420px] md:max-w-[520px] lg:max-w-[520px] mx-auto">
                       <PromotionsCarousel
                         promotions={promotions}
                         onBookTable={handleBookingClick}
@@ -318,14 +318,14 @@ const Index = () => {
                   </div>
                 )}
 
-                {/* Menu and Vacancies - правее от баннеров на больших экранах */}
-                <div className="flex justify-center lg:justify-start w-full lg:w-auto lg:flex-none overflow-x-hidden">
-                  <div className="w-full max-w-4xl mx-auto lg:mx-0">
+                {/* Menu and Vacancies */}
+                <div className="flex justify-center w-full lg:w-auto overflow-x-hidden">
+                  <div className="w-full max-w-[440px] md:max-w-[480px] lg:max-w-[586px] xl:max-w-[586px] mx-auto">
                     <div className={`grid gap-3 md:gap-3 lg:gap-4 ${
                       // На мобильных и средних экранах показываем 2 колонки (меню и вакансии)
                       // На больших экранах (xl+) показываем 2 колонки (меню и вакансии)
                       'grid-cols-2 md:grid-cols-2 lg:grid-cols-2'
-                    } max-w-[440px] md:max-w-[480px] lg:max-w-[586px] xl:max-w-[586px] w-full mx-auto lg:mx-0 lg:pt-[42px]`}>
+                    } w-full`}>
                       <ServiceCard
                         title="Меню"
                         imageUrl="/images/services/MENU-CARD.png"
