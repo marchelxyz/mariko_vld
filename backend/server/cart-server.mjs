@@ -13,6 +13,7 @@ import { createGeocodeRouter } from "./routes/geocodeRoutes.mjs";
 import { createCitiesRouter } from "./routes/citiesRoutes.mjs";
 import { createBookingRouter } from "./routes/bookingRoutes.mjs";
 import { createPromotionsRouter, createAdminPromotionsRouter } from "./routes/promotionsRoutes.mjs";
+import { createRecommendedDishesRouter, createAdminRecommendedDishesRouter } from "./routes/recommendedDishesRoutes.mjs";
 import { createMenuRouter, createAdminMenuRouter } from "./routes/menuRoutes.mjs";
 import { createStorageRouter } from "./routes/storageRoutes.mjs";
 import { logger } from "./utils/logger.mjs";
@@ -146,6 +147,13 @@ app.use("/api/cart/promotions", promotionsRouter);
 // Админские роуты для акций
 const adminPromotionsRouter = createAdminPromotionsRouter();
 app.use("/api/admin/promotions", adminPromotionsRouter);
+// Роуты для рекомендуемых блюд
+const recommendedDishesRouter = createRecommendedDishesRouter();
+app.use("/api/recommended-dishes", recommendedDishesRouter);
+app.use("/api/cart/recommended-dishes", recommendedDishesRouter);
+// Админские роуты для рекомендуемых блюд
+const adminRecommendedDishesRouter = createAdminRecommendedDishesRouter();
+app.use("/api/admin/recommended-dishes", adminRecommendedDishesRouter);
 // Роуты для меню ресторанов
 const menuRouter = createMenuRouter();
 app.use("/api/menu", menuRouter);

@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronDown, MapPin, Star as StarIcon, Truck } from "lucide-react";
+import { CalendarDays, ChevronDown, MapPin, Star as StarIcon, Truck, Briefcase } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useCityContext } from "@/contexts";
@@ -7,8 +7,6 @@ import { EmbeddedPageConfig } from "@/shared/config/webviewPages";
 import {
   RESTAURANT_REVIEW_LINKS,
   VACANCIES_LINK,
-  getMenuByRestaurantId,
-  MenuCategory,
   MenuItem,
 } from "@shared/data";
 import {
@@ -20,6 +18,7 @@ import { PromotionsCarousel, type PromotionSlide } from "./PromotionsCarousel";
 import { toast } from "@/hooks/use-toast";
 import { safeOpenLink, storage } from "@/lib/telegram";
 import { fetchPromotions } from "@shared/api/promotionsApi";
+import { fetchRecommendedDishes } from "@shared/api/recommendedDishesApi";
 import { useBookingSlotsPrefetch } from "@shared/hooks";
 
 const Index = () => {
@@ -27,13 +26,11 @@ const Index = () => {
   const location = useLocation();
   const { selectedRestaurant, selectedCity } = useCityContext();
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
-  const [recommended, setRecommended] = useState<MenuItem[]>([]);
   const [cityChangedFlash, setCityChangedFlash] = useState(false);
   const prevCityIdRef = useRef<string | null>(null);
   const [promotions, setPromotions] = useState<PromotionSlide[]>([]);
-
-  // 🔧 ВРЕМЕННОЕ СКРЫТИЕ: измените на true чтобы показать раздел "Рекомендуем попробовать"
-  const showRecommendedSection = false;
+  const [recommendedDishes, setRecommendedDishes] = useState<MenuItem[]>([]);
+  const [isLoadingRecommended, setIsLoadingRecommended] = useState(false);
 
   // Предзагрузка слотов бронирования в фоновом режиме
   useBookingSlotsPrefetch(selectedRestaurant);
@@ -166,30 +163,52 @@ const Index = () => {
     }
   };
 
-  // Random recommended menu items
+  // Загружаем рекомендуемые блюда для города
   useEffect(() => {
     let cancelled = false;
-    if (!showRecommendedSection || !selectedRestaurant?.id) {
-      setRecommended([]);
+    if (!selectedCity?.id) {
+      setRecommendedDishes([]);
       return;
     }
 
-    getMenuByRestaurantId(selectedRestaurant.id).then((menu) => {
-      if (cancelled) return;
-      if (!menu) {
-        setRecommended([]);
-        return;
-      }
-      const allItems: MenuItem[] = menu.categories.flatMap((c: MenuCategory) => c.items);
-      const recommendedItems = allItems.filter((i) => i.isRecommended);
-      const shuffled = recommendedItems.sort(() => 0.5 - Math.random());
-      setRecommended(shuffled.slice(0, 4));
-    });
+    setIsLoadingRecommended(true);
+    fetchRecommendedDishes(selectedCity.id)
+      .then((dishes) => {
+        if (cancelled) return;
+        if (!dishes || dishes.length === 0) {
+          setRecommendedDishes([]);
+          return;
+        }
+        // Перемешиваем блюда при каждом визите
+        const shuffled = [...dishes].sort(() => 0.5 - Math.random());
+        // Определяем количество блюд для отображения
+        // На планшетах (md) показываем 3, на больших экранах (lg+) показываем до 6
+        // Используем медиа-запрос через matchMedia для более точного определения
+        let count = 6; // по умолчанию для больших экранов
+        if (typeof window !== 'undefined') {
+          const isTablet = window.matchMedia('(min-width: 768px) and (max-width: 1023px)').matches;
+          if (isTablet) {
+            count = 3;
+          }
+        }
+        setRecommendedDishes(shuffled.slice(0, Math.min(count, shuffled.length)));
+      })
+      .catch((error) => {
+        console.error("Ошибка загрузки рекомендуемых блюд:", error);
+        if (!cancelled) {
+          setRecommendedDishes([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoadingRecommended(false);
+        }
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [selectedRestaurant?.id, showRecommendedSection]);
+  }, [selectedCity?.id]);
 
   // Легкая подсветка всех CTA при смене города, чтобы показать изменение контекста
   useEffect(() => {
@@ -221,7 +240,11 @@ const Index = () => {
           <div className="space-y-6 md:space-y-8">
             {/* Quick Action Buttons */}
             <div className="mt-6 md:mt-8 flex justify-center lg:justify-start">
-              <div className="grid grid-cols-4 gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4 max-w-4xl w-full">
+              <div className={`grid gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4 max-w-4xl w-full ${
+                // На средних экранах (md) показываем 5 кнопок (4 + вакансии)
+                // На больших экранах (lg+) показываем 4 кнопки
+                'grid-cols-4 md:grid-cols-5 lg:grid-cols-4'
+              }`}>
                 <QuickActionButton
                   icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
                   title="Бронь столика"
@@ -252,40 +275,12 @@ const Index = () => {
                   highlighted={cityChangedFlash}
                   onClick={() => navigate("/about")}
                 />
-              </div>
-            </div>
 
-            {/* Promotions */}
-            {promotions.length > 0 && (
-              <div className="mt-6 md:mt-8 flex justify-center lg:justify-start">
-                <div className="w-full max-w-[420px] md:max-w-[520px]">
-                  <PromotionsCarousel
-                    promotions={promotions}
-                    onBookTable={handleBookingClick}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Menu and Vacancies */}
-            <div className="mt-6 md:mt-8 flex justify-center lg:justify-start">
-              <div className="w-full max-w-4xl">
-                <div className="grid grid-cols-2 gap-3 md:gap-4 lg:gap-4 max-w-[440px] md:max-w-[520px] w-full">
-                  <ServiceCard
-                    title="Меню"
-                    imageUrl="/images/services/MENU-CARD.png"
-                    aspectRatio="aspect-[4/3]"
-                    imageClassName="object-left translate-x-[2px]"
-                    className="max-w-[200px] md:max-w-[240px] w-full"
-                    highlighted={cityChangedFlash}
-                    onClick={() => navigate("/menu")}
-                  />
-                  <ServiceCard
+                {/* Кнопка вакансий на средних экранах (md) */}
+                <div className="hidden md:block lg:hidden">
+                  <QuickActionButton
+                    icon={<Briefcase className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
                     title="Вакансии"
-                    imageUrl="/images/services/JOBCARD.png"
-                    aspectRatio="aspect-[4/3]"
-                    imageClassName="object-left translate-x-[2px]"
-                    className="max-w-[200px] md:max-w-[240px] w-full"
                     highlighted={cityChangedFlash}
                     onClick={() => {
                       if (selectedCity?.id && selectedCity?.name) {
@@ -308,8 +303,73 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Recommended Section (временно скрыто) */}
-            {showRecommendedSection && (
+            {/* Promotions and Menu/Vacancies Layout */}
+            <div className="mt-6 md:mt-8">
+              <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 justify-center lg:justify-start">
+                {/* Promotions */}
+                {promotions.length > 0 && (
+                  <div className="flex justify-center lg:justify-start mb-6 lg:mb-0">
+                    <div className="w-full max-w-[420px] md:max-w-[520px]">
+                      <PromotionsCarousel
+                        promotions={promotions}
+                        onBookTable={handleBookingClick}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Menu and Vacancies - правее от баннеров на больших экранах */}
+                <div className="flex justify-center lg:justify-start">
+                  <div className="w-full max-w-4xl">
+                    <div className={`grid gap-3 md:gap-4 lg:gap-4 ${
+                      // На мобильных и средних экранах показываем 2 колонки (меню и вакансии)
+                      // На больших экранах (lg+) показываем только меню, вакансии уже в QuickActionButtons
+                      'grid-cols-2 md:grid-cols-2 lg:grid-cols-1'
+                    } max-w-[440px] md:max-w-[520px] lg:max-w-[240px] w-full`}>
+                      <ServiceCard
+                        title="Меню"
+                        imageUrl="/images/services/MENU-CARD.png"
+                        aspectRatio="aspect-[4/3]"
+                        imageClassName="object-left translate-x-[2px]"
+                        className="max-w-[200px] md:max-w-[240px] w-full"
+                        highlighted={cityChangedFlash}
+                        onClick={() => navigate("/menu")}
+                      />
+                      {/* Вакансии на мобильных экранах (скрыты на md и lg+) */}
+                      <div className="block md:hidden lg:hidden">
+                        <ServiceCard
+                          title="Вакансии"
+                          imageUrl="/images/services/JOBCARD.png"
+                          aspectRatio="aspect-[4/3]"
+                          imageClassName="object-left translate-x-[2px]"
+                          className="max-w-[200px] md:max-w-[240px] w-full"
+                          highlighted={cityChangedFlash}
+                          onClick={() => {
+                            if (selectedCity?.id && selectedCity?.name) {
+                              openEmbeddedPage(`vacancies-${selectedCity.id}`, {
+                                title: `Вакансии — ${selectedCity.name}`,
+                                url: VACANCIES_LINK,
+                                allowedCityId: selectedCity.id,
+                                description: "Актуальные вакансии сети «Хачапури Марико».",
+                                fallbackLabel: "Открыть вакансии во внешнем окне",
+                              });
+                              return;
+                            }
+
+                            safeOpenLink(VACANCIES_LINK, {
+                              try_instant_view: true,
+                            });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Recommended Section */}
+            {recommendedDishes.length > 0 && (
               <div className="mt-10 md:mt-12 -mx-3 md:-mx-6">
                 {/* Heading bar */}
                 <div className="w-full bg-white py-3 md:py-4 flex items-center justify-between px-4 md:px-6 mb-4 md:mb-6">
@@ -320,30 +380,32 @@ const Index = () => {
                 </div>
 
                 <div className="px-3 md:px-6 mb-16 md:mb-20">
-                  {/* Random recommended menu items grid */}
-                  {/* Компактная сетка 2x2 на мобильных, адаптивная на больших экранах */}
-                  <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
-                    {recommended.map((item) => (
-                      <div key={item.id}>
-                        {/* Мобильный вариант для экранов < 768px */}
-                        <div className="block md:hidden">
-                          <MenuItemComponent
-                            item={item}
-                            variant="mobile"
-                            onClick={() => handleDishClick(item)}
-                          />
+                  {isLoadingRecommended ? (
+                    <div className="text-center py-8 text-gray-500">Загрузка рекомендаций...</div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
+                      {recommendedDishes.map((item) => (
+                        <div key={item.id}>
+                          {/* Мобильный вариант для экранов < 768px */}
+                          <div className="block md:hidden">
+                            <MenuItemComponent
+                              item={item}
+                              variant="mobile"
+                              onClick={() => handleDishClick(item)}
+                            />
+                          </div>
+                          {/* Компактный вариант для экранов >= 768px */}
+                          <div className="hidden md:block">
+                            <MenuItemComponent
+                              item={item}
+                              variant="compact"
+                              onClick={() => handleDishClick(item)}
+                            />
+                          </div>
                         </div>
-                        {/* Компактный вариант для экранов >= 768px */}
-                        <div className="hidden md:block">
-                          <MenuItemComponent
-                            item={item}
-                            variant="compact"
-                            onClick={() => handleDishClick(item)}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
