@@ -239,7 +239,7 @@ const Index = () => {
 
           <div className="space-y-6 md:space-y-8">
             {/* Quick Action Buttons */}
-            <div className="mt-6 md:mt-8 flex justify-center lg:justify-start">
+            <div className="mt-2 md:mt-3 flex justify-center lg:justify-start">
               <div className={`grid gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4 max-w-4xl w-full ${
                 // На средних экранах (md) показываем 5 кнопок (4 + вакансии)
                 // На больших экранах (lg+) показываем 4 кнопки
