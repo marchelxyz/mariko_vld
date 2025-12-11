@@ -241,9 +241,10 @@ const Index = () => {
             {/* Quick Action Buttons */}
               <div className="mt-6 md:mt-8 flex justify-center">
               <div className={`grid gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4 max-w-4xl w-full mx-auto ${
-                // На средних экранах (md) показываем 5 кнопок (4 + вакансии)
-                // На больших экранах (lg+) показываем 4 кнопки
-                'grid-cols-4 md:grid-cols-5 lg:grid-cols-4'
+                // На мобильных показываем 4 кнопки
+                // На средних (md) и больших (lg) экранах показываем 5 кнопок (4 + вакансии)
+                // На очень больших экранах (xl+) показываем 4 кнопки (вакансии переносятся в ServiceCard)
+                'grid-cols-4 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-4'
               } lg:max-w-[600px]`}>
                 <QuickActionButton
                   icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
@@ -276,12 +277,12 @@ const Index = () => {
                   onClick={() => navigate("/about")}
                 />
 
-                {/* Кнопка вакансий на средних экранах (md) - в одном ряду с другими кнопками, с иконкой вместо фото */}
+                {/* Кнопка вакансий на средних (md) и больших (lg) экранах - в одном ряду с другими кнопками, с иконкой вместо фото */}
                 <QuickActionButton
                   icon={<Briefcase className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
                   title="Вакансии"
                   highlighted={cityChangedFlash}
-                  className="hidden md:flex lg:hidden"
+                  className="hidden md:flex xl:hidden"
                   onClick={() => {
                     if (selectedCity?.id && selectedCity?.name) {
                       openEmbeddedPage(`vacancies-${selectedCity.id}`, {
@@ -334,8 +335,8 @@ const Index = () => {
                         highlighted={cityChangedFlash}
                         onClick={() => navigate("/menu")}
                       />
-                      {/* Вакансии на мобильных и больших экранах (скрыты на md) */}
-                      <div className="block md:hidden lg:block">
+                      {/* Вакансии на мобильных и очень больших экранах (xl+) - скрыты на md и lg, где показываются как QuickActionButton */}
+                      <div className="block md:hidden xl:block">
                         <ServiceCard
                           title="Вакансии"
                           imageUrl="/images/services/JOBCARD.png"
