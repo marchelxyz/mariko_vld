@@ -323,8 +323,8 @@ const Index = () => {
                   <div className="w-full max-w-4xl">
                     <div className={`grid gap-3 md:gap-4 lg:gap-4 ${
                       // На мобильных и средних экранах показываем 2 колонки (меню и вакансии)
-                      // На больших экранах (lg+) показываем только меню, вакансии уже в QuickActionButtons
-                      'grid-cols-2 md:grid-cols-2 lg:grid-cols-1'
+                      // На больших экранах (lg+) показываем 2 колонки (меню и вакансии)
+                      'grid-cols-2 md:grid-cols-2 lg:grid-cols-2'
                     } max-w-[440px] md:max-w-[520px] lg:max-w-none w-full`}>
                       <ServiceCard
                         title="Меню"
@@ -335,14 +335,14 @@ const Index = () => {
                         highlighted={cityChangedFlash}
                         onClick={() => navigate("/menu")}
                       />
-                      {/* Вакансии на мобильных экранах (скрыты на md и lg+) */}
-                      <div className="block md:hidden lg:hidden">
+                      {/* Вакансии на мобильных и больших экранах (скрыты на md) */}
+                      <div className="block md:hidden lg:block">
                         <ServiceCard
                           title="Вакансии"
                           imageUrl="/images/services/JOBCARD.png"
                           aspectRatio="aspect-[4/3]"
                           imageClassName="object-left translate-x-[2px]"
-                          className="max-w-[200px] md:max-w-[240px] w-full"
+                          className="max-w-[200px] md:max-w-[240px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
                           highlighted={cityChangedFlash}
                           onClick={() => {
                             if (selectedCity?.id && selectedCity?.name) {
