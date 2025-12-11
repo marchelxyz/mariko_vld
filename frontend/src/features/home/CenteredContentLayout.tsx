@@ -45,32 +45,29 @@ export const CenteredContentLayout = ({
       </div>
 
       {/* Средние и большие экраны: разделение на 2 равные половины */}
-      <div className="hidden md:block w-full">
-        {/* Контейнер для центрирования с максимальной шириной */}
-        <div className="flex flex-row items-start w-full max-w-[1100px] mx-auto">
-          {/* Левая половина: Меню - выравнивается по правому краю своей половины */}
-          <div className="flex justify-end flex-1 max-w-[50%] pr-3 lg:pr-4">
-            <div className="max-w-[230px] lg:max-w-[293px]">
-              {leftContent}
+      <div className="hidden md:flex md:flex-row md:items-start md:justify-center">
+        {/* Левая половина: Меню - выравнивается по правому краю своей половины */}
+        <div className="flex justify-end md:flex-1 md:max-w-[50%] md:pr-3 lg:pr-4">
+          <div className="w-full max-w-[230px] lg:max-w-[293px]">
+            {leftContent}
+          </div>
+        </div>
+
+        {/* Правая половина: Баннеры акций + Вакансии (на больших экранах) - выравнивается по левому краю своей половины */}
+        <div className="flex flex-col md:flex-1 md:max-w-[50%] md:justify-start items-start gap-3 md:gap-3 lg:gap-4 md:pl-3 lg:pl-4">
+          {/* Баннеры акций */}
+          {rightContent && (
+            <div className="w-full max-w-[520px] lg:max-w-[520px]">
+              {rightContent}
             </div>
-          </div>
+          )}
 
-          {/* Правая половина: Баннеры акций + Вакансии (на больших экранах) - выравнивается по левому краю */}
-          <div className="flex flex-col flex-1 max-w-[50%] justify-start items-start gap-3 md:gap-3 lg:gap-4 pl-3 lg:pl-4">
-            {/* Баннеры акций */}
-            {rightContent && (
-              <div className="w-full max-w-[520px] lg:max-w-[520px]">
-                {rightContent}
-              </div>
-            )}
-
-            {/* Вакансии - только на больших экранах (xl+) */}
-            {rightExtraContent && (
-              <div className="hidden xl:block w-full max-w-[293px]">
-                {rightExtraContent}
-              </div>
-            )}
-          </div>
+          {/* Вакансии - только на больших экранах (xl+) */}
+          {rightExtraContent && (
+            <div className="hidden xl:block w-full max-w-[293px]">
+              {rightExtraContent}
+            </div>
+          )}
         </div>
       </div>
     </div>
