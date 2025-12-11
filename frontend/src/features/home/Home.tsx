@@ -305,26 +305,21 @@ const Index = () => {
             {/* Promotions and Menu/Vacancies Layout */}
             <div className="mt-6 md:mt-8">
               <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 lg:justify-center items-center">
-                {/* Promotions */}
-                {promotions.length > 0 && (
-                  <div className="flex justify-center mb-6 lg:mb-0 w-full lg:w-auto">
-                    <div className="w-full max-w-[420px] md:max-w-[520px] lg:max-w-[520px] mx-auto">
-                      <PromotionsCarousel
-                        promotions={promotions}
-                        onBookTable={handleBookingClick}
-                      />
+                {/* Promotions and Menu - единый компонент на средних и больших экранах */}
+                {promotions.length > 0 ? (
+                  <div className="flex flex-col md:flex-row md:items-start md:gap-6 justify-center items-center mb-6 lg:mb-0 w-full lg:w-auto">
+                    {/* Promotions */}
+                    <div className="flex justify-center w-full md:w-auto">
+                      <div className="w-full max-w-[420px] md:max-w-[520px] lg:max-w-[520px] mx-auto">
+                        <PromotionsCarousel
+                          promotions={promotions}
+                          onBookTable={handleBookingClick}
+                        />
+                      </div>
                     </div>
-                  </div>
-                )}
 
-                {/* Menu and Vacancies - правее от баннеров на больших экранах */}
-                <div className="flex justify-center w-full lg:w-auto">
-                  <div className="w-full max-w-4xl mx-auto">
-                    <div className={`grid gap-3 md:gap-4 lg:gap-4 ${
-                      // На мобильных и средних экранах показываем 2 колонки (меню и вакансии)
-                      // На больших экранах (xl+) показываем 2 колонки (меню и вакансии)
-                      'grid-cols-2 md:grid-cols-2 lg:grid-cols-2'
-                    } max-w-[440px] md:max-w-[520px] lg:max-w-[586px] xl:max-w-[586px] w-full mx-auto lg:pt-[42px]`}>
+                    {/* Menu - рядом со слайдером на средних и больших экранах, скрыто на мобильных */}
+                    <div className="hidden md:flex justify-center w-full md:w-auto md:pt-[42px]">
                       <ServiceCard
                         title="Меню"
                         imageUrl="/images/services/MENU-CARD.png"
@@ -334,6 +329,44 @@ const Index = () => {
                         highlighted={cityChangedFlash}
                         onClick={() => navigate("/menu")}
                       />
+                    </div>
+                  </div>
+                ) : (
+                  /* Если нет акций, показываем только меню по центру на средних и больших экранах */
+                  <div className="hidden md:flex justify-center w-full mb-6 lg:mb-0">
+                    <ServiceCard
+                      title="Меню"
+                      imageUrl="/images/services/MENU-CARD.png"
+                      aspectRatio="aspect-[4/3]"
+                      imageClassName="object-left translate-x-[2px]"
+                      className="max-w-[200px] md:max-w-[240px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
+                      highlighted={cityChangedFlash}
+                      onClick={() => navigate("/menu")}
+                    />
+                  </div>
+                )}
+
+                {/* Menu and Vacancies - на мобильных показываем меню и вакансии в сетке */}
+                <div className="flex justify-center w-full lg:w-auto">
+                  <div className="w-full max-w-4xl mx-auto">
+                    <div className={`grid gap-3 md:gap-4 lg:gap-4 ${
+                      // На мобильных показываем 2 колонки (меню и вакансии)
+                      // На средних экранах (md) скрываем эту сетку (меню уже рядом со слайдером)
+                      // На больших экранах (xl+) показываем только вакансии
+                      'grid-cols-2 md:hidden xl:grid'
+                    } max-w-[440px] md:max-w-[520px] lg:max-w-[586px] xl:max-w-[586px] w-full mx-auto lg:pt-[42px]`}>
+                      {/* Меню на мобильных экранах */}
+                      <div className="block md:hidden">
+                        <ServiceCard
+                          title="Меню"
+                          imageUrl="/images/services/MENU-CARD.png"
+                          aspectRatio="aspect-[4/3]"
+                          imageClassName="object-left translate-x-[2px]"
+                          className="max-w-[200px] md:max-w-[240px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto mx-auto"
+                          highlighted={cityChangedFlash}
+                          onClick={() => navigate("/menu")}
+                        />
+                      </div>
                       {/* Вакансии на мобильных и больших экранах (скрыты на md) */}
                       <div className="block md:hidden xl:block">
                         <ServiceCard
@@ -341,7 +374,7 @@ const Index = () => {
                           imageUrl="/images/services/JOBCARD.png"
                           aspectRatio="aspect-[4/3]"
                           imageClassName="object-left translate-x-[2px]"
-                          className="max-w-[200px] md:max-w-[240px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
+                          className="max-w-[200px] md:max-w-[240px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto mx-auto"
                           highlighted={cityChangedFlash}
                           onClick={() => {
                             if (selectedCity?.id && selectedCity?.name) {
