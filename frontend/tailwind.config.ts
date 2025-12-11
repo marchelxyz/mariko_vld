@@ -13,15 +13,15 @@ export default {
     screens: {
       sm: "640px",
       md: "768px",
-      lg: "1024px", // Минимальная большая ширина для ноутбука 13 дюймов
-      xl: "1280px",
-      "2xl": "1536px",
+      lg: "1366px", // Минимальная большая ширина для ноутбука 13 дюймов
+      xl: "1536px",
+      "2xl": "1920px",
     },
     container: {
       center: true,
       padding: "2rem",
       screens: {
-        "2xl": "1400px",
+        "2xl": "1920px",
       },
     },
     extend: {
