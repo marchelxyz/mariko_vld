@@ -19,7 +19,7 @@ import { toast } from "@/hooks/use-toast";
 import { safeOpenLink, storage } from "@/lib/telegram";
 import { fetchPromotions } from "@shared/api/promotionsApi";
 import { fetchRecommendedDishes } from "@shared/api/recommendedDishesApi";
-import { useBookingSlotsPrefetch, useCanFitTogether } from "@shared/hooks";
+import { useBookingSlotsPrefetch } from "@shared/hooks";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -32,21 +32,8 @@ const Index = () => {
   const [recommendedDishes, setRecommendedDishes] = useState<MenuItem[]>([]);
   const [isLoadingRecommended, setIsLoadingRecommended] = useState(false);
 
-  // Ref'ы для проверки размещения элементов
-  const promotionsContainerRef = useRef<HTMLDivElement>(null);
-  const promotionsCarouselRef = useRef<HTMLDivElement>(null);
-  const menuCardRef = useRef<HTMLButtonElement>(null);
-
   // Предзагрузка слотов бронирования в фоновом режиме
   useBookingSlotsPrefetch(selectedRestaurant);
-
-  // Проверяем, поместятся ли слайдер акций и кнопка меню рядом друг с другом
-  const canFitTogether = useCanFitTogether(
-    promotionsContainerRef,
-    promotionsCarouselRef,
-    menuCardRef,
-    24, // gap-6 = 24px
-  );
 
   const handleBookingClick = () => {
     console.log("[Booking] handleBookingClick вызван", {
@@ -318,27 +305,26 @@ const Index = () => {
             {/* Promotions and Menu/Vacancies Layout */}
             <div className="mt-6 md:mt-8">
               <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 lg:justify-center items-center">
-                {/* Promotions and Menu - единый компонент, расположение определяется динамически */}
-                {promotions.length > 0 ? (
-                  <div
-                    ref={promotionsContainerRef}
-                    className={`flex ${canFitTogether ? 'flex-row' : 'flex-col'} items-start gap-6 justify-center items-center mb-6 lg:mb-0 w-full lg:w-auto`}
-                  >
-                    {/* Promotions */}
-                    <div className="flex justify-center w-full">
-                      <div ref={promotionsCarouselRef} className="w-full max-w-[420px] md:max-w-[520px] lg:max-w-[520px] mx-auto">
-                        <PromotionsCarousel
-                          promotions={promotions}
-                          onBookTable={handleBookingClick}
-                        />
-                      </div>
+                {/* Promotions */}
+                {promotions.length > 0 && (
+                  <div className="flex justify-center mb-6 lg:mb-0 w-full lg:w-auto">
+                    <div className="w-full max-w-[420px] md:max-w-[520px] lg:max-w-[520px] mx-auto">
+                      <PromotionsCarousel
+                        promotions={promotions}
+                        onBookTable={handleBookingClick}
+                      />
                     </div>
+                  </div>
+                )}
 
-                    {/* Menu - рядом со слайдером, если помещается (всегда рендерится для ResizeObserver, но скрывается визуально) */}
-                    <div 
-                      ref={menuCardRef} 
-                      className={`flex justify-center w-full ${canFitTogether ? 'pt-[42px]' : 'invisible'}`}
-                    >
+                {/* Menu and Vacancies - правее от баннеров на больших экранах */}
+                <div className="flex justify-center w-full lg:w-auto">
+                  <div className="w-full max-w-4xl mx-auto">
+                    <div className={`grid gap-3 md:gap-4 lg:gap-4 ${
+                      // На мобильных и средних экранах показываем 2 колонки (меню и вакансии)
+                      // На больших экранах (xl+) показываем 2 колонки (меню и вакансии)
+                      'grid-cols-2 md:grid-cols-2 lg:grid-cols-2'
+                    } max-w-[440px] md:max-w-[520px] lg:max-w-[586px] xl:max-w-[586px] w-full mx-auto lg:pt-[42px]`}>
                       <ServiceCard
                         title="Меню"
                         imageUrl="/images/services/MENU-CARD.png"
@@ -348,87 +334,36 @@ const Index = () => {
                         highlighted={cityChangedFlash}
                         onClick={() => navigate("/menu")}
                       />
-                    </div>
-                  </div>
-                ) : (
-                  /* Если нет акций, показываем только меню по центру */
-                  <div className="flex justify-center w-full mb-6 lg:mb-0">
-                    <ServiceCard
-                      title="Меню"
-                      imageUrl="/images/services/MENU-CARD.png"
-                      aspectRatio="aspect-[4/3]"
-                      imageClassName="object-left translate-x-[2px]"
-                      className="max-w-[200px] md:max-w-[240px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
-                      highlighted={cityChangedFlash}
-                      onClick={() => navigate("/menu")}
-                    />
-                  </div>
-                )}
-
-                {/* Menu and Vacancies - показываем меню и вакансии в сетке, если меню не поместилось рядом со слайдером */}
-                {(!canFitTogether || promotions.length === 0) && (
-                  <div className="flex justify-center w-full lg:w-auto">
-                    <div className="w-full max-w-4xl mx-auto">
-                      <div className={`grid gap-3 md:gap-4 lg:gap-4 grid-cols-2 max-w-[440px] md:max-w-[520px] lg:max-w-[586px] xl:max-w-[586px] w-full mx-auto lg:pt-[42px]`}>
-                        {/* Меню в сетке, если не поместилось рядом со слайдером */}
-                        {promotions.length > 0 && !canFitTogether && (
-                          <div>
-                            <ServiceCard
-                              title="Меню"
-                              imageUrl="/images/services/MENU-CARD.png"
-                              aspectRatio="aspect-[4/3]"
-                              imageClassName="object-left translate-x-[2px]"
-                              className="max-w-[200px] md:max-w-[240px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto mx-auto"
-                              highlighted={cityChangedFlash}
-                              onClick={() => navigate("/menu")}
-                            />
-                          </div>
-                        )}
-                        {/* Меню в сетке, если нет акций */}
-                        {promotions.length === 0 && (
-                          <div>
-                            <ServiceCard
-                              title="Меню"
-                              imageUrl="/images/services/MENU-CARD.png"
-                              aspectRatio="aspect-[4/3]"
-                              imageClassName="object-left translate-x-[2px]"
-                              className="max-w-[200px] md:max-w-[240px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto mx-auto"
-                              highlighted={cityChangedFlash}
-                              onClick={() => navigate("/menu")}
-                            />
-                          </div>
-                        )}
-                        {/* Вакансии */}
-                        <div>
-                          <ServiceCard
-                            title="Вакансии"
-                            imageUrl="/images/services/JOBCARD.png"
-                            aspectRatio="aspect-[4/3]"
-                            imageClassName="object-left translate-x-[2px]"
-                            className="max-w-[200px] md:max-w-[240px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto mx-auto"
-                            highlighted={cityChangedFlash}
-                            onClick={() => {
-                              if (selectedCity?.id && selectedCity?.name) {
-                                openEmbeddedPage(`vacancies-${selectedCity.id}`, {
-                                  title: `Вакансии — ${selectedCity.name}`,
-                                  url: VACANCIES_LINK,
-                                  allowedCityId: selectedCity.id,
-                                  description: "Актуальные вакансии сети «Хачапури Марико».",
-                                  fallbackLabel: "Открыть вакансии во внешнем окне",
-                                });
-                                return;
-                              }
-
-                              safeOpenLink(VACANCIES_LINK, {
-                                try_instant_view: true,
+                      {/* Вакансии на мобильных и больших экранах (скрыты на md) */}
+                      <div className="block md:hidden xl:block">
+                        <ServiceCard
+                          title="Вакансии"
+                          imageUrl="/images/services/JOBCARD.png"
+                          aspectRatio="aspect-[4/3]"
+                          imageClassName="object-left translate-x-[2px]"
+                          className="max-w-[200px] md:max-w-[240px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
+                          highlighted={cityChangedFlash}
+                          onClick={() => {
+                            if (selectedCity?.id && selectedCity?.name) {
+                              openEmbeddedPage(`vacancies-${selectedCity.id}`, {
+                                title: `Вакансии — ${selectedCity.name}`,
+                                url: VACANCIES_LINK,
+                                allowedCityId: selectedCity.id,
+                                description: "Актуальные вакансии сети «Хачапури Марико».",
+                                fallbackLabel: "Открыть вакансии во внешнем окне",
                               });
-                            }}
-                          />
-                        </div>
+                              return;
+                            }
+
+                            safeOpenLink(VACANCIES_LINK, {
+                              try_instant_view: true,
+                            });
+                          }}
+                        />
                       </div>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
             </div>
 
