@@ -15,7 +15,6 @@ import {
   MenuItemComponent,
 } from "@shared/ui";
 import { PromotionsCarousel, type PromotionSlide } from "./PromotionsCarousel";
-import { CenteredContentLayout } from "./CenteredContentLayout";
 import { toast } from "@/hooks/use-toast";
 import { safeOpenLink, storage } from "@/lib/telegram";
 import { fetchPromotions } from "@shared/api/promotionsApi";
@@ -306,58 +305,67 @@ const Index = () => {
 
             {/* Promotions and Menu/Vacancies Layout */}
             <div className="mt-6 md:mt-8">
-              <CenteredContentLayout
-                leftContent={
-                  <ServiceCard
-                    title="Меню"
-                    imageUrl="/images/services/MENU-CARD.png"
-                    aspectRatio="aspect-[4/3]"
-                    imageClassName="object-left translate-x-[2px]"
-                    className="max-w-[200px] md:max-w-[230px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
-                    highlighted={cityChangedFlash}
-                    onClick={() => navigate("/menu")}
-                  />
-                }
-                rightContent={
-                  promotions.length > 0 ? (
-                    <PromotionsCarousel
-                      promotions={promotions}
-                      onBookTable={handleBookingClick}
-                      hideTitle={true}
-                    />
-                  ) : (
-                    <div className="w-full max-w-[520px] lg:max-w-[520px]">
-                      {/* Пустой контейнер для выравнивания, когда нет акций */}
+              <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 lg:justify-center items-center">
+                {/* Promotions */}
+                {promotions.length > 0 && (
+                  <div className="flex justify-center lg:justify-start mb-6 lg:mb-0 w-full lg:w-auto lg:flex-none">
+                    <div className="w-full max-w-[420px] md:max-w-[520px] lg:max-w-[520px] mx-auto lg:mx-0 [&>div]:lg:!mx-0">
+                      <PromotionsCarousel
+                        promotions={promotions}
+                        onBookTable={handleBookingClick}
+                      />
                     </div>
-                  )
-                }
-                rightExtraContent={
-                  <ServiceCard
-                    title="Вакансии"
-                    imageUrl="/images/services/JOBCARD.png"
-                    aspectRatio="aspect-[4/3]"
-                    imageClassName="object-left translate-x-[2px]"
-                    className="max-w-[200px] md:max-w-[230px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
-                    highlighted={cityChangedFlash}
-                    onClick={() => {
-                      if (selectedCity?.id && selectedCity?.name) {
-                        openEmbeddedPage(`vacancies-${selectedCity.id}`, {
-                          title: `Вакансии — ${selectedCity.name}`,
-                          url: VACANCIES_LINK,
-                          allowedCityId: selectedCity.id,
-                          description: "Актуальные вакансии сети «Хачапури Марико».",
-                          fallbackLabel: "Открыть вакансии во внешнем окне",
-                        });
-                        return;
-                      }
+                  </div>
+                )}
 
-                      safeOpenLink(VACANCIES_LINK, {
-                        try_instant_view: true,
-                      });
-                    }}
-                  />
-                }
-              />
+                {/* Menu and Vacancies - правее от баннеров на больших экранах */}
+                <div className="flex justify-center lg:justify-start w-full lg:w-auto lg:flex-none overflow-x-hidden">
+                  <div className="w-full max-w-4xl mx-auto lg:mx-0">
+                    <div className={`grid gap-3 md:gap-3 lg:gap-4 ${
+                      // На мобильных и средних экранах показываем 2 колонки (меню и вакансии)
+                      // На больших экранах (xl+) показываем 2 колонки (меню и вакансии)
+                      'grid-cols-2 md:grid-cols-2 lg:grid-cols-2'
+                    } max-w-[440px] md:max-w-[480px] lg:max-w-[586px] xl:max-w-[586px] w-full mx-auto lg:mx-0 lg:pt-[42px]`}>
+                      <ServiceCard
+                        title="Меню"
+                        imageUrl="/images/services/MENU-CARD.png"
+                        aspectRatio="aspect-[4/3]"
+                        imageClassName="object-left translate-x-[2px]"
+                        className="max-w-[200px] md:max-w-[230px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
+                        highlighted={cityChangedFlash}
+                        onClick={() => navigate("/menu")}
+                      />
+                      {/* Вакансии на мобильных и очень больших экранах (xl+) - скрыты на md и lg, где показываются как QuickActionButton */}
+                      <div className="block md:hidden xl:block">
+                        <ServiceCard
+                          title="Вакансии"
+                          imageUrl="/images/services/JOBCARD.png"
+                          aspectRatio="aspect-[4/3]"
+                          imageClassName="object-left translate-x-[2px]"
+                          className="max-w-[200px] md:max-w-[230px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
+                          highlighted={cityChangedFlash}
+                          onClick={() => {
+                            if (selectedCity?.id && selectedCity?.name) {
+                              openEmbeddedPage(`vacancies-${selectedCity.id}`, {
+                                title: `Вакансии — ${selectedCity.name}`,
+                                url: VACANCIES_LINK,
+                                allowedCityId: selectedCity.id,
+                                description: "Актуальные вакансии сети «Хачапури Марико».",
+                                fallbackLabel: "Открыть вакансии во внешнем окне",
+                              });
+                              return;
+                            }
+
+                            safeOpenLink(VACANCIES_LINK, {
+                              try_instant_view: true,
+                            });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Recommended Section */}
