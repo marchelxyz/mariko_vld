@@ -5,9 +5,8 @@ import { Permission, UserRole } from "@shared/types";
 import { type MenuItem } from "@shared/data";
 import { fetchRecommendedDishes, saveRecommendedDishes } from "@shared/api/recommendedDishesApi";
 import { fetchMenuByRestaurantId } from "@shared/api/menuApi";
-import { Button, Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@shared/ui";
+import { Button, Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, MenuItemComponent } from "@shared/ui";
 import { useToast } from "@/hooks";
-import { MenuItemComponent } from "@shared/ui/ui/menu-item";
 
 function RecommendedDishesManagementContent(): JSX.Element {
   const { cities: allCities, isLoading: isCitiesLoading } = useCities();
