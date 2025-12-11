@@ -134,7 +134,7 @@ export default function AdminPanel(): JSX.Element {
   // Проверка прав доступа
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-transparent flex items-center justify-center">
+      <div className="app-screen min-h-screen bg-transparent flex items-center justify-center">
         <div className="text-white font-el-messiri text-xl">Загрузка...</div>
       </div>
     );
@@ -142,7 +142,7 @@ export default function AdminPanel(): JSX.Element {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-transparent overflow-hidden flex flex-col">
+      <div className="app-screen min-h-screen bg-transparent overflow-hidden flex flex-col">
         <Header />
         <div className="flex-1 px-4 md:px-6 max-w-4xl mx-auto w-full flex items-center justify-center">
           <div className="bg-mariko-secondary rounded-[24px] p-12 text-center">
@@ -165,7 +165,7 @@ export default function AdminPanel(): JSX.Element {
   }
 
   return (
-    <div className="min-h-screen bg-transparent overflow-hidden flex flex-col">
+    <div className="app-screen min-h-screen bg-transparent overflow-hidden flex flex-col">
       <Header />
       
       <div className="flex-1 px-3 md:px-6 max-w-7xl mx-auto w-full pb-24 md:pb-28">
