@@ -242,8 +242,8 @@ const Index = () => {
               <div className="mt-6 md:mt-8 flex justify-center lg:justify-start">
               <div className={`grid gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4 max-w-4xl w-full ${
                 // На средних экранах (md) показываем 5 кнопок (4 + вакансии)
-                // На больших экранах (lg+) показываем 4 кнопки
-                'grid-cols-4 md:grid-cols-5 lg:grid-cols-4'
+                // На больших экранах (xl+) показываем 4 кнопки
+                'grid-cols-4 md:grid-cols-5 xl:grid-cols-4'
               }`}>
                 <QuickActionButton
                   icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
@@ -281,7 +281,7 @@ const Index = () => {
                   icon={<Briefcase className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
                   title="Вакансии"
                   highlighted={cityChangedFlash}
-                  className="hidden md:flex lg:hidden"
+                  className="hidden md:flex xl:hidden"
                   onClick={() => {
                     if (selectedCity?.id && selectedCity?.name) {
                       openEmbeddedPage(`vacancies-${selectedCity.id}`, {
@@ -322,7 +322,7 @@ const Index = () => {
                   <div className="w-full max-w-4xl">
                     <div className={`grid gap-3 md:gap-4 lg:gap-4 ${
                       // На мобильных и средних экранах показываем 2 колонки (меню и вакансии)
-                      // На больших экранах (lg+) показываем 2 колонки (меню и вакансии)
+                      // На больших экранах (xl+) показываем 2 колонки (меню и вакансии)
                       'grid-cols-2 md:grid-cols-2 lg:grid-cols-2'
                     } max-w-[440px] md:max-w-[520px] lg:max-w-none w-full lg:pt-[42px]`}>
                       <ServiceCard
@@ -335,7 +335,7 @@ const Index = () => {
                         onClick={() => navigate("/menu")}
                       />
                       {/* Вакансии на мобильных и больших экранах (скрыты на md) */}
-                      <div className="block md:hidden lg:block">
+                      <div className="block md:hidden xl:block">
                         <ServiceCard
                           title="Вакансии"
                           imageUrl="/images/services/JOBCARD.png"
