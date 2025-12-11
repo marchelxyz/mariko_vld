@@ -2,7 +2,7 @@
  * Главная страница админ-панели
  */
 
-import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck, Megaphone } from 'lucide-react';
+import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck, Megaphone, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNavigation, Header } from "@shared/ui/widgets";
@@ -35,8 +35,13 @@ const PromotionsManagementLazy = lazy(() =>
     default: module.PromotionsManagement,
   })),
 );
+const RecommendedDishesManagementLazy = lazy(() =>
+  import("@features/admin").then((module) => ({
+    default: module.RecommendedDishesManagement,
+  })),
+);
 
-type AdminSection = 'cities' | 'menu' | 'roles' | 'deliveries' | 'promotions' | null;
+type AdminSection = 'cities' | 'menu' | 'roles' | 'deliveries' | 'promotions' | 'recommended-dishes' | null;
 
 const SectionLoader = () => (
   <div className="min-h-[40vh] flex items-center justify-center">
@@ -81,6 +86,13 @@ export default function AdminPanel(): JSX.Element {
           icon: <Megaphone className="w-8 h-8" />,
           title: "Управление акциями",
           description: "Заполняйте карточки для карусели на главной",
+          permission: Permission.MANAGE_PROMOTIONS,
+        },
+        {
+          key: 'recommended-dishes' as AdminSection,
+          icon: <Sparkles className="w-8 h-8" />,
+          title: "Рекомендуем попробовать",
+          description: "Выберите блюда для раздела рекомендаций на главной",
           permission: Permission.MANAGE_PROMOTIONS,
         },
         {
@@ -222,6 +234,11 @@ export default function AdminPanel(): JSX.Element {
             {activeSection === 'promotions' && (
               <Suspense fallback={<SectionLoader />}>
                 <PromotionsManagementLazy />
+              </Suspense>
+            )}
+            {activeSection === 'recommended-dishes' && (
+              <Suspense fallback={<SectionLoader />}>
+                <RecommendedDishesManagementLazy />
               </Suspense>
             )}
             {activeSection === 'roles' && (

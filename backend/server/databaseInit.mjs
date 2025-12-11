@@ -228,6 +228,18 @@ const SCHEMAS = {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `,
+
+  city_recommended_dishes: `
+    CREATE TABLE IF NOT EXISTS city_recommended_dishes (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      city_id VARCHAR(255) NOT NULL,
+      menu_item_id VARCHAR(255) NOT NULL,
+      display_order INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(city_id, menu_item_id)
+    );
+  `,
 };
 
 /**
@@ -267,6 +279,9 @@ const INDEXES = [
     `CREATE INDEX IF NOT EXISTS idx_menu_items_category_id ON menu_items(category_id);`,
     `CREATE INDEX IF NOT EXISTS idx_menu_items_display_order ON menu_items(display_order);`,
     `CREATE INDEX IF NOT EXISTS idx_menu_items_is_active ON menu_items(is_active);`,
+    `CREATE INDEX IF NOT EXISTS idx_city_recommended_dishes_city_id ON city_recommended_dishes(city_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_city_recommended_dishes_menu_item_id ON city_recommended_dishes(menu_item_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_city_recommended_dishes_display_order ON city_recommended_dishes(display_order);`,
 ];
 
 /**
