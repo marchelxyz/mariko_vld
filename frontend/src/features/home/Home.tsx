@@ -239,8 +239,8 @@ const Index = () => {
 
           <div className="space-y-6 md:space-y-8">
             {/* Quick Action Buttons */}
-              <div className="mt-6 md:mt-8 flex justify-center">
-              <div className={`grid gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4 max-w-4xl w-full mx-auto ${
+            <div className="mt-6 md:mt-8 flex justify-center">
+              <div className={`grid gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4 max-w-4xl mx-auto ${
                 // На мобильных показываем 4 кнопки
                 // На средних (md) и больших (lg) экранах показываем 5 кнопок (4 + вакансии)
                 // На очень больших экранах (xl+) показываем 4 кнопки (вакансии переносятся в ServiceCard)
@@ -304,12 +304,12 @@ const Index = () => {
             </div>
 
             {/* Promotions and Menu/Vacancies Layout */}
-            <div className="mt-6 md:mt-8">
-              <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 lg:justify-center items-center">
+            <div className="mt-6 md:mt-8 flex justify-center">
+              <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 lg:justify-center items-center mx-auto">
                 {/* Promotions */}
                 {promotions.length > 0 && (
-                  <div className="flex justify-center lg:justify-start mb-6 lg:mb-0 w-full lg:w-auto lg:flex-none">
-                    <div className="w-full max-w-[420px] md:max-w-[520px] lg:max-w-[520px] mx-auto lg:mx-0 [&>div]:lg:!mx-0">
+                  <div className="flex justify-center mb-6 lg:mb-0 w-full lg:w-auto lg:flex-none">
+                    <div className="w-full max-w-[420px] md:max-w-[520px] lg:max-w-[520px] mx-auto [&>div]:lg:!mx-0">
                       <PromotionsCarousel
                         promotions={promotions}
                         onBookTable={handleBookingClick}
@@ -318,14 +318,14 @@ const Index = () => {
                   </div>
                 )}
 
-                {/* Menu and Vacancies - правее от баннеров на больших экранах */}
-                <div className="flex justify-center lg:justify-start w-full lg:w-auto lg:flex-none overflow-x-hidden">
-                  <div className="w-full max-w-4xl mx-auto lg:mx-0">
+                {/* Menu and Vacancies - центрированы на больших экранах */}
+                <div className="flex justify-center w-full lg:w-auto lg:flex-none overflow-x-hidden">
+                  <div className="w-full max-w-4xl mx-auto">
                     <div className={`grid gap-3 md:gap-3 lg:gap-4 ${
                       // На мобильных и средних экранах показываем 2 колонки (меню и вакансии)
                       // На больших экранах (xl+) показываем 2 колонки (меню и вакансии)
                       'grid-cols-2 md:grid-cols-2 lg:grid-cols-2'
-                    } max-w-[440px] md:max-w-[480px] lg:max-w-[586px] xl:max-w-[586px] w-full mx-auto lg:mx-0 lg:pt-[42px]`}>
+                    } max-w-[440px] md:max-w-[480px] lg:max-w-[586px] xl:max-w-[586px] w-full mx-auto lg:pt-[42px]`}>
                       <ServiceCard
                         title="Меню"
                         imageUrl="/images/services/MENU-CARD.png"
