@@ -244,7 +244,7 @@ const Index = () => {
                 // На средних экранах (md) показываем 5 кнопок (4 + вакансии)
                 // На больших экранах (xl+) показываем 4 кнопки
                 'grid-cols-4 md:grid-cols-5 xl:grid-cols-4'
-              }`}>
+              } xl:max-w-[600px]`}>
                 <QuickActionButton
                   icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
                   title="Бронь столика"
@@ -304,11 +304,11 @@ const Index = () => {
 
             {/* Promotions and Menu/Vacancies Layout */}
             <div className="mt-6 md:mt-8">
-              <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 justify-center items-center">
+              <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 lg:justify-center items-center">
                 {/* Promotions */}
                 {promotions.length > 0 && (
                   <div className="flex justify-center mb-6 lg:mb-0 w-full lg:w-auto">
-                    <div className="w-full max-w-[420px] md:max-w-[520px] mx-auto">
+                    <div className="w-full max-w-[420px] md:max-w-[520px] lg:max-w-[520px] mx-auto">
                       <PromotionsCarousel
                         promotions={promotions}
                         onBookTable={handleBookingClick}
@@ -324,7 +324,7 @@ const Index = () => {
                       // На мобильных и средних экранах показываем 2 колонки (меню и вакансии)
                       // На больших экранах (xl+) показываем 2 колонки (меню и вакансии)
                       'grid-cols-2 md:grid-cols-2 lg:grid-cols-2'
-                    } max-w-[440px] md:max-w-[520px] lg:max-w-none w-full lg:pt-[42px]`}>
+                    } max-w-[440px] md:max-w-[520px] lg:max-w-[586px] xl:max-w-[586px] w-full mx-auto lg:pt-[42px]`}>
                       <ServiceCard
                         title="Меню"
                         imageUrl="/images/services/MENU-CARD.png"
