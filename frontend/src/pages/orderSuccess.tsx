@@ -108,7 +108,7 @@ const OrderSuccessPage = () => {
   const isPaid = (paymentStatus || "").toLowerCase() === "paid" || (paymentStatus || "").toLowerCase() === "succeeded";
 
   return (
-    <div className="min-h-screen bg-transparent flex flex-col">
+    <div className="app-screen min-h-screen bg-transparent flex flex-col">
       <div className="bg-transparent pb-4">
         <Header />
       </div>
