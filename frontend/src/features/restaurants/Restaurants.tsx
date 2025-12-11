@@ -399,7 +399,7 @@ const Restaurants = () => {
   };
 
   return (
-    <div className="min-h-screen bg-transparent overflow-hidden flex flex-col">
+    <div className="app-screen min-h-screen bg-transparent overflow-hidden flex flex-col">
       {/* Header */}
       <Header />
 

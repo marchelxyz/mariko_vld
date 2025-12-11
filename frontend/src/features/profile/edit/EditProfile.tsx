@@ -294,7 +294,7 @@ const EditProfile = () => {
   );
 
   return (
-    <div className="min-h-screen overflow-hidden flex flex-col bg-transparent relative">
+    <div className="app-screen min-h-screen overflow-hidden flex flex-col bg-transparent relative">
       {/* TOP SECTION: красный фон + шапка и приветствие */}
       <div className="bg-transparent pb-6 md:pb-8">
         <Header />
