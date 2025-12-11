@@ -330,6 +330,7 @@ export async function initializeDatabase() {
       "promotions",         // promotions зависит от cities
       "menu_categories",    // menu_categories зависит от restaurants
       "menu_items",         // menu_items зависит от menu_categories
+      "city_recommended_dishes", // city_recommended_dishes зависит от cities и menu_items
     ];
 
     // Создаем таблицы в правильном порядке
@@ -425,6 +426,20 @@ export async function initializeDatabase() {
               ADD CONSTRAINT fk_promotions_city 
               FOREIGN KEY (city_id) REFERENCES cities(id) ON DELETE CASCADE`,
       },
+      {
+        name: "fk_city_recommended_dishes_city",
+        table: "city_recommended_dishes",
+        sql: `ALTER TABLE city_recommended_dishes 
+              ADD CONSTRAINT fk_city_recommended_dishes_city 
+              FOREIGN KEY (city_id) REFERENCES cities(id) ON DELETE CASCADE`,
+      },
+      {
+        name: "fk_city_recommended_dishes_menu_item",
+        table: "city_recommended_dishes",
+        sql: `ALTER TABLE city_recommended_dishes 
+              ADD CONSTRAINT fk_city_recommended_dishes_menu_item 
+              FOREIGN KEY (menu_item_id) REFERENCES menu_items(id) ON DELETE CASCADE`,
+      },
     ];
 
     for (const fk of foreignKeys) {
@@ -508,6 +523,9 @@ export async function checkDatabaseTables() {
       "restaurants",
       "bookings",
       "promotions",
+      "menu_categories",
+      "menu_items",
+      "city_recommended_dishes",
     ];
     
     const result = await query(`
