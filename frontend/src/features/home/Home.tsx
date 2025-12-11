@@ -239,7 +239,7 @@ const Index = () => {
 
           <div className="space-y-6 md:space-y-8">
             {/* Quick Action Buttons */}
-              <div className="mt-6 md:mt-8 flex justify-center lg:justify-start">
+              <div className="mt-6 md:mt-8 flex justify-center">
               <div className={`grid gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4 max-w-4xl w-full ${
                 // На средних экранах (md) показываем 5 кнопок (4 + вакансии)
                 // На больших экранах (xl+) показываем 4 кнопки
@@ -304,10 +304,10 @@ const Index = () => {
 
             {/* Promotions and Menu/Vacancies Layout */}
             <div className="mt-6 md:mt-8">
-              <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 justify-center lg:justify-start">
+              <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 justify-center">
                 {/* Promotions */}
                 {promotions.length > 0 && (
-                  <div className="flex justify-center lg:justify-start mb-6 lg:mb-0">
+                  <div className="flex justify-center mb-6 lg:mb-0">
                     <div className="w-full max-w-[420px] md:max-w-[520px]">
                       <PromotionsCarousel
                         promotions={promotions}
@@ -318,7 +318,7 @@ const Index = () => {
                 )}
 
                 {/* Menu and Vacancies - правее от баннеров на больших экранах */}
-                <div className="flex justify-center lg:justify-start">
+                <div className="flex justify-center">
                   <div className="w-full max-w-4xl">
                     <div className={`grid gap-3 md:gap-4 lg:gap-4 ${
                       // На мобильных и средних экранах показываем 2 колонки (меню и вакансии)
