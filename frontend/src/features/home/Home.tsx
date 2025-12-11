@@ -276,30 +276,29 @@ const Index = () => {
                   onClick={() => navigate("/about")}
                 />
 
-                {/* Кнопка вакансий на средних экранах (md) */}
-                <div className="hidden md:block lg:hidden">
-                  <QuickActionButton
-                    icon={<Briefcase className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
-                    title="Вакансии"
-                    highlighted={cityChangedFlash}
-                    onClick={() => {
-                      if (selectedCity?.id && selectedCity?.name) {
-                        openEmbeddedPage(`vacancies-${selectedCity.id}`, {
-                          title: `Вакансии — ${selectedCity.name}`,
-                          url: VACANCIES_LINK,
-                          allowedCityId: selectedCity.id,
-                          description: "Актуальные вакансии сети «Хачапури Марико».",
-                          fallbackLabel: "Открыть вакансии во внешнем окне",
-                        });
-                        return;
-                      }
-
-                      safeOpenLink(VACANCIES_LINK, {
-                        try_instant_view: true,
+                {/* Кнопка вакансий на средних экранах (md) - в одном ряду с другими кнопками, с иконкой вместо фото */}
+                <QuickActionButton
+                  icon={<Briefcase className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
+                  title="Вакансии"
+                  highlighted={cityChangedFlash}
+                  className="hidden md:flex lg:hidden"
+                  onClick={() => {
+                    if (selectedCity?.id && selectedCity?.name) {
+                      openEmbeddedPage(`vacancies-${selectedCity.id}`, {
+                        title: `Вакансии — ${selectedCity.name}`,
+                        url: VACANCIES_LINK,
+                        allowedCityId: selectedCity.id,
+                        description: "Актуальные вакансии сети «Хачапури Марико».",
+                        fallbackLabel: "Открыть вакансии во внешнем окне",
                       });
-                    }}
-                  />
-                </div>
+                      return;
+                    }
+
+                    safeOpenLink(VACANCIES_LINK, {
+                      try_instant_view: true,
+                    });
+                  }}
+                />
               </div>
             </div>
 
