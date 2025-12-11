@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
-import { getTg, markReady } from "@/lib/telegram";
+import { getTg, markReady, requestFullscreenMode, setupFullscreenHandlers } from "@/lib/telegram";
 import { logger } from "@/lib/logger";
 
 const tg = getTg();
@@ -9,7 +9,22 @@ const tg = getTg();
 // Инициализация Telegram WebApp (если запущено в Telegram)
 if (tg) {
   markReady();
-  tg.expand?.();
+  
+  // Настройка обработчиков полноэкранного режима
+  setupFullscreenHandlers();
+  
+  // Запрос полноэкранного режима при старте несколько раз
+  // для надежного перехода в полноэкранный режим
+  requestFullscreenMode();
+  
+  // Повторные вызовы с задержкой для надежности
+  setTimeout(() => {
+    requestFullscreenMode();
+  }, 100);
+  
+  setTimeout(() => {
+    requestFullscreenMode();
+  }, 500);
 }
 
 // Глобальный перехват ошибок для диагностики в WebView Telegram
