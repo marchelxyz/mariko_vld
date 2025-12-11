@@ -89,7 +89,7 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
     return (
       <aside
         className={cn(
-          "hidden xl:flex fixed top-0 left-0 bottom-0 z-40 flex-col",
+          "flex fixed top-0 left-0 bottom-0 z-40 flex-col",
           "bg-black/28 backdrop-blur-2xl border-r border-white/5 shadow-[12px_0_28px_rgba(0,0,0,0.22)]",
           "w-[var(--app-rail-width)] pt-[calc(var(--tg-safe-area-top,0px)+14px)] pb-[calc(var(--tg-safe-area-bottom,0px)+18px)] px-3",
           className,
