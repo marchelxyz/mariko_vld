@@ -318,19 +318,19 @@ const Index = () => {
                 )}
 
                 {/* Menu and Vacancies - правее от баннеров на больших экранах */}
-                <div className="flex justify-center lg:justify-start w-full lg:w-auto lg:flex-none">
+                <div className="flex justify-center lg:justify-start w-full lg:w-auto lg:flex-none overflow-x-hidden">
                   <div className="w-full max-w-4xl mx-auto lg:mx-0">
-                    <div className={`grid gap-3 md:gap-4 lg:gap-4 ${
+                    <div className={`grid gap-3 md:gap-3 lg:gap-4 ${
                       // На мобильных и средних экранах показываем 2 колонки (меню и вакансии)
                       // На больших экранах (xl+) показываем 2 колонки (меню и вакансии)
                       'grid-cols-2 md:grid-cols-2 lg:grid-cols-2'
-                    } max-w-[440px] md:max-w-[520px] lg:max-w-[586px] xl:max-w-[586px] w-full mx-auto lg:mx-0 lg:pt-[42px]`}>
+                    } max-w-[440px] md:max-w-[480px] lg:max-w-[586px] xl:max-w-[586px] w-full mx-auto lg:mx-0 lg:pt-[42px]`}>
                       <ServiceCard
                         title="Меню"
                         imageUrl="/images/services/MENU-CARD.png"
                         aspectRatio="aspect-[4/3]"
                         imageClassName="object-left translate-x-[2px]"
-                        className="max-w-[200px] md:max-w-[240px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
+                        className="max-w-[200px] md:max-w-[230px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
                         highlighted={cityChangedFlash}
                         onClick={() => navigate("/menu")}
                       />
@@ -341,7 +341,7 @@ const Index = () => {
                           imageUrl="/images/services/JOBCARD.png"
                           aspectRatio="aspect-[4/3]"
                           imageClassName="object-left translate-x-[2px]"
-                          className="max-w-[200px] md:max-w-[240px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
+                          className="max-w-[200px] md:max-w-[230px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
                           highlighted={cityChangedFlash}
                           onClick={() => {
                             if (selectedCity?.id && selectedCity?.name) {
