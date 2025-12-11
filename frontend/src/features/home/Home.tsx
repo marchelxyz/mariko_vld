@@ -305,7 +305,7 @@ const Index = () => {
 
             {/* Promotions and Menu/Vacancies Layout */}
             <div className="mt-6 md:mt-8">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:gap-6 justify-center lg:justify-start">
+              <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 justify-center lg:justify-start">
                 {/* Promotions */}
                 {promotions.length > 0 && (
                   <div className="flex justify-center lg:justify-start mb-6 lg:mb-0">
