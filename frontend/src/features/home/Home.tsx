@@ -242,9 +242,9 @@ const Index = () => {
               <div className="mt-6 md:mt-8 flex justify-center">
               <div className={`grid gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4 max-w-4xl w-full mx-auto ${
                 // На средних экранах (md) показываем 5 кнопок (4 + вакансии)
-                // На больших экранах (xl+) показываем 4 кнопки
-                'grid-cols-4 md:grid-cols-5 xl:grid-cols-4'
-              } xl:max-w-[600px]`}>
+                // На больших экранах (lg+) показываем 4 кнопки
+                'grid-cols-4 md:grid-cols-5 lg:grid-cols-4'
+              } lg:max-w-[600px]`}>
                 <QuickActionButton
                   icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
                   title="Бронь столика"
@@ -281,7 +281,7 @@ const Index = () => {
                   icon={<Briefcase className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
                   title="Вакансии"
                   highlighted={cityChangedFlash}
-                  className="hidden md:flex xl:hidden"
+                  className="hidden md:flex lg:hidden"
                   onClick={() => {
                     if (selectedCity?.id && selectedCity?.name) {
                       openEmbeddedPage(`vacancies-${selectedCity.id}`, {
@@ -335,7 +335,7 @@ const Index = () => {
                         onClick={() => navigate("/menu")}
                       />
                       {/* Вакансии на мобильных и больших экранах (скрыты на md) */}
-                      <div className="block md:hidden xl:block">
+                      <div className="block md:hidden lg:block">
                         <ServiceCard
                           title="Вакансии"
                           imageUrl="/images/services/JOBCARD.png"
