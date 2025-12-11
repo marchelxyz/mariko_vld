@@ -357,6 +357,89 @@ export const closeApp = () => {
 };
 
 /**
+ * Requests fullscreen mode for the Telegram Mini App.
+ * Uses requestFullscreen() for Bot API 8.0+ (preferred) or expand() as fallback.
+ */
+export const requestFullscreenMode = () => {
+  const tg = getTg();
+  if (!tg) return;
+
+  try {
+    // Приоритет: requestFullscreen() для Bot API 8.0+
+    if (typeof tg.requestFullscreen === "function") {
+      const result = tg.requestFullscreen();
+      // Если возвращается Promise, обрабатываем его
+      if (result instanceof Promise) {
+        result.catch((error) => {
+          console.warn("[telegram] requestFullscreen() failed, falling back to expand()", error);
+          // Fallback на expand() при ошибке
+          try {
+            tg.expand?.();
+          } catch (expandError) {
+            console.warn("[telegram] expand() also failed", expandError);
+          }
+        });
+      }
+    } else {
+      // Fallback для старых версий
+      tg.expand?.();
+    }
+  } catch (error) {
+    console.warn("[telegram] requestFullscreenMode() failed, trying expand()", error);
+    try {
+      tg.expand?.();
+    } catch (expandError) {
+      console.warn("[telegram] expand() also failed", expandError);
+    }
+  }
+};
+
+/**
+ * Sets up fullscreen event handlers to maintain fullscreen mode.
+ * Should be called once during app initialization.
+ */
+export const setupFullscreenHandlers = () => {
+  const tg = getTg();
+  if (!tg) return;
+
+  // Обработчик изменения полноэкранного режима
+  // Автоматически возвращает в полноэкранный режим при выходе
+  const handleFullscreenChanged = () => {
+    // Проверяем, что мы не в полноэкранном режиме
+    if (tg.isFullscreen === false) {
+      requestFullscreenMode();
+    }
+  };
+
+  // Обработчик ошибки полноэкранного режима
+  // Fallback на expand() при ошибке
+  const handleFullscreenFailed = () => {
+    console.warn("[telegram] fullscreen failed, using expand() fallback");
+    try {
+      tg.expand?.();
+    } catch (error) {
+      console.warn("[telegram] expand() also failed in fullscreenFailed handler", error);
+    }
+  };
+
+  try {
+    tg.onEvent?.("fullscreen_changed", handleFullscreenChanged);
+    // Примечание: fullscreenFailed может не существовать в некоторых версиях API
+    // Поэтому используем try-catch для безопасной проверки
+    if (typeof tg.onEvent === "function") {
+      // Попытка подписаться на fullscreenFailed, если такой событие существует
+      try {
+        tg.onEvent("fullscreenFailed" as any, handleFullscreenFailed);
+      } catch {
+        // Игнорируем, если событие не поддерживается
+      }
+    }
+  } catch (error) {
+    console.warn("[telegram] failed to setup fullscreen handlers", error);
+  }
+};
+
+/**
  * Opens links inside Telegram if possible, falls back to window.open otherwise.
  */
 export const safeOpenLink = (url: string, options?: { try_instant_view?: boolean }) => {
