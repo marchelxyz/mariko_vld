@@ -31,6 +31,14 @@ const Index = () => {
   const [promotions, setPromotions] = useState<PromotionSlide[]>([]);
   const [recommendedDishes, setRecommendedDishes] = useState<MenuItem[]>([]);
   const [isLoadingRecommended, setIsLoadingRecommended] = useState(false);
+  const [featureContainer, setFeatureContainer] = useState<HTMLDivElement | null>(null);
+
+  const featureCenterMeasurements = useFeatureContainerCenter(featureContainer);
+  const centerGuideOffset = featureCenterMeasurements?.withinContainer ?? null;
+  const featureCenterDataAttr = featureCenterMeasurements
+    ? Math.round(featureCenterMeasurements.viewport)
+    : undefined;
+  const hasPromotions = promotions.length > 0;
 
   // Предзагрузка слотов бронирования в фоновом режиме
   useBookingSlotsPrefetch(selectedRestaurant);
@@ -303,64 +311,72 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Promotions and Menu/Vacancies Layout */}
+            {/* Объединённый контейнер с акциями и меню */}
             <div className="mt-6 md:mt-8">
-              <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 lg:justify-center items-center">
-                {/* Promotions */}
-                {promotions.length > 0 && (
-                  <div className="flex justify-center lg:justify-start mb-6 lg:mb-0 w-full lg:w-auto lg:flex-none">
-                    <div className="w-full max-w-[420px] md:max-w-[520px] lg:max-w-[520px] mx-auto lg:mx-0 [&>div]:lg:!mx-0">
-                      <PromotionsCarousel
-                        promotions={promotions}
-                        onBookTable={handleBookingClick}
-                      />
-                    </div>
-                  </div>
+              <div
+                ref={setFeatureContainer}
+                data-center-x={featureCenterDataAttr}
+                className="relative mx-auto w-full max-w-[1180px] overflow-hidden rounded-[36px] border border-white/12 bg-white/5 px-4 py-6 shadow-[0_30px_90px_rgba(0,0,0,0.35)] backdrop-blur-[42px] sm:px-6 lg:px-8"
+              >
+                {centerGuideOffset !== null && (
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute top-6 bottom-6 hidden lg:block w-px bg-white/25"
+                    style={{ left: `${centerGuideOffset}px` }}
+                  />
                 )}
 
-                {/* Menu and Vacancies - правее от баннеров на больших экранах */}
-                <div className="flex justify-center lg:justify-start w-full lg:w-auto lg:flex-none overflow-x-hidden">
-                  <div className="w-full max-w-4xl mx-auto lg:mx-0">
-                    <div className={`grid gap-3 md:gap-3 lg:gap-4 ${
-                      // На мобильных и средних экранах показываем 2 колонки (меню и вакансии)
-                      // На больших экранах (xl+) показываем 2 колонки (меню и вакансии)
-                      'grid-cols-2 md:grid-cols-2 lg:grid-cols-2'
-                    } max-w-[440px] md:max-w-[480px] lg:max-w-[586px] xl:max-w-[586px] w-full mx-auto lg:mx-0 lg:pt-[42px]`}>
-                      <ServiceCard
-                        title="Меню"
-                        imageUrl="/images/services/MENU-CARD.png"
-                        aspectRatio="aspect-[4/3]"
-                        imageClassName="object-left translate-x-[2px]"
-                        className="max-w-[200px] md:max-w-[230px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
-                        highlighted={cityChangedFlash}
-                        onClick={() => navigate("/menu")}
-                      />
-                      {/* Вакансии на мобильных и очень больших экранах (xl+) - скрыты на md и lg, где показываются как QuickActionButton */}
-                      <div className="block md:hidden xl:block">
+                <div className={`grid w-full gap-6 ${hasPromotions ? "lg:grid-cols-[1.15fr_0.85fr]" : ""}`}>
+                  {hasPromotions && (
+                    <div className="flex justify-center lg:justify-start">
+                      <div className="w-full max-w-[540px]">
+                        <PromotionsCarousel
+                          promotions={promotions}
+                          onBookTable={handleBookingClick}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-center lg:justify-end">
+                    <div className="w-full max-w-[440px] md:max-w-[480px] lg:max-w-[586px] xl:max-w-[586px] mx-auto lg:mx-0">
+                      <div className="grid grid-cols-2 gap-3 md:gap-3 lg:gap-4">
                         <ServiceCard
-                          title="Вакансии"
-                          imageUrl="/images/services/JOBCARD.png"
+                          title="Меню"
+                          imageUrl="/images/services/MENU-CARD.png"
                           aspectRatio="aspect-[4/3]"
                           imageClassName="object-left translate-x-[2px]"
                           className="max-w-[200px] md:max-w-[230px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
                           highlighted={cityChangedFlash}
-                          onClick={() => {
-                            if (selectedCity?.id && selectedCity?.name) {
-                              openEmbeddedPage(`vacancies-${selectedCity.id}`, {
-                                title: `Вакансии — ${selectedCity.name}`,
-                                url: VACANCIES_LINK,
-                                allowedCityId: selectedCity.id,
-                                description: "Актуальные вакансии сети «Хачапури Марико».",
-                                fallbackLabel: "Открыть вакансии во внешнем окне",
-                              });
-                              return;
-                            }
-
-                            safeOpenLink(VACANCIES_LINK, {
-                              try_instant_view: true,
-                            });
-                          }}
+                          onClick={() => navigate("/menu")}
                         />
+                        {/* Вакансии на мобильных и очень больших экранах (xl+) - скрыты на md и lg, где показываются как QuickActionButton */}
+                        <div className="block md:hidden xl:block">
+                          <ServiceCard
+                            title="Вакансии"
+                            imageUrl="/images/services/JOBCARD.png"
+                            aspectRatio="aspect-[4/3]"
+                            imageClassName="object-left translate-x-[2px]"
+                            className="max-w-[200px] md:max-w-[230px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
+                            highlighted={cityChangedFlash}
+                            onClick={() => {
+                              if (selectedCity?.id && selectedCity?.name) {
+                                openEmbeddedPage(`vacancies-${selectedCity.id}`, {
+                                  title: `Вакансии — ${selectedCity.name}`,
+                                  url: VACANCIES_LINK,
+                                  allowedCityId: selectedCity.id,
+                                  description: "Актуальные вакансии сети «Хачапури Марико».",
+                                  fallbackLabel: "Открыть вакансии во внешнем окне",
+                                });
+                                return;
+                              }
+
+                              safeOpenLink(VACANCIES_LINK, {
+                                try_instant_view: true,
+                              });
+                            }}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -526,3 +542,117 @@ const Index = () => {
 };
 
 export default Index;
+
+interface FeatureCenterMeasurements {
+  viewport: number;
+  withinContainer: number;
+}
+
+const useFeatureContainerCenter = (
+  target: HTMLDivElement | null,
+): FeatureCenterMeasurements | null => {
+  const [measurements, setMeasurements] = useState<FeatureCenterMeasurements | null>(null);
+
+  useEffect(() => {
+    if (!target || typeof window === "undefined") {
+      setMeasurements(null);
+      return;
+    }
+
+    let animationFrame = 0;
+
+    const updateMeasurements = () => {
+      if (!target) {
+        return;
+      }
+      const rect = target.getBoundingClientRect();
+      if (!rect.width) {
+        setMeasurements(null);
+        return;
+      }
+      const viewportWidth = window.innerWidth;
+      const { offset } = getRailMetrics();
+      const availableWidth = Math.max(viewportWidth - offset, 0);
+      const viewportCenter = offset + availableWidth / 2;
+      const withinContainer = viewportCenter - rect.left;
+      const clamped = Math.max(0, Math.min(withinContainer, rect.width));
+      setMeasurements({
+        viewport: viewportCenter,
+        withinContainer: clamped,
+      });
+    };
+
+    const scheduleUpdate = () => {
+      if (animationFrame) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+      animationFrame = window.requestAnimationFrame(updateMeasurements);
+    };
+
+    scheduleUpdate();
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(scheduleUpdate);
+      resizeObserver.observe(target);
+    }
+
+    window.addEventListener("resize", scheduleUpdate);
+
+    return () => {
+      if (animationFrame) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", scheduleUpdate);
+    };
+  }, [target]);
+
+  return measurements;
+};
+
+interface RailMetrics {
+  offset: number;
+  width: number;
+  gap: number;
+}
+
+const getRailMetrics = (): RailMetrics => {
+  if (typeof window === "undefined") {
+    return { offset: 0, width: 0, gap: 0 };
+  }
+
+  const rootStyles = getComputedStyle(document.documentElement);
+  const width = parsePxValue(rootStyles.getPropertyValue("--app-rail-width"));
+  const gap = parsePxValue(rootStyles.getPropertyValue("--app-rail-gap"));
+  const offsetValue = rootStyles.getPropertyValue("--app-rail-offset");
+
+  return {
+    offset: resolveRailOffset(offsetValue, width + gap),
+    width,
+    gap,
+  };
+};
+
+const parsePxValue = (value?: string) => {
+  if (!value) {
+    return 0;
+  }
+
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const resolveRailOffset = (value: string | null, fallback: number) => {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return 0;
+  }
+
+  if (trimmed.startsWith("calc")) {
+    return fallback;
+  }
+
+  const parsed = Number.parseFloat(trimmed);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
