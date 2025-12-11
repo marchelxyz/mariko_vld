@@ -14,7 +14,7 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen overflow-hidden flex flex-col bg-transparent">
+    <div className="app-screen min-h-screen overflow-hidden flex flex-col bg-transparent">
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
       <div className="bg-transparent pb-6 md:pb-8">
         <Header />
