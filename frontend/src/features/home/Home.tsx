@@ -325,7 +325,7 @@ const Index = () => {
                       // На мобильных и средних экранах показываем 2 колонки (меню и вакансии)
                       // На больших экранах (lg+) показываем 2 колонки (меню и вакансии)
                       'grid-cols-2 md:grid-cols-2 lg:grid-cols-2'
-                    } max-w-[440px] md:max-w-[520px] lg:max-w-none w-full lg:pt-[52px]`}>
+                    } max-w-[440px] md:max-w-[520px] lg:max-w-none w-full lg:pt-[32px]`}>
                       <ServiceCard
                         title="Меню"
                         imageUrl="/images/services/MENU-CARD.png"
