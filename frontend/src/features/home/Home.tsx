@@ -240,7 +240,7 @@ const Index = () => {
           <div className="space-y-6 md:space-y-8">
             {/* Quick Action Buttons */}
               <div className="mt-6 md:mt-8 flex justify-center">
-              <div className={`grid gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4 max-w-4xl w-full ${
+              <div className={`grid gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4 max-w-4xl w-full mx-auto ${
                 // На средних экранах (md) показываем 5 кнопок (4 + вакансии)
                 // На больших экранах (xl+) показываем 4 кнопки
                 'grid-cols-4 md:grid-cols-5 xl:grid-cols-4'
@@ -304,11 +304,11 @@ const Index = () => {
 
             {/* Promotions and Menu/Vacancies Layout */}
             <div className="mt-6 md:mt-8">
-              <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 justify-center">
+              <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 justify-center items-center">
                 {/* Promotions */}
                 {promotions.length > 0 && (
-                  <div className="flex justify-center mb-6 lg:mb-0">
-                    <div className="w-full max-w-[420px] md:max-w-[520px]">
+                  <div className="flex justify-center mb-6 lg:mb-0 w-full lg:w-auto">
+                    <div className="w-full max-w-[420px] md:max-w-[520px] mx-auto">
                       <PromotionsCarousel
                         promotions={promotions}
                         onBookTable={handleBookingClick}
@@ -318,8 +318,8 @@ const Index = () => {
                 )}
 
                 {/* Menu and Vacancies - правее от баннеров на больших экранах */}
-                <div className="flex justify-center">
-                  <div className="w-full max-w-4xl">
+                <div className="flex justify-center w-full lg:w-auto">
+                  <div className="w-full max-w-4xl mx-auto">
                     <div className={`grid gap-3 md:gap-4 lg:gap-4 ${
                       // На мобильных и средних экранах показываем 2 колонки (меню и вакансии)
                       // На больших экранах (xl+) показываем 2 колонки (меню и вакансии)
