@@ -312,7 +312,7 @@ const Index = () => {
             {/* Promotions Title - растягивается на всю ширину, текст слева */}
             <div className="mt-6 md:mt-8 w-full">
               <div className="max-w-4xl w-full mx-auto px-1">
-                <span className="font-el-messiri text-lg md:text-xl font-semibold text-white drop-shadow">
+                <span className="font-el-messiri text-lg md:text-xl font-semibold text-white drop-shadow md:hidden">
                   Акции
                 </span>
               </div>
