@@ -376,7 +376,15 @@ const Index = () => {
               </div>
 
               {/* Средние и большие экраны: контейнер с каруселью, меню и вакансиями */}
-              <div className="hidden md:flex md:flex-row md:items-start md:gap-6 max-w-4xl w-full mx-auto">
+              {/* Центрируем контейнер с учетом бокового меню: равные отступы слева (от меню) и справа (от края) */}
+              {/* Когда боковое меню активно, .app-screen уже имеет padding-left для меню (160px) */}
+              {/* marginLeft и marginRight должны быть равны для симметрии */}
+              <div className="hidden md:flex md:flex-row md:items-start md:gap-6" 
+                   style={{
+                     maxWidth: 'calc(100vw - var(--app-rail-offset, 0px) - 2 * max(var(--app-rail-offset, 0px), clamp(18px, 5vw, 36px)))',
+                     marginLeft: 'max(var(--app-rail-offset, 0px), clamp(18px, 5vw, 36px))',
+                     marginRight: 'max(var(--app-rail-offset, 0px), clamp(18px, 5vw, 36px))'
+                   }}>
                 {/* Promotions */}
                 <div className="flex justify-center w-auto">
                   <div className="w-full max-w-[520px]">
