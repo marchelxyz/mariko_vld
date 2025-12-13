@@ -2,13 +2,14 @@
  * Главная страница админ-панели
  */
 
-import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck, Megaphone, Sparkles } from 'lucide-react';
+import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck, Megaphone, Sparkles, Grid3x3 } from 'lucide-react';
 import { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNavigation, Header } from "@shared/ui/widgets";
 import { useAdmin } from "@shared/hooks";
 import { Permission, UserRole } from "@shared/types";
 import { Button } from "@shared/ui";
+import { useDebugGrid } from "@/contexts";
 
 const CitiesManagementLazy = lazy(() =>
   import("@features/admin").then((module) => ({
@@ -54,7 +55,8 @@ const SectionLoader = () => (
  */
 export default function AdminPanel(): JSX.Element {
   const navigate = useNavigate();
-  const { isAdmin, isLoading, userRole, hasPermission } = useAdmin();
+  const { isAdmin, isLoading, userRole, hasPermission, isSuperAdmin } = useAdmin();
+  const { isEnabled: isGridEnabled, toggle: toggleGrid } = useDebugGrid();
   const [activeSection, setActiveSection] = useState<AdminSection>(null);
 
   const availableSections = useMemo(
@@ -194,6 +196,21 @@ export default function AdminPanel(): JSX.Element {
               {roleLabel}
             </p>
           </div>
+          {isSuperAdmin() && !activeSection && (
+            <button
+              onClick={toggleGrid}
+              className={`
+                p-2 rounded-full transition-colors
+                ${isGridEnabled 
+                  ? 'bg-mariko-primary text-white' 
+                  : 'text-white hover:bg-white/10'
+                }
+              `}
+              title={isGridEnabled ? 'Выключить отладочную сетку' : 'Включить отладочную сетку'}
+            >
+              <Grid3x3 className="w-6 h-6" />
+            </button>
+          )}
         </div>
 
         {/* Контент */}
