@@ -419,11 +419,15 @@ const Index = () => {
             {recommendedDishes.length > 0 && (
               <div className="mt-10 md:mt-12 -mx-3 md:-mx-6">
                 {/* Heading bar */}
-                <div className="w-full bg-white py-3 md:py-4 flex items-center justify-between px-4 md:px-6 mb-4 md:mb-6">
-                  <span className="font-el-messiri text-base md:text-lg font-semibold text-black">
+                <div className="relative w-full py-3 md:py-4 flex items-center justify-between px-4 md:px-6 mb-4 md:mb-6 rounded-[20px] border border-white/20 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-lg" style={{ backgroundColor: '#963434' }}>
+                  <div className="pointer-events-none absolute inset-0">
+                    <div className="absolute -left-16 -top-20 h-40 w-40 rounded-full bg-mariko-primary/35 blur-[70px]" />
+                    <div className="absolute -right-10 bottom-[-60px] h-36 w-36 rounded-full bg-white/15 blur-[55px]" />
+                  </div>
+                  <span className="relative font-el-messiri text-base md:text-lg font-semibold text-white">
                     Рекомендуем попробовать
                   </span>
-                  <ChevronDown className="w-5 h-5 md:w-6 md:h-6 text-black" />
+                  <ChevronDown className="relative w-5 h-5 md:w-6 md:h-6 text-white" />
                 </div>
 
                 <div className="px-3 md:px-6 mb-16 md:mb-20">
