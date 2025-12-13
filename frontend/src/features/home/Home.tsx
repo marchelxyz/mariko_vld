@@ -29,6 +29,7 @@ const Index = () => {
   const [cityChangedFlash, setCityChangedFlash] = useState(false);
   const prevCityIdRef = useRef<string | null>(null);
   const [promotions, setPromotions] = useState<PromotionSlide[]>([]);
+  const [isLoadingPromotions, setIsLoadingPromotions] = useState(true);
   const [recommendedDishes, setRecommendedDishes] = useState<MenuItem[]>([]);
   const [isLoadingRecommended, setIsLoadingRecommended] = useState(false);
 
@@ -90,8 +91,12 @@ const Index = () => {
     let cancelled = false;
 
     const loadPromotions = async () => {
+      setIsLoadingPromotions(true);
       if (!selectedCity?.id) {
-        setPromotions([]);
+        if (!cancelled) {
+          setPromotions([]);
+          setIsLoadingPromotions(false);
+        }
         return;
       }
       try {
@@ -102,11 +107,13 @@ const Index = () => {
               ?.filter((promo) => promo.isActive !== false)
               ?.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)) ?? [];
           setPromotions(normalized);
+          setIsLoadingPromotions(false);
         }
       } catch (error) {
         console.error("Ошибка загрузки акций:", error);
         if (!cancelled) {
           setPromotions([]);
+          setIsLoadingPromotions(false);
         }
       }
     };
@@ -304,31 +311,28 @@ const Index = () => {
             </div>
 
             {/* Promotions Title - растягивается на всю ширину, текст слева */}
-            {promotions.length > 0 && (
-              <div className="mt-6 md:mt-8 w-full">
-                <div className="max-w-4xl w-full mx-auto px-1">
-                  <span className="font-el-messiri text-lg md:text-xl font-semibold text-white drop-shadow">
-                    Акции
-                  </span>
-                </div>
+            <div className="mt-6 md:mt-8 w-full">
+              <div className="max-w-4xl w-full mx-auto px-1">
+                <span className="font-el-messiri text-lg md:text-xl font-semibold text-white drop-shadow">
+                  Акции
+                </span>
               </div>
-            )}
+            </div>
 
             {/* Promotions and Menu/Vacancies Layout */}
             <div className="mt-3 md:mt-4 flex justify-center">
               {/* Мобильная версия: карусель отдельно, меню и вакансии отдельно */}
               <div className="flex flex-col md:hidden items-center max-w-4xl w-full mx-auto">
                 {/* Promotions */}
-                {promotions.length > 0 && (
-                  <div className="flex justify-center mb-6 w-full">
-                    <div className="w-full max-w-[420px] mx-auto">
-                      <PromotionsCarousel
-                        promotions={promotions}
-                        onBookTable={handleBookingClick}
-                      />
-                    </div>
+                <div className="flex justify-center mb-6 w-full">
+                  <div className="w-full max-w-[420px] mx-auto">
+                    <PromotionsCarousel
+                      promotions={promotions}
+                      isLoading={isLoadingPromotions}
+                      onBookTable={handleBookingClick}
+                    />
                   </div>
-                )}
+                </div>
 
                 {/* Menu and Vacancies */}
                 <div className="flex justify-center w-full overflow-x-hidden">
@@ -375,16 +379,15 @@ const Index = () => {
               {/* Средние и большие экраны: контейнер с каруселью, меню и вакансиями */}
               <div className="hidden md:flex md:flex-row md:items-start md:gap-6 max-w-4xl w-full mx-auto">
                 {/* Promotions */}
-                {promotions.length > 0 && (
-                  <div className="flex justify-center w-auto">
-                    <div className="w-full max-w-[520px]">
-                      <PromotionsCarousel
-                        promotions={promotions}
-                        onBookTable={handleBookingClick}
-                      />
-                    </div>
+                <div className="flex justify-center w-auto">
+                  <div className="w-full max-w-[520px]">
+                    <PromotionsCarousel
+                      promotions={promotions}
+                      isLoading={isLoadingPromotions}
+                      onBookTable={handleBookingClick}
+                    />
                   </div>
-                )}
+                </div>
 
                 {/* Menu and Vacancies */}
                 <div className="flex justify-center w-auto overflow-x-hidden">

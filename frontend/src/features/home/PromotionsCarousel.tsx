@@ -8,6 +8,7 @@ export type PromotionSlide = PromotionCardData;
 interface PromotionsCarouselProps {
   promotions: PromotionSlide[];
   autoPlayIntervalMs?: number;
+  isLoading?: boolean;
   onBookTable?: () => void;
 }
 
@@ -17,6 +18,7 @@ const SWIPE_THRESHOLD_PX = 45;
 export const PromotionsCarousel = ({
   promotions,
   autoPlayIntervalMs = AUTO_PLAY_INTERVAL_MS,
+  isLoading = false,
   onBookTable,
 }: PromotionsCarouselProps) => {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -89,8 +91,36 @@ export const PromotionsCarousel = ({
     startXRef.current = null;
   };
 
+  // Показываем скелет при загрузке
+  if (isLoading) {
+    return (
+      <div className="relative w-full mx-auto">
+        <div className="relative w-full select-none overflow-hidden rounded-[20px] border border-white/20 bg-white/10 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-lg">
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute -left-16 -top-20 h-40 w-40 rounded-full bg-mariko-primary/35 blur-[70px]" />
+            <div className="absolute -right-10 bottom-[-60px] h-36 w-36 rounded-full bg-white/15 blur-[55px]" />
+          </div>
+          <div className="h-[200px] md:h-[220px] w-full animate-pulse bg-white/5 rounded-[18px]" />
+        </div>
+      </div>
+    );
+  }
+
+  // Если нет слайдов, показываем пустую карусель с placeholder
   if (!slideCount) {
-    return null;
+    return (
+      <div className="relative w-full mx-auto">
+        <div className="relative w-full select-none overflow-hidden rounded-[20px] border border-white/20 bg-white/10 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-lg">
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute -left-16 -top-20 h-40 w-40 rounded-full bg-mariko-primary/35 blur-[70px]" />
+            <div className="absolute -right-10 bottom-[-60px] h-36 w-36 rounded-full bg-white/15 blur-[55px]" />
+          </div>
+          <div className="h-[200px] md:h-[220px] w-full flex items-center justify-center text-white/50 text-sm">
+            Акций пока нет
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
