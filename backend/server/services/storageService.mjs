@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command, HeadBucketCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createLogger } from '../utils/logger.mjs';
 import { 
@@ -33,6 +33,48 @@ function createS3Client() {
 }
 
 /**
+ * Проверяет существование бакета
+ * @returns {Promise<boolean>}
+ */
+async function checkBucketExists() {
+  const s3Client = createS3Client();
+  
+  if (!YANDEX_STORAGE_BUCKET_NAME) {
+    return false;
+  }
+
+  try {
+    const command = new HeadBucketCommand({
+      Bucket: YANDEX_STORAGE_BUCKET_NAME,
+    });
+    await s3Client.send(command);
+    return true;
+  } catch (error) {
+    if (error.name === 'NotFound' || error.Code === 'NoSuchBucket' || error.$metadata?.httpStatusCode === 404) {
+      return false;
+    }
+    // Для других ошибок (например, проблемы с доступом) считаем, что бакет может существовать
+    logger.warn('Не удалось проверить существование бакета', { error: error.message });
+    return true;
+  }
+}
+
+/**
+ * Формирует понятное сообщение об ошибке для случая отсутствия бакета
+ * @param {Error} error - исходная ошибка
+ * @returns {string}
+ */
+function formatBucketError(error) {
+  if (error.name === 'NoSuchBucket' || error.Code === 'NoSuchBucket' || error.$metadata?.httpStatusCode === 404) {
+    return `Бакет "${YANDEX_STORAGE_BUCKET_NAME}" не существует. ` +
+           `Пожалуйста, создайте бакет в Yandex Cloud Console: ` +
+           `https://console.cloud.yandex.ru/folders/-/storage/buckets. ` +
+           `Инструкция: см. YANDEX_STORAGE_SETUP.md`;
+  }
+  return error.message;
+}
+
+/**
  * Загружает файл в Yandex Object Storage
  * @param {Buffer} fileBuffer - содержимое файла
  * @param {string} key - путь к файлу в хранилище (например, 'menu/restaurant-123/image.jpg')
@@ -47,7 +89,12 @@ export async function uploadFile(fileBuffer, key, contentType) {
   }
 
   try {
-    logger.debug('Загрузка файла', { key, contentType, size: fileBuffer.length });
+    logger.debug('Загрузка файла', { 
+      key, 
+      contentType, 
+      size: fileBuffer.length,
+      bucket: YANDEX_STORAGE_BUCKET_NAME 
+    });
 
     const command = new PutObjectCommand({
       Bucket: YANDEX_STORAGE_BUCKET_NAME,
@@ -68,8 +115,13 @@ export async function uploadFile(fileBuffer, key, contentType) {
     logger.info('Файл успешно загружен', { key, url: publicUrl });
     return publicUrl;
   } catch (error) {
-    logger.error('Ошибка загрузки файла', error, { key });
-    throw new Error(`Failed to upload file: ${error.message}`);
+    const errorMessage = formatBucketError(error);
+    logger.error('Ошибка загрузки файла', error, { 
+      key, 
+      bucket: YANDEX_STORAGE_BUCKET_NAME,
+      errorMessage 
+    });
+    throw new Error(`Failed to upload file: ${errorMessage}`);
   }
 }
 
@@ -107,8 +159,13 @@ export async function listFiles(prefix = '') {
     logger.debug('Список файлов получен', { prefix, count: files.length });
     return files;
   } catch (error) {
-    logger.error('Ошибка получения списка файлов', error, { prefix });
-    throw new Error(`Failed to list files: ${error.message}`);
+    const errorMessage = formatBucketError(error);
+    logger.error('Ошибка получения списка файлов', error, { 
+      prefix, 
+      bucket: YANDEX_STORAGE_BUCKET_NAME,
+      errorMessage 
+    });
+    throw new Error(`Failed to list files: ${errorMessage}`);
   }
 }
 
@@ -135,8 +192,13 @@ export async function deleteFile(key) {
     await s3Client.send(command);
     logger.info('Файл успешно удален', { key });
   } catch (error) {
-    logger.error('Ошибка удаления файла', error, { key });
-    throw new Error(`Failed to delete file: ${error.message}`);
+    const errorMessage = formatBucketError(error);
+    logger.error('Ошибка удаления файла', error, { 
+      key, 
+      bucket: YANDEX_STORAGE_BUCKET_NAME,
+      errorMessage 
+    });
+    throw new Error(`Failed to delete file: ${errorMessage}`);
   }
 }
 
@@ -162,8 +224,13 @@ export async function getSignedFileUrl(key, expiresIn = 3600) {
     const url = await getSignedUrl(s3Client, command, { expiresIn });
     return url;
   } catch (error) {
-    logger.error('Ошибка генерации подписанного URL', error, { key });
-    throw new Error(`Failed to generate signed URL: ${error.message}`);
+    const errorMessage = formatBucketError(error);
+    logger.error('Ошибка генерации подписанного URL', error, { 
+      key, 
+      bucket: YANDEX_STORAGE_BUCKET_NAME,
+      errorMessage 
+    });
+    throw new Error(`Failed to generate signed URL: ${errorMessage}`);
   }
 }
 
@@ -179,4 +246,29 @@ export function isStorageConfigured() {
     YANDEX_STORAGE_REGION &&
     YANDEX_STORAGE_ENDPOINT
   );
+}
+
+/**
+ * Проверяет существование бакета и возвращает статус
+ * @returns {Promise<{exists: boolean, message?: string}>}
+ */
+export async function verifyBucket() {
+  if (!isStorageConfigured()) {
+    return {
+      exists: false,
+      message: 'Хранилище не настроено. Проверьте переменные окружения.',
+    };
+  }
+
+  const exists = await checkBucketExists();
+  if (!exists) {
+    return {
+      exists: false,
+      message: `Бакет "${YANDEX_STORAGE_BUCKET_NAME}" не существует. ` +
+               `Создайте бакет в Yandex Cloud Console: ` +
+               `https://console.cloud.yandex.ru/folders/-/storage/buckets`,
+    };
+  }
+
+  return { exists: true };
 }
