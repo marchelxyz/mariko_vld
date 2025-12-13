@@ -310,7 +310,7 @@ const Index = () => {
             </div>
 
             {/* Promotions Title - растягивается на всю ширину, текст слева */}
-            <div className="mt-6 md:mt-8 w-full">
+            <div className="mt-6 md:mt-8 w-full md:hidden">
               <div className="max-w-4xl w-full mx-auto px-1">
                 <span className="font-el-messiri text-lg md:text-xl font-semibold text-white drop-shadow">
                   Акции
@@ -375,7 +375,7 @@ const Index = () => {
                 </div>
               </div>
 
-              {/* Средние и большие экраны: контейнер с каруселью, меню и вакансиями */}
+              {/* Средние и большие экраны: контейнер с меню (без карусели акций) */}
               {/* Центрируем контейнер с учетом бокового меню: равные отступы слева (от меню) и справа (от края) */}
               {/* Когда боковое меню активно, .app-screen уже имеет padding-left для меню (160px) */}
               {/* marginLeft и marginRight должны быть равны для симметрии */}
@@ -385,17 +385,6 @@ const Index = () => {
                      marginLeft: 'max(var(--app-rail-offset, 0px), clamp(18px, 5vw, 36px))',
                      marginRight: 'max(var(--app-rail-offset, 0px), clamp(18px, 5vw, 36px))'
                    }}>
-                {/* Promotions */}
-                <div className="flex justify-center w-auto">
-                  <div className="w-full max-w-[520px]">
-                    <PromotionsCarousel
-                      promotions={promotions}
-                      isLoading={isLoadingPromotions}
-                      onBookTable={handleBookingClick}
-                    />
-                  </div>
-                </div>
-
                 {/* Menu and Vacancies */}
                 <div className="flex justify-center w-auto overflow-x-hidden">
                   <div className="w-full max-w-[480px] lg:max-w-[480px]">
