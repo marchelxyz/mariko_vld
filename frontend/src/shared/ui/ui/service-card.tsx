@@ -54,7 +54,7 @@ export const ServiceCard = ({
       )}
     >
       {/* Верхняя часть: изображение или цвет */}
-      <div className={cn("relative w-full", aspectRatio, "bg-gray-100 flex items-center justify-center")}> 
+      <div className={cn("relative w-full", aspectRatio, "bg-gray-100 flex items-center justify-center overflow-hidden")}> 
         {backgroundColor && !imageUrl && (
           <div className="absolute inset-0" style={{ backgroundColor }} />
         )}
@@ -65,8 +65,14 @@ export const ServiceCard = ({
             alt={title}
             loading={loading}
             className={cn(
-              // Небольшое перекрытие по краям, чтобы убрать возможные 1px-щели из-за округления
-              "absolute -inset-px w-[calc(100%+2px)] h-[calc(100%+2px)] object-cover block transition-opacity duration-300 transform-gpu scale-[1.01] origin-center",
+              // Позиционирование изображения
+              "absolute inset-0 w-full h-full block transition-opacity duration-300 transform-gpu",
+              // По умолчанию object-cover, но можно переопределить через imageClassName
+              imageClassName?.includes("object-contain") 
+                ? "object-contain" 
+                : imageClassName?.includes("object-cover")
+                ? "object-cover"
+                : "object-cover",
               imageClassName,
               imageLoaded ? "opacity-100" : "opacity-0",
             )}
