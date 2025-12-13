@@ -379,14 +379,14 @@ const Index = () => {
               {/* Центрируем контейнер с учетом бокового меню: равные отступы слева (от меню) и справа (от края) */}
               {/* Когда боковое меню активно, .app-screen уже имеет padding-left для меню (160px) */}
               {/* marginLeft и marginRight должны быть равны для симметрии */}
-              <div className="hidden md:flex md:flex-row md:items-start md:gap-6" 
+              <div className="hidden md:flex md:flex-row md:items-stretch md:gap-6" 
                    style={{
                      maxWidth: 'calc(100vw - var(--app-rail-offset, 0px) - 2 * max(var(--app-rail-offset, 0px), clamp(18px, 5vw, 36px)) + 120px)',
                      marginLeft: 'max(var(--app-rail-offset, 0px), clamp(18px, 5vw, 36px))',
                      marginRight: 'max(var(--app-rail-offset, 0px), clamp(18px, 5vw, 36px))'
                    }}>
                 {/* Promotions */}
-                <div className="flex justify-center w-auto">
+                <div className="flex justify-center w-auto flex-1">
                   <div className="w-full max-w-[520px]">
                     <PromotionsCarousel
                       promotions={promotions}
@@ -397,15 +397,15 @@ const Index = () => {
                 </div>
 
                 {/* Menu and Vacancies */}
-                <div className="flex justify-center w-auto overflow-x-hidden">
+                <div className="flex justify-center w-auto overflow-x-hidden flex-shrink-0">
                   <div className="w-full max-w-[480px] lg:max-w-[480px]">
                     <div className="grid grid-cols-1 gap-3 lg:gap-4 w-full">
                       <ServiceCard
                         title="Меню"
                         imageUrl="/images/services/MENU-CARD.png"
-                        aspectRatio="aspect-[4/3]"
-                        imageClassName="object-left translate-x-[2px]"
-                        className="max-w-[230px] md:max-w-[230px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
+                        aspectRatio="aspect-video"
+                        imageClassName="object-contain object-left"
+                        className="max-w-[230px] md:max-w-[230px] lg:max-w-[293px] w-full"
                         highlighted={cityChangedFlash}
                         onClick={() => navigate("/menu")}
                       />
