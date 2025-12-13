@@ -151,7 +151,7 @@ export const PromotionsCarousel = ({
             width: `${slideCount * 100}%`,
             transform:
               slideCount > 0
-                ? `translateX(-${(activeIndex / slideCount) * 100}%)`
+                ? `translateX(-${activeIndex * (100 / slideCount)}%)`
                 : undefined,
           }}
         >
