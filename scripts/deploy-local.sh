@@ -33,8 +33,10 @@ WEB_ROOT="${WEB_ROOT:-/var/www/html}"
 BOT_NAME="${BOT_NAME:-hachapuri-bot}"
 CART_SERVER_NAME="${CART_SERVER_NAME:-cart-server}"
 REMOTE_PROJECT_ROOT="${REMOTE_PROJECT_ROOT:-/opt/mariko-app}"
+REMOTE_BACKEND_DIR="${REMOTE_BACKEND_DIR:-$REMOTE_PROJECT_ROOT/backend}"
 REMOTE_BOT_DIR="${REMOTE_BOT_DIR:-$REMOTE_PROJECT_ROOT/backend/bot}"
 REMOTE_SERVER_DIR="${REMOTE_SERVER_DIR:-$REMOTE_PROJECT_ROOT/backend/server}"
+LOCAL_API_PORT="${LOCAL_API_PORT:-4010}"
 SSH_OPTS=${SSH_OPTS:-"-o StrictHostKeyChecking=no"}
 RSYNC_OPTS=${RSYNC_OPTS:-"-avz"}
 RSYNC_DIST_OPTS=${RSYNC_DIST_OPTS:-"-avz"} # отдельно для статики, по умолчанию без --delete, чтобы не ломать кешированные бандлы
@@ -60,6 +62,7 @@ require_var WEB_ROOT
 require_var BOT_NAME
 require_var CART_SERVER_NAME
 require_var REMOTE_PROJECT_ROOT
+require_var REMOTE_BACKEND_DIR
 require_var REMOTE_BOT_DIR
 require_var REMOTE_SERVER_DIR
 
@@ -84,7 +87,15 @@ run_remote() {
   "${SSH_BIN[@]}" "$SERVER_HOST" "$@"
 }
 
+ensure_remote_dirs() {
+  log "→ создаю директории проекта на сервере (если их нет)"
+  run_remote "mkdir -p \"$WEB_ROOT\" \"$REMOTE_BACKEND_DIR\" \"$REMOTE_BOT_DIR\" \"$REMOTE_SERVER_DIR\" && exit 0"
+}
+
 log "🚀 Начало локального деплоя на $SERVER_HOST"
+
+# 0. Подготовка директорий на сервере
+ensure_remote_dirs
 
 # 1. Локальная сборка проекта
 log "→ npm run frontend:build"
@@ -101,6 +112,10 @@ rsync $RSYNC_OPTS --exclude='node_modules' --exclude='.env' -e "$RSYNC_RSH" back
 # 2.2. Загрузка серверного кода (Express-мост)
 log "→ rsync server → $SERVER_HOST:$REMOTE_SERVER_DIR"
 rsync $RSYNC_OPTS --exclude='.env' --exclude='.env.local' -e "$RSYNC_RSH" backend/server/ "$SERVER_HOST:$REMOTE_SERVER_DIR/"
+
+# 2.2.1. Пакеты backend (package.json + lock) — нужны для npm ci
+log "→ rsync backend package.json/package-lock.json → $SERVER_HOST:$REMOTE_BACKEND_DIR"
+rsync $RSYNC_OPTS -e "$RSYNC_RSH" backend/package.json backend/package-lock.json "$SERVER_HOST:$REMOTE_BACKEND_DIR/"
 
 # 2.3. Поправить права доступа на статику (чтобы nginx отдавал картинки)
 log "→ fix permissions for $WEB_ROOT"
@@ -140,8 +155,8 @@ run_remote "
   check_file \"$REMOTE_SERVER_DIR/.env\" \
     CART_ORDERS_TABLE \
     CART_SERVER_PORT \
-    PORT \
     ADMIN_TELEGRAM_IDS \
+    DATABASE_URL \
     YOOKASSA_TEST_SHOP_ID \
     YOOKASSA_TEST_SECRET_KEY \
     YOOKASSA_TEST_CALLBACK_URL \
@@ -149,7 +164,13 @@ run_remote "
     INTEGRATION_CACHE_TTL_MS \
     CART_SERVER_LOG_LEVEL \
     TELEGRAM_WEBAPP_RETURN_URL \
-    VITE_YANDEX_GEOCODE_API_KEY
+    VITE_YANDEX_GEOCODE_API_KEY \
+    YANDEX_STORAGE_ACCESS_KEY_ID \
+    YANDEX_STORAGE_SECRET_ACCESS_KEY \
+    YANDEX_STORAGE_BUCKET_NAME \
+    YANDEX_STORAGE_REGION \
+    YANDEX_STORAGE_ENDPOINT \
+    YANDEX_STORAGE_PUBLIC_URL
   # всегда завершаемся успешно, даже если нет переменных
   exit 0
 "
@@ -172,15 +193,25 @@ run_remote "
 # 4.1. Установка зависимостей сервера и перезапуск cart-server
 log "→ install server dependencies & restart $CART_SERVER_NAME"
 run_remote "
-  cd $REMOTE_SERVER_DIR
+  cd $REMOTE_BACKEND_DIR
   if [ -f package-lock.json ]; then
     npm ci --omit=dev
   else
-    npm install --production
+    npm install --omit=dev
   fi
-  pm2 restart $CART_SERVER_NAME --update-env >/dev/null 2>&1 || pm2 start cart-server.mjs --name $CART_SERVER_NAME --cwd $REMOTE_SERVER_DIR
+  pm2 restart $CART_SERVER_NAME --update-env >/dev/null 2>&1 || pm2 start server/cart-server.mjs --name $CART_SERVER_NAME --cwd $REMOTE_BACKEND_DIR
   pm2 save
 "
 
+log "→ healthcheck локального cart-server на Timeweb (http://127.0.0.1:$LOCAL_API_PORT/health)"
+run_remote "
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsS http://127.0.0.1:$LOCAL_API_PORT/health || echo '⚠️  cart-server healthcheck не прошёл (проверьте pm2 логи и порт)'
+  else
+    echo '⚠️  curl не найден на сервере — пропускаю healthcheck'
+  fi
+  exit 0
+"
+
 log "✅ Деплой завершён"
-log "🌐 Сайт доступен по адресу: https://ineedaglokk.ru"
+log "🌐 Откройте сайт по вашему домену или IP (зависит от DNS и nginx)"

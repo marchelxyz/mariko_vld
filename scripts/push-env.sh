@@ -73,6 +73,11 @@ run_remote() {
   "${SSH_BIN[@]}" "$SERVER_HOST" "$@"
 }
 
+ensure_remote_dirs() {
+  log "→ создаю директории проекта на сервере (если их нет)"
+  run_remote "mkdir -p \"$REMOTE_FRONTEND_DIR\" \"$REMOTE_BOT_DIR\" \"$REMOTE_SERVER_DIR\" && exit 0"
+}
+
 push_file() {
   local src="$1"
   local dst="$2"
@@ -85,6 +90,8 @@ push_file() {
 }
 
 log "🚀 Копируем env-файлы на $SERVER_HOST"
+
+ensure_remote_dirs
 
 push_file "frontend/.env" "$REMOTE_FRONTEND_DIR/.env"
 push_file "backend/bot/.env" "$REMOTE_BOT_DIR/.env"
