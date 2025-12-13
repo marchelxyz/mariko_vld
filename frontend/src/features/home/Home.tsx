@@ -249,9 +249,8 @@ const Index = () => {
               <div className="mt-6 md:mt-8 flex justify-center">
               <div className={`grid gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4 max-w-4xl w-full mx-auto ${
                 // На мобильных показываем 4 кнопки
-                // На средних (md) и больших (lg) экранах показываем 5 кнопок (4 + вакансии)
-                // На очень больших экранах (xl+) показываем 4 кнопки (вакансии переносятся в ServiceCard)
-                'grid-cols-4 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-4'
+                // На средних (md) и больших экранах показываем 5 кнопок (4 + вакансии)
+                'grid-cols-4 md:grid-cols-5'
               } lg:max-w-[600px]`}>
                 <QuickActionButton
                   icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
@@ -284,12 +283,12 @@ const Index = () => {
                   onClick={() => navigate("/about")}
                 />
 
-                {/* Кнопка вакансий на средних (md) экранах - в одном ряду с другими кнопками, с иконкой вместо фото */}
+                {/* Кнопка вакансий всегда в верхнем меню на средних и больших экранах */}
                 <QuickActionButton
                   icon={<Briefcase className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
                   title="Вакансии"
                   highlighted={cityChangedFlash}
-                  className="hidden md:flex lg:hidden"
+                  className="hidden md:flex"
                   onClick={() => {
                     if (selectedCity?.id && selectedCity?.name) {
                       openEmbeddedPage(`vacancies-${selectedCity.id}`, {
@@ -391,8 +390,8 @@ const Index = () => {
 
                 {/* Menu and Vacancies */}
                 <div className="flex justify-center w-auto overflow-x-hidden">
-                  <div className="w-full max-w-[480px] lg:max-w-[602px] xl:max-w-[602px]">
-                    <div className="grid grid-cols-2 gap-3 lg:gap-4 w-full">
+                  <div className="w-full max-w-[480px] lg:max-w-[480px]">
+                    <div className="grid grid-cols-1 gap-3 lg:gap-4 w-full">
                       <ServiceCard
                         title="Меню"
                         imageUrl="/images/services/MENU-CARD.png"
@@ -402,33 +401,6 @@ const Index = () => {
                         highlighted={cityChangedFlash}
                         onClick={() => navigate("/menu")}
                       />
-                      {/* Вакансии на больших экранах (lg+) - скрыты на md, где показываются как QuickActionButton */}
-                      <div className="hidden lg:block">
-                        <ServiceCard
-                          title="Вакансии"
-                          imageUrl="/images/services/JOBCARD.png"
-                          aspectRatio="aspect-[4/3]"
-                          imageClassName="object-left translate-x-[2px]"
-                          className="lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
-                          highlighted={cityChangedFlash}
-                          onClick={() => {
-                            if (selectedCity?.id && selectedCity?.name) {
-                              openEmbeddedPage(`vacancies-${selectedCity.id}`, {
-                                title: `Вакансии — ${selectedCity.name}`,
-                                url: VACANCIES_LINK,
-                                allowedCityId: selectedCity.id,
-                                description: "Актуальные вакансии сети «Хачапури Марико».",
-                                fallbackLabel: "Открыть вакансии во внешнем окне",
-                              });
-                              return;
-                            }
-
-                            safeOpenLink(VACANCIES_LINK, {
-                              try_instant_view: true,
-                            });
-                          }}
-                        />
-                      </div>
                     </div>
                   </div>
                 </div>
