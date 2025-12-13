@@ -108,11 +108,26 @@ export async function uploadFile(fileBuffer, key, contentType) {
     await s3Client.send(command);
 
     // Формируем публичный URL
-    const publicUrl = YANDEX_STORAGE_PUBLIC_URL 
-      ? `${YANDEX_STORAGE_PUBLIC_URL}/${key}`
-      : `${YANDEX_STORAGE_ENDPOINT}/${YANDEX_STORAGE_BUCKET_NAME}/${key}`;
+    let publicUrl;
+    if (YANDEX_STORAGE_PUBLIC_URL) {
+      // Используем настроенный публичный URL
+      publicUrl = YANDEX_STORAGE_PUBLIC_URL.endsWith('/') 
+        ? `${YANDEX_STORAGE_PUBLIC_URL}${key}`
+        : `${YANDEX_STORAGE_PUBLIC_URL}/${key}`;
+    } else {
+      // Формируем URL из endpoint и bucket name
+      const baseUrl = YANDEX_STORAGE_ENDPOINT.endsWith('/')
+        ? YANDEX_STORAGE_ENDPOINT.slice(0, -1)
+        : YANDEX_STORAGE_ENDPOINT;
+      publicUrl = `${baseUrl}/${YANDEX_STORAGE_BUCKET_NAME}/${key}`;
+    }
 
-    logger.info('Файл успешно загружен', { key, url: publicUrl });
+    logger.info('Файл успешно загружен', { 
+      key, 
+      url: publicUrl,
+      hasPublicUrl: !!YANDEX_STORAGE_PUBLIC_URL,
+      bucket: YANDEX_STORAGE_BUCKET_NAME
+    });
     return publicUrl;
   } catch (error) {
     const errorMessage = formatBucketError(error);
@@ -147,14 +162,28 @@ export async function listFiles(prefix = '') {
 
     const response = await s3Client.send(command);
     
-    const files = (response.Contents || []).map((item) => ({
-      key: item.Key,
-      size: item.Size || 0,
-      lastModified: item.LastModified || new Date(),
-      url: YANDEX_STORAGE_PUBLIC_URL 
-        ? `${YANDEX_STORAGE_PUBLIC_URL}/${item.Key}`
-        : `${YANDEX_STORAGE_ENDPOINT}/${YANDEX_STORAGE_BUCKET_NAME}/${item.Key}`,
-    }));
+    const files = (response.Contents || []).map((item) => {
+      let url;
+      if (YANDEX_STORAGE_PUBLIC_URL) {
+        // Используем настроенный публичный URL
+        url = YANDEX_STORAGE_PUBLIC_URL.endsWith('/') 
+          ? `${YANDEX_STORAGE_PUBLIC_URL}${item.Key}`
+          : `${YANDEX_STORAGE_PUBLIC_URL}/${item.Key}`;
+      } else {
+        // Формируем URL из endpoint и bucket name
+        const baseUrl = YANDEX_STORAGE_ENDPOINT.endsWith('/')
+          ? YANDEX_STORAGE_ENDPOINT.slice(0, -1)
+          : YANDEX_STORAGE_ENDPOINT;
+        url = `${baseUrl}/${YANDEX_STORAGE_BUCKET_NAME}/${item.Key}`;
+      }
+      
+      return {
+        key: item.Key,
+        size: item.Size || 0,
+        lastModified: item.LastModified || new Date(),
+        url,
+      };
+    });
 
     logger.debug('Список файлов получен', { prefix, count: files.length });
     return files;
