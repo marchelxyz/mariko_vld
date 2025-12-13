@@ -284,12 +284,12 @@ const Index = () => {
                   onClick={() => navigate("/about")}
                 />
 
-                {/* Кнопка вакансий на средних (md) и больших (lg) экранах - в одном ряду с другими кнопками, с иконкой вместо фото */}
+                {/* Кнопка вакансий на средних (md) экранах - в одном ряду с другими кнопками, с иконкой вместо фото */}
                 <QuickActionButton
                   icon={<Briefcase className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
                   title="Вакансии"
                   highlighted={cityChangedFlash}
-                  className="hidden md:flex xl:hidden"
+                  className="hidden md:flex lg:hidden"
                   onClick={() => {
                     if (selectedCity?.id && selectedCity?.name) {
                       openEmbeddedPage(`vacancies-${selectedCity.id}`, {
