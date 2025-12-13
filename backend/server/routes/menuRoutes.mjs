@@ -71,6 +71,14 @@ export function createMenuRouter() {
       // Группируем блюда по категориям
       const itemsByCategory = new Map();
       itemsData.forEach((item) => {
+        const imageUrl = item.image_url || undefined;
+        logger.debug('Загрузка блюда из БД', { 
+          itemId: item.id, 
+          name: item.name, 
+          imageUrl,
+          hasImageUrl: !!item.image_url 
+        });
+        
         const list = itemsByCategory.get(item.category_id) || [];
         list.push({
           id: item.id,
@@ -78,7 +86,7 @@ export function createMenuRouter() {
           description: item.description || undefined,
           price: Number(item.price),
           weight: item.weight || undefined,
-          imageUrl: item.image_url || undefined,
+          imageUrl,
           isVegetarian: !!item.is_vegetarian,
           isSpicy: !!item.is_spicy,
           isNew: !!item.is_new,
@@ -219,6 +227,14 @@ export function createAdminMenuRouter() {
             const item = category.items[itemIndex];
             const itemId = item.id || `${categoryId}-item-${itemIndex}`;
 
+            const imageUrl = item.imageUrl || null;
+            logger.debug('Сохранение блюда', { 
+              itemId, 
+              name: item.name, 
+              imageUrl,
+              hasImageUrl: !!item.imageUrl 
+            });
+            
             await query(
               `INSERT INTO menu_items (
                 id, category_id, name, description, price, weight, image_url,
@@ -233,7 +249,7 @@ export function createAdminMenuRouter() {
                 item.description || null,
                 item.price || 0,
                 item.weight || null,
-                item.imageUrl || null,
+                imageUrl,
                 !!item.isVegetarian,
                 !!item.isSpicy,
                 !!item.isNew,
