@@ -1,116 +1,181 @@
-# Timeweb как бесплатный auto-failover для Railway/Vercel
+# Timeweb запасной сервер (failover) — одна пошаговая инструкция
 
-Идея: сделать **Timeweb “входной точкой” (gateway)** для вашего единого домена.
+## 0) Что мы строим (простыми словами)
 
-- Пользователи всегда приходят на домен → **Timeweb (Nginx)**.
-- Nginx **проксирует**:
-  - `/` → **Vercel** (основной фронт)
-  - `/api/` → **Railway** (основной backend)
-- Если Vercel и/или Railway недоступны (502/503/504, таймауты) → Nginx **автоматически падает на локальные копии** на Timeweb:
-  - `/` → статика из `frontend/dist` (rsync в `WEB_ROOT`, обычно `/var/www/html`)
-  - `/api/` → локальный Node backend на `127.0.0.1:<порт>`
+Цель: чтобы при проблемах на **Railway** (backend) или **Vercel** (frontend) сайт продолжал работать за счёт **Timeweb**.
 
-Плюсы:
-- Бесплатно (не нужен платный LB/health-check сервис).
-- Переключение быстрое (секунды), без ожидания DNS.
+Как это работает:
+1) Пользователь открывает **ваш домен**.
+2) Домен ведёт на **Timeweb** (это “входная точка”).
+3) На Timeweb стоит **Nginx**, он проксирует:
+   - `/` → **Vercel** (основной фронт)
+   - `/api/` → **Railway** (основной API)
+4) Если Vercel/Railway “лежат” (502/503/504, таймауты) → Nginx **автоматически переключается**:
+   - `/` → на **локальную статику** в `/var/www/html`
+   - `/api/` → на **локальный backend** на `127.0.0.1:4010`
 
-Минусы:
-- Timeweb становится **единой точкой входа** (если он падает — падает всё).
+Важно:
+- Пока **нет домена**, реального “авто‑переключения для пользователей” не будет — домен ещё не ведёт на Timeweb. Сейчас можно только подготовить сервер и держать свежую копию.
+- Пока **нет общей БД**, Timeweb не сможет “полностью спасти” функционал, который требует базу (у вас `/health` показывает `database:false`).
 
 ---
 
-## Что подготовить заранее (можно сделать уже сейчас)
+## 1) Что такое DNS (очень коротко)
 
-### 1) Timeweb: “локальные копии” должны быть подняты
+DNS — это “телефонная книга интернета”: она говорит, на какой IP идти, когда вы вводите домен.
 
-У вас уже есть скрипты деплоя на Timeweb:
-- `scripts/deploy-local.sh` — заливает `frontend/dist` + код `backend/*` и перезапускает `pm2`
-- `scripts/push-env.sh` — копирует env-файлы на сервер
+Для вас важна одна запись:
+- `A` запись: `ваш-домен.ru` → `IP Timeweb` (например `IP_TIMEWEB`)
 
-Минимально на Timeweb должно работать:
-- Frontend fallback: файлы в `WEB_ROOT` (по умолчанию `/var/www/html`)
-- Backend fallback: `pm2` процесс `cart-server` (порт обычно `4010`, либо `CART_SERVER_PORT`)
+---
 
-Проверка (на Timeweb):
+## 2) Сделать прямо сейчас (без домена и без общей БД)
+
+### Шаг 1 — Проверить, что на Timeweb стоят нужные штуки (1 раз)
+
+Зайди на сервер:
+- `ssh root@YOUR_TIMEWEB_SERVER`
+
+Проверь:
+- `node -v` (нужен Node 18)
+- `pm2 -v`
+- `nginx -v`
+
+Если pm2 не поднимается после перезагрузки (1 раз):
+- `pm2 startup systemd -u root --hp /root`
+- `pm2 save`
+
+### Шаг 2 — Подготовить локальные env-файлы (не коммитим в git)
+
+В репо на своём компе:
+1) `cp backend/server/.env.example backend/server/.env`
+2) `cp backend/bot/.env.example backend/bot/.env`
+3) `cp frontend/.env.example frontend/.env`
+
+Пока можно оставить “пустые/примерные” значения — позже заполните актуальными.
+
+Проверь, что эти файлы не попали в git:
+- `git status` (не должно быть “изменён/добавлен” для `.env`)
+
+### Шаг 3 — Проверить конфиг деплоя Timeweb (`.env.deploy`)
+
+Открой `.env.deploy` и проверь, что там актуальные значения:
+- `SERVER_HOST="root@<IP_TIMEWEB>"`
+- `WEB_ROOT="/var/www/html"`
+- `REMOTE_PROJECT_ROOT="/opt/mariko-app"`
+
+### Шаг 4 — Залить env на Timeweb
+
+Из корня репо:
+- `DEPLOY_ENV_FILE=.env.deploy bash scripts/push-env.sh`
+
+### Шаг 5 — Залить “локальную копию” приложения на Timeweb
+
+Из корня репо:
+- `DEPLOY_ENV_FILE=.env.deploy bash scripts/deploy-local.sh`
+
+Что делает скрипт:
+- собирает фронт (`frontend/dist`) и кладёт его в `/var/www/html`
+- заливает код `backend/*` в `/opt/mariko-app`
+- ставит зависимости на сервере и перезапускает `pm2`
+
+### Шаг 6 — Проверить, что “запасной” реально живой
+
+На Timeweb (по SSH):
+- `pm2 list`
 - `curl http://127.0.0.1:4010/health`
-
-### 2) Frontend должен ходить в API через ваш домен (не напрямую на Railway)
-
-Чтобы failover работал, фронт **не должен** быть “зашит” на `*.up.railway.app`.
-
-Рекомендуемый вариант для схемы gateway:
-- в production сборке фронта `VITE_SERVER_API_URL` либо **не задавать**, либо поставить в `/api`
-- тогда все запросы идут на `https://<ваш-домен>/api/...`, а Nginx уже сам решает Railway vs Timeweb
-
-### 3) Подготовить Nginx конфиг (шаблон ниже)
-
-Файл-шаблон лежит в репо: `scripts/timeweb/nginx-failover.conf.template`.
+- `curl http://127.0.0.1:4000/health`
 
 ---
 
-## Переменные окружения (env): где что хранится
+## 3) Переменные окружения (env): где что хранится
 
-Важно: у вас сейчас переменные “размазаны” по платформам, и это нормально.
-
-- **Railway**: переменные лежат в UI (`Variables`). Это и есть ваш “.env”, просто в панели.
-- **Vercel**: переменные тоже лежат в UI (`Settings → Environment Variables`), и для Vite важны только `VITE_*` (они **вшиваются в сборку**).
-- **Timeweb VPS**: переменные читаются из файлов:
+- **Railway**: `Project → Variables` (это ваш “.env” в панели).
+- **Vercel**: `Project → Settings → Environment Variables` (для Vite важны только `VITE_*`, они вшиваются в сборку).
+- **Timeweb VPS**: файлы:
   - backend: `/opt/mariko-app/backend/server/.env`
   - bot: `/opt/mariko-app/backend/bot/.env`
 
-### Что именно переносить с Railway на Timeweb
+Что переносить с Railway на Timeweb:
+- `ADMIN_TELEGRAM_IDS` → и в backend, и в bot
+- `BOT_TOKEN`, `WEBAPP_URL` → только в bot
+- `YANDEX_STORAGE_*` → только в backend
+- `DATABASE_URL` (когда появится общая БД) → в Railway backend и в Timeweb backend
 
-Из ваших Railway `Variables`:
-- `ADMIN_TELEGRAM_IDS` → **и в backend, и в bot**
-- `BOT_TOKEN`, `WEBAPP_URL` → **только в bot**
-- `YANDEX_STORAGE_*` → **только в backend**
-- `DATABASE_URL` (когда появится общая БД) → **и в Railway backend, и в Timeweb backend**
-
-### Как обновлять env на Timeweb (самый простой путь)
-
-1) Локально в репо создайте файлы (они не должны попадать в git):
-   - `backend/server/.env` (скопируйте из `backend/server/.env.example`)
-   - `backend/bot/.env` (скопируйте из `backend/bot/.env.example`)
-2) Вставьте туда значения из Railway/Vercel (не “пример”, а реальные).
-3) Залейте env на сервер:
-   - `DEPLOY_ENV_FILE=.env.deploy bash scripts/push-env.sh`
-4) Примените изменения (перезапуск pm2):
-   - `DEPLOY_ENV_FILE=.env.deploy bash scripts/deploy-local.sh`
-   - или вручную на сервере: `pm2 restart cart-server --update-env && pm2 restart hachapuri-bot --update-env`
-
-⚠️ Если вы “засветили” токены/ключи (например, `BOT_TOKEN`) в скриншотах — лучше перевыпустить их и заменить везде.
+⚠️ Если токены/ключи светились (например, `BOT_TOKEN`) — лучше перевыпустить и заменить.
 
 ---
 
-## Когда появится постоянный домен (порядок действий)
+## 4) Когда появится постоянный домен (включаем настоящий failover)
 
-1) В панели регистратора домена (у вас сейчас Timeweb) настроить DNS:
-   - `A` запись для корня домена (и `www`, если нужно) → IP вашего Timeweb сервера
-2) На Timeweb выпустить бесплатный TLS сертификат (Let’s Encrypt) для домена
-3) Поставить Nginx конфиг failover и перезапустить Nginx
-4) В Vercel переменные окружения фронта выставить так, чтобы API шёл на домен (см. выше)
-5) В боте выставить `WEBAPP_URL=https://<ваш-домен>`
+### Шаг 1 — DNS (в панели регистратора домена)
+
+Сделай `A` запись:
+- `@` → `IP_TIMEWEB`
+- `www` → `IP_TIMEWEB` (если хотите `www.`)
+
+### Шаг 2 — Сертификат (Let’s Encrypt)
+
+На Timeweb выпусти SSL для домена (через certbot).  
+После выпуска, у тебя появятся файлы вида:
+- `/etc/letsencrypt/live/<домен>/fullchain.pem`
+- `/etc/letsencrypt/live/<домен>/privkey.pem`
+
+### Шаг 3 — Поставить Nginx gateway‑конфиг с auto‑failover
+
+Шаблон в репо: `scripts/timeweb/nginx-failover.conf.template`
+
+Нужно заменить плейсхолдеры:
+- `__DOMAIN__` → ваш домен
+- `__VERCEL_ORIGIN__` → домен Vercel (например `mariko-vld.vercel.app`)
+- `__RAILWAY_ORIGIN__` → домен Railway backend (например `hm-projecttt-xxx.up.railway.app`)
+- `__FALLBACK_WEB_ROOT__` → `/var/www/html`
+- `__LOCAL_API_PORT__` → `4010`
+
+Дальше на сервере:
+- положить конфиг в `/etc/nginx/sites-available/`
+- включить symlink в `/etc/nginx/sites-enabled/`
+- `nginx -t && systemctl reload nginx`
+
+### Шаг 4 — Очень важно: обновить Vercel env (иначе всё сломается)
+
+Пока домена нет — **не трогай** Vercel переменные, которые указывают на Railway.
+
+После того как домен ведёт на Timeweb и Nginx настроен:
+- в Vercel поставь `VITE_SERVER_API_URL=/api` (или вообще не задавай)
+- убери/не используй `VITE_CART_API_URL`, `VITE_CART_RECALC_URL`, `VITE_CART_ORDERS_URL`, которые указывают на `*.up.railway.app`
+
+Смысл: фронт должен ходить на `https://<домен>/api/...`, а Nginx уже сам решает Railway vs Timeweb.
+
+### Шаг 5 — Обновить Railway bot env
+
+В Railway (bot service):
+- `WEBAPP_URL=https://<домен>`
+- `PROFILE_SYNC_URL=https://<домен>/api/cart/profile/sync` (если используете)
 
 ---
 
-## Когда база переедет в Yandex Managed Postgres
+## 5) Когда база переедет в Yandex Managed Postgres
 
-Это критично для “полного спасения”.
+Это нужно для “полного спасения” (заказы/админка/сохранение данных).
 
-После переезда БД:
-1) Один и тот же `DATABASE_URL` (Yandex) прописать:
+После переезда:
+1) Один и тот же `DATABASE_URL` прописать:
    - в Railway backend
    - в Timeweb backend
-2) Проверить, что оба backend’а отвечают на `/health` и реально работают с БД
-
-Важный нюанс: если вы хотите ограничивать доступ к Postgres по IP (allow-list), то Railway может быть проблемой (часто нет статического исходящего IP). Это нужно учесть при настройке Yandex PG.
+2) Проверить:
+   - `curl http://127.0.0.1:4010/health` на Timeweb → `database:true`
 
 ---
 
-## Тест failover (после настройки домена)
+## 6) Тест failover (после домена)
 
-1) Проверить “нормальный режим”:
+1) “Нормально работает”:
    - открыть `https://<домен>/`
    - `curl -i https://<домен>/api/cart/health`
-2) Сымитировать падение Vercel (временно подставить неправильный `VERCEL_ORIGIN` в конфиге) → сайт должен открываться с Timeweb статики
-3) Сымитировать падение Railway (временно подставить неправильный `RAILWAY_ORIGIN`) → API должен уходить в локальный backend на Timeweb
+2) Проверить падение Vercel:
+   - временно сломать `__VERCEL_ORIGIN__` в Nginx конфиге → сайт должен открыться со статики Timeweb
+3) Проверить падение Railway:
+   - временно сломать `__RAILWAY_ORIGIN__` в Nginx конфиге → `/api/` должен уйти на `127.0.0.1:4010`
+
+После теста вернуть правильные значения и перезагрузить Nginx.
