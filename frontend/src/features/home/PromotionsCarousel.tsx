@@ -95,14 +95,6 @@ export const PromotionsCarousel = ({
 
   return (
     <div className="relative w-full mx-auto">
-      <div className="mb-3 flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <span className="font-el-messiri text-lg md:text-xl font-semibold text-white drop-shadow">
-            Акции
-          </span>
-        </div>
-      </div>
-
       <div
         className="relative w-full select-none overflow-hidden rounded-[20px] border border-white/20 bg-white/10 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-lg"
         style={{ touchAction: "pan-y" }}
