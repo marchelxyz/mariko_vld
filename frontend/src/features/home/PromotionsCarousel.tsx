@@ -100,7 +100,7 @@ export const PromotionsCarousel = ({
             <div className="absolute -left-16 -top-20 h-40 w-40 rounded-full bg-mariko-primary/35 blur-[70px]" />
             <div className="absolute -right-10 bottom-[-60px] h-36 w-36 rounded-full bg-white/15 blur-[55px]" />
           </div>
-          <div className="aspect-[5/3] md:h-[172px] md:w-[287px] lg:h-[172px] lg:w-[287px] md:aspect-auto w-full animate-pulse bg-white/5 rounded-[18px] mx-auto" />
+          <div className="aspect-[5/3] md:h-[220px] md:w-[367px] lg:h-[220px] lg:w-[367px] md:aspect-auto w-full animate-pulse bg-white/5 rounded-[18px] mx-auto" />
         </div>
       </div>
     );
@@ -115,7 +115,7 @@ export const PromotionsCarousel = ({
             <div className="absolute -left-16 -top-20 h-40 w-40 rounded-full bg-mariko-primary/35 blur-[70px]" />
             <div className="absolute -right-10 bottom-[-60px] h-36 w-36 rounded-full bg-white/15 blur-[55px]" />
           </div>
-          <div className="aspect-[5/3] md:h-[172px] md:w-[287px] lg:h-[172px] lg:w-[287px] md:aspect-auto w-full flex items-center justify-center text-white/50 text-sm mx-auto">
+          <div className="aspect-[5/3] md:h-[220px] md:w-[367px] lg:h-[220px] lg:w-[367px] md:aspect-auto w-full flex items-center justify-center text-white/50 text-sm mx-auto">
             Акций пока нет
           </div>
         </div>
@@ -292,7 +292,7 @@ const PromotionSlideCard = ({
     <button
       type="button"
       onClick={onClick}
-      className="relative block w-full overflow-hidden rounded-[18px] text-left aspect-[5/3] md:h-[172px] md:w-[287px] lg:h-[172px] lg:w-[287px] md:aspect-auto"
+      className="relative block w-full overflow-hidden rounded-[18px] text-left aspect-[5/3] md:h-[220px] md:w-[367px] lg:h-[220px] lg:w-[367px] md:aspect-auto"
     >
       {resolvedUrl && !failed ? (
         <img
