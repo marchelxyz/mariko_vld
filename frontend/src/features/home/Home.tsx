@@ -381,7 +381,7 @@ const Index = () => {
               {/* marginLeft и marginRight должны быть равны для симметрии */}
               <div className="hidden md:flex md:flex-row md:items-start md:gap-6" 
                    style={{
-                     maxWidth: 'calc(100vw - var(--app-rail-offset, 0px) - 2 * max(var(--app-rail-offset, 0px), clamp(18px, 5vw, 36px)))',
+                     maxWidth: 'calc(100vw - var(--app-rail-offset, 0px) - 2 * max(var(--app-rail-offset, 0px), clamp(18px, 5vw, 36px)) + 120px)',
                      marginLeft: 'max(var(--app-rail-offset, 0px), clamp(18px, 5vw, 36px))',
                      marginRight: 'max(var(--app-rail-offset, 0px), clamp(18px, 5vw, 36px))'
                    }}>
