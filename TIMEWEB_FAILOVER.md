@@ -82,33 +82,6 @@
 
 ---
 
-## Автодеплой на Timeweb (как на Railway/Vercel)
-
-Идея: на каждый push в `main` GitHub сам заливает свежую “локальную копию” на Timeweb, чтобы failover всегда был актуальным.
-
-В репо добавлен workflow: `.github/workflows/deploy-timeweb.yml`.
-
-### 1) Сделать SSH-ключ для GitHub Actions
-
-На своём компе:
-1) `ssh-keygen -t ed25519 -f ~/.ssh/timeweb_github_actions -C "timeweb-github-actions" -N ""`
-2) Публичный ключ (`~/.ssh/timeweb_github_actions.pub`) добавь на сервер в `/root/.ssh/authorized_keys`
-
-### 2) Добавить Secrets в GitHub
-
-GitHub → `Repo → Settings → Secrets and variables → Actions`:
-- `TIMEWEB_HOST` = `85.198.83.72` (или ваш домен)
-- `TIMEWEB_USER` = `root`
-- `TIMEWEB_SSH_KEY` = содержимое файла `~/.ssh/timeweb_github_actions` (приватный ключ)
-
-### 3) Проверить
-
-GitHub → `Actions` → `Deploy Timeweb fallback`:
-- при push в `main` оно запускается само
-- можно запускать вручную кнопкой `Run workflow`
-
----
-
 ## Когда появится постоянный домен (порядок действий)
 
 1) В панели регистратора домена (у вас сейчас Timeweb) настроить DNS:
