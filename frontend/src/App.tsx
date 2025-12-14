@@ -1,6 +1,7 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
+import RandomBackgroundPattern from "@/components/RandomBackgroundPattern";
 import { DebugGrid } from "@/components/DebugGrid";
 import { AdminProvider, CartProvider, RestaurantProvider, DebugGridProvider } from "@/contexts";
 import { useEnsureUserProfileSync } from "@/hooks";
@@ -9,12 +10,9 @@ import { isActive, onActivated, onDeactivated } from "@/lib/telegram";
 import { Toaster as SonnerToaster } from "@shared/ui/sonner";
 import { Toaster } from "@shared/ui/toaster";
 import { TooltipProvider } from "@shared/ui/tooltip";
-import Index from "./pages/home";
-
-// Lazy-load heavy background to speed up first render
-const RandomBackgroundPattern = lazy(() => import("@/components/RandomBackgroundPattern"));
 
 // Lazy load pages for better code splitting
+const Index = lazy(() => import("./pages/home"));
 const Profile = lazy(() => import("./pages/profile"));
 const EditProfile = lazy(() => import("./pages/editProfile"));
 
@@ -45,7 +43,6 @@ const queryClient = new QueryClient({
 
 function App() {
   useEnsureUserProfileSync();
-  const [showBackground, setShowBackground] = useState(false);
 
   useEffect(() => {
     logger.componentLifecycle('App', 'mount');
@@ -71,33 +68,6 @@ function App() {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    const w = window as Window & {
-      requestIdleCallback?: (cb: () => void, options?: { timeout: number }) => number;
-      cancelIdleCallback?: (id: number) => void;
-    };
-
-    const show = () => {
-      if (cancelled) return;
-      setShowBackground(true);
-    };
-
-    if (typeof w.requestIdleCallback === "function") {
-      const id = w.requestIdleCallback(show, { timeout: 1200 });
-      return () => {
-        cancelled = true;
-        w.cancelIdleCallback?.(id);
-      };
-    }
-
-    const id = window.setTimeout(show, 250);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(id);
-    };
-  }, []);
-
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -105,16 +75,7 @@ function App() {
           <DebugGridProvider>
             <RestaurantProvider>
               <CartProvider>
-                {/* Мгновенный базовый фон, чтобы избежать "белого флэша" до загрузки паттерна */}
-                <div
-                  aria-hidden="true"
-                  className="fixed inset-0 z-[-2] bg-[#830E0E] pointer-events-none"
-                />
-                {showBackground && (
-                  <Suspense fallback={null}>
-                    <RandomBackgroundPattern />
-                  </Suspense>
-                )}
+                <RandomBackgroundPattern />
                 <div className="relative z-[1]">
                   <HashRouter>
                     <Suspense fallback={<></>}>
