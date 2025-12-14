@@ -426,7 +426,7 @@ const Index = () => {
             </div>
 
             {/* Recommended Section */}
-            {selectedCity?.id && (
+            {(isLoadingRecommended || recommendedDishes.length > 0) && (
               <div className="mt-10 md:mt-12 -mx-3 md:-mx-6">
                 {/* Heading bar */}
                 <div className="relative w-full py-3 md:py-4 flex items-center justify-between px-4 md:px-6 mb-4 md:mb-6 rounded-[20px] border border-white/20 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-lg" style={{ backgroundColor: '#963434' }}>
