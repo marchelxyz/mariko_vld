@@ -5,17 +5,18 @@ const logger = createLogger('image-converter');
 
 /**
  * Конфигурация для разных типов изображений
+ * Формат изображений: 4:3
  */
 const IMAGE_CONFIGS = {
   menu: {
     maxWidth: 1200,
-    maxHeight: 1200,
+    maxHeight: 900, // 1200 * 3/4 = 900 (формат 4:3)
     avifQuality: 80,
     webpQuality: 85,
   },
   promotion: {
     maxWidth: 1920,
-    maxHeight: 1080,
+    maxHeight: 1440, // 1920 * 3/4 = 1440 (формат 4:3)
     avifQuality: 85,
     webpQuality: 90,
   },
