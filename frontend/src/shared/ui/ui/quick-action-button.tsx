@@ -7,6 +7,7 @@ interface QuickActionButtonProps {
   onClick?: () => void;
   className?: string;
   highlighted?: boolean;
+  onboardingId?: string;
 }
 
 export const QuickActionButton = ({
@@ -15,6 +16,7 @@ export const QuickActionButton = ({
   onClick,
   className,
   highlighted = false,
+  onboardingId,
 }: QuickActionButtonProps) => {
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     console.log("[QuickActionButton] handleClick вызван", {
@@ -38,6 +40,7 @@ export const QuickActionButton = ({
 
   return (
     <button
+      data-onboarding={onboardingId}
       onClick={handleClick}
       className={cn(
         "flex flex-col items-center font-el-messiri font-semibold transition-transform hover:scale-105 active:scale-95 select-none",

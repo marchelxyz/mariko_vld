@@ -23,7 +23,7 @@ export const Header = ({
 
       {/* Селектор ресторана с адресом под логотипом */}
       {showCitySelector && (
-        <div className="mt-4">
+        <div className="mt-4" data-onboarding="city-selector">
           <AddressCitySelector
             selectedRestaurant={selectedRestaurant}
             onRestaurantChange={setSelectedRestaurant}
