@@ -95,7 +95,7 @@ export const PromotionsCarousel = ({
   if (!slideCount) {
     return (
       <div className="relative w-full mx-auto">
-        <div className="relative w-full select-none overflow-hidden rounded-[20px] border border-white/20 bg-white/10 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-lg aspect-[4/3] md:aspect-[4/3]">
+        <div className="relative w-full select-none overflow-hidden rounded-[20px] border border-white/20 bg-white/10 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-lg aspect-[4/3] md:h-[220px] md:w-[293px] md:aspect-auto lg:h-[220px] lg:w-[293px]">
           <div className="pointer-events-none absolute inset-0">
             <div className="absolute -left-16 -top-20 h-40 w-40 rounded-full bg-mariko-primary/35 blur-[70px]" />
             <div className="absolute -right-10 bottom-[-60px] h-36 w-36 rounded-full bg-white/15 blur-[55px]" />
@@ -115,7 +115,7 @@ export const PromotionsCarousel = ({
   return (
     <div className="relative w-full mx-auto">
       <div
-        className="relative w-full select-none overflow-hidden rounded-[20px] border border-white/20 bg-white/10 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-lg aspect-[4/3] md:aspect-[4/3]"
+        className="relative w-full select-none overflow-hidden rounded-[20px] border border-white/20 bg-white/10 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-lg aspect-[4/3] md:h-[220px] md:w-[293px] md:aspect-auto lg:h-[220px] lg:w-[293px]"
         style={{ touchAction: "pan-y" }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
