@@ -91,22 +91,7 @@ export const PromotionsCarousel = ({
     startXRef.current = null;
   };
 
-  // Показываем скелет при загрузке
-  if (isLoading) {
-    return (
-      <div className="relative w-full mx-auto">
-        <div className="relative w-full select-none overflow-hidden rounded-[20px] border border-white/20 bg-white/10 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-lg">
-          <div className="pointer-events-none absolute inset-0">
-            <div className="absolute -left-16 -top-20 h-40 w-40 rounded-full bg-mariko-primary/35 blur-[70px]" />
-            <div className="absolute -right-10 bottom-[-60px] h-36 w-36 rounded-full bg-white/15 blur-[55px]" />
-          </div>
-          <div className="aspect-[4/3] md:h-[220px] md:w-[293px] lg:h-[220px] lg:w-[293px] md:aspect-auto w-full animate-pulse bg-white/5 rounded-[18px] mx-auto" />
-        </div>
-      </div>
-    );
-  }
-
-  // Если нет слайдов, показываем пустую карусель с placeholder
+  // Если нет слайдов, показываем пустую карусель с placeholder или индикатор загрузки
   if (!slideCount) {
     return (
       <div className="relative w-full mx-auto">
@@ -115,9 +100,13 @@ export const PromotionsCarousel = ({
             <div className="absolute -left-16 -top-20 h-40 w-40 rounded-full bg-mariko-primary/35 blur-[70px]" />
             <div className="absolute -right-10 bottom-[-60px] h-36 w-36 rounded-full bg-white/15 blur-[55px]" />
           </div>
-          <div className="aspect-[4/3] md:h-[220px] md:w-[293px] lg:h-[220px] lg:w-[293px] md:aspect-auto w-full flex items-center justify-center text-white/50 text-sm mx-auto">
-            Акций пока нет
-          </div>
+          {isLoading ? (
+            <div className="aspect-[4/3] md:h-[220px] md:w-[293px] lg:h-[220px] lg:w-[293px] md:aspect-auto w-full animate-pulse bg-white/5 rounded-[18px] mx-auto" />
+          ) : (
+            <div className="aspect-[4/3] md:h-[220px] md:w-[293px] lg:h-[220px] lg:w-[293px] md:aspect-auto w-full flex items-center justify-center text-white/50 text-sm mx-auto">
+              Акций пока нет
+            </div>
+          )}
         </div>
       </div>
     );
