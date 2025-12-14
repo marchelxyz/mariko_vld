@@ -13,28 +13,8 @@ export function useBookingSlotsPrefetch(selectedRestaurant: Restaurant | null) {
   const prefetchAbortControllerRef = useRef<AbortController | null>(null);
   const prefetchedRestaurantIdRef = useRef<string | null>(null);
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const idleCancelRef = useRef<(() => void) | null>(null);
-
-  const scheduleIdle = (cb: () => void, timeout: number) => {
-    const w = window as Window & {
-      requestIdleCallback?: (cb: () => void, options?: { timeout: number }) => number;
-      cancelIdleCallback?: (id: number) => void;
-    };
-
-    if (typeof w.requestIdleCallback === "function") {
-      const id = w.requestIdleCallback(cb, { timeout });
-      return () => w.cancelIdleCallback?.(id);
-    }
-
-    const id = window.setTimeout(cb, Math.min(450, timeout));
-    return () => window.clearTimeout(id);
-  };
 
   const prefetchSlots = (restaurant: Restaurant) => {
-    if (typeof document !== "undefined" && document.visibilityState === "hidden") {
-      return;
-    }
-
     // Отменяем предыдущий запрос, если он еще выполняется
     if (prefetchAbortControllerRef.current) {
       prefetchAbortControllerRef.current.abort();
@@ -98,8 +78,6 @@ export function useBookingSlotsPrefetch(selectedRestaurant: Restaurant | null) {
     // Проверяем, что ресторан выбран и у него настроено бронирование
     if (!selectedRestaurant?.remarkedRestaurantId) {
       prefetchedRestaurantIdRef.current = null;
-      idleCancelRef.current?.();
-      idleCancelRef.current = null;
       // Очищаем интервал обновления
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current);
@@ -121,8 +99,7 @@ export function useBookingSlotsPrefetch(selectedRestaurant: Restaurant | null) {
     }
 
     // Первая загрузка
-    idleCancelRef.current?.();
-    idleCancelRef.current = scheduleIdle(() => prefetchSlots(selectedRestaurant), 1600);
+    prefetchSlots(selectedRestaurant);
 
     // Устанавливаем интервал обновления каждую минуту
     refreshIntervalRef.current = setInterval(() => {
@@ -130,8 +107,6 @@ export function useBookingSlotsPrefetch(selectedRestaurant: Restaurant | null) {
     }, 60 * 1000); // 1 минута
 
     return () => {
-      idleCancelRef.current?.();
-      idleCancelRef.current = null;
       if (prefetchAbortControllerRef.current) {
         prefetchAbortControllerRef.current.abort();
       }

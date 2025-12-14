@@ -29,7 +29,6 @@ const Index = () => {
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
   const [cityChangedFlash, setCityChangedFlash] = useState(false);
   const prevCityIdRef = useRef<string | null>(null);
-  const routePrefetchStartedRef = useRef(false);
   const [promotions, setPromotions] = useState<PromotionSlide[]>([]);
   const [isLoadingPromotions, setIsLoadingPromotions] = useState(true);
   const [recommendedDishes, setRecommendedDishes] = useState<MenuItem[]>([]);
@@ -37,83 +36,6 @@ const Index = () => {
 
   // Предзагрузка слотов бронирования в фоновом режиме
   useBookingSlotsPrefetch(selectedRestaurant);
-
-  // Предзагрузка основных страниц, пока пользователь на главной.
-  // Приоритет: Профиль → редактирование → заказы/меню/доставка/бронирование → прочее.
-  useEffect(() => {
-    if (!selectedRestaurant?.id) return;
-    if (routePrefetchStartedRef.current) return;
-    routePrefetchStartedRef.current = true;
-
-    if (typeof window === "undefined") return;
-
-    const connection = (navigator as Navigator & {
-      connection?: { saveData?: boolean; effectiveType?: string };
-    }).connection;
-
-    const effectiveType = connection?.effectiveType ?? "";
-    if (connection?.saveData || effectiveType === "2g" || effectiveType === "slow-2g") {
-      return;
-    }
-
-    let cancelled = false;
-    const w = window as Window & {
-      requestIdleCallback?: (cb: () => void, options?: { timeout: number }) => number;
-      cancelIdleCallback?: (id: number) => void;
-    };
-
-    const scheduleIdle = (cb: () => void, timeout: number) => {
-      if (typeof w.requestIdleCallback === "function") {
-        const id = w.requestIdleCallback(cb, { timeout });
-        return () => w.cancelIdleCallback?.(id);
-      }
-      const id = window.setTimeout(cb, Math.min(400, timeout));
-      return () => window.clearTimeout(id);
-    };
-
-    const prefetch = async (importer: () => Promise<unknown>) => {
-      try {
-        await importer();
-      } catch {
-        // ignore
-      }
-    };
-
-    const queue: Array<() => Promise<unknown>> = [
-      () => import("@/pages/profile"),
-      () => import("@/pages/editProfile"),
-      () => import("@/pages/orders"),
-      () => import("@/pages/menu"),
-      () => import("@/pages/delivery"),
-      () => import("@/pages/booking"),
-      () => import("@/pages/about"),
-      () => import("@/pages/review"),
-      () => import("@/pages/selectRestaurantReview"),
-      () => import("@/pages/restaurants"),
-      () => import("@/pages/webview"),
-      () => import("@/pages/orderSuccess"),
-    ];
-
-    let index = 0;
-    const cancels: Array<() => void> = [];
-
-    const runNext = () => {
-      if (cancelled) return;
-      const importer = queue[index++];
-      if (!importer) return;
-      void prefetch(importer).finally(() => {
-        if (cancelled) return;
-        cancels.push(scheduleIdle(runNext, 1600));
-      });
-    };
-
-    cancels.push(scheduleIdle(runNext, 900));
-
-    return () => {
-      cancelled = true;
-      cancels.forEach((cancel) => cancel());
-    };
-  }, [selectedRestaurant?.id]);
 
   const handleBookingClick = () => {
     console.log("[Booking] handleBookingClick вызван", {
