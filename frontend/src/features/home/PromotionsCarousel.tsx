@@ -101,9 +101,9 @@ export const PromotionsCarousel = ({
             <div className="absolute -right-10 bottom-[-60px] h-36 w-36 rounded-full bg-white/15 blur-[55px]" />
           </div>
           {isLoading ? (
-            <div className="aspect-[4/3] md:h-[220px] md:w-[293px] lg:h-[220px] lg:w-[293px] md:aspect-auto w-full animate-pulse bg-white/5 rounded-[18px] mx-auto" />
+            <div className="w-full h-full animate-pulse bg-white/5 rounded-[18px] mx-auto" />
           ) : (
-            <div className="aspect-[4/3] md:h-[220px] md:w-[293px] lg:h-[220px] lg:w-[293px] md:aspect-auto w-full flex items-center justify-center text-white/50 text-sm mx-auto">
+            <div className="w-full h-full flex items-center justify-center text-white/50 text-sm mx-auto">
               Акций пока нет
             </div>
           )}
@@ -115,7 +115,7 @@ export const PromotionsCarousel = ({
   return (
     <div className="relative w-full mx-auto">
       <div
-        className="relative w-full select-none overflow-hidden rounded-[20px] border border-white/20 bg-white/10 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-lg"
+        className="relative w-full aspect-[4/3] select-none overflow-hidden rounded-[20px] border border-white/20 bg-white/10 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-lg"
         style={{ touchAction: "pan-y" }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -135,7 +135,7 @@ export const PromotionsCarousel = ({
         </div>
 
         <div
-          className="flex transition-transform duration-500 ease-in-out"
+          className="absolute inset-0 flex transition-transform duration-500 ease-in-out"
           style={{
             width: `${slideCount * 100}%`,
             transform:
@@ -147,7 +147,7 @@ export const PromotionsCarousel = ({
           {promotions.map((promotion) => (
             <div
               key={promotion.id}
-              className="flex-shrink-0"
+              className="flex-shrink-0 h-full"
               style={{ width: `${100 / slideCount}%` }}
             >
               <PromotionSlideCard
@@ -281,7 +281,7 @@ const PromotionSlideCard = ({
     <button
       type="button"
       onClick={onClick}
-      className="relative block w-full overflow-hidden rounded-[18px] text-left aspect-[4/3] md:h-[220px] md:w-[293px] lg:h-[220px] lg:w-[293px] md:aspect-auto"
+      className="relative block w-full h-full overflow-hidden rounded-[18px] text-left"
     >
       {resolvedUrl && !failed ? (
         <img
