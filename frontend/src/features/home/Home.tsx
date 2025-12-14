@@ -175,7 +175,6 @@ const Index = () => {
     let cancelled = false;
     if (!selectedCity?.id) {
       setRecommendedDishes([]);
-      setIsLoadingRecommended(false);
       return;
     }
 
@@ -183,15 +182,8 @@ const Index = () => {
     fetchRecommendedDishes(selectedCity.id)
       .then((dishes) => {
         if (cancelled) return;
-        console.log("[Home] Загружены рекомендуемые блюда:", { 
-          cityId: selectedCity.id, 
-          count: dishes?.length ?? 0,
-          dishes: dishes 
-        });
         if (!dishes || dishes.length === 0) {
-          console.log("[Home] Нет рекомендуемых блюд для города:", selectedCity.id);
           setRecommendedDishes([]);
-          setIsLoadingRecommended(false);
           return;
         }
         // Перемешиваем блюда при каждом визите
@@ -206,18 +198,16 @@ const Index = () => {
             count = 3;
           }
         }
-        const finalDishes = shuffled.slice(0, Math.min(count, shuffled.length));
-        console.log("[Home] Установлены рекомендуемые блюда для отображения:", { 
-          count: finalDishes.length,
-          finalDishes 
-        });
-        setRecommendedDishes(finalDishes);
-        setIsLoadingRecommended(false);
+        setRecommendedDishes(shuffled.slice(0, Math.min(count, shuffled.length)));
       })
       .catch((error) => {
-        console.error("[Home] Ошибка загрузки рекомендуемых блюд:", error);
+        console.error("Ошибка загрузки рекомендуемых блюд:", error);
         if (!cancelled) {
           setRecommendedDishes([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
           setIsLoadingRecommended(false);
         }
       });
@@ -426,7 +416,7 @@ const Index = () => {
             </div>
 
             {/* Recommended Section */}
-            {(isLoadingRecommended || recommendedDishes.length > 0) && (
+            {recommendedDishes.length > 0 && (
               <div className="mt-10 md:mt-12 -mx-3 md:-mx-6">
                 {/* Heading bar */}
                 <div className="relative w-full py-3 md:py-4 flex items-center justify-between px-4 md:px-6 mb-4 md:mb-6 rounded-[20px] border border-white/20 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-lg" style={{ backgroundColor: '#963434' }}>
@@ -443,7 +433,7 @@ const Index = () => {
                 <div className="px-3 md:px-6 mb-16 md:mb-20">
                   {isLoadingRecommended ? (
                     <div className="text-center py-8 text-gray-500">Загрузка рекомендаций...</div>
-                  ) : recommendedDishes.length > 0 ? (
+                  ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
                       {recommendedDishes.map((item) => (
                         <div key={item.id}>
@@ -466,8 +456,6 @@ const Index = () => {
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">Рекомендации пока не добавлены</div>
                   )}
                 </div>
               </div>
