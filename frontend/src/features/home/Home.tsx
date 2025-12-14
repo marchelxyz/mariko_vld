@@ -20,6 +20,7 @@ import { safeOpenLink, storage } from "@/lib/telegram";
 import { fetchPromotions } from "@shared/api/promotionsApi";
 import { fetchRecommendedDishes } from "@shared/api/recommendedDishesApi";
 import { useBookingSlotsPrefetch } from "@shared/hooks";
+import { FirstRunTour } from "@/features/onboarding";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -235,6 +236,7 @@ const Index = () => {
 
   return (
     <div className="app-screen overflow-hidden bg-transparent">
+      <FirstRunTour enabled={Boolean(selectedRestaurant?.id)} />
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
       <div className="bg-transparent pb-5 md:pb-6 relative">
         <Header showCitySelector={true} />
@@ -255,6 +257,7 @@ const Index = () => {
                 <QuickActionButton
                   icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
                   title="Бронь столика"
+                  onboardingId="booking"
                   highlighted={cityChangedFlash}
                   onClick={() => {
                     console.log("[Home] QuickActionButton onClick вызван напрямую");
