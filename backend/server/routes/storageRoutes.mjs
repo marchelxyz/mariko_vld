@@ -4,6 +4,12 @@ import { randomUUID } from "crypto";
 import { createLogger } from "../utils/logger.mjs";
 import { ADMIN_PERMISSION, authoriseAdmin, resolveAllowedCitiesByRestaurants } from "../services/adminService.mjs";
 import { uploadFile, listFiles, deleteFile, isStorageConfigured } from "../services/storageService.mjs";
+import { 
+  convertToBothFormats, 
+  shouldConvertImage, 
+  getAvifMimeType, 
+  getWebpMimeType 
+} from "../services/imageConverter.mjs";
 
 const logger = createLogger('storage-routes');
 
@@ -83,19 +89,50 @@ export function createStorageRouter() {
 
     try {
       // Генерируем уникальное имя файла
-      const fileExtension = req.file.originalname.split('.').pop() || 'jpg';
-      const fileName = `${randomUUID()}.${fileExtension}`;
-      const key = `menu/restaurant-${restaurantId}/${fileName}`;
+      const fileId = randomUUID();
+      const baseKey = `menu/restaurant-${restaurantId}/${fileId}`;
 
-      // Загружаем файл в хранилище
-      const url = await uploadFile(req.file.buffer, key, req.file.mimetype);
+      let url, key, webpUrl, webpKey;
+
+      // Проверяем, нужно ли конвертировать изображение
+      if (shouldConvertImage(req.file.mimetype)) {
+        logger.debug('Конвертация изображения меню', { 
+          mimetype: req.file.mimetype, 
+          originalSize: req.file.buffer.length 
+        });
+
+        // Конвертируем в AVIF и WebP
+        const { avif, webp } = await convertToBothFormats(req.file.buffer, baseKey);
+
+        // Сохраняем AVIF версию (основная)
+        key = `${baseKey}.avif`;
+        url = await uploadFile(avif, key, getAvifMimeType());
+
+        // Сохраняем WebP версию (fallback для старых браузеров)
+        webpKey = `${baseKey}.webp`;
+        webpUrl = await uploadFile(webp, webpKey, getWebpMimeType());
+
+        logger.info('Изображение меню конвертировано и загружено', {
+          avifSize: avif.length,
+          webpSize: webp.length,
+          originalSize: req.file.buffer.length,
+        });
+      } else {
+        // Если формат не поддерживается для конвертации, загружаем как есть
+        const fileExtension = req.file.originalname.split('.').pop() || 'jpg';
+        key = `${baseKey}.${fileExtension}`;
+        url = await uploadFile(req.file.buffer, key, req.file.mimetype);
+        logger.debug('Изображение меню загружено без конвертации', { mimetype: req.file.mimetype });
+      }
 
       const duration = Date.now() - startTime;
       logger.requestSuccess('POST', '/menu/:restaurantId', duration, 200);
       return res.json({ 
         success: true, 
-        url,
-        key,
+        url, // AVIF URL (или оригинальный, если не конвертировалось)
+        key, // AVIF key (или оригинальный)
+        webpUrl, // WebP URL (если была конвертация)
+        webpKey, // WebP key (если была конвертация)
       });
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -146,7 +183,11 @@ export function createStorageRouter() {
 
       const files = await listFiles(prefix);
       
-      const assets = files.map((file) => ({
+      // Фильтруем файлы: показываем только AVIF версии (основные),
+      // WebP версии скрываем, так как они используются только для fallback
+      const filteredFiles = files.filter((file) => !file.key.endsWith('.webp'));
+      
+      const assets = filteredFiles.map((file) => ({
         path: file.key,
         url: file.url,
         size: file.size,
@@ -211,19 +252,50 @@ export function createStorageRouter() {
 
     try {
       // Генерируем уникальное имя файла
-      const fileExtension = req.file.originalname.split('.').pop() || 'jpg';
-      const fileName = `${randomUUID()}.${fileExtension}`;
-      const key = `promotions/city-${cityId}/${fileName}`;
+      const fileId = randomUUID();
+      const baseKey = `promotions/city-${cityId}/${fileId}`;
 
-      // Загружаем файл в хранилище
-      const url = await uploadFile(req.file.buffer, key, req.file.mimetype);
+      let url, key, webpUrl, webpKey;
+
+      // Проверяем, нужно ли конвертировать изображение
+      if (shouldConvertImage(req.file.mimetype)) {
+        logger.debug('Конвертация изображения акции', { 
+          mimetype: req.file.mimetype, 
+          originalSize: req.file.buffer.length 
+        });
+
+        // Конвертируем в AVIF и WebP
+        const { avif, webp } = await convertToBothFormats(req.file.buffer, baseKey);
+
+        // Сохраняем AVIF версию (основная)
+        key = `${baseKey}.avif`;
+        url = await uploadFile(avif, key, getAvifMimeType());
+
+        // Сохраняем WebP версию (fallback для старых браузеров)
+        webpKey = `${baseKey}.webp`;
+        webpUrl = await uploadFile(webp, webpKey, getWebpMimeType());
+
+        logger.info('Изображение акции конвертировано и загружено', {
+          avifSize: avif.length,
+          webpSize: webp.length,
+          originalSize: req.file.buffer.length,
+        });
+      } else {
+        // Если формат не поддерживается для конвертации, загружаем как есть
+        const fileExtension = req.file.originalname.split('.').pop() || 'jpg';
+        key = `${baseKey}.${fileExtension}`;
+        url = await uploadFile(req.file.buffer, key, req.file.mimetype);
+        logger.debug('Изображение акции загружено без конвертации', { mimetype: req.file.mimetype });
+      }
 
       const duration = Date.now() - startTime;
       logger.requestSuccess('POST', '/promotions/:cityId', duration, 200);
       return res.json({ 
         success: true, 
-        url,
-        key,
+        url, // AVIF URL (или оригинальный, если не конвертировалось)
+        key, // AVIF key (или оригинальный)
+        webpUrl, // WebP URL (если была конвертация)
+        webpKey, // WebP key (если была конвертация)
       });
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -281,7 +353,11 @@ export function createStorageRouter() {
 
       const files = await listFiles(prefix);
       
-      const assets = files.map((file) => ({
+      // Фильтруем файлы: показываем только AVIF версии (основные),
+      // WebP версии скрываем, так как они используются только для fallback
+      const filteredFiles = files.filter((file) => !file.key.endsWith('.webp'));
+      
+      const assets = filteredFiles.map((file) => ({
         path: file.key,
         url: file.url,
         size: file.size,
@@ -352,7 +428,31 @@ export function createStorageRouter() {
     }
 
     try {
+      // Удаляем основной файл
       await deleteFile(key);
+
+      // Если удаляется AVIF файл, также удаляем соответствующий WebP файл
+      if (key.endsWith('.avif')) {
+        const webpKey = key.replace('.avif', '.webp');
+        try {
+          await deleteFile(webpKey);
+          logger.debug('Удален WebP fallback файл', { webpKey });
+        } catch (webpError) {
+          // Игнорируем ошибку, если WebP файл не существует
+          logger.debug('WebP файл не найден при удалении', { webpKey, error: webpError.message });
+        }
+      }
+      // Если удаляется WebP файл, также удаляем соответствующий AVIF файл
+      else if (key.endsWith('.webp')) {
+        const avifKey = key.replace('.webp', '.avif');
+        try {
+          await deleteFile(avifKey);
+          logger.debug('Удален AVIF файл', { avifKey });
+        } catch (avifError) {
+          // Игнорируем ошибку, если AVIF файл не существует
+          logger.debug('AVIF файл не найден при удалении', { avifKey, error: avifError.message });
+        }
+      }
 
       const duration = Date.now() - startTime;
       logger.requestSuccess('DELETE', '/:key', duration, 200);
