@@ -11,68 +11,36 @@
 
 ---
 
-## Получение IP адреса Railway
+## Получение домена Railway (не IP адреса!)
 
-Railway не предоставляет статический IP адрес. IP адреса динамические и могут изменяться при перезапуске сервиса. Однако, для некоторых задач (например, настройка firewall или ограничение доступа к БД) может понадобиться узнать текущий IP адрес.
+⚠️ **Важно:** Railway использует динамические IP адреса, которые меняются при перезапуске. Для подключения домена **используйте доменное имя Railway**, а не IP адрес. Подробное объяснение см. в [`RAILWAY_DOMAIN_EXPLAINED.md`](./RAILWAY_DOMAIN_EXPLAINED.md).
 
-### Способ 1: Автоматический скрипт (рекомендуется)
-
-```bash
-# Убедитесь, что Railway CLI установлен и вы авторизованы
-npm i -g @railway/cli
-railway login
-railway link
-
-# Запустите скрипт
-bash scripts/get-railway-ip.sh
-```
-
-Скрипт автоматически:
-- Получает домен Railway через CLI
-- Определяет IP адрес через DNS запрос
-- Выводит результат с предупреждением о динамическом IP
-
-### Способ 2: Указать домен вручную
-
-Если у вас уже есть домен Railway:
-
-```bash
-bash scripts/get-railway-ip.sh backend.up.railway.app
-```
-
-### Способ 3: Через DNS запрос
-
-```bash
-# Установите dnsutils (если нужно)
-sudo apt-get install dnsutils  # Ubuntu/Debian
-sudo yum install bind-utils    # CentOS/RHEL
-
-# Получите IP
-dig +short backend.up.railway.app
-```
-
-### Способ 4: Через Railway Dashboard
+### Как получить домен Railway:
 
 1. Откройте [Railway Dashboard](https://railway.app)
-2. Выберите ваш проект и сервис (например, backend)
-3. Перейдите в **Settings** → **Networking**
-4. Скопируйте домен (например: `backend.up.railway.app`)
-5. Используйте один из способов выше для получения IP
+2. Выберите ваш проект
+3. Выберите сервис (например, backend)
+4. Перейдите в **Settings** → **Networking**
+5. Скопируйте домен (например: `backend.up.railway.app`)
 
-### ⚠️ Важные замечания
+Этот домен вам понадобится для настройки Nginx на Timeweb.
 
-- **IP адрес динамический** — может измениться при перезапуске сервиса
-- **Для подключения домена лучше использовать доменное имя Railway**, а не IP адрес
-- IP адрес может понадобиться для:
-  - Настройки firewall правил
-  - Ограничения доступа к базе данных (Yandex Managed PostgreSQL)
-  - Отладки сетевых подключений
+### Когда может понадобиться IP адрес?
+
+IP адрес Railway может понадобиться только для:
+- Настройки firewall правил
+- Ограничения доступа к базе данных (Yandex Managed PostgreSQL)
+- Отладки сетевых подключений
+
+Но для подключения домена IP адрес **не нужен** — используйте доменное имя Railway через проксирование на Timeweb.
 
 ---
 
 ## Подключение домена к Railway
 
 ### Вариант 1: Прямое подключение домена к Railway (без failover)
+
+⚠️ **Не рекомендуется** для production, так как нет автоматического переключения на запасной сервер при проблемах.
 
 1. **В Railway Dashboard:**
    - Откройте ваш проект → выберите сервис
@@ -84,9 +52,7 @@ dig +short backend.up.railway.app
    - Создайте **CNAME** запись:
      - Имя: `api` (или `@` для корневого домена)
      - Значение: `backend.up.railway.app` (ваш домен Railway)
-   - Или **A** запись (если CNAME не поддерживается):
-     - Имя: `api`
-     - Значение: IP адрес Railway (получите через скрипт выше)
+     - TTL: `3600` (или по умолчанию)
 
 3. **Ожидайте распространения DNS** (обычно 5-60 минут)
 
@@ -123,13 +89,12 @@ dig +short backend.up.railway.app
 
 #### Шаг 2: Получите домен Railway
 
-```bash
-# Через скрипт
-bash scripts/get-railway-ip.sh
+1. Откройте [Railway Dashboard](https://railway.app)
+2. Выберите ваш проект → сервис backend
+3. Перейдите в **Settings** → **Networking**
+4. Скопируйте домен Railway (например: `backend.up.railway.app`)
 
-# Или через Railway Dashboard
-# Settings → Networking → скопируйте домен
-```
+Этот домен понадобится для настройки Nginx на Timeweb.
 
 #### Шаг 3: Настройте DNS записи
 
@@ -147,38 +112,38 @@ bash scripts/get-railway-ip.sh
 
 #### Шаг 4: Настройте Nginx на Timeweb
 
+⚠️ **Важно:** Для настройки Nginx на Timeweb вам понадобится доступ к серверу через SSH или веб-панель управления сервером.
+
 1. **Выпустите SSL сертификат** (Let's Encrypt):
 
-```bash
-ssh root@<IP_TIMEWEB>
-certbot certonly --standalone -d example.com -d www.example.com
-```
+   Если у вас есть доступ к веб-панели Timeweb с управлением SSL:
+   - Найдите раздел "SSL сертификаты" или "Let's Encrypt"
+   - Добавьте сертификат для вашего домена
+   - Сертификат будет автоматически установлен
+
+   Если доступен только SSH, используйте веб-панель управления сервером или обратитесь в поддержку Timeweb.
 
 2. **Создайте конфигурацию Nginx:**
 
-Используйте шаблон из репозитория:
+   Откройте файл `scripts/timeweb/nginx-failover.conf.template` в репозитории и скопируйте его содержимое.
 
-```bash
-# На вашем компьютере
-cd /workspace
-cp scripts/timeweb/nginx-failover.conf.template /tmp/nginx-failover.conf
-```
-
-Отредактируйте файл, заменив плейсхолдеры:
-- `__DOMAIN__` → ваш домен (например: `example.com`)
-- `__VERCEL_ORIGIN__` → домен Vercel (например: `mariko-vld.vercel.app`)
-- `__RAILWAY_ORIGIN__` → домен Railway (например: `backend.up.railway.app`)
-- `__FALLBACK_WEB_ROOT__` → `/var/www/html`
-- `__LOCAL_API_PORT__` → `4010`
+   Замените в тексте следующие значения:
+   - `__DOMAIN__` → ваш домен (например: `example.com`)
+   - `__VERCEL_ORIGIN__` → домен Vercel (например: `mariko-vld.vercel.app`)
+   - `__RAILWAY_ORIGIN__` → домен Railway (например: `backend.up.railway.app`) — **используйте доменное имя, а не IP!**
+   - `__FALLBACK_WEB_ROOT__` → `/var/www/html`
+   - `__LOCAL_API_PORT__` → `4010`
 
 3. **Загрузите конфигурацию на сервер:**
 
-```bash
-scp /tmp/nginx-failover.conf root@<IP_TIMEWEB>:/etc/nginx/sites-available/example.com
-ssh root@<IP_TIMEWEB>
-ln -s /etc/nginx/sites-available/example.com /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
-```
+   Через веб-панель управления сервером Timeweb:
+   - Найдите раздел "Файловый менеджер" или "Nginx конфигурация"
+   - Создайте файл конфигурации в `/etc/nginx/sites-available/` (например: `example.com`)
+   - Вставьте отредактированный текст конфигурации
+   - Создайте симлинк в `/etc/nginx/sites-enabled/` (или включите сайт через панель управления)
+   - Перезагрузите Nginx через панель управления
+
+   Если у вас есть доступ к SSH, обратитесь к разделу "Проверка работы" в [`TIMEWEB_FAILOVER.md`](./TIMEWEB_FAILOVER.md).
 
 #### Шаг 5: Разверните запасной сервер на Timeweb
 
@@ -198,48 +163,41 @@ nginx -t && systemctl reload nginx
 
 ### Проверка DNS записей
 
-```bash
-# Проверка A записи
-dig example.com +short
+Используйте онлайн-сервисы для проверки DNS:
+- [whatsmydns.net](https://www.whatsmydns.net) — проверка DNS записей по всему миру
+- [dnschecker.org](https://dnschecker.org) — проверка DNS записей
 
-# Проверка CNAME (если используется)
-dig api.example.com +short
-```
+Введите ваш домен и проверьте, что A запись указывает на IP адрес Timeweb.
 
 ### Проверка доступности Railway
 
-```bash
-# Проверка через домен Railway
-curl https://backend.up.railway.app/api/cart/health
+1. Откройте в браузере домен Railway:
+   - `https://backend.up.railway.app/api/cart/health`
+   - Должен вернуться JSON ответ с информацией о здоровье сервиса
 
-# Проверка через ваш домен (если настроен)
-curl https://api.example.com/api/cart/health
-```
+2. Откройте в браузере ваш домен (если настроен):
+   - `https://example.com/api/cart/health`
+   - Должен вернуться тот же ответ (через проксирование на Timeweb)
 
 ### Проверка failover
 
 1. **Нормальная работа:**
-   ```bash
-   curl https://example.com/
-   curl https://example.com/api/cart/health
-   ```
+   - Откройте `https://example.com/` в браузере — должен открыться сайт
+   - Откройте `https://example.com/api/cart/health` — должен вернуться ответ от Railway
 
 2. **Тест переключения на запасной сервер:**
-   - Временно измените `__RAILWAY_ORIGIN__` в Nginx конфиге на несуществующий домен
-   - Перезагрузите Nginx: `systemctl reload nginx`
-   - Проверьте: `curl https://example.com/api/cart/health`
-   - Должен вернуться ответ от локального backend на Timeweb
+   - Временно измените `__RAILWAY_ORIGIN__` в Nginx конфиге на несуществующий домен (например: `nonexistent.railway.app`)
+   - Перезагрузите Nginx через веб-панель управления сервером
+   - Откройте `https://example.com/api/cart/health` — должен вернуться ответ от локального backend на Timeweb
    - Верните правильное значение и перезагрузите Nginx
 
 ### Проверка SSL сертификата
 
-```bash
-# Проверка сертификата Railway
-openssl s_client -connect backend.up.railway.app:443 -servername backend.up.railway.app
+Используйте онлайн-сервисы для проверки SSL:
+- [SSL Labs SSL Test](https://www.ssllabs.com/ssltest/) — проверка SSL сертификата
+- [SSL Checker](https://www.sslshopper.com/ssl-checker.html) — быстрая проверка сертификата
 
-# Проверка сертификата вашего домена
-openssl s_client -connect example.com:443 -servername example.com
-```
+Введите ваш домен и проверьте, что сертификат валиден и выпущен для правильного домена.
 
 ---
 
@@ -248,31 +206,37 @@ openssl s_client -connect example.com:443 -servername example.com
 ### Проблема: DNS записи не обновляются
 
 - Подождите до 60 минут (время распространения DNS)
-- Проверьте правильность записей: `dig example.com`
-- Убедитесь, что TTL не слишком большой
+- Проверьте правильность записей через [whatsmydns.net](https://www.whatsmydns.net)
+- Убедитесь, что TTL не слишком большой (рекомендуется 3600 секунд)
+- Проверьте, что в DNS записи указан правильный IP адрес Timeweb
 
 ### Проблема: SSL сертификат не выпускается
 
-- Убедитесь, что домен указывает на правильный IP
-- Проверьте, что порты 80 и 443 открыты
-- Проверьте логи certbot: `journalctl -u certbot`
+- Убедитесь, что домен указывает на правильный IP адрес Timeweb
+- Проверьте через веб-панель Timeweb, что порты 80 и 443 открыты
+- Убедитесь, что домен доступен из интернета (не заблокирован firewall)
+- Обратитесь в поддержку Timeweb для помощи с выпуском сертификата
 
 ### Проблема: Failover не работает
 
-- Проверьте логи Nginx: `tail -f /var/log/nginx/error.log`
-- Убедитесь, что локальный backend запущен: `pm2 list`
-- Проверьте конфигурацию Nginx: `nginx -t`
+- Проверьте логи Nginx через веб-панель управления сервером Timeweb
+- Убедитесь, что локальный backend запущен (проверьте через веб-панель или обратитесь в поддержку)
+- Проверьте конфигурацию Nginx — убедитесь, что указан домен Railway (`backend.up.railway.app`), а не IP адрес
+- Убедитесь, что в конфигурации Nginx правильно указаны пути к fallback серверам
 
 ### Проблема: Railway недоступен
 
-- Проверьте логи Railway: `railway logs --service backend`
-- Убедитесь, что сервис запущен: `railway status`
-- Проверьте переменные окружения: `railway variables --service backend`
+1. Откройте [Railway Dashboard](https://railway.app)
+2. Выберите ваш проект → сервис backend
+3. Проверьте логи в разделе **Deployments** → выберите последний деплой → **View Logs**
+4. Убедитесь, что сервис запущен (статус должен быть "Active")
+5. Проверьте переменные окружения в **Variables**
+6. Попробуйте перезапустить сервис через **Settings** → **Restart**
 
 ---
 
 ## Дополнительные ресурсы
 
 - [`RAILWAY.md`](./RAILWAY.md) — общая документация по Railway
+- [`RAILWAY_DOMAIN_EXPLAINED.md`](./RAILWAY_DOMAIN_EXPLAINED.md) — подробное объяснение разницы между IP и доменным именем
 - [`TIMEWEB_FAILOVER.md`](./TIMEWEB_FAILOVER.md) — подробная инструкция по настройке failover
-- [`scripts/get-railway-ip.sh`](./scripts/get-railway-ip.sh) — скрипт для получения IP Railway

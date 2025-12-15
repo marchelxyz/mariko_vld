@@ -150,49 +150,26 @@ railway status
    - В Vercel: `VITE_SERVER_API_URL=https://backend.up.railway.app/api`
    - В Railway Bot: `WEBAPP_URL=https://your-app.vercel.app`
 
-### Получение IP адреса Railway
+### Получение домена Railway
 
-⚠️ **Важно:** Railway использует **динамические IP адреса**, которые могут изменяться при перезапуске сервиса. Для подключения домена рекомендуется использовать доменное имя Railway через проксирование, а не IP адрес напрямую.
+⚠️ **Важно:** Railway использует **динамические IP адреса**, которые могут изменяться при перезапуске сервиса. Для подключения домена **используйте доменное имя Railway через проксирование**, а не IP адрес напрямую. Подробное объяснение см. в [`RAILWAY_DOMAIN_EXPLAINED.md`](./RAILWAY_DOMAIN_EXPLAINED.md).
 
-#### Способ 1: Через скрипт (рекомендуется)
+#### Как получить домен Railway:
 
-```bash
-# Автоматически получает домен через Railway CLI и IP через DNS
-bash scripts/get-railway-ip.sh
+1. Откройте [Railway Dashboard](https://railway.app)
+2. Выберите ваш проект
+3. Выберите сервис (например, backend)
+4. Перейдите в **Settings** → **Networking**
+5. Скопируйте домен (например: `backend.up.railway.app`)
 
-# Или укажите домен вручную
-bash scripts/get-railway-ip.sh backend.up.railway.app
-```
+Этот домен понадобится для настройки проксирования на Timeweb.
 
-#### Способ 2: Через DNS запрос (dig)
-
-```bash
-# Установите dnsutils (если еще не установлено)
-sudo apt-get install dnsutils  # Ubuntu/Debian
-# или
-sudo yum install bind-utils     # CentOS/RHEL
-
-# Получите IP адрес домена Railway
-dig +short backend.up.railway.app
-```
-
-#### Способ 3: Через nslookup
-
-```bash
-nslookup backend.up.railway.app
-```
-
-#### Способ 4: Через Railway Dashboard
-
-1. Откройте Railway Dashboard → выберите сервис
-2. Перейдите в **Settings** → **Networking**
-3. Скопируйте домен (например: `backend.up.railway.app`)
-4. Используйте один из способов выше для получения IP
-
-**Примечание:** IP адрес может понадобиться для:
+**Примечание:** IP адрес Railway может понадобиться только для:
 - Настройки firewall правил
 - Ограничения доступа к базе данных (например, Yandex Managed PostgreSQL)
 - Отладки сетевых подключений
+
+Но для подключения домена IP адрес **не нужен** — используйте доменное имя Railway.
 
 ### Custom домены
 

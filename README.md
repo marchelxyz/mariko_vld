@@ -41,7 +41,8 @@ docs/                  # Документация
 - [`DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md) — полное руководство по развертыванию
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — архитектура проекта
 - [`RAILWAY.md`](./RAILWAY.md) — специфичные настройки Railway
-- [`RAILWAY_DOMAIN_SETUP.md`](./RAILWAY_DOMAIN_SETUP.md) — подключение домена к Railway и настройка failover
+- [`RAILWAY_DOMAIN_SETUP.md`](./RAILWAY_DOMAIN_SETUP.md) — подключение домена к Railway и настройка failover (через веб-интерфейс)
+- [`RAILWAY_DOMAIN_EXPLAINED.md`](./RAILWAY_DOMAIN_EXPLAINED.md) — объяснение: IP адрес vs доменное имя через проксирование
 - [`TIMEWEB_FAILOVER.md`](./TIMEWEB_FAILOVER.md) — настройка запасного сервера на Timeweb
 - [`ADMIN_SETUP.md`](./ADMIN_SETUP.md) — настройка админ-доступа
 
