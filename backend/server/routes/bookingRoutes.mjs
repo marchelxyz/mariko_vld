@@ -5,7 +5,7 @@ import { createLogger } from "../utils/logger.mjs";
 const logger = createLogger('booking');
 
 const REMARKED_API_BASE = "https://app.remarked.ru/api/v1";
-const FETCH_TIMEOUT = 15000; // 15 секунд
+const FETCH_TIMEOUT = 30000; // 30 секунд (увеличено для медленных ответов от Remarked API)
 const MAX_RETRIES = 3;
 const RETRY_DELAY_BASE = 1000; // 1 секунда базовая задержка
 
@@ -54,8 +54,28 @@ function cleanErrorText(text) {
  * Выполняет fetch с таймаутом
  */
 async function fetchWithTimeout(url, options, timeout = FETCH_TIMEOUT) {
+  const startTime = Date.now();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  // Логируем начало запроса
+  const method = options?.method || 'GET';
+  let requestBody = null;
+  if (options?.body) {
+    try {
+      requestBody = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
+    } catch {
+      // Игнорируем ошибки парсинга для логирования
+      requestBody = { raw: 'не удалось распарсить' };
+    }
+  }
+  logger.debug(`[Remarked API] Начало запроса`, {
+    url,
+    method,
+    timeout: `${timeout}ms`,
+    hasBody: !!options?.body,
+    bodyMethod: requestBody?.method,
+  });
   
   try {
     const response = await fetch(url, {
@@ -63,12 +83,39 @@ async function fetchWithTimeout(url, options, timeout = FETCH_TIMEOUT) {
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
+    const duration = Date.now() - startTime;
+    
+    logger.debug(`[Remarked API] Успешный ответ`, {
+      url,
+      method,
+      status: response.status,
+      statusText: response.statusText,
+      duration: `${duration}ms`,
+    });
+    
     return response;
   } catch (error) {
     clearTimeout(timeoutId);
+    const duration = Date.now() - startTime;
+    
     if (error.name === 'AbortError') {
+      logger.warn(`[Remarked API] Таймаут запроса`, {
+        url,
+        method,
+        timeout: `${timeout}ms`,
+        duration: `${duration}ms`,
+      });
       throw new Error('Превышено время ожидания ответа от сервиса бронирования');
     }
+    
+    logger.error(`[Remarked API] Ошибка запроса`, error, {
+      url,
+      method,
+      duration: `${duration}ms`,
+      errorCode: error.code,
+      errorName: error.name,
+    });
+    
     throw error;
   }
 }
@@ -78,23 +125,51 @@ async function fetchWithTimeout(url, options, timeout = FETCH_TIMEOUT) {
  */
 async function fetchWithRetry(url, options, maxRetries = MAX_RETRIES) {
   let lastError;
+  const method = options?.method || 'GET';
+  
+  logger.debug(`[Remarked API] Начало запроса с повторными попытками`, {
+    url,
+    method,
+    maxRetries: maxRetries + 1,
+  });
   
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const response = await fetchWithTimeout(url, options);
+      
+      if (attempt > 0) {
+        logger.info(`[Remarked API] Успешный ответ после ${attempt + 1} попытки`, {
+          url,
+          method,
+          attempt: attempt + 1,
+        });
+      }
+      
       return response;
     } catch (error) {
       lastError = error;
       
       // Если это не временная ошибка или это последняя попытка, выбрасываем ошибку
       if (!isRetryableError(error) || attempt === maxRetries) {
+        logger.warn(`[Remarked API] Запрос завершился ошибкой после ${attempt + 1} попытки`, {
+          url,
+          method,
+          attempt: attempt + 1,
+          totalAttempts: maxRetries + 1,
+          error: error.message,
+          isRetryable: isRetryableError(error),
+        });
         throw error;
       }
       
       // Экспоненциальная задержка: 1s, 2s, 4s
       const delay = RETRY_DELAY_BASE * Math.pow(2, attempt);
-      logger.debug(`Повторная попытка запроса (попытка ${attempt + 1}/${maxRetries + 1}) через ${delay}ms`, {
+      logger.debug(`[Remarked API] Повторная попытка запроса (попытка ${attempt + 2}/${maxRetries + 1}) через ${delay}ms`, {
         url,
+        method,
+        attempt: attempt + 1,
+        nextAttempt: attempt + 2,
+        delay: `${delay}ms`,
         error: error.message,
       });
       
@@ -152,10 +227,16 @@ function extractErrorMessage(response, defaultMessage) {
  * Получить токен от Remarked API
  */
 async function getRemarkedToken(restaurantId) {
+  const startTime = Date.now();
   const request = {
     method: "GetToken",
     point: restaurantId,
   };
+
+  logger.info(`[Remarked API] Получение токена`, {
+    restaurantId,
+    apiMethod: request.method,
+  });
 
   try {
     const response = await fetchWithRetry(`${REMARKED_API_BASE}/ApiReservesWidget`, {
@@ -166,29 +247,69 @@ async function getRemarkedToken(restaurantId) {
       body: JSON.stringify(request),
     });
 
+    const responseDuration = Date.now() - startTime;
+
     if (!response.ok) {
       const errorMessage = await extractErrorMessage(
         response,
         "Не удалось получить токен от сервиса бронирования"
       );
+      
+      logger.error(`[Remarked API] Ошибка получения токена`, null, {
+        restaurantId,
+        status: response.status,
+        statusText: response.statusText,
+        duration: `${responseDuration}ms`,
+        errorMessage,
+      });
+      
       throw new Error(errorMessage);
     }
 
     const data = await response.json();
+    const totalDuration = Date.now() - startTime;
     
     if (data.status === "error") {
       const errorMessage = data.message && data.message.trim() && data.message.toLowerCase() !== "unknown error"
         ? cleanErrorText(data.message)
         : `Ошибка получения токена для ресторана ${restaurantId}`;
+      
+      logger.error(`[Remarked API] Ошибка в ответе при получении токена`, null, {
+        restaurantId,
+        status: data.status,
+        message: data.message,
+        duration: `${totalDuration}ms`,
+        errorMessage,
+      });
+      
       throw new Error(errorMessage);
     }
     
+    logger.info(`[Remarked API] Токен успешно получен`, {
+      restaurantId,
+      hasToken: !!data.token,
+      hasCapacity: !!data.capacity,
+      duration: `${totalDuration}ms`,
+    });
+    
     return data;
   } catch (error) {
+    const totalDuration = Date.now() - startTime;
+    
     // Обрабатываем сетевые ошибки
     if (isRetryableError(error)) {
+      logger.error(`[Remarked API] Сетевая ошибка при получении токена`, error, {
+        restaurantId,
+        duration: `${totalDuration}ms`,
+        isRetryable: true,
+      });
       throw new Error("Не удалось подключиться к сервису бронирования. Проверьте подключение к интернету и попробуйте позже.");
     }
+    
+    logger.error(`[Remarked API] Ошибка получения токена`, error, {
+      restaurantId,
+      duration: `${totalDuration}ms`,
+    });
     
     // Если ошибка уже обработана, просто пробрасываем её
     throw error;
@@ -199,6 +320,7 @@ async function getRemarkedToken(restaurantId) {
  * Получить доступные временные слоты от Remarked API
  */
 async function getRemarkedSlots(token, period, guestsCount, options = {}) {
+  const startTime = Date.now();
   const request = {
     method: "GetSlots",
     token,
@@ -214,6 +336,14 @@ async function getRemarkedSlots(token, period, guestsCount, options = {}) {
     request.slot_duration = options.slot_duration;
   }
 
+  logger.info(`[Remarked API] Получение слотов`, {
+    apiMethod: request.method,
+    period: `${period.from} - ${period.to}`,
+    guestsCount,
+    withRooms: options.with_rooms,
+    slotDuration: options.slot_duration,
+  });
+
   try {
     const response = await fetchWithRetry(`${REMARKED_API_BASE}/ApiReservesWidget`, {
       method: "POST",
@@ -223,29 +353,74 @@ async function getRemarkedSlots(token, period, guestsCount, options = {}) {
       body: JSON.stringify(request),
     });
 
+    const responseDuration = Date.now() - startTime;
+
     if (!response.ok) {
       const errorMessage = await extractErrorMessage(
         response,
         "Не удалось получить доступные слоты для бронирования"
       );
+      
+      logger.error(`[Remarked API] Ошибка получения слотов`, null, {
+        period: `${period.from} - ${period.to}`,
+        guestsCount,
+        status: response.status,
+        statusText: response.statusText,
+        duration: `${responseDuration}ms`,
+        errorMessage,
+      });
+      
       throw new Error(errorMessage);
     }
 
     const data = await response.json();
+    const totalDuration = Date.now() - startTime;
     
     if (data.status === "error") {
       const errorMessage = data.message && data.message.trim() && data.message.toLowerCase() !== "unknown error"
         ? cleanErrorText(data.message)
         : "Ошибка получения слотов";
+      
+      logger.error(`[Remarked API] Ошибка в ответе при получении слотов`, null, {
+        period: `${period.from} - ${period.to}`,
+        guestsCount,
+        status: data.status,
+        message: data.message,
+        duration: `${totalDuration}ms`,
+        errorMessage,
+      });
+      
       throw new Error(errorMessage);
     }
     
+    const slotsCount = data.slots ? (Array.isArray(data.slots) ? data.slots.length : 0) : 0;
+    logger.info(`[Remarked API] Слоты успешно получены`, {
+      period: `${period.from} - ${period.to}`,
+      guestsCount,
+      slotsCount,
+      duration: `${totalDuration}ms`,
+    });
+    
     return data;
   } catch (error) {
+    const totalDuration = Date.now() - startTime;
+    
     // Обрабатываем сетевые ошибки
     if (isRetryableError(error)) {
+      logger.error(`[Remarked API] Сетевая ошибка при получении слотов`, error, {
+        period: `${period.from} - ${period.to}`,
+        guestsCount,
+        duration: `${totalDuration}ms`,
+        isRetryable: true,
+      });
       throw new Error("Не удалось подключиться к сервису бронирования. Проверьте подключение к интернету и попробуйте позже.");
     }
+    
+    logger.error(`[Remarked API] Ошибка получения слотов`, error, {
+      period: `${period.from} - ${period.to}`,
+      guestsCount,
+      duration: `${totalDuration}ms`,
+    });
     
     // Если ошибка уже обработана, просто пробрасываем её
     throw error;
@@ -256,6 +431,8 @@ async function getRemarkedSlots(token, period, guestsCount, options = {}) {
  * Создать бронирование в Remarked
  */
 async function createRemarkedReserve(token, reserve) {
+  const startTime = Date.now();
+  
   // Формируем объект reserve согласно спецификации Remarked API
   const reserveData = {
     name: reserve.name,
@@ -287,6 +464,19 @@ async function createRemarkedReserve(token, reserve) {
     reserve: reserveData,
   };
 
+  logger.info(`[Remarked API] Создание бронирования`, {
+    apiMethod: request.method,
+    date: reserveData.date,
+    time: reserveData.time,
+    guestsCount: reserveData.guests_count,
+    type: reserveData.type,
+    source: reserveData.source,
+    hasEmail: !!reserveData.email,
+    hasComment: !!reserveData.comment,
+    hasDuration: !!reserveData.duration,
+    eventTagsCount: reserveData.eventTags ? reserveData.eventTags.length : 0,
+  });
+
   try {
     const response = await fetchWithRetry(`${REMARKED_API_BASE}/ApiReservesWidget`, {
       method: "POST",
@@ -296,29 +486,79 @@ async function createRemarkedReserve(token, reserve) {
       body: JSON.stringify(request),
     });
 
+    const responseDuration = Date.now() - startTime;
+
     if (!response.ok) {
       const errorMessage = await extractErrorMessage(
         response,
         "Не удалось создать бронирование"
       );
+      
+      logger.error(`[Remarked API] Ошибка создания бронирования`, null, {
+        date: reserveData.date,
+        time: reserveData.time,
+        guestsCount: reserveData.guests_count,
+        status: response.status,
+        statusText: response.statusText,
+        duration: `${responseDuration}ms`,
+        errorMessage,
+      });
+      
       throw new Error(errorMessage);
     }
 
     const data = await response.json();
+    const totalDuration = Date.now() - startTime;
     
     if (data.status === "error") {
       const errorMessage = data.message && data.message.trim() && data.message.toLowerCase() !== "unknown error"
         ? cleanErrorText(data.message)
         : "Ошибка создания бронирования в Remarked";
+      
+      logger.error(`[Remarked API] Ошибка в ответе при создании бронирования`, null, {
+        date: reserveData.date,
+        time: reserveData.time,
+        guestsCount: reserveData.guests_count,
+        status: data.status,
+        message: data.message,
+        duration: `${totalDuration}ms`,
+        errorMessage,
+      });
+      
       throw new Error(errorMessage);
     }
     
+    logger.info(`[Remarked API] Бронирование успешно создано`, {
+      date: reserveData.date,
+      time: reserveData.time,
+      guestsCount: reserveData.guests_count,
+      reserveId: data.reserve_id,
+      hasFormUrl: !!data.form_url,
+      duration: `${totalDuration}ms`,
+    });
+    
     return data;
   } catch (error) {
+    const totalDuration = Date.now() - startTime;
+    
     // Обрабатываем сетевые ошибки
     if (isRetryableError(error)) {
+      logger.error(`[Remarked API] Сетевая ошибка при создании бронирования`, error, {
+        date: reserveData.date,
+        time: reserveData.time,
+        guestsCount: reserveData.guests_count,
+        duration: `${totalDuration}ms`,
+        isRetryable: true,
+      });
       throw new Error("Не удалось подключиться к сервису бронирования. Проверьте подключение к интернету и попробуйте позже.");
     }
+    
+    logger.error(`[Remarked API] Ошибка создания бронирования`, error, {
+      date: reserveData.date,
+      time: reserveData.time,
+      guestsCount: reserveData.guests_count,
+      duration: `${totalDuration}ms`,
+    });
     
     // Если ошибка уже обработана, просто пробрасываем её
     throw error;
