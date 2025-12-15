@@ -16,6 +16,7 @@ type EditRestaurantModalProps = {
     twoGisUrl: string;
     socialNetworks: SocialNetwork[];
     remarkedRestaurantId?: number;
+    reviewLink: string;
   }) => Promise<void>;
 };
 
@@ -57,6 +58,7 @@ export function EditRestaurantModal({
   const [twoGisUrl, setTwoGisUrl] = useState('');
   const [socialNetworks, setSocialNetworks] = useState<SocialNetwork[]>([]);
   const [remarkedRestaurantId, setRemarkedRestaurantId] = useState<string>('');
+  const [reviewLink, setReviewLink] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -69,6 +71,7 @@ export function EditRestaurantModal({
       setTwoGisUrl(restaurant.twoGisUrl || '');
       setSocialNetworks(restaurant.socialNetworks || []);
       setRemarkedRestaurantId(restaurant.remarkedRestaurantId?.toString() || '');
+      setReviewLink(restaurant.reviewLink || '');
     }
   }, [restaurant, isOpen]);
 
@@ -118,6 +121,10 @@ export function EditRestaurantModal({
       alert('Пожалуйста, заполните название и адрес ресторана');
       return;
     }
+    if (!reviewLink.trim()) {
+      alert('Пожалуйста, заполните ссылку на отзывы');
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -143,6 +150,7 @@ export function EditRestaurantModal({
           }
           return parsed;
         })() : undefined,
+        reviewLink: reviewLink.trim(),
       });
       onClose();
     } catch (error) {
@@ -207,6 +215,18 @@ export function EditRestaurantModal({
             />
             <p className="text-white/60 text-xs mt-1">
               Используется для брони столиков. Должен быть 6-значным числом (например: 123456)
+            </p>
+          </div>
+
+          <div>
+            <Label className="text-white">Ссылка на отзывы *</Label>
+            <Input
+              value={reviewLink}
+              onChange={(e) => setReviewLink(e.target.value)}
+              placeholder="https://vhachapuri.ru/otziv_..."
+            />
+            <p className="text-white/60 text-xs mt-1">
+              Ссылка на страницу отзывов ресторана. Используется в кнопке "Оставить отзыв"
             </p>
           </div>
 
@@ -338,7 +358,7 @@ export function EditRestaurantModal({
           <Button
             variant="default"
             onClick={handleSave}
-            disabled={!name.trim() || !address.trim() || isSaving}
+            disabled={!name.trim() || !address.trim() || !reviewLink.trim() || isSaving}
           >
             <Save className="w-4 h-4 mr-2" />
             {isSaving ? 'Сохранение...' : 'Сохранить'}

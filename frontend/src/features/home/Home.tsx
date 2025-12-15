@@ -137,7 +137,8 @@ const Index = () => {
 
 
   const handleReviewClick = () => {
-    const externalReviewLink = RESTAURANT_REVIEW_LINKS[selectedRestaurant.id];
+    // Используем ссылку из базы данных, если она есть, иначе используем статический маппинг для обратной совместимости
+    const externalReviewLink = selectedRestaurant.reviewLink || RESTAURANT_REVIEW_LINKS[selectedRestaurant.id];
 
     if (externalReviewLink && selectedCity?.id && selectedCity?.name) {
       openEmbeddedPage(`review-${selectedRestaurant.id}`, {

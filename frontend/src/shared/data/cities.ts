@@ -22,6 +22,7 @@ export interface Restaurant {
   yandexMapsUrl?: string;
   twoGisUrl?: string;
   socialNetworks?: SocialNetwork[];
+  reviewLink?: string;
 }
 
 export interface City {
