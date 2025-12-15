@@ -5,6 +5,148 @@ import { createLogger } from "../utils/logger.mjs";
 const logger = createLogger('booking');
 
 const REMARKED_API_BASE = "https://app.remarked.ru/api/v1";
+const FETCH_TIMEOUT = 15000; // 15 секунд
+const MAX_RETRIES = 3;
+const RETRY_DELAY_BASE = 1000; // 1 секунда базовая задержка
+
+/**
+ * Проверяет, является ли ошибка временной сетевой ошибкой
+ */
+function isRetryableError(error) {
+  if (!error) return false;
+  
+  const errorCode = error.code || error.cause?.code;
+  const errorMessage = error.message?.toLowerCase() || '';
+  
+  // Сетевые ошибки, которые можно повторить
+  const retryableCodes = ['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN'];
+  const retryableMessages = ['fetch failed', 'network', 'timeout', 'connection'];
+  
+  if (errorCode && retryableCodes.includes(errorCode)) {
+    return true;
+  }
+  
+  if (retryableMessages.some(msg => errorMessage.includes(msg))) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Очищает HTML из текста ошибки
+ */
+function cleanErrorText(text) {
+  if (!text || typeof text !== 'string') {
+    return 'Неизвестная ошибка';
+  }
+  
+  // Если это HTML, пытаемся извлечь текст или возвращаем понятное сообщение
+  if (text.trim().startsWith('<html') || text.includes('<title>')) {
+    return 'Сервис бронирования временно недоступен. Попробуйте позже.';
+  }
+  
+  // Убираем лишние пробелы и переносы строк
+  return text.trim().replace(/\r\n/g, ' ').replace(/\n/g, ' ').replace(/\s+/g, ' ');
+}
+
+/**
+ * Выполняет fetch с таймаутом
+ */
+async function fetchWithTimeout(url, options, timeout = FETCH_TIMEOUT) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Превышено время ожидания ответа от сервиса бронирования');
+    }
+    throw error;
+  }
+}
+
+/**
+ * Выполняет запрос с повторными попытками
+ */
+async function fetchWithRetry(url, options, maxRetries = MAX_RETRIES) {
+  let lastError;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetchWithTimeout(url, options);
+      return response;
+    } catch (error) {
+      lastError = error;
+      
+      // Если это не временная ошибка или это последняя попытка, выбрасываем ошибку
+      if (!isRetryableError(error) || attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Экспоненциальная задержка: 1s, 2s, 4s
+      const delay = RETRY_DELAY_BASE * Math.pow(2, attempt);
+      logger.debug(`Повторная попытка запроса (попытка ${attempt + 1}/${maxRetries + 1}) через ${delay}ms`, {
+        url,
+        error: error.message,
+      });
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError;
+}
+
+/**
+ * Обрабатывает ответ от API и извлекает сообщение об ошибке
+ */
+function extractErrorMessage(response, defaultMessage) {
+  return response.text().then(text => {
+    const cleanedText = cleanErrorText(text);
+    
+    // Пытаемся распарсить JSON
+    let parsedError;
+    try {
+      parsedError = JSON.parse(text);
+    } catch {
+      parsedError = { message: cleanedText };
+    }
+    
+    // Извлекаем сообщение об ошибке
+    if (parsedError.message && parsedError.message.trim() && parsedError.message.toLowerCase() !== "unknown error") {
+      return cleanErrorText(parsedError.message);
+    }
+    
+    if (parsedError.error && parsedError.error.trim() && parsedError.error.toLowerCase() !== "unknown error") {
+      return cleanErrorText(parsedError.error);
+    }
+    
+    // Используем статус код для определения типа ошибки
+    if (response.status === 400) {
+      return "Неверный запрос к сервису бронирования. Проверьте настройки ресторана.";
+    }
+    
+    if (response.status === 404) {
+      return "Ресторан не найден в системе бронирования. Проверьте настройки ресторана.";
+    }
+    
+    if (response.status >= 500) {
+      return "Сервис бронирования временно недоступен. Попробуйте позже.";
+    }
+    
+    return defaultMessage || cleanedText;
+  }).catch(() => {
+    return defaultMessage || "Не удалось обработать ответ от сервиса бронирования";
+  });
+}
 
 /**
  * Получить токен от Remarked API
@@ -15,52 +157,42 @@ async function getRemarkedToken(restaurantId) {
     point: restaurantId,
   };
 
-  const response = await fetch(`${REMARKED_API_BASE}/ApiReservesWidget`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(request),
-  });
+  try {
+    const response = await fetchWithRetry(`${REMARKED_API_BASE}/ApiReservesWidget`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+    });
 
-  if (!response.ok) {
-    let errorMessage = `Не удалось получить токен от сервиса бронирования`;
-    try {
-      const text = await response.text();
-      let parsedError;
-      try {
-        parsedError = JSON.parse(text);
-      } catch {
-        parsedError = { message: text };
-      }
-      
-      if (parsedError.message && parsedError.message.trim() && parsedError.message.toLowerCase() !== "unknown error") {
-        errorMessage = parsedError.message.trim();
-      } else if (parsedError.error && parsedError.error.trim() && parsedError.error.toLowerCase() !== "unknown error") {
-        errorMessage = parsedError.error.trim();
-      } else if (response.status === 400) {
-        errorMessage = "Неверный запрос к сервису бронирования. Проверьте настройки ресторана.";
-      } else if (response.status === 404) {
-        errorMessage = "Ресторан не найден в системе бронирования. Проверьте настройки ресторана.";
-      } else if (response.status >= 500) {
-        errorMessage = "Сервис бронирования временно недоступен. Попробуйте позже.";
-      }
-    } catch {
-      // Используем дефолтное сообщение
+    if (!response.ok) {
+      const errorMessage = await extractErrorMessage(
+        response,
+        "Не удалось получить токен от сервиса бронирования"
+      );
+      throw new Error(errorMessage);
     }
-    throw new Error(errorMessage);
-  }
 
-  const data = await response.json();
-  
-  if (data.status === "error") {
-    const errorMessage = data.message && data.message.trim() && data.message.toLowerCase() !== "unknown error"
-      ? data.message.trim()
-      : `Ошибка получения токена для ресторана ${restaurantId}`;
-    throw new Error(errorMessage);
+    const data = await response.json();
+    
+    if (data.status === "error") {
+      const errorMessage = data.message && data.message.trim() && data.message.toLowerCase() !== "unknown error"
+        ? cleanErrorText(data.message)
+        : `Ошибка получения токена для ресторана ${restaurantId}`;
+      throw new Error(errorMessage);
+    }
+    
+    return data;
+  } catch (error) {
+    // Обрабатываем сетевые ошибки
+    if (isRetryableError(error)) {
+      throw new Error("Не удалось подключиться к сервису бронирования. Проверьте подключение к интернету и попробуйте позже.");
+    }
+    
+    // Если ошибка уже обработана, просто пробрасываем её
+    throw error;
   }
-  
-  return data;
 }
 
 /**
@@ -82,26 +214,42 @@ async function getRemarkedSlots(token, period, guestsCount, options = {}) {
     request.slot_duration = options.slot_duration;
   }
 
-  const response = await fetch(`${REMARKED_API_BASE}/ApiReservesWidget`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(request),
-  });
+  try {
+    const response = await fetchWithRetry(`${REMARKED_API_BASE}/ApiReservesWidget`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+    });
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Failed to get Remarked slots: ${response.status} ${text}`);
-  }
+    if (!response.ok) {
+      const errorMessage = await extractErrorMessage(
+        response,
+        "Не удалось получить доступные слоты для бронирования"
+      );
+      throw new Error(errorMessage);
+    }
 
-  const data = await response.json();
-  
-  if (data.status === "error") {
-    throw new Error(data.message || "Ошибка получения слотов");
+    const data = await response.json();
+    
+    if (data.status === "error") {
+      const errorMessage = data.message && data.message.trim() && data.message.toLowerCase() !== "unknown error"
+        ? cleanErrorText(data.message)
+        : "Ошибка получения слотов";
+      throw new Error(errorMessage);
+    }
+    
+    return data;
+  } catch (error) {
+    // Обрабатываем сетевые ошибки
+    if (isRetryableError(error)) {
+      throw new Error("Не удалось подключиться к сервису бронирования. Проверьте подключение к интернету и попробуйте позже.");
+    }
+    
+    // Если ошибка уже обработана, просто пробрасываем её
+    throw error;
   }
-  
-  return data;
 }
 
 /**
@@ -139,26 +287,42 @@ async function createRemarkedReserve(token, reserve) {
     reserve: reserveData,
   };
 
-  const response = await fetch(`${REMARKED_API_BASE}/ApiReservesWidget`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(request),
-  });
+  try {
+    const response = await fetchWithRetry(`${REMARKED_API_BASE}/ApiReservesWidget`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+    });
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Failed to create Remarked reserve: ${response.status} ${text}`);
-  }
+    if (!response.ok) {
+      const errorMessage = await extractErrorMessage(
+        response,
+        "Не удалось создать бронирование"
+      );
+      throw new Error(errorMessage);
+    }
 
-  const data = await response.json();
-  
-  if (data.status === "error") {
-    throw new Error(data.message || "Ошибка создания бронирования в Remarked");
+    const data = await response.json();
+    
+    if (data.status === "error") {
+      const errorMessage = data.message && data.message.trim() && data.message.toLowerCase() !== "unknown error"
+        ? cleanErrorText(data.message)
+        : "Ошибка создания бронирования в Remarked";
+      throw new Error(errorMessage);
+    }
+    
+    return data;
+  } catch (error) {
+    // Обрабатываем сетевые ошибки
+    if (isRetryableError(error)) {
+      throw new Error("Не удалось подключиться к сервису бронирования. Проверьте подключение к интернету и попробуйте позже.");
+    }
+    
+    // Если ошибка уже обработана, просто пробрасываем её
+    throw error;
   }
-  
-  return data;
 }
 
 /**
@@ -274,8 +438,8 @@ export function createBookingRouter() {
         
         // Формируем понятное сообщение об ошибке
         let errorMessage = 'Не удалось подключиться к сервису бронирования. Попробуйте позже.';
-        if (error instanceof Error && error.message && error.message.trim() && error.message.toLowerCase() !== "unknown error") {
-          errorMessage = error.message.trim();
+        if (error instanceof Error && error.message) {
+          errorMessage = cleanErrorText(error.message);
         }
         
         return res.status(500).json({
@@ -290,8 +454,8 @@ export function createBookingRouter() {
       
       // Формируем понятное сообщение об ошибке
       let errorMessage = 'Не удалось получить токен. Попробуйте позже.';
-      if (error instanceof Error && error.message && error.message.trim() && error.message.toLowerCase() !== "unknown error") {
-        errorMessage = error.message.trim();
+      if (error instanceof Error && error.message) {
+        errorMessage = cleanErrorText(error.message);
       }
       
       return res.status(500).json({
@@ -362,8 +526,8 @@ export function createBookingRouter() {
         
         // Формируем понятное сообщение об ошибке
         let errorMessage = 'Не удалось подключиться к сервису бронирования. Попробуйте позже.';
-        if (error instanceof Error && error.message && error.message.trim() && error.message.toLowerCase() !== "unknown error") {
-          errorMessage = error.message.trim();
+        if (error instanceof Error && error.message) {
+          errorMessage = cleanErrorText(error.message);
         }
         
         return res.status(500).json({
@@ -409,8 +573,8 @@ export function createBookingRouter() {
         
         // Формируем понятное сообщение об ошибке
         let errorMessage = 'Не удалось получить доступные слоты. Попробуйте позже.';
-        if (error instanceof Error && error.message && error.message.trim() && error.message.toLowerCase() !== "unknown error") {
-          errorMessage = error.message.trim();
+        if (error instanceof Error && error.message) {
+          errorMessage = cleanErrorText(error.message);
         }
         
         if (error instanceof Error && error.message && error.message.includes('400')) {
@@ -432,8 +596,8 @@ export function createBookingRouter() {
       
       // Формируем понятное сообщение об ошибке
       let errorMessage = 'Не удалось получить доступные слоты. Попробуйте позже.';
-      if (error instanceof Error && error.message && error.message.trim() && error.message.toLowerCase() !== "unknown error") {
-        errorMessage = error.message.trim();
+      if (error instanceof Error && error.message) {
+        errorMessage = cleanErrorText(error.message);
       }
       
       return res.status(500).json({
@@ -659,8 +823,8 @@ export function createBookingRouter() {
       
       // Формируем понятное сообщение об ошибке
       let errorMessage = "Не удалось создать бронирование. Попробуйте позже.";
-      if (error instanceof Error && error.message && error.message.trim() && error.message.toLowerCase() !== "unknown error") {
-        errorMessage = error.message.trim();
+      if (error instanceof Error && error.message) {
+        errorMessage = cleanErrorText(error.message);
       }
       
       return res.status(500).json({ 
@@ -752,8 +916,8 @@ export function createBookingRouter() {
       
       // Формируем понятное сообщение об ошибке
       let errorMessage = "Не удалось получить список бронирований. Попробуйте позже.";
-      if (error instanceof Error && error.message && error.message.trim() && error.message.toLowerCase() !== "unknown error") {
-        errorMessage = error.message.trim();
+      if (error instanceof Error && error.message) {
+        errorMessage = cleanErrorText(error.message);
       }
       
       return res.status(500).json({ 
