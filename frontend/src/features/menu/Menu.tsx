@@ -1,6 +1,6 @@
 import { ArrowLeft, ListOrdered, ShoppingBag } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useCart, useCityContext } from "@/contexts";
 import { BottomNavigation, CartDrawer, Header } from "@shared/ui/widgets";
 import { fetchRestaurantMenu } from "@/shared/api/menuApi";
@@ -8,12 +8,14 @@ import { isMarikoDeliveryEnabledForCity } from "@/shared/config/marikoDelivery";
 import { getMenuByRestaurantId, type MenuItem, type RestaurantMenu } from "@shared/data";
 import { useAdmin } from "@shared/hooks";
 import { MenuItemComponent } from "@shared/ui";
+import { toast } from "@/hooks/use-toast";
 
 /**
  * Отображает меню выбранного ресторана с навигацией по категориям и карточками блюд.
  */
 const Menu = (): JSX.Element => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { selectedRestaurant, selectedCity } = useCityContext();
   const { addItem: addCartItem, removeItem: removeCartItem, getItemCount } = useCart();
   const { isSuperAdmin, isAdmin } = useAdmin();
@@ -22,8 +24,13 @@ const Menu = (): JSX.Element => {
   const [menu, setMenu] = useState<RestaurantMenu | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
+  const [dishModalImageFailed, setDishModalImageFailed] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [isCartOpen, setIsCartOpen] = useState(false);
+
+  useEffect(() => {
+    setDishModalImageFailed(false);
+  }, [activeDish]);
 
   // Загружаем меню для выбранного ресторана
   useEffect(() => {
@@ -126,6 +133,32 @@ const Menu = (): JSX.Element => {
   const handleOrdersButtonClick = useCallback(() => {
     navigate("/orders");
   }, [navigate]);
+
+  const handleBookingClick = useCallback(() => {
+    if (!selectedCity?.id) {
+      toast({
+        title: "Выберите город",
+        description: "Бронирование доступно после выбора города.",
+      });
+      return;
+    }
+
+    if (!selectedRestaurant?.remarkedRestaurantId) {
+      toast({
+        title: "Бронь недоступна",
+        description:
+          "Бронирование пока недоступно для этого ресторана. Обратитесь к администратору.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    navigate("/booking", {
+      state: {
+        from: location.pathname,
+      },
+    });
+  }, [location.pathname, navigate, selectedCity?.id, selectedRestaurant?.remarkedRestaurantId]);
 
   const handleAddToCart = useCallback(
     (dish: MenuItem) => {
@@ -336,108 +369,95 @@ const Menu = (): JSX.Element => {
       {/* Dish Modal */}
       {activeDish && (
         <div
-          className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+          className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm"
           onClick={() => setActiveDish(null)}
         >
-          {/* Стеклянная рамка для блюда */}
           <div
-            className="relative flex flex-col gap-4 items-center max-w-[90vw] max-h-[90vh] p-6 md:p-8
-              bg-white/12 backdrop-blur-md
-              border border-white/25
-              rounded-[30px]
-              shadow-2xl
-              hover:bg-white/15 transition-all duration-300
-              overflow-y-auto cursor-pointer"
-            onClick={(e) => {
-              e.stopPropagation();
-              setActiveDish(null);
-            }}
+            className="relative flex w-full max-w-[520px] max-h-[90vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
           >
-            {/* Градиент для стеклянного эффекта */}
-            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-white/5 rounded-[30px] pointer-events-none" />
-
-            {/* Блик сверху */}
-            <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-white/15 to-transparent rounded-t-[30px] pointer-events-none" />
-
-            {/* Гвоздики в углах рамки */}
-            <div className="absolute top-3 left-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
-              bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
-              shadow-lg border border-gray-500/50
-              before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
-              before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
-
-            <div className="absolute top-3 right-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
-              bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
-              shadow-lg border border-gray-500/50
-              before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
-              before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
-
-            <div className="absolute bottom-3 left-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
-              bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
-              shadow-lg border border-gray-500/50
-              before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
-              before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
-
-            <div className="absolute bottom-3 right-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
-              bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
-              shadow-lg border border-gray-500/50
-              before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
-              before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
-
-            {/* Контент блюда */}
-            <div className="relative z-10 flex flex-col gap-4 items-center text-center">
-              {activeDish.imageUrl && (
+            <div className="relative aspect-[4/3] w-full shrink-0">
+              {activeDish.imageUrl && !dishModalImageFailed ? (
                 <img
                   src={activeDish.imageUrl}
                   alt={activeDish.name}
-                  className="max-h-[40vh] md:max-h-[50vh] w-auto rounded-[20px] shadow-lg"
+                  className="h-full w-full object-cover"
+                  onError={() => setDishModalImageFailed(true)}
                 />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-gray-200 text-gray-600">
+                  Нет изображения
+                </div>
               )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
 
-              {/* Бейджи блюда */}
-              <div className="flex gap-2 flex-wrap justify-center">
-                {activeDish.isRecommended && (
-                  <span className="bg-mariko-primary text-white px-3 py-1 rounded-full text-sm font-medium">
-                    👑 Рекомендуем
-                  </span>
-                )}
-                {activeDish.isNew && (
-                  <span className="bg-mariko-secondary text-white px-3 py-1 rounded-full text-sm font-medium">
-                    ✨ Новинка
-                  </span>
-                )}
-                {activeDish.isVegetarian && (
-                  <span className="bg-green-600 text-white px-3 py-1 rounded-full text-sm font-medium">
-                    🌱 Вегетарианское
-                  </span>
-                )}
-                {activeDish.isSpicy && (
-                  <span className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-medium">
-                    🌶️ Острое
-                  </span>
-                )}
-              </div>
-
-              <h3 className="font-el-messiri text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
-                {activeDish.name}
-              </h3>
-
-              {activeDish.description && (
-                <p className="text-base md:text-lg leading-relaxed text-white/90 drop-shadow-lg max-w-md mx-auto">
-                  {activeDish.description}
+              <div className="absolute bottom-3 left-4 right-4 space-y-2 text-white drop-shadow-lg">
+                <p className="font-el-messiri text-2xl font-semibold leading-tight">
+                  {activeDish.name}
                 </p>
-              )}
+              </div>
+              <button
+                type="button"
+                className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-1 text-sm text-white backdrop-blur"
+                onClick={() => setActiveDish(null)}
+              >
+                Закрыть
+              </button>
+            </div>
 
-              <div className="flex items-center gap-4 mt-2">
-                <span className="font-el-messiri text-2xl md:text-3xl font-bold text-mariko-secondary drop-shadow-lg">
+            <div className="space-y-4 overflow-y-auto px-5 pb-5 pt-4">
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="font-el-messiri text-2xl font-bold text-mariko-secondary">
                   {activeDish.price}₽
                 </span>
-                {activeDish.weight && (
-                  <span className="text-white/80 text-lg drop-shadow-lg">
-                    {activeDish.weight}
-                  </span>
-                )}
+                {activeDish.weight && <span className="text-sm text-gray-600">{activeDish.weight}</span>}
               </div>
+
+              {(activeDish.isRecommended ||
+                activeDish.isNew ||
+                activeDish.isVegetarian ||
+                activeDish.isSpicy) && (
+                <div className="flex flex-wrap justify-center gap-2">
+                  {activeDish.isRecommended && (
+                    <span className="rounded-full bg-mariko-primary px-3 py-1 text-sm font-medium text-white">
+                      👑 Рекомендуем
+                    </span>
+                  )}
+                  {activeDish.isNew && (
+                    <span className="rounded-full bg-mariko-secondary px-3 py-1 text-sm font-medium text-white">
+                      ✨ Новинка
+                    </span>
+                  )}
+                  {activeDish.isVegetarian && (
+                    <span className="rounded-full bg-green-600 px-3 py-1 text-sm font-medium text-white">
+                      🌱 Вегетарианское
+                    </span>
+                  )}
+                  {activeDish.isSpicy && (
+                    <span className="rounded-full bg-red-600 px-3 py-1 text-sm font-medium text-white">
+                      🌶️ Острое
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {activeDish.description && (
+                <p className="text-base leading-relaxed text-gray-800">{activeDish.description}</p>
+              )}
+
+              <p className="text-sm text-gray-600">
+                Забронируйте столик заранее — лучшие места уходят быстро.
+              </p>
+              <button
+                type="button"
+                className="w-full rounded-xl bg-mariko-primary px-4 py-3 text-center font-semibold text-white shadow-lg transition hover:brightness-110 active:scale-[0.99]"
+                onClick={() => {
+                  setActiveDish(null);
+                  handleBookingClick();
+                }}
+              >
+                Забронировать
+              </button>
             </div>
           </div>
         </div>
