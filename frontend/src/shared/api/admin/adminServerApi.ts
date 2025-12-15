@@ -87,6 +87,32 @@ export type AdminOrdersResponse = {
   orders: CartOrderRecord[];
 };
 
+export type GuestStatus = "verified" | "full_profile" | "restaurant_only" | "unverified";
+
+export type Guest = {
+  id: string;
+  name: string;
+  phone: string | null;
+  birthDate: string | null;
+  gender: string | null;
+  favoriteCityId: string | null;
+  favoriteCityName: string | null;
+  favoriteRestaurantId: string | null;
+  favoriteRestaurantName: string | null;
+  cityId: string | null;
+  cityName: string | null;
+  status: GuestStatus;
+  isVerified: boolean;
+  createdAt: string | null;
+  updatedAt: string | null;
+  telegramId: string | null;
+};
+
+export type AdminGuestsResponse = {
+  success: boolean;
+  guests: Guest[];
+};
+
 type AdminMeResponse = {
   success: boolean;
   role: UserRole;
@@ -251,5 +277,30 @@ export const adminServerApi = {
       },
     );
     await handleResponse<{ success: boolean }>(response);
+  },
+
+  async getGuests(params: {
+    cityId?: string;
+    search?: string;
+    verified?: boolean;
+  } = {}): Promise<Guest[]> {
+    const search = new URLSearchParams();
+    if (params.cityId) {
+      search.set("cityId", params.cityId);
+    }
+    if (params.search) {
+      search.set("search", params.search);
+    }
+    if (params.verified) {
+      search.set("verified", "true");
+    }
+    const response = await fetch(
+      `${ADMIN_API_BASE}/guests${search.toString() ? `?${search.toString()}` : ""}`,
+      {
+        headers: buildHeaders(),
+      },
+    );
+    const data = await handleResponse<AdminGuestsResponse>(response);
+    return data.guests ?? [];
   },
 };
