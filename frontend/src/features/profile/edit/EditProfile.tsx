@@ -301,13 +301,23 @@ const EditProfile = () => {
 
         {/* Greeting */}
         <div className="px-4 md:px-6 max-w-6xl mx-auto mt-4">
-          <div className="bg-mariko-secondary rounded-[16px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6">
+          <div className="bg-mariko-secondary rounded-[16px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6 relative">
             <ProfileAvatar photo={profile.photo} size="medium" />
             <div className="flex-1">
               <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold tracking-tight">
                 {greetingText}
               </h2>
             </div>
+            {/* Edit icon in top right corner */}
+            {!isEditing && (
+              <button
+                onClick={startEditAll}
+                className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                aria-label="Редактировать профиль"
+              >
+                <Pencil className="w-5 h-5 text-white" />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -315,18 +325,6 @@ const EditProfile = () => {
       {/* MAIN SECTION: белый фон с редактируемыми полями */}
       <div className="flex-1 bg-transparent relative overflow-hidden rounded-t-[24px] md:rounded-t-[32px] pt-6 md:pt-8">
         <div className="px-4 md:px-6 max-w-6xl mx-auto w-full pb-40 md:pb-44">
-          {/* Edit icon above first field (ФИО) */}
-          {!isEditing && (
-            <div className="flex justify-end mb-2">
-              <button
-                onClick={startEditAll}
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                aria-label="Редактировать профиль"
-              >
-                <Pencil className="w-5 h-5 text-white" />
-              </button>
-            </div>
-          )}
           {/* Editable Fields */}
           {!isEditing ? (
             <div className="mt-10 md:mt-12 space-y-4 md:space-y-6">
@@ -334,7 +332,6 @@ const EditProfile = () => {
               {renderViewField("Дата рождения", profile.birthDate)}
               {renderViewField("Пол", profile.gender)}
               {renderViewField("Телефон", profile.phone)}
-              {renderViewField("Адрес доставки", profile.lastAddressText || "")}
             </div>
           ) : (
             <div className="mt-10 md:mt-12 space-y-4 md:space-y-6">
@@ -359,55 +356,6 @@ const EditProfile = () => {
               <div className="bg-mariko-field rounded-[16px] px-5 md:px-7 py-3 md:py-4">
                 <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2 block">Телефон</Label>
                 <Input type="tel" value={phoneInput.value} onChange={phoneInput.onChange} placeholder="+7 (999) 123-45-67" className="bg-white/10 border-white/20 text-mariko-dark font-el-messiri text-base md:text-lg h-10 md:h-11" />
-              </div>
-
-              <div className="bg-mariko-field rounded-[16px] px-5 md:px-7 py-3 md:py-4 relative">
-                <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2 block">
-                  Адрес доставки
-                </Label>
-                <div className="relative">
-                  <Input
-                    value={addressLine}
-                    onChange={(e) => setAddressLine(e.target.value)}
-                    onFocus={() => setIsSuggestOpen(true)}
-                    onBlur={() => setTimeout(() => setIsSuggestOpen(false), 100)}
-                    placeholder="Город, улица, дом"
-                    className="bg-white/10 border-white/20 text-mariko-dark font-el-messiri text-base md:text-lg h-10 md:h-11"
-                  />
-                  {isSuggestLoading && (
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-mariko-dark/70">
-                      ...
-                    </span>
-                  )}
-                  {isSuggestOpen && suggestions.length > 0 && (
-                    <div className="absolute z-20 mt-2 w-full rounded-[12px] border border-mariko-field bg-white shadow-lg max-h-56 overflow-y-auto">
-                      {suggestions.map((suggestion) => (
-                        <button
-                          type="button"
-                          key={suggestion.id}
-                          className="w-full text-left px-3 py-2 hover:bg-mariko-field/40 text-sm text-mariko-dark"
-                          onMouseDown={(event) => event.preventDefault()}
-                          onClick={() => {
-                            const label = suggestion.label || addressLine;
-                            setAddressLine(label);
-                            setAddressCoords(
-                              suggestion.lat && suggestion.lon
-                                ? { lat: suggestion.lat, lon: suggestion.lon }
-                                : null,
-                            );
-                            setSuggestions([]);
-                            setIsSuggestOpen(false);
-                          }}
-                        >
-                          {suggestion.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {suggestError && (
-                  <p className="text-xs text-red-600 mt-1">{suggestError}</p>
-                )}
               </div>
 
               <div className="flex gap-3 justify-end">
