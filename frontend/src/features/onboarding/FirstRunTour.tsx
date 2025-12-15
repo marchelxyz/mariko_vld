@@ -1,9 +1,8 @@
 import type { CSSProperties } from "react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { getUser } from "@/lib/telegram";
 import { cn } from "@shared/utils";
-import { onboardingServerApi } from "@shared/api/onboarding/onboarding.server";
+import { useOnboardingContext } from "@/contexts/OnboardingContext";
 
 type Placement = "top" | "bottom" | "left" | "right";
 
@@ -201,6 +200,7 @@ interface FirstRunTourProps {
 }
 
 export const FirstRunTour = ({ enabled = true }: FirstRunTourProps) => {
+  const { onboardingTourShown, isLoading, setOnboardingTourShown } = useOnboardingContext();
   const [open, setOpen] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
@@ -212,36 +212,15 @@ export const FirstRunTour = ({ enabled = true }: FirstRunTourProps) => {
   const step = STEPS[stepIndex];
 
   useEffect(() => {
-    if (!enabled) return;
-    const userId = getUser()?.id;
-    if (!userId) {
-      console.warn("[onboarding] user ID not available, skipping tour check");
-      return;
-    }
-    let cancelled = false;
-
-    const check = async () => {
-      try {
-        const shown = await onboardingServerApi.getOnboardingTourShown(userId);
-        if (cancelled) return;
-        if (shown) return;
-        // Требование: показываем один раз при первом открытии приложения,
-        // поэтому помечаем как "shown" сразу при показе.
-        await onboardingServerApi.setOnboardingTourShown(userId, true);
-        if (cancelled) return;
-        setOpen(true);
-        setStepIndex(0);
-      } catch (error) {
-        console.warn("[onboarding] failed to check tour flag", error);
-      }
-    };
-
-    void check();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [enabled]);
+    if (!enabled || isLoading) return;
+    if (onboardingTourShown) return;
+    
+    // Требование: показываем один раз при первом открытии приложения,
+    // поэтому помечаем как "shown" сразу при показе.
+    void setOnboardingTourShown(true);
+    setOpen(true);
+    setStepIndex(0);
+  }, [enabled, isLoading, onboardingTourShown, setOnboardingTourShown]);
 
   useEffect(() => {
     if (!open) return;
@@ -327,21 +306,8 @@ export const FirstRunTour = ({ enabled = true }: FirstRunTourProps) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, stepIndex]);
 
-  const markSeen = async () => {
-    const userId = getUser()?.id;
-    if (!userId) {
-      console.warn("[onboarding] user ID not available, cannot persist tour flag");
-      return;
-    }
-    try {
-      await onboardingServerApi.setOnboardingTourShown(userId, true);
-    } catch (error) {
-      console.warn("[onboarding] failed to persist tour flag", error);
-    }
-  };
-
   const finish = () => {
-    void markSeen();
+    void setOnboardingTourShown(true);
     setOpen(false);
   };
 
