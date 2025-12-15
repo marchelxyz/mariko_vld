@@ -1,8 +1,8 @@
 import type { CSSProperties } from "react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { storage, getUser } from "@/lib/telegram";
 import { cn } from "@shared/utils";
+import { useOnboardingContext } from "@/contexts/OnboardingContext";
 
 type Placement = "top" | "bottom" | "left" | "right";
 
@@ -15,9 +15,6 @@ type TourStep = {
   highlightPadding?: number;
   highlightRadius?: number;
 };
-
-const TOUR_VERSION = "v1";
-const TOUR_STORAGE_KEY_BASE = `mariko_onboarding_first_run:${TOUR_VERSION}`;
 
 const STEPS: TourStep[] = [
   {
@@ -50,11 +47,6 @@ const STEPS: TourStep[] = [
 ];
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
-
-function getTourStorageKey(): string {
-  const userId = getUser()?.id;
-  return userId ? `${TOUR_STORAGE_KEY_BASE}:${userId}` : TOUR_STORAGE_KEY_BASE;
-}
 
 function getTargetElement(selector: string): HTMLElement | null {
   const el = document.querySelector(selector);
@@ -208,6 +200,7 @@ interface FirstRunTourProps {
 }
 
 export const FirstRunTour = ({ enabled = true }: FirstRunTourProps) => {
+  const { onboardingTourShown, isLoading, setOnboardingTourShown } = useOnboardingContext();
   const [open, setOpen] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
@@ -215,36 +208,19 @@ export const FirstRunTour = ({ enabled = true }: FirstRunTourProps) => {
   const bubbleRef = useRef<HTMLDivElement | null>(null);
   const [bubbleSize, setBubbleSize] = useState<{ width: number; height: number } | null>(null);
   const [viewport, setViewport] = useState<Viewport>(() => (typeof window === "undefined" ? { width: 0, height: 0 } : getViewport()));
-  const storageKeyRef = useRef<string>(TOUR_STORAGE_KEY_BASE);
 
   const step = STEPS[stepIndex];
 
   useEffect(() => {
-    if (!enabled) return;
-    storageKeyRef.current = getTourStorageKey();
-    let cancelled = false;
-
-    const check = async () => {
-      try {
-        const seen = await storage.getItemAsync(storageKeyRef.current);
-        if (cancelled) return;
-        if (seen === "1") return;
-        // Требование: показываем один раз при первом открытии приложения,
-        // поэтому помечаем как "seen" сразу при показе.
-        storage.setItem(storageKeyRef.current, "1");
-        setOpen(true);
-        setStepIndex(0);
-      } catch (error) {
-        console.warn("[onboarding] failed to check tour flag", error);
-      }
-    };
-
-    void check();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [enabled]);
+    if (!enabled || isLoading) return;
+    if (onboardingTourShown) return;
+    
+    // Требование: показываем один раз при первом открытии приложения,
+    // поэтому помечаем как "shown" сразу при показе.
+    void setOnboardingTourShown(true);
+    setOpen(true);
+    setStepIndex(0);
+  }, [enabled, isLoading, onboardingTourShown, setOnboardingTourShown]);
 
   useEffect(() => {
     if (!open) return;
@@ -330,16 +306,8 @@ export const FirstRunTour = ({ enabled = true }: FirstRunTourProps) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, stepIndex]);
 
-  const markSeen = () => {
-    try {
-      storage.setItem(storageKeyRef.current, "1");
-    } catch (error) {
-      console.warn("[onboarding] failed to persist tour flag", error);
-    }
-  };
-
   const finish = () => {
-    markSeen();
+    void setOnboardingTourShown(true);
     setOpen(false);
   };
 

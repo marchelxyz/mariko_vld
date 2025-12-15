@@ -181,6 +181,61 @@ export function registerCartRoutes(app) {
     }
   });
 
+  app.get("/api/cart/profile/onboarding-tour-shown", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const requestedId =
+      normaliseNullableString(req.query?.id) ??
+      normaliseNullableString(req.query?.userId) ??
+      headerTelegramId;
+    if (!requestedId) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Передайте Telegram ID или userId пользователя" });
+    }
+    try {
+      const row = await fetchUserProfile(requestedId);
+      const shown = row?.onboarding_tour_shown === true;
+      return res.json({ success: true, shown });
+    } catch (error) {
+      console.error("Ошибка получения флага показа подсказок:", error);
+      return res
+        .status(500)
+        .json({ success: false, message: "Не удалось получить флаг показа подсказок" });
+    }
+  });
+
+  app.post("/api/cart/profile/onboarding-tour-shown", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const body = req.body ?? {};
+    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const resolvedId =
+      (typeof body.id === "string" && body.id.trim()) ||
+      headerTelegramId ||
+      (typeof body.userId === "string" && body.userId.trim());
+    if (!resolvedId) {
+      return res.status(400).json({ success: false, message: "Не удалось определить пользователя" });
+    }
+    try {
+      const shown = body.shown === true;
+      const row = await upsertUserProfileRecord({
+        id: resolvedId,
+        telegramId: body.telegramId ?? headerTelegramId ?? resolvedId,
+        onboardingTourShown: shown,
+      });
+      return res.json({ success: true, shown: row?.onboarding_tour_shown === true });
+    } catch (error) {
+      console.error("Ошибка сохранения флага показа подсказок:", error);
+      return res
+        .status(500)
+        .json({ success: false, message: "Не удалось сохранить флаг показа подсказок" });
+    }
+  });
+
   app.post("/api/cart/submit", async (req, res) => {
     const orderPayload = req.body;
 

@@ -42,6 +42,7 @@ const buildEmptyProfile = (userId: string): UserProfile => ({
   gender: "Не указан",
   photo: "",
   notificationsEnabled: true,
+  onboardingTourShown: false,
   telegramId: Number.isFinite(Number(userId)) ? Number(userId) : undefined,
   favoriteCityId: null,
   favoriteCityName: null,
