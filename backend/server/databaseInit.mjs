@@ -15,6 +15,7 @@ const SCHEMAS = {
       gender VARCHAR(20),
       photo TEXT,
       notifications_enabled BOOLEAN DEFAULT true,
+      onboarding_tour_shown BOOLEAN DEFAULT false,
       favorite_city_id VARCHAR(255),
       favorite_city_name VARCHAR(255),
       favorite_restaurant_id VARCHAR(255),
@@ -488,6 +489,24 @@ export async function initializeDatabase() {
       }
     } catch (error) {
       console.warn("⚠️  Предупреждение при добавлении поля review_link:", error?.message || error);
+    }
+
+    // Миграция: добавляем поле onboarding_tour_shown в таблицу user_profiles
+    try {
+      const columnExists = await query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'user_profiles' AND column_name = 'onboarding_tour_shown'
+      `);
+      
+      if (columnExists.rows.length === 0) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN onboarding_tour_shown BOOLEAN DEFAULT false`);
+        console.log("✅ Поле onboarding_tour_shown добавлено в таблицу user_profiles");
+      } else {
+        console.log("ℹ️  Поле onboarding_tour_shown уже существует в таблице user_profiles");
+      }
+    } catch (error) {
+      console.warn("⚠️  Предупреждение при добавлении поля onboarding_tour_shown:", error?.message || error);
     }
 
     // Создаем индексы

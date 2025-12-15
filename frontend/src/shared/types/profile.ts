@@ -6,6 +6,7 @@ export interface UserProfile {
   gender: string;
   photo: string;
   notificationsEnabled: boolean;
+  onboardingTourShown?: boolean;
   primaryAddressId?: string | null;
   lastAddressText?: string | null;
   lastAddressLat?: number | null;

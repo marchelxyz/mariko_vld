@@ -2,7 +2,7 @@ import { queryOne, queryMany, db } from "../postgresClient.mjs";
 import { normaliseNullableString, normalisePhone, normaliseTelegramId } from "../utils.mjs";
 
 export const PROFILE_SELECT_FIELDS =
-  "id,name,phone,birth_date,gender,photo,telegram_id,notifications_enabled,favorite_city_id,favorite_city_name,favorite_restaurant_id,favorite_restaurant_name,favorite_restaurant_address,primary_address_id,last_address_text,last_address_lat,last_address_lon,last_address_updated_at,created_at,updated_at";
+  "id,name,phone,birth_date,gender,photo,telegram_id,notifications_enabled,onboarding_tour_shown,favorite_city_id,favorite_city_name,favorite_restaurant_id,favorite_restaurant_name,favorite_restaurant_address,primary_address_id,last_address_text,last_address_lat,last_address_lon,last_address_updated_at,created_at,updated_at";
 
 export const mapProfileRowToClient = (row, fallbackId = "") => ({
   id: row?.id ?? fallbackId,
@@ -23,6 +23,8 @@ export const mapProfileRowToClient = (row, fallbackId = "") => ({
   favoriteRestaurantAddress: row?.favorite_restaurant_address ?? null,
   notificationsEnabled:
     typeof row?.notifications_enabled === "boolean" ? row.notifications_enabled : true,
+  onboardingTourShown:
+    typeof row?.onboarding_tour_shown === "boolean" ? row.onboarding_tour_shown : false,
   telegramId:
     typeof row?.telegram_id === "number"
       ? row.telegram_id
@@ -63,6 +65,9 @@ export const buildProfileUpsertPayload = (input) => {
   }
   if (input.notificationsEnabled !== undefined) {
     payload.notifications_enabled = Boolean(input.notificationsEnabled);
+  }
+  if (input.onboardingTourShown !== undefined) {
+    payload.onboarding_tour_shown = Boolean(input.onboardingTourShown);
   }
   if (input.primaryAddressId !== undefined) {
     payload.primary_address_id = normaliseNullableString(input.primaryAddressId);
