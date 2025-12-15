@@ -43,6 +43,7 @@ docs/                  # Документация
 - [`RAILWAY.md`](./RAILWAY.md) — специфичные настройки Railway
 - [`RAILWAY_DOMAIN_SETUP.md`](./RAILWAY_DOMAIN_SETUP.md) — подключение домена к Railway и настройка failover (через веб-интерфейс)
 - [`RAILWAY_DOMAIN_EXPLAINED.md`](./RAILWAY_DOMAIN_EXPLAINED.md) — объяснение: IP адрес vs доменное имя через проксирование
+- [`NGINX_SETUP_TIMEWEB.md`](./NGINX_SETUP_TIMEWEB.md) — **пошаговая настройка Nginx на Timeweb через веб-интерфейс**
 - [`TIMEWEB_FAILOVER.md`](./TIMEWEB_FAILOVER.md) — настройка запасного сервера на Timeweb
 - [`ADMIN_SETUP.md`](./ADMIN_SETUP.md) — настройка админ-доступа
 
