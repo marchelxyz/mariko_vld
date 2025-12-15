@@ -383,18 +383,10 @@ export function createAdminRouter() {
       const guestId = req.params.guestId;
       
       // Получаем профиль гостя
-      // Преобразуем guestId в число для сравнения с bigint колонками
-      const numericId = Number(guestId);
-      const isNumeric = !isNaN(numericId) && isFinite(numericId);
-      
-      if (!isNumeric) {
-        // Если guestId не является числом, возвращаем пустой результат
-        return res.json({ success: true, bookings: [] });
-      }
-      
+      // id имеет тип VARCHAR, telegram_id также может быть VARCHAR в реальной БД
       const profile = await queryOne(
-        `SELECT phone FROM user_profiles WHERE id = $1::bigint OR telegram_id = $1::bigint LIMIT 1`,
-        [numericId],
+        `SELECT phone FROM user_profiles WHERE id = $1::text OR telegram_id = $1::text LIMIT 1`,
+        [guestId],
       );
 
       if (!profile || !profile.phone) {
