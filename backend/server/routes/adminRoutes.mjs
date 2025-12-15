@@ -569,9 +569,8 @@ export function createAdminRouter() {
         }
       } else if (cityId) {
         // Для админов фильтруем по городу
-        conditions.push(`(r.city_id = $${paramIndex++} OR up.favorite_city_id = $${paramIndex})`);
-        params.push(cityId);
-        paramIndex++;
+        conditions.push(`(r.city_id = $${paramIndex++} OR up.favorite_city_id = $${paramIndex++})`);
+        params.push(cityId, cityId);
       }
 
       // Поиск
