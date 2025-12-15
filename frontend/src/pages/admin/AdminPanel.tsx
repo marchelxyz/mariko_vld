@@ -2,7 +2,7 @@
  * Главная страница админ-панели
  */
 
-import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck, Megaphone, Sparkles, Grid3x3 } from 'lucide-react';
+import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck, Megaphone, Sparkles, Grid3x3, Users } from 'lucide-react';
 import { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNavigation, Header } from "@shared/ui/widgets";
@@ -41,8 +41,13 @@ const RecommendedDishesManagementLazy = lazy(() =>
     default: module.RecommendedDishesManagement,
   })),
 );
+const GuestDatabaseManagementLazy = lazy(() =>
+  import("@features/admin").then((module) => ({
+    default: module.GuestDatabaseManagement,
+  })),
+);
 
-type AdminSection = 'cities' | 'menu' | 'roles' | 'deliveries' | 'promotions' | 'recommended-dishes' | null;
+type AdminSection = 'cities' | 'menu' | 'roles' | 'deliveries' | 'promotions' | 'recommended-dishes' | 'guests' | null;
 
 const SectionLoader = () => (
   <div className="min-h-[40vh] flex items-center justify-center">
@@ -103,6 +108,13 @@ export default function AdminPanel(): JSX.Element {
           title: "Управление ролями",
           description: "Выдавайте админ-права сотрудникам ресторана",
           permission: Permission.MANAGE_ROLES,
+        },
+        {
+          key: 'guests' as AdminSection,
+          icon: <Users className="w-8 h-8" />,
+          title: "Гостевая база",
+          description: "Просматривайте и экспортируйте данные гостей по городам",
+          permission: Permission.VIEW_USERS,
         },
       ].filter((section) => hasPermission(section.permission)),
     [hasPermission],
@@ -261,6 +273,11 @@ export default function AdminPanel(): JSX.Element {
             {activeSection === 'roles' && (
               <Suspense fallback={<SectionLoader />}>
                 <RolesManagementLazy />
+              </Suspense>
+            )}
+            {activeSection === 'guests' && (
+              <Suspense fallback={<SectionLoader />}>
+                <GuestDatabaseManagementLazy />
               </Suspense>
             )}
           </div>

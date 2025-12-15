@@ -144,6 +144,7 @@ class AdminApi {
           Permission.MANAGE_PROMOTIONS,
           Permission.MANAGE_DELIVERIES,
           Permission.VIEW_MENU,
+          Permission.VIEW_USERS,
         ];
 
       case UserRole.RESTAURANT_MANAGER:
