@@ -369,6 +369,106 @@ export function createAdminRouter() {
     }
   });
 
+  // Роут для получения истории бронирований гостя
+  router.get("/guests/:guestId/bookings", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const admin = await authoriseAnyAdmin(req, res);
+    if (!admin) {
+      return res.json({ success: true, bookings: [] });
+    }
+
+    try {
+      const guestId = req.params.guestId;
+      
+      // Получаем профиль гостя
+      const profile = await queryOne(
+        `SELECT phone FROM user_profiles WHERE id = $1 OR telegram_id = $1 LIMIT 1`,
+        [guestId],
+      );
+
+      if (!profile || !profile.phone) {
+        return res.json({ success: true, bookings: [] });
+      }
+
+      // Получаем список доступных ресторанов
+      let allowedRestaurantIds = [];
+      if (admin.role !== "super_admin" && admin.role !== "admin") {
+        if (!admin.allowedRestaurants || admin.allowedRestaurants.length === 0) {
+          return res.json({ success: true, bookings: [] });
+        }
+        allowedRestaurantIds = admin.allowedRestaurants;
+      }
+
+      // Получаем историю бронирований
+      let bookingsQuery = `
+        SELECT 
+          b.id,
+          b.restaurant_id,
+          r.name as restaurant_name,
+          b.remarked_restaurant_id,
+          b.remarked_reserve_id,
+          b.customer_name,
+          b.customer_phone,
+          b.customer_email,
+          b.booking_date,
+          b.booking_time,
+          b.guests_count,
+          b.comment,
+          b.event_tags,
+          b.source,
+          b.status,
+          b.created_at,
+          b.updated_at
+        FROM bookings b
+        LEFT JOIN restaurants r ON b.restaurant_id = r.id
+        WHERE b.customer_phone = $1
+      `;
+
+      const params = [profile.phone];
+      let paramIndex = 2;
+
+      // Фильтрация по доступным ресторанам для менеджеров
+      if (allowedRestaurantIds.length > 0 && admin.role !== "super_admin" && admin.role !== "admin") {
+        bookingsQuery += ` AND b.restaurant_id = ANY($${paramIndex++})`;
+        params.push(allowedRestaurantIds);
+      }
+
+      bookingsQuery += ` ORDER BY b.booking_date DESC, b.booking_time DESC`;
+
+      const bookings = await queryMany(bookingsQuery, params);
+
+      return res.json({
+        success: true,
+        bookings: bookings.map((booking) => ({
+          id: booking.id,
+          restaurantId: booking.restaurant_id,
+          restaurantName: booking.restaurant_name,
+          remarkedRestaurantId: booking.remarked_restaurant_id,
+          remarkedReserveId: booking.remarked_reserve_id,
+          customerName: booking.customer_name,
+          customerPhone: booking.customer_phone,
+          customerEmail: booking.customer_email,
+          bookingDate: booking.booking_date,
+          bookingTime: booking.booking_time,
+          guestsCount: booking.guests_count,
+          comment: booking.comment,
+          eventTags: booking.event_tags,
+          source: booking.source,
+          status: booking.status,
+          createdAt: booking.created_at,
+          updatedAt: booking.updated_at,
+        })),
+      });
+    } catch (error) {
+      console.error("Ошибка получения истории бронирований:", error);
+      return res
+        .status(500)
+        .json({ success: false, message: "Не удалось получить историю бронирований" });
+    }
+  });
+
   // Роут для получения гостевой базы
   router.get("/guests", async (req, res) => {
     if (!ensureDatabase(res)) {

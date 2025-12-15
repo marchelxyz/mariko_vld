@@ -108,6 +108,31 @@ export type Guest = {
   telegramId: string | null;
 };
 
+export type GuestBooking = {
+  id: string;
+  restaurantId: string;
+  restaurantName: string | null;
+  remarkedRestaurantId: number | null;
+  remarkedReserveId: number | null;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string | null;
+  bookingDate: string;
+  bookingTime: string;
+  guestsCount: number;
+  comment: string | null;
+  eventTags: unknown;
+  source: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GuestBookingsResponse = {
+  success: boolean;
+  bookings: GuestBooking[];
+};
+
 export type AdminGuestsResponse = {
   success: boolean;
   guests: Guest[];
@@ -302,5 +327,16 @@ export const adminServerApi = {
     );
     const data = await handleResponse<AdminGuestsResponse>(response);
     return data.guests ?? [];
+  },
+
+  async getGuestBookings(guestId: string): Promise<GuestBooking[]> {
+    const response = await fetch(
+      `${ADMIN_API_BASE}/guests/${encodeURIComponent(guestId)}/bookings`,
+      {
+        headers: buildHeaders(),
+      },
+    );
+    const data = await handleResponse<GuestBookingsResponse>(response);
+    return data.bookings ?? [];
   },
 };
