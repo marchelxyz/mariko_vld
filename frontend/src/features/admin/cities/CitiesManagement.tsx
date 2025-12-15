@@ -267,6 +267,7 @@ export function CitiesManagement(): JSX.Element {
     twoGisUrl: string;
     socialNetworks: Array<{ name: string; url: string }>;
     remarkedRestaurantId?: number;
+    reviewLink: string;
   }) => {
     if (!restaurantToEdit) return;
 
@@ -279,6 +280,7 @@ export function CitiesManagement(): JSX.Element {
       twoGisUrl: updates.twoGisUrl.trim() ? updates.twoGisUrl : undefined,
       socialNetworks: updates.socialNetworks.length > 0 ? updates.socialNetworks : undefined,
       remarkedRestaurantId: updates.remarkedRestaurantId,
+      reviewLink: updates.reviewLink.trim(),
     });
 
     if (result) {
@@ -339,6 +341,7 @@ export function CitiesManagement(): JSX.Element {
             twoGisUrl: city.restaurant.twoGisUrl,
             socialNetworks: city.restaurant.socialNetworks,
             remarkedRestaurantId: city.restaurant.remarkedRestaurantId,
+            reviewLink: city.restaurant.reviewLink,
           });
 
           logger.debug('cities', 'Результат создания ресторана', restaurantResult);

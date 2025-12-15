@@ -37,6 +37,7 @@ class CitiesApi {
     twoGisUrl?: string;
     socialNetworks?: Array<{ name: string; url: string }>;
     remarkedRestaurantId?: number;
+    reviewLink: string;
   }): Promise<{ success: boolean; restaurantId?: string; errorMessage?: string }> {
     return await createRestaurantViaServer(restaurant);
   }
@@ -51,6 +52,7 @@ class CitiesApi {
     yandexMapsUrl?: string;
     twoGisUrl?: string;
     socialNetworks?: Array<{ name: string; url: string }>;
+    reviewLink?: string;
   }): Promise<boolean> {
     // Обновляем статус через admin API если нужно
     if (updates.isActive !== undefined) {

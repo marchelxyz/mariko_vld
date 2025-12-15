@@ -20,6 +20,7 @@ type CreateCityModalProps = {
       twoGisUrl?: string;
       socialNetworks?: SocialNetwork[];
       remarkedRestaurantId?: number;
+      reviewLink: string;
     };
   }) => Promise<void>;
 };
@@ -79,6 +80,7 @@ export function CreateCityModal({
   const [twoGisUrl, setTwoGisUrl] = useState('');
   const [socialNetworks, setSocialNetworks] = useState<SocialNetwork[]>([]);
   const [remarkedRestaurantId, setRemarkedRestaurantId] = useState<string>('');
+  const [reviewLink, setReviewLink] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -95,6 +97,7 @@ export function CreateCityModal({
       setTwoGisUrl('');
       setSocialNetworks([]);
       setRemarkedRestaurantId('');
+      setReviewLink('');
     }
   }, [isOpen]);
 
@@ -168,6 +171,10 @@ export function CreateCityModal({
         alert('Пожалуйста, заполните название и адрес ресторана');
         return;
       }
+      if (!reviewLink.trim()) {
+        alert('Пожалуйста, заполните ссылку на отзывы');
+        return;
+      }
     }
 
     setIsSaving(true);
@@ -198,6 +205,7 @@ export function CreateCityModal({
           }
           return parsed;
         })() : undefined,
+        reviewLink: reviewLink.trim(),
       } : undefined;
 
       const cityData = {
@@ -335,6 +343,18 @@ export function CreateCityModal({
               />
               <p className="text-white/60 text-xs mt-1">
                 Используется для брони столиков. Должен быть 6-значным числом (например: 123456)
+              </p>
+            </div>
+
+            <div>
+              <Label className="text-white">Ссылка на отзывы *</Label>
+              <Input
+                value={reviewLink}
+                onChange={(e) => setReviewLink(e.target.value)}
+                placeholder="https://vhachapuri.ru/otziv_..."
+              />
+              <p className="text-white/60 text-xs mt-1">
+                Ссылка на страницу отзывов ресторана. Используется в кнопке "Оставить отзыв"
               </p>
             </div>
 

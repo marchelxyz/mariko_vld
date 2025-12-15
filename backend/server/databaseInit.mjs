@@ -154,6 +154,7 @@ const SCHEMAS = {
       two_gis_url TEXT,
       social_networks JSONB DEFAULT '[]'::jsonb,
       remarked_restaurant_id INTEGER,
+      review_link TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
@@ -469,6 +470,24 @@ export async function initializeDatabase() {
           console.log(`ℹ️  Foreign key ${fk.name} пропущен (уже существует или не требуется)`);
         }
       }
+    }
+
+    // Миграция: добавляем поле review_link в таблицу restaurants
+    try {
+      const columnExists = await query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'restaurants' AND column_name = 'review_link'
+      `);
+      
+      if (columnExists.rows.length === 0) {
+        await query(`ALTER TABLE restaurants ADD COLUMN review_link TEXT`);
+        console.log("✅ Поле review_link добавлено в таблицу restaurants");
+      } else {
+        console.log("ℹ️  Поле review_link уже существует в таблице restaurants");
+      }
+    } catch (error) {
+      console.warn("⚠️  Предупреждение при добавлении поля review_link:", error?.message || error);
     }
 
     // Создаем индексы

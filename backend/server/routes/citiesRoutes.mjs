@@ -70,6 +70,7 @@ export function createCitiesRouter() {
                   : r.social_networks)
               : undefined,
             remarkedRestaurantId: r.remarked_restaurant_id || undefined,
+            reviewLink: r.review_link || undefined,
           })),
       })).filter((city) => city.restaurants.length > 0);
 
@@ -130,6 +131,7 @@ export function createCitiesRouter() {
                   : r.social_networks)
               : undefined,
             remarkedRestaurantId: r.remarked_restaurant_id || undefined,
+            reviewLink: r.review_link || undefined,
           })),
       }));
 
@@ -270,10 +272,15 @@ export function createCitiesRouter() {
       twoGisUrl,
       socialNetworks,
       remarkedRestaurantId,
+      reviewLink,
     } = req.body ?? {};
 
     if (typeof cityId !== "string" || typeof name !== "string" || typeof address !== "string" || !cityId.trim() || !name.trim() || !address.trim()) {
       return res.status(400).json({ success: false, message: "Некорректные параметры: требуется cityId, name и address" });
+    }
+
+    if (!reviewLink || typeof reviewLink !== "string" || !reviewLink.trim()) {
+      return res.status(400).json({ success: false, message: "Некорректные параметры: требуется reviewLink" });
     }
 
     try {
@@ -297,9 +304,9 @@ export function createCitiesRouter() {
         `INSERT INTO restaurants (
           id, city_id, name, address, is_active, phone_number, 
           delivery_aggregators, yandex_maps_url, two_gis_url, 
-          social_networks, remarked_restaurant_id, display_order, created_at, updated_at
+          social_networks, remarked_restaurant_id, review_link, display_order, created_at, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())`,
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())`,
         [
           restaurantId,
           cityId.trim(),
@@ -312,6 +319,7 @@ export function createCitiesRouter() {
           twoGisUrl?.trim() || null,
           socialNetworks ? JSON.stringify(socialNetworks) : null,
           remarkedRestaurantId || null,
+          reviewLink.trim(),
           0,
         ]
       );
@@ -339,6 +347,7 @@ export function createCitiesRouter() {
       twoGisUrl,
       socialNetworks,
       remarkedRestaurantId,
+      reviewLink,
     } = req.body ?? {};
 
     try {
@@ -381,6 +390,13 @@ export function createCitiesRouter() {
       if (remarkedRestaurantId !== undefined) {
         updateData.push(`remarked_restaurant_id = $${paramIndex++}`);
         params.push(remarkedRestaurantId || null);
+      }
+      if (reviewLink !== undefined) {
+        if (!reviewLink || typeof reviewLink !== "string" || !reviewLink.trim()) {
+          return res.status(400).json({ success: false, message: "Некорректные параметры: reviewLink обязателен и не может быть пустым" });
+        }
+        updateData.push(`review_link = $${paramIndex++}`);
+        params.push(reviewLink.trim());
       }
 
       if (updateData.length === 0) {
