@@ -383,11 +383,31 @@ export function createAdminRouter() {
       const guestId = req.params.guestId;
       
       // Получаем профиль гостя
-      // id имеет тип VARCHAR, telegram_id также может быть VARCHAR в реальной БД
-      const profile = await queryOne(
-        `SELECT phone FROM user_profiles WHERE id = $1::text OR telegram_id = $1::text LIMIT 1`,
-        [guestId],
-      );
+      // id имеет тип VARCHAR(255), telegram_id имеет тип BIGINT
+      // Проверяем, является ли guestId UUID (строка) или числом
+      const asString = guestId ? String(guestId) : "";
+      const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(asString);
+      
+      let profile = null;
+      
+      if (looksLikeUuid) {
+        // Если это UUID, ищем по id (VARCHAR)
+        profile = await queryOne(
+          `SELECT phone FROM user_profiles WHERE id = $1 LIMIT 1`,
+          [asString],
+        );
+      }
+      
+      if (!profile) {
+        // Пробуем найти по telegram_id (BIGINT)
+        const numeric = Number(asString);
+        if (Number.isFinite(numeric)) {
+          profile = await queryOne(
+            `SELECT phone FROM user_profiles WHERE telegram_id = $1 LIMIT 1`,
+            [numeric],
+          );
+        }
+      }
 
       if (!profile || !profile.phone) {
         return res.json({ success: true, bookings: [] });
