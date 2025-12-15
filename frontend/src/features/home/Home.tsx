@@ -437,7 +437,7 @@ const Index = () => {
                   {isLoadingRecommended ? (
                     <div className="text-center py-8 text-gray-500">Загрузка рекомендаций...</div>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
                       {recommendedDishes.map((item) => (
                         <div key={item.id}>
                           {/* Мобильный вариант для экранов < 768px */}

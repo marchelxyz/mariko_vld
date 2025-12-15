@@ -62,7 +62,7 @@ function MenuItemComponentBase({
       {/* Фото/иконка блюда */}
       <div className={`${
         isMobile ? 'aspect-[4/3]' : 
-        isCompact ? 'aspect-[3/2]' : 
+        isCompact ? 'aspect-[4/3]' : 
         'aspect-[4/3]'
       } bg-gray-100 flex items-center justify-center relative`}>
         {item.imageUrl ? (
