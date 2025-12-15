@@ -82,12 +82,66 @@ function getStatusText(status: Guest['status']): string {
 }
 
 /**
- * Экспорт гостей в CSV формат
+ * Разделить имя и фамилию
+ */
+function splitName(fullName: string | null): { firstName: string; lastName: string } {
+  if (!fullName) {
+    return { firstName: '', lastName: '' };
+  }
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: '' };
+  }
+  const firstName = parts[0];
+  const lastName = parts.slice(1).join(' ');
+  return { firstName, lastName };
+}
+
+/**
+ * Убрать "+" из начала номера телефона
+ */
+function normalizePhone(phone: string | null): string {
+  if (!phone) {
+    return '';
+  }
+  return phone.startsWith('+') ? phone.slice(1) : phone;
+}
+
+/**
+ * Форматировать дату рождения (если формат уже дд.мм.гггг, оставить как есть)
+ */
+function formatBirthDate(birthDate: string | null): string {
+  if (!birthDate) {
+    return '';
+  }
+  // Проверяем, является ли дата уже в формате дд.мм.гггг
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(birthDate)) {
+    return birthDate;
+  }
+  // Пытаемся преобразовать другие форматы
+  try {
+    const date = new Date(birthDate);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleDateString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+    }
+  } catch {
+    // Если не удалось преобразовать, возвращаем как есть
+  }
+  return birthDate;
+}
+
+/**
+ * Экспорт гостей в HTML формат (Excel может открыть с форматированием)
  */
 function exportToCSV(guests: Guest[], filename: string): void {
   const headers = [
     'ID',
     'Имя',
+    'Фамилия',
     'Телефон',
     'День рождения',
     'Пол',
@@ -98,33 +152,92 @@ function exportToCSV(guests: Guest[], filename: string): void {
     'Дата создания',
   ];
 
-  const rows = guests.map((guest) => [
-    guest.id,
-    guest.name || '',
-    guest.phone || '',
-    guest.birthDate || '',
-    guest.gender || '',
-    guest.cityName || '',
-    guest.favoriteRestaurantName || '',
-    getStatusText(guest.status),
-    guest.isVerified ? 'Да' : 'Нет',
-    guest.createdAt ? new Date(guest.createdAt).toLocaleDateString('ru-RU') : '',
-  ]);
+  const rows = guests.map((guest) => {
+    const { firstName, lastName } = splitName(guest.name);
+    return [
+      guest.id,
+      firstName,
+      lastName,
+      normalizePhone(guest.phone),
+      formatBirthDate(guest.birthDate),
+      guest.gender || '',
+      guest.cityName || '',
+      guest.favoriteRestaurantName || '',
+      getStatusText(guest.status),
+      guest.isVerified ? 'Да' : 'Нет',
+      guest.createdAt ? new Date(guest.createdAt).toLocaleDateString('ru-RU') : '',
+    ];
+  });
 
+  // Создаем HTML таблицу с форматированием для Excel
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        table {
+          border-collapse: collapse;
+          width: 100%;
+        }
+        th {
+          background-color: #f0f0f0;
+          font-weight: bold;
+          border: 1px solid #000;
+          padding: 8px;
+          text-align: left;
+        }
+        td {
+          border: 1px solid #000;
+          padding: 8px;
+        }
+      </style>
+    </head>
+    <body>
+      <table>
+        <thead>
+          <tr>
+            ${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((row) => 
+            `<tr>${row.map((cell) => `<td>${escapeHtml(String(cell))}</td>`).join('')}</tr>`
+          ).join('')}
+        </tbody>
+      </table>
+    </body>
+    </html>
+  `;
+
+  // Также создаем CSV версию для совместимости
   const csvContent = [
     headers.join(','),
     ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
   ].join('\n');
 
-  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  // Используем HTML формат (Excel откроет с форматированием)
+  const blob = new Blob(['\ufeff' + htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
   link.setAttribute('href', url);
-  link.setAttribute('download', filename);
+  link.setAttribute('download', filename.replace('.csv', '.xls'));
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+}
+
+/**
+ * Экранировать HTML символы
+ */
+function escapeHtml(text: string): string {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 /**
@@ -231,7 +344,7 @@ export function GuestDatabaseManagement(): JSX.Element {
     return { total, verified, fullProfile, restaurantOnly };
   }, [filteredGuests]);
 
-  // Экспорт в Excel (CSV)
+  // Экспорт в Excel
   const handleExport = useCallback(() => {
     const cityName = selectedCityId === 'all' 
       ? 'все_города' 
@@ -331,7 +444,7 @@ export function GuestDatabaseManagement(): JSX.Element {
           className="whitespace-nowrap"
         >
           <Download className="w-4 h-4 mr-2" />
-          Экспорт CSV
+          Экспорт Excel
         </Button>
       </div>
 
@@ -355,17 +468,20 @@ export function GuestDatabaseManagement(): JSX.Element {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/10">
-                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm">Статус</th>
-                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm">Имя</th>
-                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm">Телефон</th>
-                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm">День рождения</th>
-                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm">Город</th>
-                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm">Ресторан</th>
-                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm">Дата регистрации</th>
+                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Статус</th>
+                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Имя</th>
+                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Фамилия</th>
+                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Телефон</th>
+                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">День рождения</th>
+                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Город</th>
+                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Ресторан</th>
+                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Дата регистрации</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredGuests.map((guest) => (
+                {filteredGuests.map((guest) => {
+                  const { firstName, lastName } = splitName(guest.name);
+                  return (
                   <tr
                     key={guest.id}
                     onClick={() => handleGuestClick(guest)}
@@ -383,10 +499,11 @@ export function GuestDatabaseManagement(): JSX.Element {
                         </span>
                       </div>
                     </td>
-                    <td className="p-3 md:p-4 text-white font-medium">{guest.name}</td>
-                    <td className="p-3 md:p-4 text-white/80">{guest.phone || '-'}</td>
+                    <td className="p-3 md:p-4 text-white font-medium">{firstName}</td>
+                    <td className="p-3 md:p-4 text-white font-medium">{lastName}</td>
+                    <td className="p-3 md:p-4 text-white/80">{normalizePhone(guest.phone) || '-'}</td>
                     <td className="p-3 md:p-4 text-white/70">
-                      {guest.birthDate ? new Date(guest.birthDate).toLocaleDateString('ru-RU') : '-'}
+                      {formatBirthDate(guest.birthDate) || '-'}
                     </td>
                     <td className="p-3 md:p-4">
                       {guest.cityName ? (
@@ -403,7 +520,8 @@ export function GuestDatabaseManagement(): JSX.Element {
                       {guest.createdAt ? new Date(guest.createdAt).toLocaleDateString('ru-RU') : '-'}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
