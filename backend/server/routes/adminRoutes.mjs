@@ -369,5 +369,283 @@ export function createAdminRouter() {
     }
   });
 
+  // Роут для получения истории бронирований гостя
+  router.get("/guests/:guestId/bookings", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const admin = await authoriseAnyAdmin(req, res);
+    if (!admin) {
+      return res.json({ success: true, bookings: [] });
+    }
+
+    try {
+      const guestId = req.params.guestId;
+      
+      // Получаем профиль гостя
+      const profile = await queryOne(
+        `SELECT phone FROM user_profiles WHERE id = $1 OR telegram_id = $1 LIMIT 1`,
+        [guestId],
+      );
+
+      if (!profile || !profile.phone) {
+        return res.json({ success: true, bookings: [] });
+      }
+
+      // Получаем список доступных ресторанов
+      let allowedRestaurantIds = [];
+      if (admin.role !== "super_admin" && admin.role !== "admin") {
+        if (!admin.allowedRestaurants || admin.allowedRestaurants.length === 0) {
+          return res.json({ success: true, bookings: [] });
+        }
+        allowedRestaurantIds = admin.allowedRestaurants;
+      }
+
+      // Получаем историю бронирований
+      let bookingsQuery = `
+        SELECT 
+          b.id,
+          b.restaurant_id,
+          r.name as restaurant_name,
+          b.remarked_restaurant_id,
+          b.remarked_reserve_id,
+          b.customer_name,
+          b.customer_phone,
+          b.customer_email,
+          b.booking_date,
+          b.booking_time,
+          b.guests_count,
+          b.comment,
+          b.event_tags,
+          b.source,
+          b.status,
+          b.created_at,
+          b.updated_at
+        FROM bookings b
+        LEFT JOIN restaurants r ON b.restaurant_id = r.id
+        WHERE b.customer_phone = $1
+      `;
+
+      const params = [profile.phone];
+      let paramIndex = 2;
+
+      // Фильтрация по доступным ресторанам для менеджеров
+      if (allowedRestaurantIds.length > 0 && admin.role !== "super_admin" && admin.role !== "admin") {
+        bookingsQuery += ` AND b.restaurant_id = ANY($${paramIndex++})`;
+        params.push(allowedRestaurantIds);
+      }
+
+      bookingsQuery += ` ORDER BY b.booking_date DESC, b.booking_time DESC`;
+
+      const bookings = await queryMany(bookingsQuery, params);
+
+      return res.json({
+        success: true,
+        bookings: bookings.map((booking) => ({
+          id: booking.id,
+          restaurantId: booking.restaurant_id,
+          restaurantName: booking.restaurant_name,
+          remarkedRestaurantId: booking.remarked_restaurant_id,
+          remarkedReserveId: booking.remarked_reserve_id,
+          customerName: booking.customer_name,
+          customerPhone: booking.customer_phone,
+          customerEmail: booking.customer_email,
+          bookingDate: booking.booking_date,
+          bookingTime: booking.booking_time,
+          guestsCount: booking.guests_count,
+          comment: booking.comment,
+          eventTags: booking.event_tags,
+          source: booking.source,
+          status: booking.status,
+          createdAt: booking.created_at,
+          updatedAt: booking.updated_at,
+        })),
+      });
+    } catch (error) {
+      console.error("Ошибка получения истории бронирований:", error);
+      return res
+        .status(500)
+        .json({ success: false, message: "Не удалось получить историю бронирований" });
+    }
+  });
+
+  // Роут для получения гостевой базы
+  router.get("/guests", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const admin = await authoriseAnyAdmin(req, res);
+    if (!admin) {
+      return res.json({ success: true, guests: [] });
+    }
+
+    try {
+      const cityId = typeof req.query?.cityId === "string" ? req.query.cityId.trim() : null;
+      const searchQuery = typeof req.query?.search === "string" ? req.query.search.trim() : null;
+      const verifiedOnly = req.query?.verified === "true";
+
+      // Получаем список ресторанов для фильтрации
+      let allowedRestaurantIds = [];
+      if (admin.role !== "super_admin" && admin.role !== "admin") {
+        if (!admin.allowedRestaurants || admin.allowedRestaurants.length === 0) {
+          return res.json({ success: true, guests: [] });
+        }
+        allowedRestaurantIds = admin.allowedRestaurants;
+      } else {
+        // Для админов получаем все рестораны
+        const restaurants = await queryMany(`SELECT id FROM restaurants`);
+        allowedRestaurantIds = restaurants.map((r) => r.id);
+      }
+
+
+      // Получаем всех пользователей
+      let queryText = `
+        SELECT 
+          up.id,
+          up.name,
+          up.phone,
+          up.birth_date,
+          up.gender,
+          up.favorite_city_id,
+          up.favorite_city_name,
+          up.favorite_restaurant_id,
+          up.favorite_restaurant_name,
+          up.created_at,
+          up.updated_at,
+          up.telegram_id,
+          r.city_id,
+          c.name as city_name
+        FROM user_profiles up
+        LEFT JOIN restaurants r ON up.favorite_restaurant_id = r.id
+        LEFT JOIN cities c ON r.city_id = c.id OR up.favorite_city_id = c.id
+      `;
+
+      const params = [];
+      let paramIndex = 1;
+      const conditions = [];
+
+      // Фильтрация по ресторанам (для менеджеров)
+      if (admin.role !== "super_admin" && admin.role !== "admin") {
+        // Для менеджеров показываем только гостей с доступными ресторанами
+        if (cityId) {
+          // Если указан город, фильтруем по ресторанам этого города из доступных
+          const cityRestaurants = await queryMany(
+            `SELECT id FROM restaurants WHERE city_id = $1 AND id = ANY($2)`,
+            [cityId, allowedRestaurantIds],
+          );
+          const cityRestaurantIds = cityRestaurants.map((r) => r.id);
+          if (cityRestaurantIds.length > 0) {
+            conditions.push(`up.favorite_restaurant_id = ANY($${paramIndex++})`);
+            params.push(cityRestaurantIds);
+          } else {
+            // Нет доступных ресторанов в этом городе
+            return res.json({ success: true, guests: [] });
+          }
+        } else {
+          // Показываем гостей с доступными ресторанами или без ресторана
+          conditions.push(`(up.favorite_restaurant_id = ANY($${paramIndex++}) OR up.favorite_restaurant_id IS NULL)`);
+          params.push(allowedRestaurantIds);
+        }
+      } else if (cityId) {
+        // Для админов фильтруем по городу
+        conditions.push(`(r.city_id = $${paramIndex++} OR up.favorite_city_id = $${paramIndex})`);
+        params.push(cityId);
+        paramIndex++;
+      }
+
+      // Поиск
+      if (searchQuery) {
+        const searchPattern = `%${searchQuery}%`;
+        conditions.push(
+          `(up.name ILIKE $${paramIndex++} OR up.phone ILIKE $${paramIndex++})`
+        );
+        params.push(searchPattern, searchPattern);
+      }
+
+      if (conditions.length > 0) {
+        queryText += ` WHERE ${conditions.join(" AND ")}`;
+      }
+
+      queryText += ` ORDER BY up.created_at DESC`;
+
+      const profiles = await queryMany(queryText, params);
+
+      // Получаем бронирования для определения верификации
+      const profileIds = profiles.map((p) => p.id);
+      const phoneNumbers = profiles.map((p) => p.phone).filter(Boolean);
+
+      let bookingsQuery = `
+        SELECT DISTINCT customer_phone, restaurant_id
+        FROM bookings
+        WHERE customer_phone = ANY($1)
+      `;
+      const bookingsParams = [phoneNumbers.length > 0 ? phoneNumbers : [""]];
+
+      if (allowedRestaurantIds.length > 0 && admin.role !== "super_admin" && admin.role !== "admin") {
+        bookingsQuery += ` AND restaurant_id = ANY($2)`;
+        bookingsParams.push(allowedRestaurantIds);
+      }
+
+      const bookings = await queryMany(bookingsQuery, bookingsParams);
+      const verifiedPhones = new Set(bookings.map((b) => b.customer_phone));
+
+      // Определяем статус каждого гостя
+      const guests = profiles.map((profile) => {
+        const hasBooking = profile.phone ? verifiedPhones.has(profile.phone) : false;
+        const hasFullProfile = Boolean(
+          profile.name &&
+          profile.phone &&
+          profile.birth_date &&
+          profile.gender &&
+          profile.favorite_restaurant_id
+        );
+        const hasRestaurantOnly = Boolean(profile.favorite_restaurant_id && !hasFullProfile);
+
+        let status = "unverified";
+        if (hasBooking) {
+          status = "verified";
+        } else if (hasFullProfile) {
+          status = "full_profile";
+        } else if (hasRestaurantOnly) {
+          status = "restaurant_only";
+        }
+
+        return {
+          id: profile.id,
+          name: profile.name || "Не указано",
+          phone: profile.phone || null,
+          birthDate: profile.birth_date || null,
+          gender: profile.gender || null,
+          favoriteCityId: profile.favorite_city_id || null,
+          favoriteCityName: profile.favorite_city_name || profile.city_name || null,
+          favoriteRestaurantId: profile.favorite_restaurant_id || null,
+          favoriteRestaurantName: profile.favorite_restaurant_name || null,
+          cityId: profile.city_id || profile.favorite_city_id || null,
+          cityName: profile.city_name || profile.favorite_city_name || null,
+          status,
+          isVerified: hasBooking,
+          createdAt: profile.created_at,
+          updatedAt: profile.updated_at,
+          telegramId: profile.telegram_id ? String(profile.telegram_id) : null,
+        };
+      });
+
+      // Фильтрация по статусу верификации
+      const filteredGuests = verifiedOnly
+        ? guests.filter((g) => g.isVerified)
+        : guests;
+
+      return res.json({
+        success: true,
+        guests: filteredGuests,
+      });
+    } catch (error) {
+      console.error("Ошибка получения гостевой базы:", error);
+      return res
+        .status(500)
+        .json({ success: false, message: "Не удалось получить гостевую базу" });
+    }
+  });
+
   return router;
 }
