@@ -150,10 +150,55 @@ railway status
    - В Vercel: `VITE_SERVER_API_URL=https://backend.up.railway.app/api`
    - В Railway Bot: `WEBAPP_URL=https://your-app.vercel.app`
 
+### Получение IP адреса Railway
+
+⚠️ **Важно:** Railway использует **динамические IP адреса**, которые могут изменяться при перезапуске сервиса. Для подключения домена рекомендуется использовать доменное имя Railway через проксирование, а не IP адрес напрямую.
+
+#### Способ 1: Через скрипт (рекомендуется)
+
+```bash
+# Автоматически получает домен через Railway CLI и IP через DNS
+bash scripts/get-railway-ip.sh
+
+# Или укажите домен вручную
+bash scripts/get-railway-ip.sh backend.up.railway.app
+```
+
+#### Способ 2: Через DNS запрос (dig)
+
+```bash
+# Установите dnsutils (если еще не установлено)
+sudo apt-get install dnsutils  # Ubuntu/Debian
+# или
+sudo yum install bind-utils     # CentOS/RHEL
+
+# Получите IP адрес домена Railway
+dig +short backend.up.railway.app
+```
+
+#### Способ 3: Через nslookup
+
+```bash
+nslookup backend.up.railway.app
+```
+
+#### Способ 4: Через Railway Dashboard
+
+1. Откройте Railway Dashboard → выберите сервис
+2. Перейдите в **Settings** → **Networking**
+3. Скопируйте домен (например: `backend.up.railway.app`)
+4. Используйте один из способов выше для получения IP
+
+**Примечание:** IP адрес может понадобиться для:
+- Настройки firewall правил
+- Ограничения доступа к базе данных (например, Yandex Managed PostgreSQL)
+- Отладки сетевых подключений
+
 ### Custom домены
 
 - Настраиваются в Railway Dashboard → **Settings** → **Networking** → **Custom Domain**
 - Требуется настройка DNS записей
+- Для failover с Timeweb см. [`TIMEWEB_FAILOVER.md`](./TIMEWEB_FAILOVER.md)
 
 ## Troubleshooting
 
