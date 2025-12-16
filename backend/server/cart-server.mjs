@@ -2,6 +2,9 @@
 
 import express from "express";
 import cors from "cors";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import fs from "node:fs";
 
 import { PORT } from "./config.mjs";
 import { db } from "./postgresClient.mjs";
@@ -166,18 +169,62 @@ const storageRouter = createStorageRouter();
 app.use("/api/storage", storageRouter);
 app.use("/api/admin/storage", storageRouter);
 
-app.use((req, res) => {
-  logger.warn('404 Not Found', { method: req.method, path: req.path });
-  res.status(404).json({ success: false, message: "Not Found" });
-});
-
-// Healthcheck endpoint для контейнеров
+// Healthcheck endpoint для контейнеров (должен быть до статики, чтобы не перехватывался)
 app.get("/health", (req, res) => {
   res.status(200).json({ 
     status: "ok", 
     timestamp: new Date().toISOString(),
     database: Boolean(db)
   });
+});
+
+// Условное обслуживание статики фронтенда (только для Docker деплоя на Timeweb)
+// Проверяем наличие папки /app/public (создается Dockerfile.simple)
+// Для Railway деплоя (Dockerfile.backend) папка отсутствует, и сервер работает только как API
+const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../public");
+let staticDirExists = false;
+try {
+  staticDirExists = fs.existsSync(publicDir) && fs.statSync(publicDir).isDirectory();
+} catch (error) {
+  logger.debug("Ошибка при проверке папки статики (это нормально для Railway деплоя)", { publicDir, error: error.message });
+}
+
+if (staticDirExists) {
+  logger.info("Обнаружена папка со статикой, включаю обслуживание фронтенда", { publicDir });
+  
+  // Обслуживание статических файлов (JS, CSS, изображения и т.д.)
+  // express.static обрабатывает только существующие файлы, для несуществующих вызывает next()
+  app.use(express.static(publicDir, {
+    maxAge: "1y",
+    immutable: true,
+    etag: true,
+    lastModified: true,
+  }));
+  
+  // SPA routing: для всех не-API GET запросов, которые не являются статическими файлами,
+  // возвращаем index.html (fallback для клиентского роутинга)
+  app.get("*", (req, res, next) => {
+    // Пропускаем API запросы и healthcheck (они уже обработаны выше)
+    if (req.path.startsWith("/api/") || req.path === "/health") {
+      return next();
+    }
+    
+    // Для всех остальных GET запросов возвращаем index.html
+    const indexHtml = path.join(publicDir, "index.html");
+    if (fs.existsSync(indexHtml)) {
+      res.sendFile(indexHtml);
+    } else {
+      next();
+    }
+  });
+} else {
+  logger.debug("Папка со статикой не найдена, пропускаю обслуживание фронтенда", { publicDir });
+}
+
+// 404 handler для API запросов и других необработанных запросов
+app.use((req, res) => {
+  logger.warn('404 Not Found', { method: req.method, path: req.path });
+  res.status(404).json({ success: false, message: "Not Found" });
 });
 
 // Инициализируем БД при старте сервера
