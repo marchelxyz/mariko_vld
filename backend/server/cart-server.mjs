@@ -181,16 +181,52 @@ app.get("/health", (req, res) => {
 // Условное обслуживание статики фронтенда (только для Docker деплоя на Timeweb)
 // Проверяем наличие папки /app/public (создается Dockerfile.simple)
 // Для Railway деплоя (Dockerfile.backend) папка отсутствует, и сервер работает только как API
-const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../public");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const publicDir = path.join(__dirname, "../../public");
 let staticDirExists = false;
 try {
   staticDirExists = fs.existsSync(publicDir) && fs.statSync(publicDir).isDirectory();
+  if (staticDirExists) {
+    // Дополнительная диагностика: проверяем наличие ключевых файлов
+    const indexHtml = path.join(publicDir, "index.html");
+    const assetsDir = path.join(publicDir, "assets");
+    logger.debug("Проверка структуры статики", {
+      publicDir,
+      indexHtmlExists: fs.existsSync(indexHtml),
+      assetsDirExists: fs.existsSync(assetsDir),
+      __dirname,
+      __filename
+    });
+  }
 } catch (error) {
-  logger.debug("Ошибка при проверке папки статики (это нормально для Railway деплоя)", { publicDir, error: error.message });
+  logger.debug("Ошибка при проверке папки статики (это нормально для Railway деплоя)", { 
+    publicDir, 
+    __dirname,
+    __filename,
+    error: error.message 
+  });
 }
 
 if (staticDirExists) {
   logger.info("Обнаружена папка со статикой, включаю обслуживание фронтенда", { publicDir });
+  
+  // Проверяем структуру папки для диагностики
+  try {
+    const assetsDir = path.join(publicDir, "assets");
+    const imagesDir = path.join(publicDir, "images");
+    const hasAssets = fs.existsSync(assetsDir);
+    const hasImages = fs.existsSync(imagesDir);
+    logger.debug("Структура папки статики", { 
+      publicDir, 
+      hasAssets, 
+      hasImages,
+      assetsExists: hasAssets,
+      imagesExists: hasImages
+    });
+  } catch (error) {
+    logger.debug("Ошибка при проверке структуры статики", { error: error.message });
+  }
   
   // Обслуживание статических файлов (JS, CSS, изображения и т.д.)
   // express.static обрабатывает только существующие файлы, для несуществующих вызывает next()
@@ -199,7 +235,28 @@ if (staticDirExists) {
     immutable: true,
     etag: true,
     lastModified: true,
+    // Добавляем fallthrough: false, чтобы express.static не вызывал next() для несуществующих файлов
+    // Это позволит нашему catch-all роуту правильно обработать запросы
+    fallthrough: true,
   }));
+  
+  // Middleware для логирования 404 на статические файлы (для диагностики)
+  app.use((req, res, next) => {
+    // Если это запрос к статическому файлу (assets, images, и т.д.) и он не был обработан express.static
+    if (req.method === "GET" && 
+        !req.path.startsWith("/api/") && 
+        req.path !== "/health" &&
+        (req.path.startsWith("/assets/") || 
+         req.path.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot)$/i))) {
+      const requestedFile = path.join(publicDir, req.path);
+      logger.warn("Статический файл не найден", { 
+        path: req.path, 
+        requestedFile,
+        exists: fs.existsSync(requestedFile)
+      });
+    }
+    next();
+  });
   
   // SPA routing: для всех не-API GET запросов, которые не являются статическими файлами,
   // возвращаем index.html (fallback для клиентского роутинга)
@@ -209,11 +266,19 @@ if (staticDirExists) {
       return next();
     }
     
+    // Пропускаем запросы к статическим файлам (они должны были быть обработаны express.static выше)
+    // Если express.static не нашел файл, мы все равно пропускаем, чтобы не возвращать index.html для статики
+    if (req.path.startsWith("/assets/") || 
+        req.path.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot)$/i)) {
+      return next();
+    }
+    
     // Для всех остальных GET запросов возвращаем index.html
     const indexHtml = path.join(publicDir, "index.html");
     if (fs.existsSync(indexHtml)) {
       res.sendFile(indexHtml);
     } else {
+      logger.warn("index.html не найден", { indexHtml });
       next();
     }
   });
@@ -223,8 +288,28 @@ if (staticDirExists) {
 
 // 404 handler для API запросов и других необработанных запросов
 app.use((req, res) => {
-  logger.warn('404 Not Found', { method: req.method, path: req.path });
-  res.status(404).json({ success: false, message: "Not Found" });
+  // Для статических файлов возвращаем более информативную ошибку
+  if (req.method === "GET" && 
+      (req.path.startsWith("/assets/") || 
+       req.path.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot)$/i))) {
+    const requestedFile = staticDirExists ? path.join(publicDir, req.path) : null;
+    logger.warn('404 Not Found - статический файл', { 
+      method: req.method, 
+      path: req.path,
+      publicDir: staticDirExists ? publicDir : 'не настроена',
+      requestedFile: requestedFile,
+      fileExists: requestedFile ? fs.existsSync(requestedFile) : false
+    });
+    res.status(404).json({ 
+      success: false, 
+      message: "Static file not found",
+      path: req.path,
+      publicDir: staticDirExists ? publicDir : undefined
+    });
+  } else {
+    logger.warn('404 Not Found', { method: req.method, path: req.path });
+    res.status(404).json({ success: false, message: "Not Found" });
+  }
 });
 
 // Инициализируем БД при старте сервера
