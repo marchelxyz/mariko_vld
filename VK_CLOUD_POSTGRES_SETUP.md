@@ -272,7 +272,7 @@ ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : fal
 
 ```bash
 # PostgreSQL (VK Cloud)
-DATABASE_URL=postgresql://mariko_user:your_password@c-xxxxx.rw.mdb.cloud.vk.com:6432/mariko_db
+DATABASE_URL=postgresql://mariko_postgres:4PMB3P40631u$A4zn@37.139.34.3:5432/PostgreSQL-4568-1
 
 # Остальные переменные...
 CART_SERVER_PORT=4010
@@ -285,6 +285,19 @@ ADMIN_TELEGRAM_IDS=577222108
 - ⚠️ Не коммитьте файл `.env.local` в Git (он должен быть в `.gitignore`)
 - ⚠️ Используйте `.env.local` для локальной разработки
 - ⚠️ Используйте Railway Variables для production
+- ⚠️ Если пароль содержит специальные символы (`$`, `@`, `:`, `/`, `#` и т.д.), может потребоваться URL-кодирование:
+  - `$` → `%24`
+  - `@` → `%40`
+  - `:` → `%3A`
+  - `/` → `%2F`
+  - `#` → `%23`
+  
+  **Пример с экранированием:**
+  ```
+  DATABASE_URL=postgresql://mariko_postgres:4PMB3P40631u%24A4zn@37.139.34.3:5432/PostgreSQL-4568-1
+  ```
+  
+  Но обычно PostgreSQL connection string parser справляется с символами без экранирования, попробуйте сначала без экранирования.
 
 ### 5.2. Настройка на Railway (для production)
 
@@ -301,10 +314,16 @@ railway login
 railway link
 
 # Установите переменную DATABASE_URL для backend сервиса
-railway variables set DATABASE_URL="postgresql://mariko_user:your_password@c-xxxxx.rw.mdb.cloud.vk.com:6432/mariko_db" --service backend
+railway variables set DATABASE_URL="postgresql://mariko_postgres:4PMB3P40631u\$A4zn@37.139.34.3:5432/PostgreSQL-4568-1" --service backend
 ```
 
-**Важно:** Обязательно заключите строку подключения в кавычки, особенно если в пароле есть специальные символы!
+**Важно:** 
+- Обязательно заключите строку подключения в кавычки
+- В bash символ `$` нужно экранировать как `\$` или использовать одинарные кавычки
+- Альтернатива с одинарными кавычками (если `$` не работает):
+  ```bash
+  railway variables set DATABASE_URL='postgresql://mariko_postgres:4PMB3P40631u$A4zn@37.139.34.3:5432/PostgreSQL-4568-1' --service backend
+  ```
 
 #### Вариант 2: Через веб-интерфейс Railway
 
@@ -319,7 +338,7 @@ railway variables set DATABASE_URL="postgresql://mariko_user:your_password@c-xxx
 
 1. Обновите файл `backend/server/.env` или `.env.local` с новой строкой подключения:
    ```bash
-   DATABASE_URL=postgresql://mariko_user:your_password@c-xxxxx.rw.mdb.cloud.vk.com:6432/mariko_db
+   DATABASE_URL=postgresql://mariko_postgres:4PMB3P40631u$A4zn@37.139.34.3:5432/PostgreSQL-4568-1
    ```
 
 2. Запустите скрипт:
@@ -328,6 +347,8 @@ railway variables set DATABASE_URL="postgresql://mariko_user:your_password@c-xxx
    ```
 
    Скрипт автоматически прочитает значение из `.env` файла и установит его на Railway.
+
+**Примечание:** Если в пароле есть символ `$`, в bash он может интерпретироваться как переменная. В файле `.env` это обычно работает нормально, но если возникают проблемы, используйте URL-кодирование (`$` → `%24`).
 
 ---
 
