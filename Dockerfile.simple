@@ -41,15 +41,13 @@ COPY --from=backend-builder /app/backend/node_modules /app/backend/node_modules
 COPY --from=backend-builder /app/backend/package*.json /app/backend/
 COPY backend/ /app/backend/
 
-# Создаем скрипт для запуска сервера с поддержкой статики
-RUN echo '#!/bin/sh' > /app/start.sh && \
-    echo 'cd /app/backend' >> /app/start.sh && \
-    echo 'node server/cart-server.mjs' >> /app/start.sh && \
-    chmod +x /app/start.sh
-
-# Открываем порт (по умолчанию 4010, но может быть переопределен через PORT)
+# Открываем порт (по умолчанию 4010, но может быть переопределен через PORT или CART_SERVER_PORT)
 EXPOSE 4010
 
+# Устанавливаем рабочую директорию для backend
+WORKDIR /app/backend
+
 # Запускаем backend сервер
-# Примечание: нужно будет добавить в cart-server.mjs обслуживание статики из /app/public
-CMD ["node", "/app/backend/server/cart-server.mjs"]
+# Сервер автоматически обнаружит папку /app/public и будет обслуживать статику фронтенда
+# Для Railway деплоя (где статика не нужна) папка /app/public отсутствует, и сервер работает только как API
+CMD ["node", "server/cart-server.mjs"]
