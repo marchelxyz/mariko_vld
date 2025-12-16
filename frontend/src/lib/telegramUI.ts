@@ -6,6 +6,18 @@ import { getTg } from "./telegramCore";
  * the initial WebApp bundle smaller.
  */
 
+/**
+ * Checks if an error is a WebAppMethodUnsupported error.
+ */
+const isMethodUnsupportedError = (error: unknown): boolean => {
+  if (error instanceof Error) {
+    return error.name === "WebAppMethodUnsupported" || 
+           error.message.includes("not supported") ||
+           error.message.includes("WebAppMethodUnsupported");
+  }
+  return false;
+};
+
 export const tryRequestFullscreen = (): boolean => {
   const tg = getTg();
   if (!tg) {
@@ -13,11 +25,19 @@ export const tryRequestFullscreen = (): boolean => {
   }
 
   try {
-    if (typeof tg.requestFullscreen === "function") {
+    // Проверяем версию API перед использованием requestFullscreen()
+    const supportsRequestFullscreen = 
+      typeof tg.requestFullscreen === "function" &&
+      (typeof tg.isVersionAtLeast === "function" ? tg.isVersionAtLeast("8.0") : false);
+
+    if (supportsRequestFullscreen) {
       const result = tg.requestFullscreen();
       if (result instanceof Promise) {
         result.catch((error) => {
-          console.warn("[telegram] requestFullscreen rejected", error);
+          // Не логируем ошибки о неподдерживаемых методах
+          if (!isMethodUnsupportedError(error)) {
+            console.warn("[telegram] requestFullscreen rejected", error);
+          }
         });
       }
       return true;
@@ -28,7 +48,10 @@ export const tryRequestFullscreen = (): boolean => {
       return true;
     }
   } catch (error) {
-    console.warn("[telegram] fullscreen request failed", error);
+    // Не логируем ошибки о неподдерживаемых методах
+    if (!isMethodUnsupportedError(error)) {
+      console.warn("[telegram] fullscreen request failed", error);
+    }
   }
 
   return false;
