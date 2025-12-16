@@ -18,11 +18,6 @@ export const Header = ({
           src="/images/heroes/hero-image.svg"
           alt="Хачапури логотип"
           className="h-auto max-w-[clamp(180px,28vw,320px)]"
-          onError={(e) => {
-            // Скрываем изображение при ошибке загрузки
-            const target = e.target as HTMLImageElement;
-            target.style.display = 'none';
-          }}
         />
       </div>
 
