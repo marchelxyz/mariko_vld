@@ -208,48 +208,24 @@ export const FirstRunTour = ({ enabled = true }: FirstRunTourProps) => {
   const bubbleRef = useRef<HTMLDivElement | null>(null);
   const [bubbleSize, setBubbleSize] = useState<{ width: number; height: number } | null>(null);
   const [viewport, setViewport] = useState<Viewport>(() => (typeof window === "undefined" ? { width: 0, height: 0 } : getViewport()));
-  const isMountedRef = useRef(true);
 
   const step = STEPS[stepIndex];
 
   useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!enabled || isLoading) {
-      if (open) {
-        setOpen(false);
-      }
-      return;
-    }
-    if (onboardingTourShown) {
-      if (open) {
-        setOpen(false);
-      }
-      return;
-    }
+    if (!enabled || isLoading) return;
+    if (onboardingTourShown) return;
     
     // Требование: показываем один раз при первом открытии приложения,
     // поэтому помечаем как "shown" сразу при показе.
     void setOnboardingTourShown(true);
-    if (isMountedRef.current) {
-      setOpen(true);
-      setStepIndex(0);
-    }
-  }, [enabled, isLoading, onboardingTourShown, setOnboardingTourShown, open]);
+    setOpen(true);
+    setStepIndex(0);
+  }, [enabled, isLoading, onboardingTourShown, setOnboardingTourShown]);
 
   useEffect(() => {
     if (!open) return;
 
-    const handleResize = () => {
-      if (isMountedRef.current) {
-        setViewport(getViewport());
-      }
-    };
+    const handleResize = () => setViewport(getViewport());
     window.addEventListener("resize", handleResize);
     if (window.visualViewport) {
       window.visualViewport.addEventListener("resize", handleResize);
@@ -265,7 +241,6 @@ export const FirstRunTour = ({ enabled = true }: FirstRunTourProps) => {
   }, [open]);
 
   const resolveTarget = () => {
-    if (!isMountedRef.current) return;
     const el = getTargetElement(step.selector);
     setTargetElement(el);
     setTargetRect(getTargetRect(el));
@@ -275,7 +250,6 @@ export const FirstRunTour = ({ enabled = true }: FirstRunTourProps) => {
     if (!open) return;
 
     const frame = window.requestAnimationFrame(() => {
-      if (!isMountedRef.current) return;
       resolveTarget();
       const el = getTargetElement(step.selector);
       el?.scrollIntoView?.({ block: "center", inline: "center", behavior: "smooth" });
@@ -300,7 +274,6 @@ export const FirstRunTour = ({ enabled = true }: FirstRunTourProps) => {
   useLayoutEffect(() => {
     if (!open) return;
     if (!bubbleRef.current) return;
-    if (!isMountedRef.current) return;
     const rect = bubbleRef.current.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
     setBubbleSize({ width: rect.width, height: rect.height });
@@ -334,18 +307,15 @@ export const FirstRunTour = ({ enabled = true }: FirstRunTourProps) => {
   }, [open, stepIndex]);
 
   const finish = () => {
-    if (!isMountedRef.current) return;
     void setOnboardingTourShown(true);
     setOpen(false);
   };
 
   const prev = () => {
-    if (!isMountedRef.current) return;
     setStepIndex((current) => Math.max(0, current - 1));
   };
 
   const next = () => {
-    if (!isMountedRef.current) return;
     setStepIndex((current) => {
       if (current >= STEPS.length - 1) {
         finish();
