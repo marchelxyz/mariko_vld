@@ -39,6 +39,10 @@ WORKDIR /app
 # Копируем собранный frontend из builder
 COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
 
+# Проверяем, что файлы скопированы (для диагностики)
+RUN ls -la /usr/share/nginx/html/ && \
+    ls -la /usr/share/nginx/html/assets/ 2>/dev/null || echo "Assets directory not found"
+
 # Копируем backend из builder (только node_modules и package.json уже установлены)
 COPY --from=backend-builder /app/backend/node_modules /app/backend/node_modules
 COPY --from=backend-builder /app/backend/package*.json /app/backend/
@@ -52,11 +56,20 @@ RUN echo 'server {' > /etc/nginx/http.d/default.conf && \
     echo '    root /usr/share/nginx/html;' >> /etc/nginx/http.d/default.conf && \
     echo '    index index.html;' >> /etc/nginx/http.d/default.conf && \
     echo '' >> /etc/nginx/http.d/default.conf && \
-    echo '    # Кеширование статических файлов' >> /etc/nginx/http.d/default.conf && \
-    echo '    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {' >> /etc/nginx/http.d/default.conf && \
+    echo '    # Статические файлы из assets (JS, CSS)' >> /etc/nginx/http.d/default.conf && \
+    echo '    location /assets/ {' >> /etc/nginx/http.d/default.conf && \
     echo '        expires 1y;' >> /etc/nginx/http.d/default.conf && \
     echo '        add_header Cache-Control "public, immutable";' >> /etc/nginx/http.d/default.conf && \
     echo '        access_log off;' >> /etc/nginx/http.d/default.conf && \
+    echo '        try_files $uri =404;' >> /etc/nginx/http.d/default.conf && \
+    echo '    }' >> /etc/nginx/http.d/default.conf && \
+    echo '' >> /etc/nginx/http.d/default.conf && \
+    echo '    # Статические изображения и другие файлы' >> /etc/nginx/http.d/default.conf && \
+    echo '    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|webp)$ {' >> /etc/nginx/http.d/default.conf && \
+    echo '        expires 1y;' >> /etc/nginx/http.d/default.conf && \
+    echo '        add_header Cache-Control "public, immutable";' >> /etc/nginx/http.d/default.conf && \
+    echo '        access_log off;' >> /etc/nginx/http.d/default.conf && \
+    echo '        try_files $uri =404;' >> /etc/nginx/http.d/default.conf && \
     echo '    }' >> /etc/nginx/http.d/default.conf && \
     echo '' >> /etc/nginx/http.d/default.conf && \
     echo '    # Проксирование API запросов на backend' >> /etc/nginx/http.d/default.conf && \
