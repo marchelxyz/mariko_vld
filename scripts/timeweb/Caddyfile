@@ -1,0 +1,40 @@
+# Конфигурация Caddy для домена Timeweb
+# Работает с автоматическим HTTPS через Let's Encrypt
+#
+# Как использовать:
+# 1) Положите файл в /etc/caddy/Caddyfile (или другой путь, где Caddy ищет конфигурацию)
+# 2) Перезапустите Caddy: sudo systemctl restart caddy
+# 3) Проверьте статус: sudo systemctl status caddy
+
+marchelxyz-mariko-vld-b4a1.twc1.net {
+    # Корневая директория для статики
+    root * /var/www/html
+    
+    # Проксирование API запросов на локальный backend (обрабатывается первым)
+    handle /api/* {
+        reverse_proxy 127.0.0.1:4010 {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+    
+    # SPA routing - все остальные запросы на index.html
+    handle {
+        # Пробуем найти файл, если не найден - отдаём index.html
+        try_files {path} {path}/ /index.html
+        file_server
+    }
+    
+    # Логирование
+    log {
+        output file /var/log/caddy/access.log
+        format json
+    }
+}
+
+# Если нужен редирект с HTTP на HTTPS (обычно Caddy делает это автоматически)
+# :80 {
+#     redir https://marchelxyz-mariko-vld-b4a1.twc1.net{uri} permanent
+# }
