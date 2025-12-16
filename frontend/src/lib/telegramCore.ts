@@ -357,18 +357,6 @@ export const closeApp = () => {
 };
 
 /**
- * Checks if an error is a WebAppMethodUnsupported error.
- */
-const isMethodUnsupportedError = (error: unknown): boolean => {
-  if (error instanceof Error) {
-    return error.name === "WebAppMethodUnsupported" || 
-           error.message.includes("not supported") ||
-           error.message.includes("WebAppMethodUnsupported");
-  }
-  return false;
-};
-
-/**
  * Requests fullscreen mode for the Telegram Mini App.
  * Uses requestFullscreen() for Bot API 8.0+ (preferred) or expand() as fallback.
  */
@@ -377,51 +365,31 @@ export const requestFullscreenMode = () => {
   if (!tg) return;
 
   try {
-    // Проверяем версию API перед использованием requestFullscreen()
-    // requestFullscreen() доступен только в Bot API 8.0+
-    const supportsRequestFullscreen = 
-      typeof tg.requestFullscreen === "function" &&
-      (typeof tg.isVersionAtLeast === "function" ? tg.isVersionAtLeast("8.0") : false);
-
-    if (supportsRequestFullscreen) {
+    // Приоритет: requestFullscreen() для Bot API 8.0+
+    if (typeof tg.requestFullscreen === "function") {
       const result = tg.requestFullscreen();
       // Если возвращается Promise, обрабатываем его
       if (result instanceof Promise) {
         result.catch((error) => {
-          // Не логируем ошибки о неподдерживаемых методах
-          if (!isMethodUnsupportedError(error)) {
-            console.warn("[telegram] requestFullscreen() failed, falling back to expand()", error);
-          }
+          console.warn("[telegram] requestFullscreen() failed, falling back to expand()", error);
           // Fallback на expand() при ошибке
           try {
             tg.expand?.();
           } catch (expandError) {
-            if (!isMethodUnsupportedError(expandError)) {
-              console.warn("[telegram] expand() also failed", expandError);
-            }
+            console.warn("[telegram] expand() also failed", expandError);
           }
         });
       }
-      return;
-    }
-    
-    // Fallback для старых версий или если requestFullscreen недоступен
-    if (typeof tg.expand === "function") {
-      tg.expand();
+    } else {
+      // Fallback для старых версий
+      tg.expand?.();
     }
   } catch (error) {
-    // Не логируем ошибки о неподдерживаемых методах
-    if (!isMethodUnsupportedError(error)) {
-      console.warn("[telegram] requestFullscreenMode() failed, trying expand()", error);
-    }
+    console.warn("[telegram] requestFullscreenMode() failed, trying expand()", error);
     try {
-      if (typeof tg.expand === "function") {
-        tg.expand();
-      }
+      tg.expand?.();
     } catch (expandError) {
-      if (!isMethodUnsupportedError(expandError)) {
-        console.warn("[telegram] expand() also failed", expandError);
-      }
+      console.warn("[telegram] expand() also failed", expandError);
     }
   }
 };
@@ -446,15 +414,11 @@ export const setupFullscreenHandlers = () => {
   // Обработчик ошибки полноэкранного режима
   // Fallback на expand() при ошибке
   const handleFullscreenFailed = () => {
+    console.warn("[telegram] fullscreen failed, using expand() fallback");
     try {
-      if (typeof tg.expand === "function") {
-        tg.expand();
-      }
+      tg.expand?.();
     } catch (error) {
-      // Не логируем ошибки о неподдерживаемых методах
-      if (!isMethodUnsupportedError(error)) {
-        console.warn("[telegram] expand() also failed in fullscreenFailed handler", error);
-      }
+      console.warn("[telegram] expand() also failed in fullscreenFailed handler", error);
     }
   };
 
@@ -463,7 +427,7 @@ export const setupFullscreenHandlers = () => {
     // Примечание: fullscreenFailed может не существовать в некоторых версиях API
     // Поэтому используем try-catch для безопасной проверки
     if (typeof tg.onEvent === "function") {
-      // Попытка подписаться на fullscreenFailed, если такое событие существует
+      // Попытка подписаться на fullscreenFailed, если такой событие существует
       try {
         tg.onEvent("fullscreenFailed" as any, handleFullscreenFailed);
       } catch {
@@ -471,10 +435,7 @@ export const setupFullscreenHandlers = () => {
       }
     }
   } catch (error) {
-    // Не логируем ошибки о неподдерживаемых методах
-    if (!isMethodUnsupportedError(error)) {
-      console.warn("[telegram] failed to setup fullscreen handlers", error);
-    }
+    console.warn("[telegram] failed to setup fullscreen handlers", error);
   }
 };
 
@@ -569,23 +530,6 @@ export const safeDownloadFile = async (params: TelegramDownloadFileParams): Prom
 };
 
 /**
- * Checks if a storage method is actually supported by testing it.
- * Some storage methods may exist but throw errors when used in older API versions.
- */
-const isStorageSupported = (storage: TelegramAsyncKeyValueStorage | undefined): boolean => {
-  if (!storage) {
-    return false;
-  }
-  
-  // Проверяем наличие необходимых методов
-  if (typeof storage.getItem !== "function" || typeof storage.setItem !== "function") {
-    return false;
-  }
-  
-  return true;
-};
-
-/**
  * Unified storage abstraction with priority:
  * SecureStorage → DeviceStorage → CloudStorage → localStorage.
  * Falls back gracefully when features are unavailable.
@@ -597,20 +541,15 @@ const getStoragePriority = (): TelegramAsyncKeyValueStorage[] => {
   }
 
   const storages: TelegramAsyncKeyValueStorage[] = [];
-  
-  // Проверяем каждый storage перед добавлением
-  // SecureStorage и DeviceStorage требуют более новых версий API
-  if (isStorageSupported(tg.SecureStorage)) {
+  if (tg.SecureStorage) {
     storages.push(tg.SecureStorage);
   }
-  if (isStorageSupported(tg.DeviceStorage)) {
+  if (tg.DeviceStorage) {
     storages.push(tg.DeviceStorage);
   }
-  // CloudStorage обычно доступен в большинстве версий
-  if (isStorageSupported(tg.CloudStorage)) {
+  if (tg.CloudStorage) {
     storages.push(tg.CloudStorage);
   }
-  
   return storages;
 };
 
@@ -656,10 +595,7 @@ const queueAsyncWrite = (key: string, value: string | null) => {
         }
         // Continue to next storage to keep them in sync.
       } catch (error) {
-        // Не логируем ошибки о неподдерживаемых методах
-        if (!isMethodUnsupportedError(error)) {
-          console.warn("[telegram] storage write failed", error);
-        }
+        console.warn("[telegram] storage write failed", error);
       }
     }
   });
@@ -689,10 +625,7 @@ const hydrateKeyFromAsyncStorages = (key: string) => {
             return;
           }
         } catch (error) {
-          // Не логируем ошибки о неподдерживаемых методах
-          if (!isMethodUnsupportedError(error)) {
-            console.warn("[telegram] storage hydration failed", error);
-          }
+          console.warn("[telegram] storage hydration failed", error);
         }
       }
     })
@@ -753,10 +686,7 @@ export const storage = {
           return value;
         }
       } catch (error) {
-        // Не логируем ошибки о неподдерживаемых методах
-        if (!isMethodUnsupportedError(error)) {
-          console.warn("[telegram] storage async get failed", error);
-        }
+        console.warn("[telegram] storage async get failed", error);
       }
     }
 
@@ -839,10 +769,7 @@ export const storage = {
             }
             await Promise.all(existingKeys.map((key: string) => storage.removeItem(key)));
           } catch (error) {
-            // Не логируем ошибки о неподдерживаемых методах
-            if (!isMethodUnsupportedError(error)) {
-              console.warn("[telegram] storage clear failed", error);
-            }
+            console.warn("[telegram] storage clear failed", error);
           }
         }
       });
