@@ -1,0 +1,18 @@
+# Dockerfile только для backend
+
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Копируем package.json и устанавливаем зависимости
+COPY backend/package*.json ./
+RUN npm ci --only=production
+
+# Копируем исходный код backend
+COPY backend/ ./
+
+# Открываем порт (по умолчанию 4010, но может быть переопределен через PORT)
+EXPOSE 4010
+
+# Запускаем сервер
+CMD ["node", "server/cart-server.mjs"]
