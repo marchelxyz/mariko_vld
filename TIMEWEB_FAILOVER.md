@@ -126,9 +126,9 @@ DNS — это “телефонная книга интернета”: она 
 Шаблон в репо: `scripts/timeweb/nginx-failover.conf.template`
 
 Нужно заменить плейсхолдеры:
-- `__DOMAIN__` → ваш домен
+- `__DOMAIN__` → ваш домен (например `apps.vhachapuri.ru`)
 - `__VERCEL_ORIGIN__` → домен Vercel (например `mariko-vld.vercel.app`)
-- `__RAILWAY_ORIGIN__` → домен Railway backend (например `hm-projecttt-xxx.up.railway.app`)
+- `__RAILWAY_ORIGIN__` → домен Railway backend (например `hm-projecttt-vladapp.up.railway.app`)
 - `__FALLBACK_WEB_ROOT__` → `/var/www/html`
 - `__LOCAL_API_PORT__` → `4010`
 
@@ -145,13 +145,18 @@ DNS — это “телефонная книга интернета”: она 
 - в Vercel поставь `VITE_SERVER_API_URL=/api` (или вообще не задавай)
 - убери/не используй `VITE_CART_API_URL`, `VITE_CART_RECALC_URL`, `VITE_CART_ORDERS_URL`, которые указывают на `*.up.railway.app`
 
+**Актуальные значения для apps.vhachapuri.ru:**
+- Готовая конфигурация: `scripts/timeweb/nginx-failover.conf`
+- Railway: `hm-projecttt-vladapp.up.railway.app`
+- Vercel: `mariko-vld.vercel.app`
+
 Смысл: фронт должен ходить на `https://<домен>/api/...`, а Nginx уже сам решает Railway vs Timeweb.
 
 ### Шаг 5 — Обновить Railway bot env
 
 В Railway (bot service):
-- `WEBAPP_URL=https://<домен>`
-- `PROFILE_SYNC_URL=https://<домен>/api/cart/profile/sync` (если используете)
+- `WEBAPP_URL=https://apps.vhachapuri.ru`
+- `PROFILE_SYNC_URL=https://apps.vhachapuri.ru/api/cart/profile/sync` (если используете)
 
 ---
 
