@@ -145,10 +145,10 @@ railway status
 
 1. Откройте Railway Dashboard → выберите сервис
 2. Перейдите в **Settings** → **Networking**
-3. Скопируйте домен (например: `backend.up.railway.app`)
+3. Скопируйте домен (например: `hm-projecttt-vladapp.up.railway.app`)
 4. Обновите переменные окружения:
-   - В Vercel: `VITE_SERVER_API_URL=https://backend.up.railway.app/api`
-   - В Railway Bot: `WEBAPP_URL=https://your-app.vercel.app`
+   - В Vercel: `VITE_SERVER_API_URL=/api` (если используется Nginx проксирование на `apps.vhachapuri.ru`)
+   - В Railway Bot: `WEBAPP_URL=https://apps.vhachapuri.ru` (или `https://mariko-vld.vercel.app` если без проксирования)
 
 ### Custom домены
 
