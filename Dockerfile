@@ -71,7 +71,8 @@ RUN echo 'server {' > /etc/nginx/http.d/default.conf && \
     echo '}' >> /etc/nginx/http.d/default.conf
 
 # Создаем конфигурацию supervisor для запуска nginx и node
-RUN echo '[supervisord]' > /etc/supervisor/conf.d/supervisord.conf && \
+RUN mkdir -p /etc/supervisor/conf.d && \
+    echo '[supervisord]' > /etc/supervisor/conf.d/supervisord.conf && \
     echo 'nodaemon=true' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo '[program:nginx]' >> /etc/supervisor/conf.d/supervisord.conf && \
