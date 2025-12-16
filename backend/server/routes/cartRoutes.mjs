@@ -23,6 +23,10 @@ export function registerCartRoutes(app) {
     res.json(healthPayload());
   });
 
+  app.get("/api/health", (req, res) => {
+    res.json(healthPayload());
+  });
+
   app.get("/api/cart/health", (req, res) => {
     res.json(healthPayload());
   });
