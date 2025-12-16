@@ -48,6 +48,11 @@ const viewportSubscribers = new Set<(payload: TelegramViewportChangedPayload) =>
 const safeAreaBindings = new Map<HTMLElement, SafeAreaOptions>();
 const storageSubscribers = new Map<string, Set<StorageListener>>();
 
+// Дебаунсинг для событий viewport и safe area
+let viewportDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let safeAreaDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+const DEBOUNCE_DELAY = 16; // ~60fps
+
 const pendingHydrationKeys = new Set<string>();
 const memoryStorage = new Map<string, string>();
 
@@ -123,19 +128,42 @@ const ensureLifecycleBinding = () => {
   };
 
   const handleViewportChanged = (payload: TelegramViewportChangedPayload) => {
-    updateSafeAreaFromPayload(payload);
-    viewportSubscribers.forEach((cb) => {
-      try {
-        cb(payload);
-      } catch (error) {
-        console.error("[telegram] viewport listener failed", error);
-      }
-    });
+    // Дебаунсинг для предотвращения избыточных обновлений
+    if (viewportDebounceTimer) {
+      clearTimeout(viewportDebounceTimer);
+    }
+    
+    viewportDebounceTimer = setTimeout(() => {
+      updateSafeAreaFromPayload(payload);
+      viewportSubscribers.forEach((cb) => {
+        try {
+          cb(payload);
+        } catch (error) {
+          console.error("[telegram] viewport listener failed", error);
+        }
+      });
+      viewportDebounceTimer = null;
+    }, DEBOUNCE_DELAY);
+  };
+
+  const handleSafeAreaChanged = (payload: unknown) => {
+    // Дебаунсинг для событий safe_area_changed и content_safe_area_changed
+    if (safeAreaDebounceTimer) {
+      clearTimeout(safeAreaDebounceTimer);
+    }
+    
+    safeAreaDebounceTimer = setTimeout(() => {
+      // Обновляем safe area из текущего состояния Telegram WebApp
+      refreshSafeArea();
+      safeAreaDebounceTimer = null;
+    }, DEBOUNCE_DELAY);
   };
 
   tg.onEvent?.("activated", handleActivated);
   tg.onEvent?.("deactivated", handleDeactivated);
   tg.onEvent?.("viewport_changed", handleViewportChanged as TelegramEventCallback);
+  tg.onEvent?.("safe_area_changed", handleSafeAreaChanged as TelegramEventCallback);
+  tg.onEvent?.("content_safe_area_changed", handleSafeAreaChanged as TelegramEventCallback);
   tg.onEvent?.("fullscreen_changed", () => {
     refreshSafeArea();
   });

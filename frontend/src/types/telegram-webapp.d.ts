@@ -189,6 +189,8 @@ interface TelegramHapticFeedback {
 type TelegramEventType =
   | "theme_changed"
   | "viewport_changed"
+  | "safe_area_changed"
+  | "content_safe_area_changed"
   | "main_button_pressed"
   | "back_button_pressed"
   | "settings_button_pressed"
