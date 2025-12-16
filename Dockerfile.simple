@@ -1,0 +1,55 @@
+# Упрощенный Dockerfile для всего приложения (без nginx, Express обслуживает статику)
+
+# ============================================
+# Stage 1: Сборка frontend
+# ============================================
+FROM node:18-alpine AS frontend-builder
+
+WORKDIR /app/frontend
+
+# Копируем package.json и устанавливаем зависимости
+COPY frontend/package*.json ./
+RUN npm ci
+
+# Копируем исходники frontend и собираем
+COPY frontend/ ./
+RUN npm run build
+
+# ============================================
+# Stage 2: Подготовка backend
+# ============================================
+FROM node:18-alpine AS backend-builder
+
+WORKDIR /app/backend
+
+# Копируем package.json и устанавливаем зависимости
+COPY backend/package*.json ./
+RUN npm ci --only=production
+
+# ============================================
+# Stage 3: Финальный образ
+# ============================================
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Копируем собранный frontend
+COPY --from=frontend-builder /app/frontend/dist /app/public
+
+# Копируем backend
+COPY --from=backend-builder /app/backend/node_modules /app/backend/node_modules
+COPY --from=backend-builder /app/backend/package*.json /app/backend/
+COPY backend/ /app/backend/
+
+# Создаем скрипт для запуска сервера с поддержкой статики
+RUN echo '#!/bin/sh' > /app/start.sh && \
+    echo 'cd /app/backend' >> /app/start.sh && \
+    echo 'node server/cart-server.mjs' >> /app/start.sh && \
+    chmod +x /app/start.sh
+
+# Открываем порт (по умолчанию 4010, но может быть переопределен через PORT)
+EXPOSE 4010
+
+# Запускаем backend сервер
+# Примечание: нужно будет добавить в cart-server.mjs обслуживание статики из /app/public
+CMD ["node", "/app/backend/server/cart-server.mjs"]
