@@ -82,9 +82,10 @@ DNS — это “телефонная книга интернета”: она 
 ### Шаг 6 — Проверить, что “запасной” реально живой
 
 На Timeweb (по SSH):
-- `pm2 list`
-- `curl http://127.0.0.1:4010/health`
-- `curl http://127.0.0.1:4000/health`
+- `pm2 list` (должны быть запущены bot и cart-server)
+- `curl http://127.0.0.1:4010/health` (должен вернуть JSON с `database:true/false`)
+- `curl http://127.0.0.1/` (должен вернуть HTML фронтенда)
+- `curl http://127.0.0.1/api/health` (должен проксировать на backend)
 
 ---
 
