@@ -2,6 +2,9 @@
 
 import express from "express";
 import cors from "cors";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { PORT } from "./config.mjs";
 import { db } from "./postgresClient.mjs";
@@ -17,6 +20,30 @@ import { createRecommendedDishesRouter, createAdminRecommendedDishesRouter } fro
 import { createMenuRouter, createAdminMenuRouter } from "./routes/menuRoutes.mjs";
 import { createStorageRouter } from "./routes/storageRoutes.mjs";
 import { logger } from "./utils/logger.mjs";
+
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+
+function resolveFrontendStaticRoot() {
+  const candidates = [
+    process.env.STATIC_ROOT,
+    "/usr/share/nginx/html",
+    path.resolve(currentDir, "../../frontend/dist"),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(path.join(candidate, "index.html"))) {
+        return candidate;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return null;
+}
+
+const frontendStaticRoot = resolveFrontendStaticRoot();
 
 const app = express();
 
@@ -166,18 +193,32 @@ const storageRouter = createStorageRouter();
 app.use("/api/storage", storageRouter);
 app.use("/api/admin/storage", storageRouter);
 
-app.use((req, res) => {
-  logger.warn('404 Not Found', { method: req.method, path: req.path });
-  res.status(404).json({ success: false, message: "Not Found" });
-});
+if (frontendStaticRoot) {
+  logger.info("Отдаём статику фронтенда из директории", { frontendStaticRoot });
 
-// Healthcheck endpoint для контейнеров
-app.get("/health", (req, res) => {
-  res.status(200).json({ 
-    status: "ok", 
-    timestamp: new Date().toISOString(),
-    database: Boolean(db)
+  const staticHandler = express.static(frontendStaticRoot, { index: false });
+
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/api")) {
+      return next();
+    }
+    return staticHandler(req, res, next);
   });
+
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api")) {
+      return next();
+    }
+    if (req.method !== "GET") {
+      return next();
+    }
+    return res.sendFile(path.join(frontendStaticRoot, "index.html"));
+  });
+}
+
+app.use((req, res) => {
+  logger.warn("404 Not Found", { method: req.method, path: req.path });
+  res.status(404).json({ success: false, message: "Not Found" });
 });
 
 // Инициализируем БД при старте сервера
