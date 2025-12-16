@@ -667,5 +667,113 @@ export function createAdminRouter() {
     }
   });
 
+  // Роут для деплоя фронтенда на Timeweb
+  router.post("/deploy/frontend", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const admin = await authoriseSuperAdmin(req, res);
+    if (!admin) {
+      return;
+    }
+
+    try {
+      const { deployFrontend } = await import("../services/deployService.mjs");
+      const result = await deployFrontend();
+      
+      if (result.success) {
+        return res.json({
+          success: true,
+          message: "Деплой фронтенда запущен",
+          output: result.output,
+        });
+      } else {
+        return res.status(500).json({
+          success: false,
+          message: result.error || "Ошибка деплоя",
+          output: result.output,
+        });
+      }
+    } catch (error) {
+      console.error("Ошибка запуска деплоя фронтенда:", error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Ошибка запуска деплоя",
+      });
+    }
+  });
+
+  // Роут для настройки nginx на Timeweb
+  router.post("/deploy/setup-nginx", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const admin = await authoriseSuperAdmin(req, res);
+    if (!admin) {
+      return;
+    }
+
+    try {
+      const { setupNginx } = await import("../services/deployService.mjs");
+      const result = await setupNginx();
+      
+      if (result.success) {
+        return res.json({
+          success: true,
+          message: "Настройка nginx запущена",
+          output: result.output,
+        });
+      } else {
+        return res.status(500).json({
+          success: false,
+          message: result.error || "Ошибка настройки nginx",
+          output: result.output,
+        });
+      }
+    } catch (error) {
+      console.error("Ошибка настройки nginx:", error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Ошибка настройки nginx",
+      });
+    }
+  });
+
+  // Роут для диагностики состояния приложения на Timeweb
+  router.get("/deploy/diagnose", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const admin = await authoriseSuperAdmin(req, res);
+    if (!admin) {
+      return;
+    }
+
+    try {
+      const { diagnoseTimeweb } = await import("../services/deployService.mjs");
+      const result = await diagnoseTimeweb();
+      
+      if (result.success) {
+        return res.json({
+          success: true,
+          message: "Диагностика завершена",
+          output: result.output,
+        });
+      } else {
+        return res.status(500).json({
+          success: false,
+          message: result.error || "Ошибка диагностики",
+          output: result.output,
+        });
+      }
+    } catch (error) {
+      console.error("Ошибка диагностики:", error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Ошибка диагностики",
+      });
+    }
+  });
+
   return router;
 }

@@ -339,4 +339,27 @@ export const adminServerApi = {
     const data = await handleResponse<GuestBookingsResponse>(response);
     return data.bookings ?? [];
   },
+
+  async deployFrontend(): Promise<{ success: boolean; message: string; output: string }> {
+    const response = await fetch(`${ADMIN_API_BASE}/deploy/frontend`, {
+      method: "POST",
+      headers: buildHeaders(),
+    });
+    return handleResponse<{ success: boolean; message: string; output: string }>(response);
+  },
+
+  async setupNginx(): Promise<{ success: boolean; message: string; output: string }> {
+    const response = await fetch(`${ADMIN_API_BASE}/deploy/setup-nginx`, {
+      method: "POST",
+      headers: buildHeaders(),
+    });
+    return handleResponse<{ success: boolean; message: string; output: string }>(response);
+  },
+
+  async diagnoseTimeweb(): Promise<{ success: boolean; message: string; output: string }> {
+    const response = await fetch(`${ADMIN_API_BASE}/deploy/diagnose`, {
+      headers: buildHeaders(),
+    });
+    return handleResponse<{ success: boolean; message: string; output: string }>(response);
+  },
 };

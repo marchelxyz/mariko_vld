@@ -2,7 +2,7 @@
  * Главная страница админ-панели
  */
 
-import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck, Megaphone, Sparkles, Grid3x3, Users } from 'lucide-react';
+import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck, Megaphone, Sparkles, Grid3x3, Users, Rocket } from 'lucide-react';
 import { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNavigation, Header } from "@shared/ui/widgets";
@@ -46,8 +46,13 @@ const GuestDatabaseManagementLazy = lazy(() =>
     default: module.GuestDatabaseManagement,
   })),
 );
+const DeployManagementLazy = lazy(() =>
+  import("@features/admin").then((module) => ({
+    default: module.DeployManagement,
+  })),
+);
 
-type AdminSection = 'cities' | 'menu' | 'roles' | 'deliveries' | 'promotions' | 'recommended-dishes' | 'guests' | null;
+type AdminSection = 'cities' | 'menu' | 'roles' | 'deliveries' | 'promotions' | 'recommended-dishes' | 'guests' | 'deploy' | null;
 
 const SectionLoader = () => (
   <div className="min-h-[40vh] flex items-center justify-center">
@@ -116,8 +121,25 @@ export default function AdminPanel(): JSX.Element {
           description: "Просматривайте и экспортируйте данные гостей по городам",
           permission: Permission.VIEW_USERS,
         },
-      ].filter((section) => hasPermission(section.permission)),
-    [hasPermission],
+        ...(isSuperAdmin()
+          ? [
+              {
+                key: 'deploy' as AdminSection,
+                icon: <Rocket className="w-8 h-8" />,
+                title: "Управление деплоем",
+                description: "Деплой фронтенда и настройка nginx на Timeweb",
+                permission: Permission.MANAGE_ROLES, // Используем MANAGE_ROLES как маркер для super_admin
+              },
+            ]
+          : []),
+      ].filter((section) => {
+        // Для раздела deploy проверяем super_admin отдельно
+        if (section.key === 'deploy') {
+          return isSuperAdmin();
+        }
+        return hasPermission(section.permission);
+      }),
+    [hasPermission, isSuperAdmin],
   );
 
   useEffect(() => {
@@ -278,6 +300,11 @@ export default function AdminPanel(): JSX.Element {
             {activeSection === 'guests' && (
               <Suspense fallback={<SectionLoader />}>
                 <GuestDatabaseManagementLazy />
+              </Suspense>
+            )}
+            {activeSection === 'deploy' && (
+              <Suspense fallback={<SectionLoader />}>
+                <DeployManagementLazy />
               </Suspense>
             )}
           </div>
