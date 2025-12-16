@@ -52,6 +52,13 @@ RUN echo 'server {' > /etc/nginx/http.d/default.conf && \
     echo '    root /usr/share/nginx/html;' >> /etc/nginx/http.d/default.conf && \
     echo '    index index.html;' >> /etc/nginx/http.d/default.conf && \
     echo '' >> /etc/nginx/http.d/default.conf && \
+    echo '    # Кеширование статических файлов' >> /etc/nginx/http.d/default.conf && \
+    echo '    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {' >> /etc/nginx/http.d/default.conf && \
+    echo '        expires 1y;' >> /etc/nginx/http.d/default.conf && \
+    echo '        add_header Cache-Control "public, immutable";' >> /etc/nginx/http.d/default.conf && \
+    echo '        access_log off;' >> /etc/nginx/http.d/default.conf && \
+    echo '    }' >> /etc/nginx/http.d/default.conf && \
+    echo '' >> /etc/nginx/http.d/default.conf && \
     echo '    # Проксирование API запросов на backend' >> /etc/nginx/http.d/default.conf && \
     echo '    location /api {' >> /etc/nginx/http.d/default.conf && \
     echo '        proxy_pass http://localhost:4010;' >> /etc/nginx/http.d/default.conf && \
@@ -67,6 +74,7 @@ RUN echo 'server {' > /etc/nginx/http.d/default.conf && \
     echo '    # SPA routing - все остальные запросы на index.html' >> /etc/nginx/http.d/default.conf && \
     echo '    location / {' >> /etc/nginx/http.d/default.conf && \
     echo '        try_files $uri $uri/ /index.html;' >> /etc/nginx/http.d/default.conf && \
+    echo '        add_header Cache-Control "no-cache, no-store, must-revalidate";' >> /etc/nginx/http.d/default.conf && \
     echo '    }' >> /etc/nginx/http.d/default.conf && \
     echo '}' >> /etc/nginx/http.d/default.conf
 
