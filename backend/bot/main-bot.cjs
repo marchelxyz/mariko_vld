@@ -22,7 +22,17 @@ const ADMIN_TELEGRAM_IDS = (process.env.ADMIN_TELEGRAM_IDS || '')
   .filter(Boolean);
 const isProduction = process.env.NODE_ENV === 'production';
 
-if (!BOT_TOKEN) {
+const parseBooleanEnv = (value, fallback) => {
+  if (value == null) return fallback;
+  const normalized = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'y', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'n', 'off'].includes(normalized)) return false;
+  return fallback;
+};
+
+const BOT_POLLING_ENABLED = parseBooleanEnv(process.env.BOT_POLLING_ENABLED, true);
+
+if (!BOT_TOKEN && BOT_POLLING_ENABLED) {
   console.error("❌ BOT_TOKEN не найден в переменных окружения!");
   console.error("💡 Получите токен от @BotFather и добавьте в .env файл");
   process.exit(1);
@@ -62,6 +72,15 @@ process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught exception:', error);
   process.exit(1);
 });
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isTelegramConflictError = (error) => {
+  const errorCode = error?.response?.error_code ?? error?.code;
+  if (errorCode === 409) return true;
+  const msg = String(error?.description || error?.message || '');
+  return msg.includes('409') && msg.toLowerCase().includes('conflict');
+};
 
 const normalizeHttpUrl = (rawUrl) => {
   if (!rawUrl) return null;
@@ -167,6 +186,9 @@ const bot = new Telegraf(BOT_TOKEN, {
 });
 
 console.log('🍴 Хачапури Марико бот запущен!');
+if (!BOT_POLLING_ENABLED) {
+  console.log('⏸️ BOT_POLLING_ENABLED=false — Telegram polling отключен (standby режим)');
+}
 
 const buildOpenWebAppMarkup = ({ mode = 'web_app' } = {}) => {
   if (!NORMALIZED_WEBAPP_URL) return null;
@@ -260,27 +282,48 @@ bot.catch((error) => {
 });
 
 const launchBot = async () => {
-  try {
-    await bot.telegram.deleteWebhook();
-  } catch (error) {
-    console.warn(
-      '⚠️ Не удалось удалить webhook перед polling запуском (продолжаю)',
-      error?.description || error?.message || error,
-    );
-  }
+  const retryDelayMs = Number(process.env.BOT_RETRY_DELAY_MS || 10_000);
 
-  try {
-    await bot.launch();
-    const me = await bot.telegram.getMe();
-    console.log(`✅ Подключен как: @${me.username} (${me.first_name})`);
-    console.log("✅ Бот успешно запущен в polling режиме!");
-  } catch (error) {
-    console.error("❌ Ошибка подключения к боту:", error.message);
-    process.exit(1);
+  while (true) {
+    try {
+      await bot.telegram.deleteWebhook(true);
+    } catch (error) {
+      console.warn(
+        '⚠️ Не удалось удалить webhook перед polling запуском (продолжаю)',
+        error?.description || error?.message || error,
+      );
+    }
+
+    try {
+      await bot.launch({ dropPendingUpdates: true });
+      const me = await bot.telegram.getMe();
+      console.log(`✅ Подключен как: @${me.username} (${me.first_name})`);
+      console.log("✅ Бот успешно запущен в polling режиме!");
+      return;
+    } catch (error) {
+      if (isTelegramConflictError(error)) {
+        console.error(
+          "❌ Telegram 409 Conflict: бот уже запущен где-то ещё (или идёт деплой с временным дублем).",
+          error?.description || error?.message || error,
+        );
+        try {
+          bot.stop('conflict-retry');
+        } catch {
+          // ignore
+        }
+        await sleep(retryDelayMs);
+        continue;
+      }
+
+      console.error("❌ Ошибка подключения к боту:", error.message);
+      process.exit(1);
+    }
   }
 };
 
-launchBot();
+if (BOT_POLLING_ENABLED) {
+  launchBot();
+}
 
 const gracefulShutdown = (signal) => {
   console.log(`🛑 Получен сигнал ${signal}, завершение работы...`);
