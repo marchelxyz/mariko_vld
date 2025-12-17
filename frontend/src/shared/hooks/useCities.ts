@@ -3,51 +3,23 @@
  * Поддерживает polling обновления
  */
 
-import { useState, useEffect } from 'react';
-import { citiesApi } from "@shared/api/cities";
+import { useQuery } from "@tanstack/react-query";
+import { SERVER_POLL_INTERVAL_MS } from "@shared/api/cities/config";
 import { getAvailableCitiesAsync, type City } from "@shared/data";
 
 /**
  * Хук для получения активных городов с polling обновлениями
  */
 export function useCities() {
-  const [cities, setCities] = useState<City[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    const loadCities = async () => {
-      try {
-        setIsLoading(true);
-        const activeCities = await getAvailableCitiesAsync();
-        setCities(activeCities);
-        setError(null);
-      } catch (err) {
-        console.error('Ошибка загрузки городов:', err);
-        setError(err as Error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadCities();
-  }, []);
-
-  // Polling подписка на изменения через серверный API
-  useEffect(() => {
-    const unsubscribe = citiesApi.subscribeToCitiesChanges((updatedCities) => {
-      setCities(updatedCities);
-      console.log('🔄 Список городов обновлен');
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, []);
+  const query = useQuery<City[], Error>({
+    queryKey: ["cities", "active"],
+    queryFn: getAvailableCitiesAsync,
+    refetchInterval: SERVER_POLL_INTERVAL_MS,
+  });
 
   return {
-    cities,
-    isLoading,
-    error,
+    cities: query.data ?? [],
+    isLoading: query.isLoading,
+    error: query.error ?? null,
   };
 }

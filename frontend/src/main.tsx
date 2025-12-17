@@ -4,6 +4,13 @@ import "./index.css";
 import { getTg, markReady, requestFullscreenMode, setupFullscreenHandlers } from "@/lib/telegram";
 import { logger } from "@/lib/logger";
 
+const hideInitialSpinner = () => {
+  const spinner = document.getElementById("loading-spinner");
+  if (spinner) {
+    spinner.style.display = "none";
+  }
+};
+
 const tg = getTg();
 
 // Инициализация Telegram WebApp (если запущено в Telegram)
@@ -94,6 +101,7 @@ if (typeof window !== "undefined") {
 try {
   logger.info('app', 'Инициализация приложения');
   createRoot(document.getElementById("root")!).render(<App />);
+  hideInitialSpinner();
   logger.info('app', 'Приложение успешно инициализировано');
 } catch (err: unknown) {
   logger.error('app', err instanceof Error ? err : new Error('Ошибка рендеринга приложения'), {
