@@ -32,7 +32,7 @@ RUN npm ci --only=production
 FROM node:18-alpine
 
 # Устанавливаем nginx для обслуживания статики frontend
-RUN apk add --no-cache nginx supervisor gettext
+RUN apk add --no-cache nginx supervisor gettext curl
 
 WORKDIR /app
 

@@ -205,13 +205,9 @@ if (frontendStaticRoot) {
     return staticHandler(req, res, next);
   });
 
-  app.get("*", (req, res, next) => {
-    if (req.path.startsWith("/api")) {
-      return next();
-    }
-    if (req.method !== "GET") {
-      return next();
-    }
+  // Express 5 использует path-to-regexp v6: строковый "*" может падать.
+  // Regex-роут работает стабильно и нужен как SPA fallback.
+  app.get(/^(?!\/api).*/, (req, res) => {
     return res.sendFile(path.join(frontendStaticRoot, "index.html"));
   });
 }
