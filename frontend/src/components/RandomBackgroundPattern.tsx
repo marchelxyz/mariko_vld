@@ -158,6 +158,19 @@ function savePositions(viewportWidth: number, viewportHeight: number, positions:
 function RandomBackgroundPattern() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [positions, setPositions] = useState<PatternPosition[]>([]);
+  const scheduledGenerationRef = useRef<number | ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelScheduledGeneration = () => {
+    const handle = scheduledGenerationRef.current;
+    if (handle === null) return;
+    scheduledGenerationRef.current = null;
+
+    if ("cancelIdleCallback" in window && typeof handle === "number") {
+      (window as unknown as { cancelIdleCallback: (id: number) => void }).cancelIdleCallback(handle);
+      return;
+    }
+    clearTimeout(handle);
+  };
 
   function generatePositions(width: number, height: number): PatternPosition[] {
     const newPositions: PatternPosition[] = [];
@@ -239,8 +252,7 @@ function RandomBackgroundPattern() {
       existingRects: Array<{ x: number; y: number; width: number; height: number; rotation: number }>,
       w: number,
       h: number,
-      rotation: number,
-      attemptIndex: number
+      rotation: number
     ): { x: number; y: number } | null {
       // Вычисляем реальные размеры с учетом поворота для корректного размещения
       const rotatedBounds = getRotatedBounds(w, h, rotation);
@@ -363,7 +375,7 @@ function RandomBackgroundPattern() {
       const h = pattern.baseHeight * scale;
       const rotation = (Math.random() - 0.5) * 90;
 
-      const position = findTouchingPosition(placedRects, w, h, rotation, i);
+      const position = findTouchingPosition(placedRects, w, h, rotation);
 
       if (position) {
         newPositions.push({
@@ -412,12 +424,26 @@ function RandomBackgroundPattern() {
       }
     }
 
-    // Генерируем новые позиции
-    const newPositions = generatePositions(width, height);
-    setPositions(newPositions);
-    
-    // Сохраняем позиции для будущего использования
-    savePositions(viewportWidth, viewportHeight, newPositions);
+    // Генерируем новые позиции в idle, чтобы не блокировать первый рендер
+    cancelScheduledGeneration();
+
+    const generateAndStore = () => {
+      scheduledGenerationRef.current = null;
+      const newPositions = generatePositions(width, height);
+      setPositions(newPositions);
+      savePositions(viewportWidth, viewportHeight, newPositions);
+    };
+
+    if ("requestIdleCallback" in window) {
+      scheduledGenerationRef.current = (
+        window as unknown as {
+          requestIdleCallback: (cb: () => void, options?: { timeout?: number }) => number;
+        }
+      ).requestIdleCallback(generateAndStore, { timeout: 1200 });
+      return;
+    }
+
+    scheduledGenerationRef.current = setTimeout(generateAndStore, 0);
   }
 
   useEffect(() => {
@@ -448,6 +474,7 @@ function RandomBackgroundPattern() {
     window.addEventListener("resize", handleResize);
 
     return () => {
+      cancelScheduledGeneration();
       window.removeEventListener("resize", handleResize);
     };
   }, []);
@@ -494,7 +521,7 @@ function RandomBackgroundPattern() {
                 height: "100%",
                 display: "block",
               }}
-              onError={(e) => {
+              onError={() => {
                 console.error(`Failed to render pattern ${pos.patternIndex} at position ${pos.x},${pos.y}`);
               }}
             />

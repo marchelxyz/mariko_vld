@@ -27,27 +27,69 @@ export const OnboardingProvider = ({ children }: OnboardingProviderProps) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    let cancelled = false;
+    let scheduledHandle: number | ReturnType<typeof setTimeout> | null = null;
+
     const loadOnboardingFlag = async () => {
       const userId = getUser()?.id;
       if (!userId) {
         // Если пользователь не определен, считаем что подсказки не показывались
-        setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
         return;
       }
 
       try {
         const shown = await onboardingServerApi.getOnboardingTourShown(userId);
-        setOnboardingTourShownState(shown);
+        if (!cancelled) {
+          setOnboardingTourShownState(shown);
+        }
       } catch (error) {
         console.warn("[onboarding] failed to load tour flag", error);
         // В случае ошибки считаем что подсказки не показывались
-        setOnboardingTourShownState(false);
+        if (!cancelled) {
+          setOnboardingTourShownState(false);
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     };
 
-    void loadOnboardingFlag();
+    // Не критично для первого экрана → выполняем в idle, чтобы не конкурировать с основными запросами.
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      scheduledHandle = (
+        window as unknown as {
+          requestIdleCallback: (cb: () => void, options?: { timeout?: number }) => number;
+        }
+      ).requestIdleCallback(() => {
+        void loadOnboardingFlag();
+      }, { timeout: 1500 });
+    } else if (typeof window !== "undefined") {
+      scheduledHandle = setTimeout(() => {
+        void loadOnboardingFlag();
+      }, 0);
+    } else {
+      void loadOnboardingFlag();
+    }
+
+    return () => {
+      cancelled = true;
+      if (scheduledHandle === null || typeof window === "undefined") {
+        return;
+      }
+      if ("cancelIdleCallback" in window && typeof scheduledHandle === "number") {
+        (
+          window as unknown as {
+            cancelIdleCallback: (id: number) => void;
+          }
+        ).cancelIdleCallback(scheduledHandle);
+      } else {
+        clearTimeout(scheduledHandle);
+      }
+    };
   }, []);
 
   const setOnboardingTourShown = async (shown: boolean) => {

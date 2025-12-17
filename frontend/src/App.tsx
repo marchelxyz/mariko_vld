@@ -3,16 +3,16 @@ import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
 import RandomBackgroundPattern from "@/components/RandomBackgroundPattern";
 import { DebugGrid } from "@/components/DebugGrid";
-import { AdminProvider, CartProvider, RestaurantProvider, DebugGridProvider, OnboardingProvider, useOnboardingContext } from "@/contexts";
+import { AdminProvider, CartProvider, RestaurantProvider, DebugGridProvider, OnboardingProvider } from "@/contexts";
 import { useEnsureUserProfileSync } from "@/hooks";
 import { logger } from "@/lib/logger";
 import { isActive, onActivated, onDeactivated } from "@/lib/telegram";
 import { Toaster as SonnerToaster } from "@shared/ui/sonner";
 import { Toaster } from "@shared/ui/toaster";
 import { TooltipProvider } from "@shared/ui/tooltip";
+import Index from "./pages/home";
 
-// Lazy load pages for better code splitting
-const Index = lazy(() => import("./pages/home"));
+// Keep the home page in the main chunk; lazy-load the rest for better code splitting
 const Profile = lazy(() => import("./pages/profile"));
 const EditProfile = lazy(() => import("./pages/editProfile"));
 
@@ -42,7 +42,6 @@ const queryClient = new QueryClient({
 });
 
 function AppContent() {
-  const { isLoading } = useOnboardingContext();
   useEnsureUserProfileSync();
 
   useEffect(() => {
@@ -69,11 +68,6 @@ function AppContent() {
     };
   }, []);
 
-  // Блокируем рендеринг до загрузки флага показа подсказок
-  if (isLoading) {
-    return null;
-  }
-
   return (
     <>
       <AdminProvider>
@@ -83,7 +77,13 @@ function AppContent() {
               <RandomBackgroundPattern />
               <div className="relative z-[1]">
                 <HashRouter>
-                  <Suspense fallback={<></>}>
+                  <Suspense
+                    fallback={
+                      <div className="flex min-h-[60vh] items-center justify-center text-white/70">
+                        Загрузка…
+                      </div>
+                    }
+                  >
                     <Routes>
                       <Route path="/" element={<Index />} />
                       <Route path="/profile" element={<Profile />} />
