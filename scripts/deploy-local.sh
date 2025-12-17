@@ -149,7 +149,6 @@ run_remote "
     ADMIN_PANEL_TOKEN \
     ADMIN_TELEGRAM_IDS \
     API_PORT \
-    PROFILE_SYNC_URL \
     VITE_YANDEX_GEOCODE_API_KEY
 
   check_file \"$REMOTE_SERVER_DIR/.env\" \
@@ -187,6 +186,7 @@ run_remote "
   fi
   pm2 delete $BOT_NAME >/dev/null 2>&1 || true
   pm2 start main-bot.cjs --name $BOT_NAME --cwd $REMOTE_BOT_DIR
+  pm2 startup systemd -u root --hp /root >/dev/null 2>&1 || true
   pm2 save
 "
 
