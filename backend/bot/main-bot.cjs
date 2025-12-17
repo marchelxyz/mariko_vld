@@ -1,4 +1,4 @@
-const { Telegraf, Markup } = require('telegraf');
+const { Telegraf } = require('telegraf');
 const { message } = require('telegraf/filters');
 const express = require('express');
 const cors = require('cors');
@@ -14,8 +14,6 @@ require('dotenv').config({ path: botEnvPath });
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL || "https://ineedaglokk.ru";
-const PROFILE_SYNC_URL =
-  process.env.PROFILE_SYNC_URL || `${WEBAPP_URL.replace(/\/$/, "")}/api/cart/profile/sync`;
 const API_PORT = Number(process.env.API_PORT || process.env.PORT || 4000);
 const ADMIN_PANEL_TOKEN = process.env.ADMIN_PANEL_TOKEN;
 const ADMIN_TELEGRAM_IDS = (process.env.ADMIN_TELEGRAM_IDS || '')
@@ -142,31 +140,18 @@ const bot = new Telegraf(BOT_TOKEN, {
 
 console.log('🍴 Хачапури Марико бот запущен!');
 
-const syncProfilePhone = async (user, phone) => {
-  if (!user || !user.id || !phone) return;
-  const fullName =
-    [user.first_name, user.last_name].filter(Boolean).join(" ").trim() ||
-    user.username ||
-    "Пользователь";
-
-  try {
-    await fetch(PROFILE_SYNC_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Telegram-Id": user.id.toString(),
-      },
-      body: JSON.stringify({
-        id: user.id.toString(),
-        telegramId: user.id,
-        name: fullName,
-        phone,
-      }),
-    });
-  } catch (error) {
-    console.warn("Не удалось синхронизировать телефон профиля", error?.message || error);
-  }
-};
+const buildOpenWebAppMarkup = () => ({
+  reply_markup: {
+    inline_keyboard: [
+      [
+        {
+          text: "🍽️ Начать",
+          web_app: { url: WEBAPP_URL },
+        },
+      ],
+    ],
+  },
+});
 
 const sendWelcome = (chatId, firstName) => {
   const message = [
@@ -178,8 +163,7 @@ const sendWelcome = (chatId, firstName) => {
     "• ⭐ Оставить отзыв",
     "• 🚀 Заказать доставку (скоро)",
     "",
-    "Оставьте номер, чтобы мы быстрее подобрали для вас лучшие блюда и акции!",
-    "Нажми на «Покушать» и будь вкусно накормлен всегда!",
+    "Нажми на «Начать» и будь вкусно накормлен всегда!",
   ].join("\n");
 
   return bot.telegram.sendMessage(
@@ -188,37 +172,24 @@ const sendWelcome = (chatId, firstName) => {
     {
       parse_mode: 'Markdown',
       disable_web_page_preview: true,
-      ...Markup.keyboard([
-        [{ text: "📞 Оставить номер", request_contact: true }],
-      ])
-        .oneTime()
-        .resize(),
+      ...buildOpenWebAppMarkup(),
     },
   );
 };
 
-bot.start((ctx) => {
+bot.start(async (ctx) => {
   const chatId = ctx.chat.id;
   const user = ctx.from;
   const firstName = escapeMarkdown(user?.first_name || 'друг');
-  sendWelcome(chatId, firstName);
+  await sendWelcome(chatId, firstName);
 });
 
-bot.command('webapp', (ctx) => {
+bot.command('webapp', async (ctx) => {
   const chatId = ctx.chat.id;
-  sendWelcome(chatId, escapeMarkdown(ctx.from?.first_name || 'друг'));
+  await sendWelcome(chatId, escapeMarkdown(ctx.from?.first_name || 'друг'));
 });
 
-bot.on(message('contact'), (ctx) => {
-  const chatId = ctx.chat.id;
-  const contact = ctx.message?.contact;
-  if (contact?.phone_number) {
-    syncProfilePhone(ctx.from, contact.phone_number);
-    ctx.reply("Спасибо! Номер сохранили в профиле. Теперь мы будем для вас подбирать все самое лучшее!");
-  }
-});
-
-bot.on(message('text'), (ctx) => {
+bot.on(message('text'), async (ctx) => {
   const text = ctx.message?.text;
   if (!text || text === '/start' || text === '/webapp') {
     return;
@@ -226,7 +197,7 @@ bot.on(message('text'), (ctx) => {
   const chatId = ctx.chat.id;
   const user = ctx.from;
   const firstName = escapeMarkdown(user?.first_name || 'друг');
-  sendWelcome(chatId, firstName);
+  await sendWelcome(chatId, firstName);
 });
 
 bot.catch((error) => {
