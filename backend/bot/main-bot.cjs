@@ -13,7 +13,7 @@ const botEnvPath = fs.existsSync(path.join(__dirname, '.env.local'))
 require('dotenv').config({ path: botEnvPath });
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const WEBAPP_URL = process.env.WEBAPP_URL || "https://ineedaglokk.ru";
+const WEBAPP_URL = process.env.WEBAPP_URL;
 const API_PORT = Number(process.env.API_PORT || process.env.PORT || 4000);
 const ADMIN_PANEL_TOKEN = process.env.ADMIN_PANEL_TOKEN;
 const ADMIN_TELEGRAM_IDS = (process.env.ADMIN_TELEGRAM_IDS || '')
@@ -52,6 +52,34 @@ const maskToken = (token) => {
 };
 
 const escapeMarkdown = (text = "") => text.replace(/([_*[\]()])/g, "\\$1");
+
+process.on('unhandledRejection', (reason) => {
+  console.error('❌ Unhandled promise rejection:', reason);
+  process.exit(1);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught exception:', error);
+  process.exit(1);
+});
+
+const normalizeHttpUrl = (rawUrl) => {
+  if (!rawUrl) return null;
+  try {
+    const url = new URL(rawUrl);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+      return null;
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
+};
+
+const NORMALIZED_WEBAPP_URL = normalizeHttpUrl(WEBAPP_URL);
+if (!NORMALIZED_WEBAPP_URL) {
+  console.warn('⚠️ WEBAPP_URL не задан или некорректен — кнопка открытия Mini App будет отключена');
+}
 
 // ============================ TELEGRAM WEBAPP AUTH ============================
 const verifyTelegramInitData = (rawData) => {
@@ -140,20 +168,20 @@ const bot = new Telegraf(BOT_TOKEN, {
 
 console.log('🍴 Хачапури Марико бот запущен!');
 
-const buildOpenWebAppMarkup = () => ({
-  reply_markup: {
-    inline_keyboard: [
-      [
-        {
-          text: "🍽️ Начать",
-          web_app: { url: WEBAPP_URL },
-        },
-      ],
-    ],
-  },
-});
+const buildOpenWebAppMarkup = ({ mode = 'web_app' } = {}) => {
+  if (!NORMALIZED_WEBAPP_URL) return null;
+  const button =
+    mode === 'url'
+      ? { text: "🍽️ Начать", url: NORMALIZED_WEBAPP_URL }
+      : { text: "🍽️ Начать", web_app: { url: NORMALIZED_WEBAPP_URL } };
+  return {
+    reply_markup: {
+      inline_keyboard: [[button]],
+    },
+  };
+};
 
-const sendWelcome = (chatId, firstName) => {
+const sendWelcome = async (chatId, firstName) => {
   const message = [
     `🇬🇪 Гамарджоба, ${firstName}! Добро пожаловать в *Хачапури Марико*.`,
     "",
@@ -166,38 +194,62 @@ const sendWelcome = (chatId, firstName) => {
     "Нажми на «Начать» и будь вкусно накормлен всегда!",
   ].join("\n");
 
-  return bot.telegram.sendMessage(
-    chatId,
-    message,
-    {
-      parse_mode: 'Markdown',
-      disable_web_page_preview: true,
-      ...buildOpenWebAppMarkup(),
-    },
-  );
+  const baseOptions = {
+    parse_mode: 'Markdown',
+    disable_web_page_preview: true,
+  };
+
+  const webAppMarkup = buildOpenWebAppMarkup({ mode: 'web_app' });
+  if (webAppMarkup) {
+    try {
+      return await bot.telegram.sendMessage(chatId, message, { ...baseOptions, ...webAppMarkup });
+    } catch (error) {
+      console.warn(
+        'Не удалось отправить приветствие с web_app кнопкой — отправляю запасной вариант',
+        error?.description || error?.message || error,
+      );
+    }
+  }
+
+  const urlMarkup = buildOpenWebAppMarkup({ mode: 'url' });
+  if (urlMarkup) {
+    try {
+      return await bot.telegram.sendMessage(chatId, message, { ...baseOptions, ...urlMarkup });
+    } catch (error) {
+      console.warn(
+        'Не удалось отправить приветствие с url кнопкой — отправляю без кнопки',
+        error?.description || error?.message || error,
+      );
+    }
+  }
+
+  return bot.telegram.sendMessage(chatId, message, { disable_web_page_preview: true });
+};
+
+const sendWelcomeOnce = async (ctx) => {
+  if (!ctx || !ctx.chat?.id) return;
+  ctx.state = ctx.state || {};
+  if (ctx.state.welcomeSent) return;
+  ctx.state.welcomeSent = true;
+
+  const firstName = escapeMarkdown(ctx.from?.first_name || 'друг');
+  await sendWelcome(ctx.chat.id, firstName);
 };
 
 bot.start(async (ctx) => {
-  const chatId = ctx.chat.id;
-  const user = ctx.from;
-  const firstName = escapeMarkdown(user?.first_name || 'друг');
-  await sendWelcome(chatId, firstName);
+  await sendWelcomeOnce(ctx);
 });
 
 bot.command('webapp', async (ctx) => {
-  const chatId = ctx.chat.id;
-  await sendWelcome(chatId, escapeMarkdown(ctx.from?.first_name || 'друг'));
+  await sendWelcomeOnce(ctx);
 });
 
 bot.on(message('text'), async (ctx) => {
   const text = ctx.message?.text;
-  if (!text || text === '/start' || text === '/webapp') {
+  if (!text || text === '/webapp') {
     return;
   }
-  const chatId = ctx.chat.id;
-  const user = ctx.from;
-  const firstName = escapeMarkdown(user?.first_name || 'друг');
-  await sendWelcome(chatId, firstName);
+  await sendWelcomeOnce(ctx);
 });
 
 bot.catch((error) => {
@@ -207,15 +259,28 @@ bot.catch((error) => {
   }
 });
 
-bot.launch().then(() => {
-  bot.telegram.getMe().then((me) => {
+const launchBot = async () => {
+  try {
+    await bot.telegram.deleteWebhook();
+  } catch (error) {
+    console.warn(
+      '⚠️ Не удалось удалить webhook перед polling запуском (продолжаю)',
+      error?.description || error?.message || error,
+    );
+  }
+
+  try {
+    await bot.launch();
+    const me = await bot.telegram.getMe();
     console.log(`✅ Подключен как: @${me.username} (${me.first_name})`);
     console.log("✅ Бот успешно запущен в polling режиме!");
-  });
-}).catch((error) => {
-  console.error("❌ Ошибка подключения к боту:", error.message);
-  process.exit(1);
-});
+  } catch (error) {
+    console.error("❌ Ошибка подключения к боту:", error.message);
+    process.exit(1);
+  }
+};
+
+launchBot();
 
 const gracefulShutdown = (signal) => {
   console.log(`🛑 Получен сигнал ${signal}, завершение работы...`);
