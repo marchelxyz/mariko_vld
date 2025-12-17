@@ -3,6 +3,27 @@ import { profileApi } from "@shared/api";
 import type { UserProfile } from "@shared/types";
 import { getUser, storage } from "@/lib/telegram";
 
+const inflightProfileRequests = new Map<string, Promise<UserProfile>>();
+
+const getUserProfileShared = (userId: string): Promise<UserProfile> => {
+  const existing = inflightProfileRequests.get(userId);
+  if (existing) {
+    return existing;
+  }
+  const request = profileApi
+    .getUserProfile(userId)
+    .finally(() => inflightProfileRequests.delete(userId));
+  inflightProfileRequests.set(userId, request);
+  return request;
+};
+
+const resolveTelegramUserId = (): string => {
+  const telegramUser = getUser();
+  return telegramUser?.id?.toString() || "demo_user";
+};
+
+const resolveTelegramPhotoUrl = (): string => (getUser()?.photo_url ?? "").trim();
+
 const defaultProfile: UserProfile = {
   id: "default",
   name: "Пользователь",
@@ -33,15 +54,8 @@ export const useProfile = () => {
     loadProfile();
   }, []);
 
-  // Перезагружаем профиль при изменении userId
-  useEffect(() => {
-    if (userId && isInitialized) {
-      loadProfile();
-    }
-  }, [userId, isInitialized]);
-
   const applyProfileUpdate = (incomingProfile: Partial<UserProfile>) => {
-    const telegramPhotoUrl = (getUser()?.photo_url ?? "").trim();
+    const telegramPhotoUrl = resolveTelegramPhotoUrl();
     setProfile((currentProfile) => {
       const mergedProfile = {
         ...defaultProfile,
@@ -59,21 +73,46 @@ export const useProfile = () => {
       setError(null);
 
       // Получаем ID пользователя из Telegram
-      const telegramUser = getUser();
-      const currentUserId = telegramUser?.id?.toString() || "demo_user";
+      const currentUserId = resolveTelegramUserId();
       
       // Обновляем userId только если он изменился
       if (currentUserId !== userId) {
         setUserId(currentUserId);
       }
 
-      const userProfile = await profileApi.getUserProfile(currentUserId);
-      applyProfileUpdate(userProfile);
+      // Быстрый путь: сначала пробуем показать кэшированный профиль (если есть),
+      // чтобы страница профиля открывалась "мгновенно" даже при холодном backend.
+      const storageKey = `profile_${currentUserId}`;
+      try {
+        const cached = storage.getItem(storageKey);
+        if (cached) {
+          const parsed = JSON.parse(cached) as Partial<UserProfile>;
+          applyProfileUpdate({ ...parsed, id: currentUserId });
+          setIsInitialized(true);
+        }
+      } catch (cacheErr) {
+        console.warn("Не удалось прочитать профиль из кэша:", cacheErr);
+      }
+
+      const userProfile = await getUserProfileShared(currentUserId);
+      const telegramPhotoUrl = resolveTelegramPhotoUrl();
+      const resolvedProfile: UserProfile = {
+        ...defaultProfile,
+        ...userProfile,
+        id: currentUserId,
+        photo: telegramPhotoUrl || userProfile.photo || defaultProfile.photo,
+      };
+      setProfile(resolvedProfile);
+      try {
+        storage.setItem(storageKey, JSON.stringify(resolvedProfile));
+      } catch (storageErr) {
+        console.warn("Не удалось сохранить профиль локально:", storageErr);
+      }
       setIsInitialized(true);
     } catch (err) {
       setError("Не удалось загрузить профиль");
       console.error("Ошибка загрузки профиля:", err);
-      const telegramPhotoUrl = (getUser()?.photo_url ?? "").trim();
+      const telegramPhotoUrl = resolveTelegramPhotoUrl();
       const resolvedPhoto = telegramPhotoUrl || defaultProfile.photo;
       setProfile((prevProfile) => ({
         ...defaultProfile,
@@ -169,6 +208,20 @@ export const useProfile = () => {
       storageUnsubscribeRef.current = null;
     };
   }, [userId]);
+
+  // Подогреваем загрузку аватара, чтобы на странице профиля картинка была уже в кэше браузера.
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const url = (profile.photo ?? "").trim();
+    if (!url) {
+      return;
+    }
+    const img = new Image();
+    img.decoding = "async";
+    img.src = url;
+  }, [profile.photo]);
 
   return {
     profile,

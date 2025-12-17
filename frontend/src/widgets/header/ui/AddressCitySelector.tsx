@@ -41,6 +41,22 @@ export const AddressCitySelector = ({
   });
 
   const favoriteRestaurantId = profile.favoriteRestaurantId ?? null;
+  const sortedRestaurants = [...allRestaurants];
+
+  const moveToTop = (predicate: (entry: { restaurant: Restaurant; city: City }) => boolean) => {
+    const index = sortedRestaurants.findIndex(predicate);
+    if (index <= 0) return;
+    const [entry] = sortedRestaurants.splice(index, 1);
+    sortedRestaurants.unshift(entry);
+  };
+
+  // Сначала поднимаем текущий выбор, затем — избранный (избранный должен быть самым верхним).
+  if (selectedRestaurant?.id) {
+    moveToTop((entry) => entry.restaurant.id === selectedRestaurant.id);
+  }
+  if (favoriteRestaurantId) {
+    moveToTop((entry) => entry.restaurant.id === favoriteRestaurantId);
+  }
   const canToggleFavorite = isProfileReady && !profileLoading;
 
   const handleRestaurantSelect = (restaurant: Restaurant) => {
@@ -119,7 +135,7 @@ export const AddressCitySelector = ({
             <div className="text-[9px] uppercase text-white/50 font-semibold px-1 tracking-wide">
               Нажмите ⭐ чтобы отметить «избранный город»
             </div>
-            {allRestaurants.map(({ restaurant, city }) => {
+            {sortedRestaurants.map(({ restaurant, city }) => {
               const isActive = selectedRestaurant.id === restaurant.id;
               const isFavorite = favoriteRestaurantId === restaurant.id;
               const isPending = favoritePendingId === restaurant.id;

@@ -12,7 +12,7 @@ import type { Restaurant } from "@shared/data";
 export function useBookingSlotsPrefetch(selectedRestaurant: Restaurant | null) {
   const prefetchAbortControllerRef = useRef<AbortController | null>(null);
   const prefetchedRestaurantIdRef = useRef<string | null>(null);
-  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const prefetchSlots = (restaurant: Restaurant) => {
     // Отменяем предыдущий запрос, если он еще выполняется
@@ -75,6 +75,8 @@ export function useBookingSlotsPrefetch(selectedRestaurant: Restaurant | null) {
   };
 
   useEffect(() => {
+    let scheduledHandle: number | ReturnType<typeof setTimeout> | null = null;
+
     // Проверяем, что ресторан выбран и у него настроено бронирование
     if (!selectedRestaurant?.remarkedRestaurantId) {
       prefetchedRestaurantIdRef.current = null;
@@ -98,8 +100,17 @@ export function useBookingSlotsPrefetch(selectedRestaurant: Restaurant | null) {
       return;
     }
 
-    // Первая загрузка
-    prefetchSlots(selectedRestaurant);
+    // Первая загрузка (в idle, чтобы не конкурировать с городами/акциями на главной)
+    const runInitialPrefetch = () => prefetchSlots(selectedRestaurant);
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      scheduledHandle = (
+        window as unknown as {
+          requestIdleCallback: (cb: () => void, options?: { timeout?: number }) => number;
+        }
+      ).requestIdleCallback(runInitialPrefetch, { timeout: 2500 });
+    } else {
+      scheduledHandle = setTimeout(runInitialPrefetch, 0);
+    }
 
     // Устанавливаем интервал обновления каждую минуту
     refreshIntervalRef.current = setInterval(() => {
@@ -107,6 +118,17 @@ export function useBookingSlotsPrefetch(selectedRestaurant: Restaurant | null) {
     }, 60 * 1000); // 1 минута
 
     return () => {
+      if (scheduledHandle !== null && typeof window !== "undefined") {
+        if ("cancelIdleCallback" in window && typeof scheduledHandle === "number") {
+          (
+            window as unknown as {
+              cancelIdleCallback: (id: number) => void;
+            }
+          ).cancelIdleCallback(scheduledHandle);
+        } else {
+          clearTimeout(scheduledHandle);
+        }
+      }
       if (prefetchAbortControllerRef.current) {
         prefetchAbortControllerRef.current.abort();
       }

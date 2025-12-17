@@ -22,6 +22,50 @@ import { fetchRecommendedDishes } from "@shared/api/recommendedDishesApi";
 import { useBookingSlotsPrefetch } from "@shared/hooks";
 import { FirstRunTour } from "@/features/onboarding";
 
+const PROMOTIONS_CACHE_PREFIX = "mariko:promotions:v1:";
+
+type PromotionsCachePayload = {
+  version: 1;
+  updatedAt: number;
+  promotions: PromotionSlide[];
+};
+
+const normalizePromotions = (list: PromotionSlide[] | null | undefined): PromotionSlide[] =>
+  (list ?? [])
+    .filter((promo) => promo.isActive !== false)
+    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+
+const readPromotionsCache = (cityId: string): PromotionSlide[] | null => {
+  if (!cityId || typeof window === "undefined") {
+    return null;
+  }
+  try {
+    const raw = window.localStorage.getItem(`${PROMOTIONS_CACHE_PREFIX}${cityId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PromotionsCachePayload>;
+    if (!Array.isArray(parsed?.promotions)) return null;
+    return parsed.promotions as PromotionSlide[];
+  } catch {
+    return null;
+  }
+};
+
+const writePromotionsCache = (cityId: string, promotions: PromotionSlide[]) => {
+  if (!cityId || typeof window === "undefined") {
+    return;
+  }
+  try {
+    const payload: PromotionsCachePayload = {
+      version: 1,
+      updatedAt: Date.now(),
+      promotions,
+    };
+    window.localStorage.setItem(`${PROMOTIONS_CACHE_PREFIX}${cityId}`, JSON.stringify(payload));
+  } catch {
+    // ignore cache write failures
+  }
+};
+
 const Index = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -95,30 +139,37 @@ const Index = () => {
   // Подтягиваем акции из localStorage (управляются через админку)
   useEffect(() => {
     let cancelled = false;
+    const cityId = selectedCity?.id;
 
     const loadPromotions = async () => {
-      setIsLoadingPromotions(true);
-      if (!selectedCity?.id) {
+      if (!cityId) {
         if (!cancelled) {
           setPromotions([]);
           setIsLoadingPromotions(false);
         }
         return;
       }
+
+      const cached = readPromotionsCache(cityId);
+      if (cached && !cancelled) {
+        setPromotions(normalizePromotions(cached));
+        setIsLoadingPromotions(false);
+      } else if (!cancelled) {
+        setIsLoadingPromotions(true);
+      }
+
       try {
-        const list = await fetchPromotions(selectedCity.id);
+        const list = await fetchPromotions(cityId);
         if (!cancelled) {
-          const normalized =
-            list
-              ?.filter((promo) => promo.isActive !== false)
-              ?.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)) ?? [];
+          const normalized = normalizePromotions(list);
           setPromotions(normalized);
           setIsLoadingPromotions(false);
+          writePromotionsCache(cityId, normalized);
         }
       } catch (error) {
         console.error("Ошибка загрузки акций:", error);
         if (!cancelled) {
-          setPromotions([]);
+          setPromotions(cached ? normalizePromotions(cached) : []);
           setIsLoadingPromotions(false);
         }
       }
@@ -185,42 +236,72 @@ const Index = () => {
       return;
     }
 
-    setIsLoadingRecommended(true);
-    fetchRecommendedDishes(selectedCity.id)
-      .then((dishes) => {
-        if (cancelled) return;
-        if (!dishes || dishes.length === 0) {
-          setRecommendedDishes([]);
-          return;
-        }
-        // Перемешиваем блюда при каждом визите
-        const shuffled = [...dishes].sort(() => 0.5 - Math.random());
-        // Определяем количество блюд для отображения
-        // На планшетах (md) показываем 3, на больших экранах (lg+) показываем до 6
-        // Используем медиа-запрос через matchMedia для более точного определения
-        let count = 6; // по умолчанию для больших экранов
-        if (typeof window !== 'undefined') {
-          const isTablet = window.matchMedia('(min-width: 768px) and (max-width: 1023px)').matches;
-          if (isTablet) {
-            count = 3;
+    const cityId = selectedCity.id;
+    let scheduledHandle: number | ReturnType<typeof setTimeout> | null = null;
+
+    const run = () => {
+      if (cancelled) return;
+
+      setIsLoadingRecommended(true);
+      fetchRecommendedDishes(cityId)
+        .then((dishes) => {
+          if (cancelled) return;
+          if (!dishes || dishes.length === 0) {
+            setRecommendedDishes([]);
+            return;
           }
+          // Перемешиваем блюда при каждом визите
+          const shuffled = [...dishes].sort(() => 0.5 - Math.random());
+          // Определяем количество блюд для отображения
+          // На планшетах (md) показываем 3, на больших экранах (lg+) показываем до 6
+          // Используем медиа-запрос через matchMedia для более точного определения
+          let count = 6; // по умолчанию для больших экранов
+          if (typeof window !== "undefined") {
+            const isTablet = window.matchMedia("(min-width: 768px) and (max-width: 1023px)").matches;
+            if (isTablet) {
+              count = 3;
+            }
+          }
+          setRecommendedDishes(shuffled.slice(0, Math.min(count, shuffled.length)));
+        })
+        .catch((error) => {
+          console.error("Ошибка загрузки рекомендуемых блюд:", error);
+          if (!cancelled) {
+            setRecommendedDishes([]);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setIsLoadingRecommended(false);
+          }
+        });
+    };
+
+    // Рекомендации ниже приоритета акций/городов — выполняем в idle.
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      scheduledHandle = (
+        window as unknown as {
+          requestIdleCallback: (cb: () => void, options?: { timeout?: number }) => number;
         }
-        setRecommendedDishes(shuffled.slice(0, Math.min(count, shuffled.length)));
-      })
-      .catch((error) => {
-        console.error("Ошибка загрузки рекомендуемых блюд:", error);
-        if (!cancelled) {
-          setRecommendedDishes([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsLoadingRecommended(false);
-        }
-      });
+      ).requestIdleCallback(run, { timeout: 2500 });
+    } else {
+      scheduledHandle = setTimeout(run, 0);
+    }
 
     return () => {
       cancelled = true;
+      if (scheduledHandle === null || typeof window === "undefined") {
+        return;
+      }
+      if ("cancelIdleCallback" in window && typeof scheduledHandle === "number") {
+        (
+          window as unknown as {
+            cancelIdleCallback: (id: number) => void;
+          }
+        ).cancelIdleCallback(scheduledHandle);
+      } else {
+        clearTimeout(scheduledHandle);
+      }
     };
   }, [selectedCity?.id]);
 
