@@ -31,12 +31,26 @@ const Restaurants = () => {
   const allRestaurants: RestaurantWithLinks[] = availableCities.flatMap((city) =>
     city.restaurants.map((restaurant) => ({
       ...restaurant,
-      ...getRestaurantLinks(restaurant.id, restaurant.city, restaurant.address),
+      ...getRestaurantLinks(restaurant),
     })),
   );
 
   // Функция для получения актуальных ссылок на карты для каждого ресторана
-  function getRestaurantLinks(restaurantId: string, city: string, address: string) {
+  function getRestaurantLinks(restaurant: Restaurant) {
+    const { id: restaurantId, city, address, yandexMapsUrl, twoGisUrl } = restaurant;
+    
+    // Если есть ссылки из базы данных, используем их
+    // Важно: если twoGisUrl не заполнено, не показываем кнопку 2ГИС
+    return {
+      yandexMapsUrl: yandexMapsUrl || getFallbackYandexMapsUrl(restaurantId, city, address),
+      gisUrl: twoGisUrl || undefined, // Используем только если есть в базе данных
+      yandexParkingUrl: getFallbackYandexParkingUrl(restaurantId, city, address),
+      gisParkingUrl: twoGisUrl ? getFallbackGisParkingUrl(restaurantId, city, address) : undefined, // Только если есть twoGisUrl
+      yandexReviewUrl: getFallbackYandexReviewUrl(restaurantId, city, address),
+      gisReviewUrl: twoGisUrl || undefined, // Используем только если есть в базе данных
+    };
+    
+    // Иначе используем старую логику с зашитыми ссылками
     // Актуальные ссылки для каждого ресторана
     const restaurantLinksMap: Record<string, RestaurantLinks> = {
       // Нижний Новгород
@@ -254,50 +268,72 @@ const Restaurants = () => {
     }
 
     // Fallback - поиск по адресу
+    return {
+      yandexMapsUrl: getFallbackYandexMapsUrl(restaurantId, city, address),
+      gisUrl: getFallbackGisUrl(restaurantId, city, address),
+      yandexParkingUrl: getFallbackYandexParkingUrl(restaurantId, city, address),
+      gisParkingUrl: getFallbackGisParkingUrl(restaurantId, city, address),
+      yandexReviewUrl: getFallbackYandexReviewUrl(restaurantId, city, address),
+      gisReviewUrl: getFallbackGisReviewUrl(restaurantId, city, address),
+    };
+  }
+
+  // Вспомогательные функции для fallback ссылок
+  function getFallbackYandexMapsUrl(restaurantId: string, city: string, address: string): string {
     const encodedAddress = encodeURIComponent(`${address} Хачапури Марико`);
+    const cityMapId = getCityMapId(city);
+    return `https://yandex.ru/maps/${cityMapId}/?text=${encodedAddress}`;
+  }
+
+  function getFallbackGisUrl(restaurantId: string, city: string, address: string): string {
+    const encodedAddress = encodeURIComponent(`${address} Хачапури Марико`);
+    const cityUrlSlug = getCityUrlSlug(city);
+    return `https://2gis.ru/${cityUrlSlug}/search/${encodedAddress}`;
+  }
+
+  function getFallbackYandexParkingUrl(restaurantId: string, city: string, address: string): string {
+    const encodedAddressOnly = encodeURIComponent(address);
+    const cityMapId = getCityMapId(city);
+    const coordinates = getApproximateCoordinates(restaurantId);
+    
+    if (coordinates) {
+      return `https://yandex.ru/maps/${cityMapId}/?ll=${coordinates}&z=16&text=parking&pt=${coordinates}%2Cpm2rdm`;
+    }
+    return `https://yandex.ru/maps/${cityMapId}/?text=${encodedAddressOnly}%20парковка`;
+  }
+
+  function getFallbackGisParkingUrl(restaurantId: string, city: string, address: string): string {
     const encodedAddressOnly = encodeURIComponent(address);
     const cityUrlSlug = getCityUrlSlug(city);
-    const cityMapId = getCityMapId(city);
-
-    // Попробуем получить примерные координаты для некоторых новых городов
-    const getApproximateCoordinates = (restaurantId: string) => {
-      const coordMap: { [key: string]: string } = {
-        "zhukovsky-myasishcheva": "38.10658,55.60065",
-        "odintsovo-mozhayskoe": "37.22472,55.68028", 
-        "lesnoy-shkolnaya": "37.39472,55.88028",
-        "neftekamsk-parkovaya": "56.09250,56.09250", // примерные координаты Нефтекамска
-        "magnitogorsk-zavenyagina": "59.04667,53.41861", // примерные координаты Магнитогорска
-        "balakhna-sovetskaya": "43.59417,56.50722", // примерные координаты Балахны
-        "kstovo-lenina": "44.19917,56.14611", // примерные координаты Кстово
-        "novorossiysk-sovetov": "37.77056,44.72389", // примерные координаты Новороссийска
-        // Для остальных используем центры городов
-      };
-      return coordMap[restaurantId] || null;
-    };
-
     const coordinates = getApproximateCoordinates(restaurantId);
-
+    
     if (coordinates) {
-      // Если есть координаты, используем их для более точного поиска парковок
-      return {
-        yandexMapsUrl: `https://yandex.ru/maps/${cityMapId}/?text=${encodedAddress}`,
-        gisUrl: `https://2gis.ru/${cityUrlSlug}/search/${encodedAddress}`,
-        yandexParkingUrl: `https://yandex.ru/maps/${cityMapId}/?ll=${coordinates}&z=16&text=parking&pt=${coordinates}%2Cpm2rdm`,
-        gisParkingUrl: `https://2gis.ru/${cityUrlSlug}/search/parking?queryState=center%2F${coordinates}%2Fzoom%2F16`,
-        yandexReviewUrl: `https://yandex.ru/maps/${cityMapId}/?text=${encodedAddress}`,
-        gisReviewUrl: `https://2gis.ru/${cityUrlSlug}/search/${encodedAddress}`,
-      };
+      return `https://2gis.ru/${cityUrlSlug}/search/parking?queryState=center%2F${coordinates}%2Fzoom%2F16`;
     }
+    return `https://2gis.ru/${cityUrlSlug}/search/parking%20${encodedAddressOnly}`;
+  }
 
-    // Fallback без координат - используем поиск по тексту
-    return {
-      yandexMapsUrl: `https://yandex.ru/maps/${cityMapId}/?text=${encodedAddress}`,
-      gisUrl: `https://2gis.ru/${cityUrlSlug}/search/${encodedAddress}`,
-      yandexParkingUrl: `https://yandex.ru/maps/${cityMapId}/?text=${encodedAddressOnly}%20парковка`,
-      gisParkingUrl: `https://2gis.ru/${cityUrlSlug}/search/parking%20${encodedAddressOnly}`,
-      yandexReviewUrl: `https://yandex.ru/maps/${cityMapId}/?text=${encodedAddress}`,
-      gisReviewUrl: `https://2gis.ru/${cityUrlSlug}/search/${encodedAddress}`,
+  function getFallbackYandexReviewUrl(restaurantId: string, city: string, address: string): string {
+    return getFallbackYandexMapsUrl(restaurantId, city, address);
+  }
+
+  function getFallbackGisReviewUrl(restaurantId: string, city: string, address: string): string {
+    return getFallbackGisUrl(restaurantId, city, address);
+  }
+
+  function getApproximateCoordinates(restaurantId: string): string | null {
+    const coordMap: { [key: string]: string } = {
+      "zhukovsky-myasishcheva": "38.10658,55.60065",
+      "odintsovo-mozhayskoe": "37.22472,55.68028", 
+      "lesnoy-shkolnaya": "37.39472,55.88028",
+      "neftekamsk-parkovaya": "56.09250,56.09250", // примерные координаты Нефтекамска
+      "magnitogorsk-zavenyagina": "59.04667,53.41861", // примерные координаты Магнитогорска
+      "balakhna-sovetskaya": "43.59417,56.50722", // примерные координаты Балахны
+      "kstovo-lenina": "44.19917,56.14611", // примерные координаты Кстово
+      "novorossiysk-sovetov": "37.77056,44.72389", // примерные координаты Новороссийска
+      // Для остальных используем центры городов
     };
+    return coordMap[restaurantId] || null;
   }
 
   function getCityUrlSlug(cityName: string): string {
@@ -474,22 +510,26 @@ const Restaurants = () => {
                     Показать на карте:
                   </p>
                   <div className="flex gap-2">
-                    <button
-                      onClick={() =>
-                        safeOpenLink(restaurant.yandexMapsUrl, { try_instant_view: false })
-                      }
-                      className="flex-1 bg-yellow-500 text-black rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-yellow-400 transition-colors"
-                    >
-                      Яндекс
-                    </button>
-                    <button
-                      onClick={() =>
-                        safeOpenLink(restaurant.gisUrl, { try_instant_view: false })
-                      }
-                      className="flex-1 bg-green-500 text-white rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-green-400 transition-colors"
-                    >
-                      2ГИС
-                    </button>
+                    {restaurant.yandexMapsUrl && (
+                      <button
+                        onClick={() =>
+                          safeOpenLink(restaurant.yandexMapsUrl, { try_instant_view: false })
+                        }
+                        className="flex-1 bg-yellow-500 text-black rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-yellow-400 transition-colors"
+                      >
+                        Яндекс
+                      </button>
+                    )}
+                    {restaurant.gisUrl && (
+                      <button
+                        onClick={() =>
+                          safeOpenLink(restaurant.gisUrl, { try_instant_view: false })
+                        }
+                        className="flex-1 bg-green-500 text-white rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-green-400 transition-colors"
+                      >
+                        2ГИС
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -498,22 +538,26 @@ const Restaurants = () => {
                     Показать парковки:
                   </p>
                   <div className="flex gap-2">
-                    <button
-                      onClick={() =>
-                        safeOpenLink(restaurant.yandexParkingUrl, { try_instant_view: false })
-                      }
-                      className="flex-1 bg-yellow-500 text-black rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-yellow-400 transition-colors"
-                    >
-                      Яндекс
-                    </button>
-                    <button
-                      onClick={() =>
-                        safeOpenLink(restaurant.gisParkingUrl, { try_instant_view: false })
-                      }
-                      className="flex-1 bg-green-500 text-white rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-green-400 transition-colors"
-                    >
-                      2ГИС
-                    </button>
+                    {restaurant.yandexParkingUrl && (
+                      <button
+                        onClick={() =>
+                          safeOpenLink(restaurant.yandexParkingUrl, { try_instant_view: false })
+                        }
+                        className="flex-1 bg-yellow-500 text-black rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-yellow-400 transition-colors"
+                      >
+                        Яндекс
+                      </button>
+                    )}
+                    {restaurant.gisParkingUrl && (
+                      <button
+                        onClick={() =>
+                          safeOpenLink(restaurant.gisParkingUrl, { try_instant_view: false })
+                        }
+                        className="flex-1 bg-green-500 text-white rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-green-400 transition-colors"
+                      >
+                        2ГИС
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -533,22 +577,26 @@ const Restaurants = () => {
                   >
                     В приложении
                   </button>
-                  <button
-                    onClick={() =>
-                      safeOpenLink(restaurant.yandexReviewUrl, { try_instant_view: false })
-                    }
-                    className="flex-1 bg-yellow-500 text-black rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-yellow-400 transition-colors"
-                  >
-                    Яндекс
-                  </button>
-                  <button
-                    onClick={() =>
-                      safeOpenLink(restaurant.gisReviewUrl, { try_instant_view: false })
-                    }
-                    className="flex-1 bg-green-500 text-white rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-green-400 transition-colors"
-                  >
-                    2ГИС
-                  </button>
+                  {restaurant.yandexReviewUrl && (
+                    <button
+                      onClick={() =>
+                        safeOpenLink(restaurant.yandexReviewUrl, { try_instant_view: false })
+                      }
+                      className="flex-1 bg-yellow-500 text-black rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-yellow-400 transition-colors"
+                    >
+                      Яндекс
+                    </button>
+                  )}
+                  {restaurant.gisReviewUrl && (
+                    <button
+                      onClick={() =>
+                        safeOpenLink(restaurant.gisReviewUrl, { try_instant_view: false })
+                      }
+                      className="flex-1 bg-green-500 text-white rounded-lg px-3 py-2 font-el-messiri text-sm font-bold hover:bg-green-400 transition-colors"
+                    >
+                      2ГИС
+                    </button>
+                  )}
                 </div>
               </div>
 
