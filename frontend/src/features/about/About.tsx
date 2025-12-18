@@ -53,8 +53,46 @@ const InteractiveLink = ({
 
 const About = () => {
   const navigate = useNavigate();
-  const { selectedCity } = useCityContext();
+  const { selectedCity, selectedRestaurant } = useCityContext();
   const filteredContacts = CONTACTS.filter((c) => c.city === selectedCity.name);
+  
+  /**
+   * Форматирует номер телефона для отображения
+   */
+  function formatPhoneForDisplay(phone: string): string {
+    // Если номер уже отформатирован, возвращаем как есть
+    if (phone.includes('(') || phone.includes('-')) {
+      return phone;
+    }
+    // Иначе форматируем
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.startsWith('7') && cleaned.length === 11) {
+      return `+7 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7, 9)}-${cleaned.slice(9)}`;
+    }
+    return phone;
+  }
+  
+  /**
+   * Нормализует номер телефона для tel: ссылки
+   */
+  function normalizePhoneForTel(phone: string): string {
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.startsWith('7')) {
+      return `+${cleaned}`;
+    }
+    if (cleaned.startsWith('8')) {
+      return `+7${cleaned.slice(1)}`;
+    }
+    return cleaned.length > 0 ? `+7${cleaned}` : phone;
+  }
+  
+  /**
+   * Обработчик клика по номеру телефона
+   */
+  function handlePhoneClick(phone: string) {
+    const telLink = `tel:${normalizePhoneForTel(phone)}`;
+    safeOpenLink(telLink, { try_instant_view: false });
+  }
 
   return (
     <div className="app-screen overflow-hidden bg-transparent">
@@ -88,13 +126,16 @@ const About = () => {
                   </h2>
 
                   {/* Phone */}
-                  {contact.phone && (
+                  {(contact.phone || selectedRestaurant.phoneNumber) && (
                     <div className="mb-4 max-w-md">
                       <div className="flex items-center gap-3">
                         <Phone className="w-6 h-6 flex-shrink-0" />
-                        <span className="font-el-messiri text-lg md:text-xl underline decoration-dotted">
-                          {contact.phone}
-                        </span>
+                        <button
+                          onClick={() => handlePhoneClick(contact.phone || selectedRestaurant.phoneNumber || '')}
+                          className="font-el-messiri text-lg md:text-xl underline decoration-dotted hover:text-white/80 transition-colors cursor-pointer text-left"
+                        >
+                          {formatPhoneForDisplay(contact.phone || selectedRestaurant.phoneNumber || '')}
+                        </button>
                       </div>
                     </div>
                   )}
@@ -164,13 +205,16 @@ const About = () => {
                   </h2>
 
                   {/* Phone */}
-                  {contact.phone && (
+                  {(contact.phone || selectedRestaurant.phoneNumber) && (
                     <div className="mb-4 w-full">
                       <div className="flex items-center justify-center gap-3">
                         <Phone className="w-5 h-5 flex-shrink-0" />
-                        <span className="font-el-messiri text-base underline decoration-dotted">
-                          {contact.phone}
-                        </span>
+                        <button
+                          onClick={() => handlePhoneClick(contact.phone || selectedRestaurant.phoneNumber || '')}
+                          className="font-el-messiri text-base underline decoration-dotted hover:text-white/80 transition-colors cursor-pointer"
+                        >
+                          {formatPhoneForDisplay(contact.phone || selectedRestaurant.phoneNumber || '')}
+                        </button>
                       </div>
                     </div>
                   )}
