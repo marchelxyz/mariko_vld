@@ -104,13 +104,15 @@ export function createStorageRouter() {
         // Конвертируем в AVIF и WebP
         const { avif, webp } = await convertToBothFormats(req.file.buffer, baseKey);
 
-        // Сохраняем AVIF версию (основная)
+        // Сохраняем AVIF и WebP версии параллельно для ускорения загрузки
         key = `${baseKey}.avif`;
-        url = await uploadFile(avif, key, getAvifMimeType());
-
-        // Сохраняем WebP версию (fallback для старых браузеров)
         webpKey = `${baseKey}.webp`;
-        webpUrl = await uploadFile(webp, webpKey, getWebpMimeType());
+        const [uploadedAvif, uploadedWebp] = await Promise.all([
+          uploadFile(avif, key, getAvifMimeType()),
+          uploadFile(webp, webpKey, getWebpMimeType())
+        ]);
+        url = uploadedAvif;
+        webpUrl = uploadedWebp;
 
         logger.info('Изображение меню конвертировано и загружено', {
           avifSize: avif.length,
@@ -267,13 +269,15 @@ export function createStorageRouter() {
         // Конвертируем в AVIF и WebP
         const { avif, webp } = await convertToBothFormats(req.file.buffer, baseKey);
 
-        // Сохраняем AVIF версию (основная)
+        // Сохраняем AVIF и WebP версии параллельно для ускорения загрузки
         key = `${baseKey}.avif`;
-        url = await uploadFile(avif, key, getAvifMimeType());
-
-        // Сохраняем WebP версию (fallback для старых браузеров)
         webpKey = `${baseKey}.webp`;
-        webpUrl = await uploadFile(webp, webpKey, getWebpMimeType());
+        const [uploadedAvif, uploadedWebp] = await Promise.all([
+          uploadFile(avif, key, getAvifMimeType()),
+          uploadFile(webp, webpKey, getWebpMimeType())
+        ]);
+        url = uploadedAvif;
+        webpUrl = uploadedWebp;
 
         logger.info('Изображение акции конвертировано и загружено', {
           avifSize: avif.length,
