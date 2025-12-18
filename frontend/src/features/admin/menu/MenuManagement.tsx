@@ -561,12 +561,32 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     setLibraryError(null);
     setIsLoadingLibrary(true);
     try {
+      console.log('Загрузка библиотеки изображений', { 
+        restaurantId: selectedRestaurantId, 
+        scope: 'global' 
+      });
       const images = await fetchMenuImageLibrary(selectedRestaurantId, 'global');
+      console.log('Изображения получены от API', { 
+        count: images.length, 
+        images: images.map(img => ({ path: img.path, url: img.url, size: img.size }))
+      });
       // Нормализуем URL изображений перед сохранением
-      const normalizedImages = images.map((img) => ({
-        ...img,
-        url: normalizeImageUrl(img.url) || img.path,
-      }));
+      const normalizedImages = images.map((img) => {
+        const normalizedUrl = normalizeImageUrl(img.url) || img.path;
+        console.log('Нормализация URL', { 
+          original: img.url, 
+          normalized: normalizedUrl, 
+          path: img.path 
+        });
+        return {
+          ...img,
+          url: normalizedUrl,
+        };
+      });
+      console.log('Нормализованные изображения', { 
+        count: normalizedImages.length, 
+        images: normalizedImages 
+      });
       setLibraryImages(normalizedImages);
     } catch (error: unknown) {
       console.error('Не удалось получить список изображений меню:', error);

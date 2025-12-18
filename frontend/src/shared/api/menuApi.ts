@@ -209,22 +209,31 @@ export async function fetchMenuImageLibrary(
   const headers = buildAdminHeaders();
 
   try {
-    const response = await fetch(
-      resolveServerUrl(`/storage/menu/${encodeURIComponent(restaurantId)}?scope=${scope}`),
-      {
-        method: 'GET',
-        credentials: 'include',
-        headers,
-      }
-    );
+    const url = resolveServerUrl(`/storage/menu/${encodeURIComponent(restaurantId)}?scope=${scope}`);
+    console.log('Запрос библиотеки изображений меню', { url, restaurantId, scope });
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+      headers,
+    });
 
     const text = await response.text();
+    console.log('Ответ от сервера', { 
+      status: response.status, 
+      ok: response.ok, 
+      textLength: text.length,
+      textPreview: text.substring(0, 500)
+    });
+    
     if (!response.ok) {
       const errorMessage = parseErrorPayload(text) ?? `Server API responded with ${response.status}`;
+      console.error('Ошибка ответа сервера', { status: response.status, errorMessage, text });
       throw new Error(errorMessage);
     }
 
     const assets = JSON.parse(text) as MenuImageAsset[];
+    console.log('Распарсенные данные', { count: assets.length, assets });
     return assets;
   } catch (error) {
     console.error('Ошибка получения библиотеки изображений меню:', error);

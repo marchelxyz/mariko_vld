@@ -153,11 +153,18 @@ export async function listFiles(prefix = '') {
   }
 
   try {
-    logger.debug('Получение списка файлов', { prefix });
+    // Нормализуем префикс: убираем ведущий слэш, но сохраняем завершающий
+    const normalizedPrefix = prefix.startsWith('/') ? prefix.slice(1) : prefix;
+    
+    logger.debug('Получение списка файлов', { 
+      originalPrefix: prefix, 
+      normalizedPrefix,
+      bucket: YANDEX_STORAGE_BUCKET_NAME 
+    });
 
     const command = new ListObjectsV2Command({
       Bucket: YANDEX_STORAGE_BUCKET_NAME,
-      Prefix: prefix,
+      Prefix: normalizedPrefix,
     });
 
     const response = await s3Client.send(command);
@@ -166,16 +173,22 @@ export async function listFiles(prefix = '') {
       let url;
       if (YANDEX_STORAGE_PUBLIC_URL) {
         // Используем настроенный публичный URL
-        url = YANDEX_STORAGE_PUBLIC_URL.endsWith('/') 
-          ? `${YANDEX_STORAGE_PUBLIC_URL}${item.Key}`
-          : `${YANDEX_STORAGE_PUBLIC_URL}/${item.Key}`;
+        // Убираем завершающий слэш из публичного URL и ключа, затем соединяем
+        const baseUrl = YANDEX_STORAGE_PUBLIC_URL.replace(/\/+$/, '');
+        const key = item.Key.startsWith('/') ? item.Key.slice(1) : item.Key;
+        url = `${baseUrl}/${key}`;
       } else {
         // Формируем URL из endpoint и bucket name
-        const baseUrl = YANDEX_STORAGE_ENDPOINT.endsWith('/')
-          ? YANDEX_STORAGE_ENDPOINT.slice(0, -1)
-          : YANDEX_STORAGE_ENDPOINT;
-        url = `${baseUrl}/${YANDEX_STORAGE_BUCKET_NAME}/${item.Key}`;
+        const baseUrl = YANDEX_STORAGE_ENDPOINT.replace(/\/+$/, '');
+        const key = item.Key.startsWith('/') ? item.Key.slice(1) : item.Key;
+        url = `${baseUrl}/${YANDEX_STORAGE_BUCKET_NAME}/${key}`;
       }
+      
+      logger.debug('Формирование URL для файла', { 
+        key: item.Key, 
+        url, 
+        hasPublicUrl: !!YANDEX_STORAGE_PUBLIC_URL 
+      });
       
       return {
         key: item.Key,

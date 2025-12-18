@@ -183,11 +183,54 @@ export function createStorageRouter() {
         prefix = `menu/restaurant-${restaurantId}/`;
       }
 
-      const files = await listFiles(prefix);
+      logger.debug('Получение списка изображений меню', { 
+        restaurantId, 
+        scope, 
+        prefix 
+      });
+
+      let files = await listFiles(prefix);
+      
+      // Если scope='global' и в global папке ничего нет, 
+      // также проверяем папку ресторана (fallback для старых загрузок)
+      if (scope === 'global' && files.length === 0) {
+        logger.debug('В global папке файлов не найдено, проверяем папку ресторана', { 
+          restaurantId 
+        });
+        const restaurantPrefix = `menu/restaurant-${restaurantId}/`;
+        const restaurantFiles = await listFiles(restaurantPrefix);
+        if (restaurantFiles.length > 0) {
+          logger.debug('Найдены файлы в папке ресторана', { 
+            count: restaurantFiles.length 
+          });
+          files = restaurantFiles;
+        }
+      }
+      
+      logger.debug('Файлы получены из хранилища', { 
+        prefix, 
+        totalFiles: files.length,
+        files: files.map(f => ({ key: f.key, size: f.size, url: f.url }))
+      });
       
       // Фильтруем файлы: показываем только AVIF версии (основные),
       // WebP версии скрываем, так как они используются только для fallback
-      const filteredFiles = files.filter((file) => !file.key.endsWith('.webp'));
+      // Но если есть только оригинальные файлы (не AVIF и не WebP), показываем их
+      const filteredFiles = files.filter((file) => {
+        const key = file.key.toLowerCase();
+        // Пропускаем WebP файлы (они используются только как fallback)
+        if (key.endsWith('.webp')) {
+          return false;
+        }
+        // Показываем все остальные файлы (AVIF, JPG, PNG и т.д.)
+        return true;
+      });
+      
+      logger.debug('Файлы после фильтрации', { 
+        prefix, 
+        filteredCount: filteredFiles.length,
+        filteredFiles: filteredFiles.map(f => ({ key: f.key, url: f.url }))
+      });
       
       const assets = filteredFiles.map((file) => ({
         path: file.key,
@@ -197,7 +240,10 @@ export function createStorageRouter() {
       }));
 
       const duration = Date.now() - startTime;
-      logger.requestSuccess('GET', '/menu/:restaurantId', duration, 200);
+      logger.requestSuccess('GET', '/menu/:restaurantId', duration, 200, {
+        assetsCount: assets.length,
+        prefix
+      });
       return res.json(assets);
     } catch (error) {
       const duration = Date.now() - startTime;
