@@ -4,7 +4,6 @@ import type { MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCityContext } from "@/contexts";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
-import { CONTACTS } from "@shared/data";
 import { cn } from "@shared/utils";
 import { safeOpenLink } from "@/lib/telegram";
 
@@ -54,7 +53,6 @@ const InteractiveLink = ({
 const About = () => {
   const navigate = useNavigate();
   const { selectedCity, selectedRestaurant } = useCityContext();
-  const filteredContacts = CONTACTS.filter((c) => c.city === selectedCity.name);
   
   /**
    * Форматирует номер телефона для отображения
@@ -93,6 +91,23 @@ const About = () => {
     const telLink = `tel:${normalizePhoneForTel(phone)}`;
     safeOpenLink(telLink, { try_instant_view: false });
   }
+  
+  /**
+   * Определяет иконку для социальной сети по названию
+   */
+  function getSocialIcon(name: string): LucideIcon {
+    const nameLower = name.toLowerCase();
+    if (nameLower.includes('instagram') || nameLower.includes('инстаграм')) {
+      return Instagram;
+    }
+    if (nameLower.includes('telegram') || nameLower.includes('телеграм')) {
+      return Send;
+    }
+    if (nameLower.includes('vk') || nameLower.includes('вконтакте') || nameLower.includes('вк')) {
+      return MessageCircle;
+    }
+    return ExternalLink;
+  }
 
   return (
     <div className="app-screen overflow-hidden bg-transparent">
@@ -109,172 +124,135 @@ const About = () => {
           {/* Page title */}
           <PageHeader title="О нас" variant="white" onBackClick={() => navigate(-1)} />
 
-          {/* Contacts list (filtered by selected city) */}
+          {/* Restaurant info from database */}
           <div
             className="space-y-6"
             style={{ paddingBottom: "calc(var(--app-bottom-inset) + 48px)" }}
           >
-            {filteredContacts.map((contact) => (
-              <div
-                key={contact.id}
-                className="relative bg-mariko-secondary rounded-[16px] p-4 md:p-6 lg:p-8 text-white transition-all duration-300 hover:bg-mariko-secondary/95"
-              >
-                {/* Desktop layout - image on the right */}
-                <div className="hidden md:block">
-                  <h2 className="font-el-messiri text-2xl md:text-3xl font-bold mb-4">
-                    {contact.restaurantName} — {contact.city}
-                  </h2>
+            <div className="relative bg-mariko-secondary rounded-[16px] p-4 md:p-6 lg:p-8 text-white transition-all duration-300 hover:bg-mariko-secondary/95">
+              {/* Desktop layout */}
+              <div className="hidden md:block">
+                <h2 className="font-el-messiri text-2xl md:text-3xl font-bold mb-4">
+                  {selectedRestaurant.name} — {selectedCity.name}
+                </h2>
 
-                  {/* Phone */}
-                  {(contact.phone || selectedRestaurant.phoneNumber) && (
-                    <div className="mb-4 max-w-md">
-                      <div className="flex items-center gap-3">
-                        <Phone className="w-6 h-6 flex-shrink-0" />
-                        <button
-                          onClick={() => handlePhoneClick(contact.phone || selectedRestaurant.phoneNumber || '')}
-                          className="font-el-messiri text-lg md:text-xl underline decoration-dotted hover:text-white/80 transition-colors cursor-pointer text-left"
-                        >
-                          {formatPhoneForDisplay(contact.phone || selectedRestaurant.phoneNumber || '')}
-                        </button>
-                      </div>
+                {/* Phone */}
+                {selectedRestaurant.phoneNumber && (
+                  <div className="mb-4 max-w-md">
+                    <div className="flex items-center gap-3">
+                      <Phone className="w-6 h-6 flex-shrink-0" />
+                      <button
+                        onClick={() => handlePhoneClick(selectedRestaurant.phoneNumber || '')}
+                        className="font-el-messiri text-lg md:text-xl underline decoration-dotted hover:text-white/80 transition-colors cursor-pointer text-left"
+                      >
+                        {formatPhoneForDisplay(selectedRestaurant.phoneNumber)}
+                      </button>
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {/* Socials */}
+                {/* Socials */}
+                {selectedRestaurant.socialNetworks && selectedRestaurant.socialNetworks.length > 0 && (
                   <div className="flex flex-wrap gap-3 mb-4">
-                    {contact.instagramUrl && (
+                    {selectedRestaurant.socialNetworks.map((social, index) => (
                       <InteractiveLink
-                        icon={Instagram}
-                        label="Instagram"
-                        href={contact.instagramUrl as string}
-                        description="Перейти в профиль"
+                        key={index}
+                        icon={getSocialIcon(social.name)}
+                        label={social.name}
+                        href={social.url}
+                        description="Перейти"
                         className="md:w-auto"
                       />
-                    )}
-                    {contact.telegramUrl && (
-                      <InteractiveLink
-                        icon={Send}
-                        label="Telegram"
-                        href={contact.telegramUrl as string}
-                        description="Перейти в Telegram-канал"
-                        className="md:w-auto"
-                      />
-                    )}
-                    {contact.vkUrl && (
-                      <InteractiveLink
-                        icon={MessageCircle}
-                        label="VK"
-                        href={contact.vkUrl as string}
-                        description="Перейти в сообщество"
-                        className="md:w-auto"
-                      />
-                    )}
+                    ))}
                   </div>
+                )}
 
-                  {/* Address */}
-                  {contact.addressUrl && (
-                    <div className="mb-4 max-w-2xl">
-                      <InteractiveLink
-                        icon={MapPin}
-                        label={contact.addressLabel ?? contact.restaurantName}
-                        href={contact.addressUrl as string}
-                        description="Открыть на карте"
-                      />
-                    </div>
-                  )}
-
-                  {/* Parking */}
-                  {contact.parkingUrl && (
-                    <div className="max-w-2xl">
-                      <InteractiveLink
-                        icon={Car}
-                        label={contact.parkingLabel ?? "Парковка"}
-                        href={contact.parkingUrl as string}
-                        description="Посмотреть парковку"
-                      />
-                    </div>
-                  )}
-
-
-                </div>
-
-                {/* Mobile layout - vertical stack */}
-                <div className="md:hidden flex flex-col pt-4">
-                  <h2 className="font-el-messiri text-xl font-bold mb-4 text-center">
-                    {contact.restaurantName} — {contact.city}
-                  </h2>
-
-                  {/* Phone */}
-                  {(contact.phone || selectedRestaurant.phoneNumber) && (
-                    <div className="mb-4 w-full">
-                      <div className="flex items-center justify-center gap-3">
-                        <Phone className="w-5 h-5 flex-shrink-0" />
-                        <button
-                          onClick={() => handlePhoneClick(contact.phone || selectedRestaurant.phoneNumber || '')}
-                          className="font-el-messiri text-base underline decoration-dotted hover:text-white/80 transition-colors cursor-pointer"
-                        >
-                          {formatPhoneForDisplay(contact.phone || selectedRestaurant.phoneNumber || '')}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Socials - vertical stack */}
-                  <div className="flex flex-col gap-3 mb-4 w-full">
-                    {contact.telegramUrl && (
-                      <InteractiveLink
-                        icon={Send}
-                        label="Telegram"
-                        href={contact.telegramUrl as string}
-                        description="Написать в Telegram"
-                      />
-                    )}
-                    {contact.vkUrl && (
-                      <InteractiveLink
-                        icon={MessageCircle}
-                        label="VK"
-                        href={contact.vkUrl as string}
-                        description="Перейти в сообщество"
-                      />
-                    )}
-                    {contact.instagramUrl && (
-                      <InteractiveLink
-                        icon={Instagram}
-                        label="Instagram"
-                        href={contact.instagramUrl as string}
-                        description="Перейти в профиль"
-                      />
-                    )}
+                {/* Address - Яндекс Карты */}
+                {selectedRestaurant.yandexMapsUrl && (
+                  <div className="mb-4 max-w-2xl">
+                    <InteractiveLink
+                      icon={MapPin}
+                      label={selectedRestaurant.address}
+                      href={selectedRestaurant.yandexMapsUrl}
+                      description="Открыть на Яндекс Картах"
+                    />
                   </div>
+                )}
 
-                  {/* Address */}
-                  {contact.addressUrl && (
-                    <div className="mb-4 w-full">
-                      <InteractiveLink
-                        icon={MapPin}
-                        label={contact.addressLabel ?? contact.restaurantName}
-                        href={contact.addressUrl as string}
-                        description="Открыть на карте"
-                      />
-                    </div>
-                  )}
-
-                  {/* Parking */}
-                  {contact.parkingUrl && (
-                    <div className="mb-6 w-full">
-                      <InteractiveLink
-                        icon={Car}
-                        label={contact.parkingLabel ?? "Парковка"}
-                        href={contact.parkingUrl as string}
-                        description="Посмотреть парковку"
-                      />
-                    </div>
-                  )}
-
-
-                </div>
+                {/* Address - 2ГИС */}
+                {selectedRestaurant.twoGisUrl && (
+                  <div className="mb-4 max-w-2xl">
+                    <InteractiveLink
+                      icon={MapPin}
+                      label={selectedRestaurant.address}
+                      href={selectedRestaurant.twoGisUrl}
+                      description="Открыть на 2ГИС"
+                    />
+                  </div>
+                )}
               </div>
-            ))}
+
+              {/* Mobile layout - vertical stack */}
+              <div className="md:hidden flex flex-col pt-4">
+                <h2 className="font-el-messiri text-xl font-bold mb-4 text-center">
+                  {selectedRestaurant.name} — {selectedCity.name}
+                </h2>
+
+                {/* Phone */}
+                {selectedRestaurant.phoneNumber && (
+                  <div className="mb-4 w-full">
+                    <div className="flex items-center justify-center gap-3">
+                      <Phone className="w-5 h-5 flex-shrink-0" />
+                      <button
+                        onClick={() => handlePhoneClick(selectedRestaurant.phoneNumber || '')}
+                        className="font-el-messiri text-base underline decoration-dotted hover:text-white/80 transition-colors cursor-pointer"
+                      >
+                        {formatPhoneForDisplay(selectedRestaurant.phoneNumber)}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Socials - vertical stack */}
+                {selectedRestaurant.socialNetworks && selectedRestaurant.socialNetworks.length > 0 && (
+                  <div className="flex flex-col gap-3 mb-4 w-full">
+                    {selectedRestaurant.socialNetworks.map((social, index) => (
+                      <InteractiveLink
+                        key={index}
+                        icon={getSocialIcon(social.name)}
+                        label={social.name}
+                        href={social.url}
+                        description="Перейти"
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Address - Яндекс Карты */}
+                {selectedRestaurant.yandexMapsUrl && (
+                  <div className="mb-4 w-full">
+                    <InteractiveLink
+                      icon={MapPin}
+                      label={selectedRestaurant.address}
+                      href={selectedRestaurant.yandexMapsUrl}
+                      description="Открыть на Яндекс Картах"
+                    />
+                  </div>
+                )}
+
+                {/* Address - 2ГИС */}
+                {selectedRestaurant.twoGisUrl && (
+                  <div className="mb-6 w-full">
+                    <InteractiveLink
+                      icon={MapPin}
+                      label={selectedRestaurant.address}
+                      href={selectedRestaurant.twoGisUrl}
+                      description="Открыть на 2ГИС"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
