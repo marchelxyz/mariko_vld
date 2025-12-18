@@ -537,6 +537,20 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     }
   };
 
+  const normalizeImageUrl = (raw?: string | null): string => {
+    if (!raw) return "";
+    try {
+      const url = new URL(raw);
+      const encodedPath = url.pathname
+        .split("/")
+        .map((seg) => encodeURIComponent(decodeURIComponent(seg)))
+        .join("/");
+      return `${url.protocol}//${url.host}${encodedPath}${url.search}${url.hash}`;
+    } catch {
+      return raw.replace(/ /g, "%20");
+    }
+  };
+
   const handleOpenLibrary = async () => {
     if (!selectedRestaurantId) {
       return;
@@ -548,7 +562,12 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     setIsLoadingLibrary(true);
     try {
       const images = await fetchMenuImageLibrary(selectedRestaurantId, 'global');
-      setLibraryImages(images);
+      // Нормализуем URL изображений перед сохранением
+      const normalizedImages = images.map((img) => ({
+        ...img,
+        url: normalizeImageUrl(img.url) || img.path,
+      }));
+      setLibraryImages(normalizedImages);
     } catch (error: unknown) {
       console.error('Не удалось получить список изображений меню:', error);
       const message =
@@ -1068,6 +1087,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
       uploadingImage={uploadingImage}
       uploadError={uploadError}
       isLibraryLoading={isLoadingLibrary}
+      isSaving={isSavingMenu}
       fileInputRef={fileInputRef}
       onChange={updateEditingItem}
       onClose={() => setEditingItem(null)}
