@@ -10,6 +10,7 @@ type EditItemModalProps = {
   uploadingImage: boolean;
   uploadError: string | null;
   isLibraryLoading: boolean;
+  isSaving: boolean;
   fileInputRef: MutableRefObject<HTMLInputElement | null>;
   onChange: (changes: Partial<EditableMenuItem>) => void;
   onClose: () => void;
@@ -25,6 +26,7 @@ export function EditItemModal({
   uploadingImage,
   uploadError,
   isLibraryLoading,
+  isSaving,
   fileInputRef,
   onChange,
   onClose,
@@ -177,17 +179,26 @@ export function EditItemModal({
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={isSaving}>
             <X className="w-4 h-4 mr-2" />
             Отмена
           </Button>
           <Button
             variant="default"
             onClick={onSave}
-            disabled={!item.name || !item.description || !(item.priceInput ?? '').trim()}
+            disabled={isSaving || !item.name || !item.description || !(item.priceInput ?? '').trim()}
           >
-            <Save className="w-4 h-4 mr-2" />
-            Сохранить
+            {isSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                Сохранение...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                Сохранить
+              </>
+            )}
           </Button>
         </div>
       </div>
