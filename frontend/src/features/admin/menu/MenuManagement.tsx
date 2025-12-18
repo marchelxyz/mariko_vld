@@ -26,6 +26,8 @@ import {
   Button,
   Switch,
 } from "@shared/ui";
+import { toast } from "@/hooks/use-toast";
+import { compressImage } from "@/lib/imageCompression";
 import type { CopyContext, CopySourceSelection, EditableMenuItem } from "./model";
 import { CopyModal, EditCategoryModal, EditItemModal, ImageLibraryModal } from "./ui";
 
@@ -291,20 +293,44 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
       }
       const previousMenu = menu;
       const nextMenu = updater(menu);
+      
+      // Оптимистичное обновление UI - обновляем сразу, без ожидания ответа сервера
       setMenu(nextMenu);
       setIsSavingMenu(true);
-      const result = await saveRestaurantMenu(selectedRestaurantId, nextMenu);
-      setIsSavingMenu(false);
-      if (!result.success) {
-        const details = result.errorMessage ? `\n\nДетали: ${result.errorMessage}` : '';
-        alert(`❌ Ошибка сохранения меню${details}`);
+      
+      try {
+        const result = await saveRestaurantMenu(selectedRestaurantId, nextMenu);
+        setIsSavingMenu(false);
+        
+        if (!result.success) {
+          // Откатываем изменения при ошибке
+          setMenu(previousMenu);
+          toast({
+            title: "❌ Ошибка сохранения",
+            description: result.errorMessage || "Не удалось сохранить изменения. Попробуйте ещё раз.",
+            variant: "destructive",
+          });
+          return false;
+        }
+        
+        // Показываем успешное уведомление без блокировки UI
+        if (successMessage) {
+          toast({
+            title: successMessage,
+            description: "Изменения успешно сохранены",
+          });
+        }
+        return true;
+      } catch (error) {
+        setIsSavingMenu(false);
         setMenu(previousMenu);
+        toast({
+          title: "❌ Ошибка сохранения",
+          description: error instanceof Error ? error.message : "Неожиданная ошибка при сохранении",
+          variant: "destructive",
+        });
         return false;
       }
-      if (successMessage) {
-        alert(successMessage);
-      }
-      return true;
     },
     [menu, selectedRestaurantId],
   );
@@ -397,7 +423,11 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     const normalizedPrice = priceInput.replace(',', '.').trim();
     const parsedPrice = Number(normalizedPrice);
     if (!normalizedPrice || Number.isNaN(parsedPrice) || parsedPrice <= 0) {
-      alert('Введите корректную цену, например 450 или 450.5');
+      toast({
+        title: "Некорректная цена",
+        description: "Введите корректную цену, например 450 или 450.5",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -406,21 +436,25 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
       price: Number(parsedPrice.toFixed(2)),
     };
 
-    await applyMenuChanges((previous) => ({
-      ...previous,
-      categories: previous.categories.map((category) => {
-        if (category.id !== editingItemCategoryId) {
-          return category;
-        }
-        const exists = category.items.some((item) => item.id === preparedItem.id);
-        return {
-          ...category,
-          items: exists
-            ? category.items.map((item) => (item.id === preparedItem.id ? preparedItem : item))
-            : [...category.items, preparedItem],
-        };
+    const isNewItem = editingItem.id.startsWith('item_');
+    await applyMenuChanges(
+      (previous) => ({
+        ...previous,
+        categories: previous.categories.map((category) => {
+          if (category.id !== editingItemCategoryId) {
+            return category;
+          }
+          const exists = category.items.some((item) => item.id === preparedItem.id);
+          return {
+            ...category,
+            items: exists
+              ? category.items.map((item) => (item.id === preparedItem.id ? preparedItem : item))
+              : [...category.items, preparedItem],
+          };
+        }),
       }),
-    }));
+      isNewItem ? '✅ Блюдо добавлено' : '✅ Блюдо обновлено',
+    );
     setEditingItem(null);
     setEditingItemCategoryId(null);
   };
@@ -554,7 +588,11 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     if (copyContext.type === 'category') {
       if (sourceSelection.importAllCategories) {
         if (!sourceMenu.categories.length) {
-          alert('В выбранном ресторане нет категорий для импорта');
+          toast({
+            title: "Нет категорий",
+            description: "В выбранном ресторане нет категорий для импорта",
+            variant: "destructive",
+          });
           return;
         }
         await applyMenuChanges(
@@ -565,7 +603,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
               ...sourceMenu.categories.map((category) => cloneCategory(category)),
             ],
           }),
-          '✅ Категории импортированы',
+          `✅ Импортировано категорий: ${sourceMenu.categories.length}`,
         );
         setCopyContext(null);
         return;
@@ -574,7 +612,11 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
         (candidate) => candidate.id === sourceSelection.categoryId,
       );
       if (!category) {
-        alert('Выберите категорию для копирования');
+        toast({
+          title: "Выберите категорию",
+          description: "Выберите категорию для копирования",
+          variant: "destructive",
+        });
         return;
       }
       await applyMenuChanges(
@@ -595,7 +637,11 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
       (candidate) => candidate.id === sourceSelection.itemId,
     );
     if (!sourceCategory || !sourceItem) {
-      alert('Выберите блюдо для копирования');
+      toast({
+        title: "Выберите блюдо",
+        description: "Выберите блюдо для копирования",
+        variant: "destructive",
+      });
       return;
     }
     await applyMenuChanges(
@@ -658,8 +704,25 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     setUploadError(null);
     setUploadingImage(true);
     try {
-      const uploaded = await uploadMenuImage(selectedRestaurantId, file);
+      // Сжимаем изображение на клиенте перед загрузкой для ускорения процесса
+      const compressedFile = await compressImage(file, {
+        maxWidth: 1200,
+        maxHeight: 900,
+        quality: 0.85,
+        maxSizeMB: 2,
+      });
+      
+      const uploaded = await uploadMenuImage(selectedRestaurantId, compressedFile);
       updateEditingItem({ imageUrl: uploaded.url });
+      
+      const originalSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      const compressedSizeMB = (compressedFile.size / (1024 * 1024)).toFixed(2);
+      if (compressedFile.size < file.size) {
+        toast({
+          title: "Изображение оптимизировано",
+          description: `Размер уменьшен с ${originalSizeMB} МБ до ${compressedSizeMB} МБ`,
+        });
+      }
     } catch (error: unknown) {
       console.error('Ошибка загрузки изображения:', error);
       const message =
@@ -667,6 +730,11 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
           ? error.message
           : 'Не удалось загрузить изображение. Попробуйте ещё раз.';
       setUploadError(message);
+      toast({
+        title: "Ошибка загрузки",
+        description: message,
+        variant: "destructive",
+      });
     } finally {
       setUploadingImage(false);
       if (fileInputRef.current) {
