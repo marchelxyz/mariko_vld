@@ -15,16 +15,19 @@ const tg = getTg();
 
 // Инициализация Telegram WebApp (если запущено в Telegram)
 if (tg) {
-  markReady();
-  
-  // Настройка обработчиков полноэкранного режима
+  // Настройка обработчиков полноэкранного режима перед ready()
   setupFullscreenHandlers();
+  
+  // Сигнализируем Telegram, что приложение готово
+  markReady();
   
   // Запрос полноэкранного режима при старте несколько раз
   // для надежного перехода в полноэкранный режим
+  // Согласно документации: https://core.telegram.org/bots/webapps#initializing-mini-apps
   requestFullscreenMode();
   
   // Повторные вызовы с задержкой для надежности
+  // Используем expand() как fallback для старых версий Telegram
   setTimeout(() => {
     requestFullscreenMode();
   }, 100);
@@ -32,6 +35,17 @@ if (tg) {
   setTimeout(() => {
     requestFullscreenMode();
   }, 500);
+  
+  // Дополнительный вызов после полной загрузки DOM
+  if (typeof document !== "undefined") {
+    if (document.readyState === "complete") {
+      requestFullscreenMode();
+    } else {
+      window.addEventListener("load", () => {
+        requestFullscreenMode();
+      });
+    }
+  }
 }
 
 // Глобальный перехват ошибок для диагностики в WebView Telegram

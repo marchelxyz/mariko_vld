@@ -6,7 +6,7 @@ import { DebugGrid } from "@/components/DebugGrid";
 import { AdminProvider, CartProvider, RestaurantProvider, DebugGridProvider, OnboardingProvider } from "@/contexts";
 import { useEnsureUserProfileSync } from "@/hooks";
 import { logger } from "@/lib/logger";
-import { isActive, onActivated, onDeactivated } from "@/lib/telegram";
+import { isActive, onActivated, onDeactivated, requestFullscreenMode } from "@/lib/telegram";
 import { Toaster as SonnerToaster } from "@shared/ui/sonner";
 import { Toaster } from "@shared/ui/toaster";
 import { TooltipProvider } from "@shared/ui/tooltip";
@@ -55,6 +55,8 @@ function AppContent() {
     const unsubscribeActivate = onActivated(() => {
       logger.debug('app', 'Приложение активировано');
       updateFocus(true);
+      // Автоматически переходим в полноэкранный режим при активации
+      requestFullscreenMode();
     });
     const unsubscribeDeactivate = onDeactivated(() => {
       logger.debug('app', 'Приложение деактивировано');

@@ -109,6 +109,8 @@ const ensureLifecycleBinding = () => {
         console.error("[telegram] activation listener failed", error);
       }
     });
+    // Автоматически переходим в полноэкранный режим при активации приложения
+    requestFullscreenMode();
   };
 
   const handleDeactivated = () => {
@@ -131,6 +133,10 @@ const ensureLifecycleBinding = () => {
         console.error("[telegram] viewport listener failed", error);
       }
     });
+    // Автоматически переходим в полноэкранный режим при изменении viewport, если не в полноэкранном режиме
+    if (tg.isFullscreen === false || !payload.is_expanded) {
+      requestFullscreenMode();
+    }
   };
 
   tg.onEvent?.("activated", handleActivated);
@@ -359,13 +365,19 @@ export const closeApp = () => {
 /**
  * Requests fullscreen mode for the Telegram Mini App.
  * Uses requestFullscreen() for Bot API 8.0+ (preferred) or expand() as fallback.
+ * Согласно документации: https://core.telegram.org/bots/webapps#initializing-mini-apps
  */
 export const requestFullscreenMode = () => {
   const tg = getTg();
   if (!tg) return;
 
+  // Проверяем, не находимся ли мы уже в полноэкранном режиме
+  if (tg.isFullscreen === true) {
+    return;
+  }
+
   try {
-    // Приоритет: requestFullscreen() для Bot API 8.0+
+    // Приоритет: requestFullscreen() для Bot API 8.0+ (предпочтительный метод)
     if (typeof tg.requestFullscreen === "function") {
       const result = tg.requestFullscreen();
       // Если возвращается Promise, обрабатываем его
@@ -380,9 +392,9 @@ export const requestFullscreenMode = () => {
           }
         });
       }
-    } else {
-      // Fallback для старых версий
-      tg.expand?.();
+    } else if (typeof tg.expand === "function") {
+      // Fallback для старых версий: используем expand() (доступен с Bot API 6.0+)
+      tg.expand();
     }
   } catch (error) {
     console.warn("[telegram] requestFullscreenMode() failed, trying expand()", error);
@@ -397,6 +409,7 @@ export const requestFullscreenMode = () => {
 /**
  * Sets up fullscreen event handlers to maintain fullscreen mode.
  * Should be called once during app initialization.
+ * Согласно документации: https://core.telegram.org/bots/webapps#events-available-for-mini-apps
  */
 export const setupFullscreenHandlers = () => {
   const tg = getTg();
@@ -405,9 +418,12 @@ export const setupFullscreenHandlers = () => {
   // Обработчик изменения полноэкранного режима
   // Автоматически возвращает в полноэкранный режим при выходе
   const handleFullscreenChanged = () => {
-    // Проверяем, что мы не в полноэкранном режиме
+    // Проверяем, что мы не в полноэкранном режиме, и переходим в него
     if (tg.isFullscreen === false) {
-      requestFullscreenMode();
+      // Небольшая задержка для надежности
+      setTimeout(() => {
+        requestFullscreenMode();
+      }, 100);
     }
   };
 
@@ -423,11 +439,13 @@ export const setupFullscreenHandlers = () => {
   };
 
   try {
+    // Подписываемся на событие изменения полноэкранного режима
     tg.onEvent?.("fullscreen_changed", handleFullscreenChanged);
+    
     // Примечание: fullscreenFailed может не существовать в некоторых версиях API
     // Поэтому используем try-catch для безопасной проверки
     if (typeof tg.onEvent === "function") {
-      // Попытка подписаться на fullscreenFailed, если такой событие существует
+      // Попытка подписаться на fullscreenFailed, если такое событие существует
       try {
         tg.onEvent("fullscreenFailed" as any, handleFullscreenFailed);
       } catch {
