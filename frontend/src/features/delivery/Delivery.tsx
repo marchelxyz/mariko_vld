@@ -17,11 +17,30 @@ const Delivery = () => {
   const showPickupOption = false;
 
   /**
+   * Определяет путь к иконке агрегатора доставки по его названию.
+   */
+  function getAggregatorIcon(aggregatorName: string): string {
+    const nameLower = aggregatorName.toLowerCase();
+    
+    if (nameLower.includes("яндекс") || nameLower.includes("yandex")) {
+      return "/images/action button/Vector.png";
+    }
+    
+    if (nameLower.includes("delivery") || nameLower.includes("деливери")) {
+      return "/images/action button/Logo.png";
+    }
+    
+    // Иконка по умолчанию
+    return "/images/action button/Vector.png";
+  }
+
+  /**
    * Генерирует список доступных способов доставки.
    * Кнопка «Доставка Марико» отображается только для городов,
    * где доступен собственный сервис доставки.
+   * Агрегаторы доставки берутся из данных ресторана.
    */
-  const getDeliveryOptions = () => {
+  function getDeliveryOptions() {
     const options = [] as {
       icon: JSX.Element;
       title: string;
@@ -61,55 +80,42 @@ const Delivery = () => {
       });
     }
 
-    // ссылки по умолчанию
-    let yandexLink = "https://eda.yandex.ru/restaurant/khachapuri_mariko";
-    let dcLink = "https://deliveryclub.ru/restaurant/khachapuri_mariko";
-
-    // отдельные ссылки для Калуги и Пензы
-    if (selectedCity.id === "kaluga") {
-      yandexLink =
-        "https://eda.yandex.ru/restaurant/xachapuri_mariko_?utm_campaign=superapp_taxi_web&utm_medium=referral&utm_source=rst_shared_link";
-      dcLink =
-        "https://market-delivery.yandex.ru/restaurant/xachapuri_mariko_?utm_campaign=dc_mobile_web&utm_medium=referral&utm_source=rst_shared_link";
-    } else if (selectedCity.id === "penza") {
-      yandexLink =
-        "https://eda.yandex.ru/restaurant/xachapuri_tetushki_mariko_kdbfq?utm_campaign=superapp_taxi_web&utm_medium=referral&utm_source=rst_shared_link";
-      dcLink =
-        "https://market-delivery.yandex.ru/restaurant/xachapuri_tetushki_mariko_kdbfq?utm_campaign=dc_mobile_web&utm_medium=referral&utm_source=rst_shared_link";
-    } else if (selectedCity.id === "zhukovsky") {
-      yandexLink =
-        "https://eda.yandex.ru/restaurant/xachapuri_tyotushki_mariko_aoygs?utm_campaign=superapp_taxi_web&utm_medium=referral&utm_source=rst_shared_link";
-      dcLink =
-        "https://www.delivery-club.ru/srv/khachapuri_tjotushki_mariko_moskva";
+    // 3. Агрегаторы доставки из данных ресторана
+    const aggregators = selectedRestaurant.deliveryAggregators || [];
+    
+    // Если агрегатор один - показываем одну кнопку
+    if (aggregators.length === 1) {
+      const aggregator = aggregators[0];
+      options.push({
+        icon: (
+          <img
+            src={getAggregatorIcon(aggregator.name)}
+            alt={aggregator.name}
+            className="w-6 h-6 md:w-12 md:h-12 object-contain"
+          />
+        ),
+        title: aggregator.name,
+        onClick: () => safeOpenLink(aggregator.url, { try_instant_view: false }),
+      });
+    } else if (aggregators.length > 1) {
+      // Если агрегаторов несколько - показываем все
+      aggregators.forEach((aggregator) => {
+        options.push({
+          icon: (
+            <img
+              src={getAggregatorIcon(aggregator.name)}
+              alt={aggregator.name}
+              className="w-6 h-6 md:w-12 md:h-12 object-contain"
+            />
+          ),
+          title: aggregator.name,
+          onClick: () => safeOpenLink(aggregator.url, { try_instant_view: false }),
+        });
+      });
     }
 
-    options.push(
-      {
-        icon: (
-          <img
-            src="/images/action button/Vector.png"
-            alt="Яндекс Еда"
-            className="w-6 h-6 md:w-12 md:h-12 object-contain"
-          />
-        ),
-        title: "Яндекс Еда",
-        onClick: () => safeOpenLink(yandexLink, { try_instant_view: false }),
-      },
-      {
-        icon: (
-          <img
-            src="/images/action button/Logo.png"
-            alt="Delivery Club"
-            className="w-6 h-6 md:w-12 md:h-12 object-contain"
-          />
-        ),
-        title: "Delivery Club",
-        onClick: () => safeOpenLink(dcLink, { try_instant_view: false }),
-      },
-    );
-
     return options;
-  };
+  }
 
   return (
     <div className="app-screen overflow-hidden bg-transparent">
