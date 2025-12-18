@@ -7,7 +7,7 @@ import { fetchRestaurantMenu } from "@/shared/api/menuApi";
 import { isMarikoDeliveryEnabledForCity } from "@/shared/config/marikoDelivery";
 import { getMenuByRestaurantId, type MenuItem, type RestaurantMenu } from "@shared/data";
 import { useAdmin } from "@shared/hooks";
-import { MenuItemComponent } from "@shared/ui";
+import { MenuItemComponent, DishCardSkeleton } from "@shared/ui";
 import { toast } from "@/hooks/use-toast";
 
 /**
@@ -192,7 +192,7 @@ const Menu = (): JSX.Element => {
 
   const itemsToRender = useMemo(() => currentCategory?.items ?? [], [currentCategory]);
 
-  // Индикатор загрузки
+  // Индикатор загрузки - показываем скелетоны карточек блюд
   if (isLoading) {
     return (
       <div className="app-screen bg-transparent overflow-hidden">
@@ -200,8 +200,43 @@ const Menu = (): JSX.Element => {
           <Header />
         </div>
         <div className="app-content app-bottom-space">
-          <div className="app-shell app-shell-wide w-full flex items-center justify-center">
-            <div className="w-12 h-12 border-4 border-mariko-primary border-t-transparent rounded-full animate-spin" />
+          <div className="app-shell app-shell-wide w-full pb-6 md:pb-8">
+            {/* Back Button and Title */}
+            <div className="mt-10 flex items-center gap-4 mb-6">
+              <button
+                onClick={() => navigate("/")}
+                className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+              <h1 className="text-white font-el-messiri text-3xl md:text-4xl font-bold flex-1">
+                Меню
+              </h1>
+            </div>
+
+            {/* Скелетоны категорий */}
+            <div className="mb-6 overflow-x-auto scrollbar-hide">
+              <div className="flex gap-2.5 pb-3 flex-wrap md:flex-nowrap">
+                {[...Array(4)].map((_, index) => (
+                  <div
+                    key={index}
+                    className="h-8 md:h-12 w-20 md:w-32 bg-white/10 rounded-full animate-pulse"
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Скелетон заголовка категории */}
+            <div className="mb-6">
+              <div className="h-8 md:h-9 w-48 md:w-64 bg-white/10 rounded animate-pulse" />
+            </div>
+
+            {/* Скелетоны карточек блюд */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
+              {[...Array(10)].map((_, index) => (
+                <DishCardSkeleton key={index} variant="default" />
+              ))}
+            </div>
           </div>
           <BottomNavigation currentPage="home" />
         </div>
