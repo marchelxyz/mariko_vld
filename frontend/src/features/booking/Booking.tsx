@@ -7,6 +7,27 @@ interface BookingLocationState {
   from?: string;
 }
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const stripCityFromAddress = (
+  address: string,
+  cityName?: string,
+  restaurantCity?: string
+) => {
+  const city = cityName?.trim() || restaurantCity?.trim();
+  if (!city) {
+    return address.trim();
+  }
+
+  const escapedCity = escapeRegExp(city);
+  const patterns = [
+    new RegExp(`^\\s*(?:г\\.?\\s*)?${escapedCity}\\s*[,-]?\\s*`, "i"),
+    new RegExp(`\\s*\\(${escapedCity}\\)\\s*$`, "i"),
+  ];
+
+  return patterns.reduce((result, pattern) => result.replace(pattern, "").trim(), address.trim());
+};
+
 const Booking = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -39,8 +60,12 @@ const Booking = () => {
           {selectedRestaurant && (
             <div className="mb-6">
               <p className="text-white/80 text-sm md:text-base font-el-messiri">
-                Забронируйте столик в ресторане {selectedRestaurant.name}
-                {selectedCity && ` (${selectedCity.name})`}
+                Забронируйте столик в ресторане по адресу{" "}
+                {stripCityFromAddress(
+                  selectedRestaurant.address,
+                  selectedCity?.name,
+                  selectedRestaurant.city
+                )}
               </p>
             </div>
           )}
