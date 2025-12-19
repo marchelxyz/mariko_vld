@@ -1207,14 +1207,9 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           >
             Даю согласие на{" "}
             <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                toast({
-                  title: "Документ",
-                  description: "Ссылка на документ будет добавлена позже",
-                });
-              }}
+              href="https://vhachapuri.ru/policy"
+              target="_blank"
+              rel="noreferrer"
               className="underline hover:text-white transition-colors"
             >
               обработку персональных данных
