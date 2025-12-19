@@ -238,6 +238,18 @@ function RecommendedDishesManagementContent(): JSX.Element {
         </p>
       </div>
 
+      {/* Кнопка сохранения */}
+      <div className="flex justify-end pt-2">
+        <Button
+          onClick={handleSave}
+          disabled={isSaving || !currentCityId}
+          className="bg-mariko-primary hover:bg-mariko-primary/90"
+        >
+          <Save className="w-4 h-4 mr-2" />
+          {isSaving ? "Сохранение..." : "Сохранить рекомендации"}
+        </Button>
+      </div>
+
       {/* Выбранные блюда */}
       {selectedDishes.length > 0 && (
         <div className="space-y-3">
@@ -295,17 +307,6 @@ function RecommendedDishesManagementContent(): JSX.Element {
         )}
       </div>
 
-      {/* Кнопка сохранения */}
-      <div className="flex justify-end pt-4 border-t border-white/10">
-        <Button
-          onClick={handleSave}
-          disabled={isSaving || !currentCityId}
-          className="bg-mariko-primary hover:bg-mariko-primary/90"
-        >
-          <Save className="w-4 h-4 mr-2" />
-          {isSaving ? "Сохранение..." : "Сохранить рекомендации"}
-        </Button>
-      </div>
     </div>
   );
 }
