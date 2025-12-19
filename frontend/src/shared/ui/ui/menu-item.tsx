@@ -112,18 +112,16 @@ function MenuItemComponentBase({
               isMobile ? 'text-[10px] md:text-xs' :
               isCompact ? 'text-[11px] md:text-sm' : 
               'text-xs md:text-sm'
-            }`}>
+            } min-h-[2.5em]`}>
               {item.name}
             </h3>
-            {item.weight && (
-              <p className={`text-gray-500 mt-0.5 ${
-                isMobile ? 'text-[8px] md:text-[9px]' :
-                isCompact ? 'text-[9px] md:text-xs' : 
-                'text-[10px] md:text-xs'
-              }`}>
-                {item.weight}
-              </p>
-            )}
+            <p className={`text-gray-500 mt-0.5 min-h-[1.2em] ${
+              isMobile ? 'text-[8px] md:text-[9px]' :
+              isCompact ? 'text-[9px] md:text-xs' : 
+              'text-[10px] md:text-xs'
+            }`}>
+              {item.weight ?? ""}
+            </p>
           </div>
         </div>
         
