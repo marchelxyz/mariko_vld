@@ -272,10 +272,7 @@ export function registerCartRoutes(app) {
     const headerVkId = getVkIdFromHeaders(req);
     const resolvedId =
       (typeof body.id === "string" && body.id.trim()) ||
-      headerUserId ??
-      headerTelegramId ??
-      headerVkId ??
-      (typeof body.userId === "string" && body.userId.trim());
+      (headerUserId ?? headerTelegramId ?? headerVkId ?? (typeof body.userId === "string" && body.userId.trim()));
     if (!resolvedId) {
       return res.status(400).json({ success: false, message: "Не удалось определить пользователя" });
     }
