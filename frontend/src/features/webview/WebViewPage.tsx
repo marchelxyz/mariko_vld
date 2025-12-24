@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useCityContext } from "@/contexts";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { EMBEDDED_PAGES, type EmbeddedPageConfig } from "@/shared/config/webviewPages";
-import { safeOpenLink } from "@/lib/telegram";
+import { safeOpenLink } from "@/lib/platform";
 
 interface EmbeddedPageLocationState {
   from?: string;

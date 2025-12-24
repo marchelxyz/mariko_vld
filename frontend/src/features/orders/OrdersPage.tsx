@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { fetchMyOrders, type CartOrderRecord, type OrderStatus } from "@/shared/api/cart";
 import { cn } from "@shared/utils";
-import { getUser } from "@/lib/telegram";
+import { getUser } from "@/lib/platform";
 
 const KNOWN_STATUS_SET = new Set<OrderStatus>([
   "processing",

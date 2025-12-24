@@ -2,7 +2,7 @@
 // В продакшене это будет заменено на реальную базу данных (PostgreSQL, MongoDB и т.д.)
 
 import type { Review, UserProfile as SharedUserProfile } from "@shared/types";
-import { storage } from "@/lib/telegram";
+import { storage } from "@/lib/platform";
 
 export type UserProfile = SharedUserProfile & {
   createdAt: string;

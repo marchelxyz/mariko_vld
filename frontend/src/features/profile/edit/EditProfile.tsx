@@ -5,7 +5,7 @@ import { BottomNavigation, Header } from "@shared/ui/widgets";
 import { ProfileAvatar, useProfile } from "@entities/user";
 import { getCleanPhoneNumber, usePhoneInput } from "@shared/hooks";
 import { Button, Input, Label } from "@shared/ui";
-import { telegram } from "@/lib/telegram";
+import { getPlatform } from "@/lib/platform";
 import type { UserProfile } from "@shared/types";
 
 type AddressSuggestion = {
@@ -227,7 +227,8 @@ const EditProfile = () => {
 
   const requestLocation = async () => {
     try {
-      const tg = telegram.getTg?.() as unknown as { LocationManager?: TelegramLocationManager };
+      // LocationManager доступен только в Telegram
+      const tg = (getPlatform() === "telegram" && typeof window !== "undefined" && (window as unknown as { Telegram?: { WebApp?: { LocationManager?: TelegramLocationManager } } }).Telegram?.WebApp) as unknown as { LocationManager?: TelegramLocationManager };
       const locationManager = tg?.LocationManager;
       if (locationManager?.init && locationManager?.getLocation) {
         locationManager.init();

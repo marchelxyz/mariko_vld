@@ -1,5 +1,5 @@
 import type { RestaurantMenu } from "@shared/data";
-import { getTg } from "@/lib/telegram";
+import { getInitData, getPlatform } from "@/lib/platform";
 
 const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
 const RAW_SERVER_API_BASE = rawServerEnv ? (rawServerEnv.endsWith("/") ? rawServerEnv.slice(0, -1) : rawServerEnv) : "/api";
@@ -102,9 +102,15 @@ function buildAdminHeaders(initial?: Record<string, string>): Record<string, str
     ...(initial ?? {}),
   };
 
-  const initData = getTg()?.initData;
+  const platform = getPlatform();
+  const initData = getInitData();
+  
   if (initData) {
-    headers['X-Telegram-Init-Data'] = initData;
+    if (platform === "telegram") {
+      headers['X-Telegram-Init-Data'] = initData;
+    } else if (platform === "vk") {
+      headers['X-VK-Init-Data'] = initData;
+    }
   }
 
   return headers;

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import { getUser } from "@/lib/telegram";
+import { getUser } from "@/lib/platform";
 import { onboardingServerApi } from "@shared/api/onboarding";
 
 interface OnboardingContextType {
