@@ -140,8 +140,8 @@
         document.head.appendChild(script);
       } else {
         // В VK Mini Apps SDK может быть доступен автоматически через window.vk.WebApp в iframe
-        // Но если его нет, загружаем явно через официальный SDK
-        console.log('[VK] Определена платформа VK, проверяем window.vk.WebApp');
+        // Используем официальные библиотеки @vkid/sdk и @vkontakte/vk-bridge
+        console.log('[VK] Определена платформа VK, инициализируем VK Bridge и проверяем WebApp');
         
         // Функция для проверки и инициализации VK SDK
         const initVKSDK = () => {
@@ -156,15 +156,15 @@
           }
           
           // Если window.vk есть, но WebApp нет - возможно это старый формат
-          // Пытаемся загрузить официальный SDK
+          // Пытаемся загрузить официальный SDK через CDN как fallback
           if (window.vk && !window.vk.WebApp) {
-            console.log('[VK] window.vk найден, но WebApp отсутствует. Загружаем SDK...');
+            console.log('[VK] window.vk найден, но WebApp отсутствует. Пробуем загрузить SDK через CDN...');
             
-            // Загружаем официальный VK Mini Apps SDK
+            // Загружаем официальный VK Mini Apps SDK через CDN (fallback)
             const vkScript = document.createElement('script');
             vkScript.src = 'https://unpkg.com/@vkid/sdk@latest/dist/umd/index.js';
             vkScript.onload = () => {
-              console.log('[VK] SDK загружен, проверяем WebApp...');
+              console.log('[VK] SDK загружен через CDN, проверяем WebApp...');
               // SDK может инициализироваться асинхронно
               setTimeout(() => {
                 if (window.vk && window.vk.WebApp) {
@@ -173,22 +173,12 @@
                     platform: window.vk.WebApp.platform
                   });
                 } else {
-                  console.warn('[VK] SDK загружен, но WebApp все еще недоступен');
+                  console.warn('[VK] SDK загружен, но WebApp все еще недоступен. Используем VK Bridge из npm пакета.');
                 }
               }, 500);
             };
             vkScript.onerror = () => {
-              console.warn('[VK] Не удалось загрузить SDK через unpkg, пробуем альтернативный способ...');
-              // Альтернативный способ - через vk.com/jsapi (старый способ)
-              const vkScriptAlt = document.createElement('script');
-              vkScriptAlt.src = 'https://vk.com/js/api/openapi.js?169';
-              vkScriptAlt.onload = () => {
-                console.log('[VK] Альтернативный SDK загружен');
-              };
-              vkScriptAlt.onerror = () => {
-                console.warn('[VK] Не удалось загрузить SDK. Приложение будет работать в fallback режиме.');
-              };
-              document.head.appendChild(vkScriptAlt);
+              console.warn('[VK] Не удалось загрузить SDK через CDN. Используем VK Bridge из npm пакета @vkontakte/vk-bridge.');
             };
             document.head.appendChild(vkScript);
             return false;
@@ -213,7 +203,7 @@
               clearInterval(checkVK);
             } else if (checkCount >= maxChecks) {
               // После 10 секунд прекращаем проверку
-              console.warn('[VK] window.vk.WebApp не найден после 10 секунд ожидания. Приложение будет работать в fallback режиме (используя URL параметры).');
+              console.warn('[VK] window.vk.WebApp не найден после 10 секунд ожидания. Приложение будет работать через VK Bridge из npm пакета @vkontakte/vk-bridge и fallback режим (URL параметры).');
               clearInterval(checkVK);
             }
           }, 100);
