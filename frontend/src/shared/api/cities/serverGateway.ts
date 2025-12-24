@@ -1,6 +1,6 @@
 import type { City } from "@shared/data";
 import { resolveServerUrl, RAW_SERVER_API_BASE } from "./config";
-import { getTg, getUser } from "@/lib/telegram";
+import { getInitData, getUser, getPlatform } from "@/lib/platform";
 import { logger } from "@/lib/logger";
 
 function parseErrorPayload(payload?: string): string | null {
@@ -28,15 +28,24 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
     ...(options?.headers ?? {}),
   };
 
-  const initData = getTg()?.initData;
+  const platform = getPlatform();
+  const initData = getInitData();
   if (initData) {
-    headers['X-Telegram-Init-Data'] = initData;
+    if (platform === "telegram") {
+      headers['X-Telegram-Init-Data'] = initData;
+    } else if (platform === "vk") {
+      headers['X-VK-Init-Data'] = initData;
+    }
   }
 
-  // Также добавляем прямой Telegram ID, если доступен
+  // Также добавляем ID пользователя, если доступен
   const user = getUser();
   if (user?.id) {
-    headers['X-Telegram-Id'] = String(user.id);
+    if (platform === "telegram") {
+      headers['X-Telegram-Id'] = String(user.id);
+    } else if (platform === "vk") {
+      headers['X-VK-Id'] = String(user.id);
+    }
   }
   
   try {
@@ -83,9 +92,14 @@ export async function setCityStatusViaServer(
     'Content-Type': 'application/json',
   };
 
-  const initData = getTg()?.initData;
+  const platform = getPlatform();
+  const initData = getInitData();
   if (initData) {
-    headers['X-Telegram-Init-Data'] = initData;
+    if (platform === "telegram") {
+      headers['X-Telegram-Init-Data'] = initData;
+    } else if (platform === "vk") {
+      headers['X-VK-Init-Data'] = initData;
+    }
   }
 
   const response = await fetch(resolveServerUrl('/cities/status'), {
@@ -128,9 +142,9 @@ export async function createCityViaServer(
     const initData = getTg()?.initData;
     if (initData) {
       headers['X-Telegram-Init-Data'] = initData;
-      logger.debug('cities', 'Telegram initData добавлен в заголовки');
+      logger.debug('cities', `${platform} initData добавлен в заголовки`);
     } else {
-      logger.warn('cities', 'Telegram initData не найден');
+      logger.warn('cities', `${platform} initData не найден`);
     }
 
     // Также добавляем прямой Telegram ID, если доступен
@@ -228,9 +242,14 @@ export async function createRestaurantViaServer(
     'Content-Type': 'application/json',
   };
 
-  const initData = getTg()?.initData;
+  const platform = getPlatform();
+  const initData = getInitData();
   if (initData) {
-    headers['X-Telegram-Init-Data'] = initData;
+    if (platform === "telegram") {
+      headers['X-Telegram-Init-Data'] = initData;
+    } else if (platform === "vk") {
+      headers['X-VK-Init-Data'] = initData;
+    }
   }
 
   const response = await fetch(resolveServerUrl('/cities/restaurants'), {
@@ -271,9 +290,14 @@ export async function updateRestaurantViaServer(
     'Content-Type': 'application/json',
   };
 
-  const initData = getTg()?.initData;
+  const platform = getPlatform();
+  const initData = getInitData();
   if (initData) {
-    headers['X-Telegram-Init-Data'] = initData;
+    if (platform === "telegram") {
+      headers['X-Telegram-Init-Data'] = initData;
+    } else if (platform === "vk") {
+      headers['X-VK-Init-Data'] = initData;
+    }
   }
 
   const response = await fetch(resolveServerUrl(`/cities/restaurants/${restaurantId}`), {

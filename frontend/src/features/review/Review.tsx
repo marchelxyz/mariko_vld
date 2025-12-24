@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCityContext } from "@/contexts";
 import { reviewsApi } from "@shared/api";
-import { storage } from "@/lib/telegram";
+import { storage } from "@/lib/platform";
 
 const Review = () => {
   const navigate = useNavigate();

@@ -6,7 +6,7 @@ import { BottomNavigation, Header } from "@shared/ui/widgets";
 import { RestaurantReviews } from "@entities/restaurant";
 import { useCities } from "@shared/hooks";
 import { CitySelector } from "@shared/ui";
-import { safeOpenLink, storage } from "@/lib/telegram";
+import { safeOpenLink, storage } from "@/lib/platform";
 import type { Restaurant } from "@shared/data";
 
 type RestaurantLinks = {

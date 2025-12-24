@@ -5,7 +5,7 @@ import { useCart, useCityContext } from "@/contexts";
 import { recalculateCart, submitCartOrder } from "@/shared/api/cart";
 import { profileApi } from "@shared/api/profile";
 import type { UserProfile } from "@shared/types";
-import { getUser, telegram } from "@/lib/telegram";
+import { getUser } from "@/lib/platform";
 
 type AddressSuggestion = {
   id: string;
@@ -306,7 +306,8 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
     setIsLocating(true);
     setLocationError(null);
     try {
-      const tg = telegram.getTg?.() as unknown as { LocationManager?: TelegramLocationManager };
+      // LocationManager доступен только в Telegram
+      const tg = (typeof window !== "undefined" && (window as unknown as { Telegram?: { WebApp?: { LocationManager?: TelegramLocationManager } } }).Telegram?.WebApp) as unknown as { LocationManager?: TelegramLocationManager };
       const locationManager = tg?.LocationManager;
       if (locationManager?.init && locationManager?.getLocation) {
         locationManager.init();

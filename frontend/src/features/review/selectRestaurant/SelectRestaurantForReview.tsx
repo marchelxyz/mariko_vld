@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useCityContext } from "@/contexts";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { RESTAURANT_REVIEW_LINKS } from "@shared/data";
-import { safeOpenLink, storage } from "@/lib/telegram";
+import { safeOpenLink, storage } from "@/lib/platform";
 
 const SelectRestaurantForReview = () => {
   const navigate = useNavigate();

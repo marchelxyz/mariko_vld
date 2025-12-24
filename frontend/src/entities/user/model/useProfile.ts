@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { profileApi } from "@shared/api";
 import type { UserProfile } from "@shared/types";
-import { getUser, storage } from "@/lib/telegram";
+import { getUser, storage } from "@/lib/platform";
 
 const inflightProfileRequests = new Map<string, Promise<UserProfile>>();
 
@@ -17,12 +17,15 @@ const getUserProfileShared = (userId: string): Promise<UserProfile> => {
   return request;
 };
 
-const resolveTelegramUserId = (): string => {
-  const telegramUser = getUser();
-  return telegramUser?.id?.toString() || "demo_user";
+const resolveUserId = (): string => {
+  const user = getUser();
+  return user?.id?.toString() || "demo_user";
 };
 
-const resolveTelegramPhotoUrl = (): string => (getUser()?.photo_url ?? "").trim();
+const resolvePhotoUrl = (): string => {
+  const user = getUser();
+  return (user?.photo_url || user?.avatar || "").trim();
+};
 
 const defaultProfile: UserProfile = {
   id: "default",
@@ -55,14 +58,14 @@ export const useProfile = () => {
   }, []);
 
   const applyProfileUpdate = (incomingProfile: Partial<UserProfile>) => {
-    const telegramPhotoUrl = resolveTelegramPhotoUrl();
+    const photoUrl = resolvePhotoUrl();
     setProfile((currentProfile) => {
       const mergedProfile = {
         ...defaultProfile,
         ...currentProfile,
         ...incomingProfile,
       };
-      const resolvedPhoto = telegramPhotoUrl || defaultProfile.photo;
+      const resolvedPhoto = photoUrl || defaultProfile.photo;
       return { ...mergedProfile, photo: resolvedPhoto };
     });
   };
@@ -72,8 +75,8 @@ export const useProfile = () => {
       setLoading(true);
       setError(null);
 
-      // Получаем ID пользователя из Telegram
-      const currentUserId = resolveTelegramUserId();
+      // Получаем ID пользователя
+      const currentUserId = resolveUserId();
       
       // Обновляем userId только если он изменился
       if (currentUserId !== userId) {
@@ -95,12 +98,12 @@ export const useProfile = () => {
       }
 
       const userProfile = await getUserProfileShared(currentUserId);
-      const telegramPhotoUrl = resolveTelegramPhotoUrl();
+      const photoUrl = resolvePhotoUrl();
       const resolvedProfile: UserProfile = {
         ...defaultProfile,
         ...userProfile,
         id: currentUserId,
-        photo: telegramPhotoUrl || userProfile.photo || defaultProfile.photo,
+        photo: photoUrl || userProfile.photo || defaultProfile.photo,
       };
       setProfile(resolvedProfile);
       try {
@@ -112,8 +115,8 @@ export const useProfile = () => {
     } catch (err) {
       setError("Не удалось загрузить профиль");
       console.error("Ошибка загрузки профиля:", err);
-      const telegramPhotoUrl = resolveTelegramPhotoUrl();
-      const resolvedPhoto = telegramPhotoUrl || defaultProfile.photo;
+      const photoUrl = resolvePhotoUrl();
+      const resolvedPhoto = photoUrl || defaultProfile.photo;
       setProfile((prevProfile) => ({
         ...defaultProfile,
         ...prevProfile,
@@ -129,8 +132,8 @@ export const useProfile = () => {
   const updateProfile = async (updates: Partial<UserProfile>) => {
     try {
       setError(null); // Очищаем предыдущие ошибки
-      const telegramPhotoUrl = (getUser()?.photo_url ?? "").trim();
-      const resolvedPhoto = telegramPhotoUrl || defaultProfile.photo;
+      const photoUrl = resolvePhotoUrl();
+      const resolvedPhoto = photoUrl || defaultProfile.photo;
       const { photo: _ignoredPhoto, ...restUpdates } = updates;
       const updatedProfile = { ...profile, ...restUpdates, photo: resolvedPhoto };
 
@@ -167,11 +170,11 @@ export const useProfile = () => {
         const savedProfile = storage.getItem(`profile_${currentUserId}`);
         if (savedProfile) {
           const parsedProfile = JSON.parse(savedProfile);
-          const telegramPhotoUrl = (getUser()?.photo_url ?? "").trim();
+          const photoUrl = resolvePhotoUrl();
           setProfile({
             ...defaultProfile,
             ...parsedProfile,
-            photo: telegramPhotoUrl || defaultProfile.photo,
+            photo: photoUrl || defaultProfile.photo,
           });
           console.log("Профиль восстановлен из локального хранилища");
         }

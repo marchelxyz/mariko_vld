@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useRef, type ReactNode 
 import { useProfile } from "@entities/user";
 import { type City, type Restaurant } from "@shared/data";
 import { useCities } from "@shared/hooks";
-import { storage } from "@/lib/telegram";
+import { storage } from "@/lib/platform";
 
 // Создаем плоский список всех ресторанов для удобного поиска
 const getAllRestaurants = (cities: City[]): Restaurant[] => {

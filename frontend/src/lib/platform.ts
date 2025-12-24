@@ -3,8 +3,8 @@
  * Поддерживает Telegram и VK Mini Apps.
  */
 
-import { getUser as getTelegramUser, isInTelegram, getTg } from "./telegram";
-import { getUser as getVkUser, getUserAsync as getVkUserAsync, isInVk, getVk } from "./vk";
+import { getUser as getTelegramUser, isInTelegram, getTg, storage as telegramStorage, isActive as telegramIsActive, onActivated as telegramOnActivated, onDeactivated as telegramOnDeactivated } from "./telegram";
+import { getUser as getVkUser, getUserAsync as getVkUserAsync, isInVk, getVk, storage as vkStorage } from "./vk";
 import type { TelegramInitUser } from "@/types";
 import type { VKUser } from "@/types";
 
@@ -219,4 +219,172 @@ export function safeOpenLink(url: string): boolean {
   }
   
   return false;
+}
+
+/**
+ * Универсальное хранилище, работающее с обеими платформами.
+ */
+export const storage = (() => {
+  const platform = getPlatform();
+  
+  if (platform === "telegram") {
+    return telegramStorage;
+  }
+  
+  if (platform === "vk") {
+    return vkStorage;
+  }
+  
+  // Fallback для веб-версии - используем простой localStorage
+  const memoryStorage = new Map<string, string>();
+  return {
+    getItem(key: string): string | null {
+      if (memoryStorage.has(key)) {
+        return memoryStorage.get(key) ?? null;
+      }
+      if (typeof window === "undefined") {
+        return null;
+      }
+      try {
+        const value = window.localStorage.getItem(key);
+        if (value !== null) {
+          memoryStorage.set(key, value);
+        }
+        return value;
+      } catch (error) {
+        console.warn("[platform] localStorage read failed", error);
+        return null;
+      }
+    },
+    async getItemAsync(key: string): Promise<string | null> {
+      return this.getItem(key);
+    },
+    setItem(key: string, value: string) {
+      memoryStorage.set(key, value);
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(key, value);
+        } catch (error) {
+          console.warn("[platform] localStorage write failed", error);
+        }
+      }
+    },
+    removeItem(key: string) {
+      memoryStorage.delete(key);
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.removeItem(key);
+        } catch (error) {
+          console.warn("[platform] localStorage remove failed", error);
+        }
+      }
+    },
+    clear() {
+      memoryStorage.clear();
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.clear();
+        } catch (error) {
+          console.warn("[platform] localStorage clear failed", error);
+        }
+      }
+    },
+    getJSON<T>(key: string, fallback: T): T {
+      const raw = this.getItem(key);
+      if (raw == null) {
+        return fallback;
+      }
+      try {
+        return JSON.parse(raw) as T;
+      } catch (error) {
+        console.warn("[platform] failed to parse JSON storage", error);
+        return fallback;
+      }
+    },
+    setJSON<T>(key: string, value: T) {
+      try {
+        const serialised = JSON.stringify(value);
+        this.setItem(key, serialised);
+      } catch (error) {
+        console.warn("[platform] failed to serialise JSON storage", error);
+      }
+    },
+    subscribe(key: string, listener: (value: string | null) => void): () => void {
+      // Для веб-версии простая реализация без подписок
+      listener(this.getItem(key));
+      return () => {};
+    },
+  };
+})();
+
+/**
+ * Возвращает текущий флаг активности приложения.
+ */
+export function isActive(): boolean {
+  const platform = getPlatform();
+  
+  if (platform === "telegram") {
+    return telegramIsActive();
+  }
+  
+  // Для VK и веб всегда считаем активным
+  return true;
+}
+
+/**
+ * Подписывается на события активации приложения.
+ */
+export function onActivated(callback: () => void): () => void {
+  const platform = getPlatform();
+  
+  if (platform === "telegram") {
+    return telegramOnActivated(callback);
+  }
+  
+  // Для VK и веб сразу вызываем callback и возвращаем пустую функцию отписки
+  callback();
+  return () => {};
+}
+
+/**
+ * Подписывается на события деактивации приложения.
+ */
+export function onDeactivated(callback: () => void): () => void {
+  const platform = getPlatform();
+  
+  if (platform === "telegram") {
+    return telegramOnDeactivated(callback);
+  }
+  
+  // Для VK и веб возвращаем пустую функцию отписки
+  return () => {};
+}
+
+/**
+ * Получает initData для текущей платформы (для API запросов).
+ */
+export function getInitData(): string | undefined {
+  const platform = getPlatform();
+  
+  if (platform === "telegram") {
+    const tg = getTg();
+    return tg?.initData;
+  }
+  
+  if (platform === "vk") {
+    const vk = getVk();
+    // VK initData находится в vk.initData, но это объект, нужно сериализовать
+    if (vk?.initData) {
+      // Преобразуем объект initData в строку query string
+      const params = new URLSearchParams();
+      Object.entries(vk.initData).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, String(value));
+        }
+      });
+      return params.toString();
+    }
+  }
+  
+  return undefined;
 }

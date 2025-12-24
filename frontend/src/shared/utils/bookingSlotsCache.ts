@@ -2,7 +2,7 @@
  * Утилиты для кэширования предзагруженных слотов бронирования
  */
 
-import { storage } from "@/lib/telegram";
+import { storage } from "@/lib/platform";
 
 export type CachedSlots = {
   restaurantId: string;
