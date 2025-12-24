@@ -93,15 +93,3 @@ export const VK_APP_ID = process.env.VK_APP_ID ?? null;
 export const VK_SERVICE_TOKEN = process.env.VK_SERVICE_TOKEN ?? null;
 export const VK_SECRET_KEY = process.env.VK_SECRET_KEY ?? null;
 export const VK_API_VERSION = process.env.VK_API_VERSION ?? "5.131";
-
-// CORS конфигурация
-const parseAllowedOrigins = (raw) => {
-  if (!raw) {
-    return null; // null означает разрешить все origins
-  }
-  return raw
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-};
-export const CORS_ALLOWED_ORIGINS = parseAllowedOrigins(process.env.CORS_ALLOWED_ORIGINS);
