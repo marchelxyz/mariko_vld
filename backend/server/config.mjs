@@ -87,3 +87,7 @@ export const YANDEX_STORAGE_BUCKET_NAME = process.env.YANDEX_STORAGE_BUCKET_NAME
 export const YANDEX_STORAGE_REGION = process.env.YANDEX_STORAGE_REGION ?? 'ru-central1';
 export const YANDEX_STORAGE_ENDPOINT = process.env.YANDEX_STORAGE_ENDPOINT ?? 'https://storage.yandexcloud.net';
 export const YANDEX_STORAGE_PUBLIC_URL = process.env.YANDEX_STORAGE_PUBLIC_URL ?? null;
+
+// VK Mini App keys
+export const VK_SECRET_KEY = process.env.VK_SECRET_KEY ?? null;
+export const VK_SERVICE_KEY = process.env.VK_SERVICE_KEY ?? null;

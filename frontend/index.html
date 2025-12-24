@@ -123,16 +123,44 @@
     
     <div id="root"></div>
 
-    <!-- Telegram WebApp API -->
-    <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- VK Mini Apps SDK -->
-    <script src="https://unpkg.com/@vkid/sdk@2.0.0/dist/umd/index.js"></script>
+    <!-- Telegram WebApp API - загружается только если не в VK -->
     <script>
-      // Инициализация VK SDK после загрузки
-      if (typeof window !== 'undefined' && window.vkid) {
-        window.vkid.config({
-          app: 0, // ID приложения будет установлен при настройке VK Mini App
-        });
+      // Проверяем, запущено ли приложение в VK
+      // Если в URL есть параметры VK (vk_app_id), не загружаем Telegram скрипт
+      const urlParams = new URLSearchParams(window.location.search);
+      const isVK = urlParams.has('vk_app_id') || urlParams.has('vk_user_id') || 
+                   (typeof window !== 'undefined' && window.location.href.includes('vk.com'));
+      
+      if (!isVK) {
+        // Загружаем Telegram скрипт только если не в VK
+        // В VK Mini Apps window.vk.WebApp доступен автоматически в iframe
+        const script = document.createElement('script');
+        script.src = 'https://telegram.org/js/telegram-web-app.js';
+        script.defer = true;
+        document.head.appendChild(script);
+      } else {
+        // В VK Mini Apps SDK доступен автоматически через window.vk.WebApp в iframe
+        // Не нужно загружать отдельный скрипт - VK предоставляет его автоматически
+        console.log('[VK] Определена платформа VK, ожидаем window.vk.WebApp');
+        
+        // Проверяем доступность VK WebApp с задержкой
+        let checkCount = 0;
+        const maxChecks = 100; // 10 секунд максимум
+        const checkVK = setInterval(function() {
+          checkCount++;
+          if (window.vk && window.vk.WebApp) {
+            console.log('[VK] window.vk.WebApp доступен', {
+              version: window.vk.WebApp.version,
+              platform: window.vk.WebApp.platform,
+              initData: window.vk.WebApp.initData ? 'present' : 'missing'
+            });
+            clearInterval(checkVK);
+          } else if (checkCount >= maxChecks) {
+            // После 10 секунд прекращаем проверку
+            console.warn('[VK] window.vk.WebApp не найден после 10 секунд ожидания. Возможно, приложение открыто не в iframe VK.');
+            clearInterval(checkVK);
+          }
+        }, 100);
       }
     </script>
     <script type="module" src="/src/main.tsx"></script>

@@ -10,6 +10,7 @@ import {
 import { fetchRestaurantIntegrationConfig, enqueueIikoOrder } from "../services/integrationService.mjs";
 import { normaliseNullableString } from "../utils.mjs";
 import { addressService } from "../services/addressService.mjs";
+import { verifyVKInitData, getVKUserIdFromInitData } from "../utils/vkAuth.mjs";
 
 const healthPayload = () => ({ status: "ok", database: Boolean(db) });
 
@@ -23,9 +24,38 @@ const getVkIdFromHeaders = (req) => {
   return typeof raw === "string" ? raw.trim() : null;
 };
 
+/**
+ * Получает и проверяет VK ID из заголовков с проверкой подписи initData.
+ * 
+ * @param {Object} req - Express request object
+ * @returns {string|null} - Проверенный VK ID или null
+ */
+const getVerifiedVkIdFromHeaders = (req) => {
+  // Сначала пробуем получить из заголовка X-VK-Id (для обратной совместимости)
+  const headerVkId = getVkIdFromHeaders(req);
+  
+  // Проверяем initData для безопасности
+  const rawInitData = req.get("x-vk-init-data");
+  if (rawInitData) {
+    const verifiedInitData = verifyVKInitData(rawInitData);
+    if (verifiedInitData) {
+      const vkUserId = getVKUserIdFromInitData(verifiedInitData);
+      if (vkUserId) {
+        // Если проверка прошла успешно, используем ID из initData
+        return vkUserId;
+      }
+    }
+    // Если проверка не прошла, но есть initData, логируем предупреждение
+    console.warn("[cartRoutes] Проверка подписи VK initData не прошла");
+  }
+  
+  // Fallback на заголовок X-VK-Id (для обратной совместимости)
+  return headerVkId;
+};
+
 // Универсальная функция для получения ID пользователя из заголовков (Telegram или VK)
 const getUserIdFromHeaders = (req) => {
-  return getTelegramIdFromHeaders(req) || getVkIdFromHeaders(req);
+  return getTelegramIdFromHeaders(req) || getVerifiedVkIdFromHeaders(req);
 };
 
 export function registerCartRoutes(app) {
@@ -82,7 +112,7 @@ export function registerCartRoutes(app) {
     const body = req.body ?? {};
     const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getTelegramIdFromHeaders(req);
-    const headerVkId = getVkIdFromHeaders(req);
+    const headerVkId = getVerifiedVkIdFromHeaders(req);
     const resolvedId =
       (typeof body.id === "string" && body.id.trim()) ||
       headerUserId ||
