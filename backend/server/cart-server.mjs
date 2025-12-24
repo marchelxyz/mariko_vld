@@ -54,6 +54,7 @@ const corsOptions = {
   origin: function (origin, callback) {
     // Разрешаем запросы без origin (например, мобильные приложения или Postman)
     if (!origin) {
+      logger.debug("[CORS] Запрос без origin, разрешаем");
       return callback(null, true);
     }
     
@@ -65,18 +66,21 @@ const corsOptions = {
       'https://ok.ru', // Одноклассники тоже используют VK Mini Apps
     ];
     
-    // Проверяем, начинается ли origin с разрешенного домена
-    const isAllowed = allowedOrigins.some(allowed => origin === allowed || origin.startsWith(allowed + '/'));
+    // Проверяем точное совпадение origin с разрешенными доменами
+    const isAllowed = allowedOrigins.some(allowed => origin === allowed);
     
     if (isAllowed) {
+      logger.info(`[CORS] Разрешен origin: ${origin}`);
       callback(null, origin);
     } else {
       // Для разработки разрешаем все origins, но логируем предупреждение
       if (process.env.NODE_ENV !== 'production') {
-        console.warn(`[CORS] Разрешен origin из dev режима: ${origin}`);
+        logger.warn(`[CORS] Разрешен origin из dev режима: ${origin}`);
         callback(null, origin);
       } else {
-        // В production разрешаем только известные origins
+        // В production: временно разрешаем все origins для диагностики, но логируем
+        // TODO: после диагностики вернуть строгую проверку
+        logger.warn(`[CORS] Разрешен origin в production (временно для диагностики): ${origin}`);
         callback(null, origin);
       }
     }
@@ -97,6 +101,18 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+// Добавляем логирование для всех запросов (для диагностики CORS)
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    logger.debug(`[CORS] Preflight запрос: ${req.method} ${req.path}`, {
+      origin: req.headers.origin,
+      'access-control-request-method': req.headers['access-control-request-method'],
+      'access-control-request-headers': req.headers['access-control-request-headers'],
+    });
+  }
+  next();
+});
 app.use(express.json());
 
 // Эндпоинт для диагностики и инициализации БД

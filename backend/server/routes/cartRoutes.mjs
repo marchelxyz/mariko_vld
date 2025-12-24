@@ -236,15 +236,18 @@ export function registerCartRoutes(app) {
     if (!ensureDatabase(res)) {
       return;
     }
+    // Используем getUserIdFromHeaders, который поддерживает и VK ID, и Telegram ID
+    const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getTelegramIdFromHeaders(req);
     const requestedId =
       normaliseNullableString(req.query?.id) ??
       normaliseNullableString(req.query?.userId) ??
+      headerUserId ??
       headerTelegramId;
     if (!requestedId) {
       return res
         .status(400)
-        .json({ success: false, message: "Передайте Telegram ID или userId пользователя" });
+        .json({ success: false, message: "Передайте VK ID, Telegram ID или userId пользователя" });
     }
     try {
       const row = await fetchUserProfile(requestedId);
@@ -263,19 +266,31 @@ export function registerCartRoutes(app) {
       return;
     }
     const body = req.body ?? {};
+    // Используем getUserIdFromHeaders, который поддерживает и VK ID, и Telegram ID
+    const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerVkId = getVkIdFromHeaders(req);
     const resolvedId =
       (typeof body.id === "string" && body.id.trim()) ||
-      headerTelegramId ||
+      headerUserId ??
+      headerTelegramId ??
+      headerVkId ??
       (typeof body.userId === "string" && body.userId.trim());
     if (!resolvedId) {
       return res.status(400).json({ success: false, message: "Не удалось определить пользователя" });
     }
     try {
       const shown = body.shown === true;
+      // Определяем telegramId и vkId для сохранения в профиле
+      // Если есть VK ID, используем его как основной идентификатор
+      const isVkUser = !!headerVkId || !!headerUserId;
+      const telegramId = body.telegramId ?? (headerTelegramId && !isVkUser ? headerTelegramId : null);
+      const vkId = body.vkId ?? (headerVkId || (isVkUser && headerUserId ? headerUserId : null));
+      
       const row = await upsertUserProfileRecord({
         id: resolvedId,
-        telegramId: body.telegramId ?? headerTelegramId ?? resolvedId,
+        telegramId: telegramId ?? (isVkUser ? null : resolvedId), // Не используем VK ID как telegramId
+        vkId: vkId ? String(vkId) : undefined,
         onboardingTourShown: shown,
       });
       return res.json({ success: true, shown: row?.onboarding_tour_shown === true });
