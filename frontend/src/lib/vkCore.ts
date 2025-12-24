@@ -177,9 +177,15 @@ export const getUserAsync = async (): Promise<VKUser | undefined> => {
 
         // Используем официальный VK Bridge для получения данных пользователя
         // Согласно документации: https://dev.vk.com/ru/bridge/methods/VKWebAppGetUserInfo
+        console.log("[vk] Запрашиваем данные пользователя через VKWebAppGetUserInfo...");
         const response = await bridge.send("VKWebAppGetUserInfo", {});
         
-        console.log("[vk] Ответ от VKWebAppGetUserInfo:", response);
+        console.log("[vk] Ответ от VKWebAppGetUserInfo:", {
+          response,
+          responseType: typeof response,
+          hasResponse: !!response,
+          responseKeys: response && typeof response === "object" ? Object.keys(response) : [],
+        });
         
         if (response && typeof response === "object") {
           // Проверяем разные форматы ответа
@@ -193,6 +199,7 @@ export const getUserAsync = async (): Promise<VKUser | undefined> => {
             lastName = String((response as { last_name?: string }).last_name || "");
             avatar = String((response as { photo_200?: string; photo?: string }).photo_200 || 
                            (response as { photo_200?: string; photo?: string }).photo || "");
+            console.log("[vk] Данные из прямого ответа:", { firstName, lastName, hasAvatar: !!avatar });
           }
           // Формат 2: ответ вложен в data
           else if ("data" in response && typeof response.data === "object") {
@@ -200,6 +207,14 @@ export const getUserAsync = async (): Promise<VKUser | undefined> => {
             firstName = String(data.first_name || "");
             lastName = String(data.last_name || "");
             avatar = String(data.photo_200 || data.photo || "");
+            console.log("[vk] Данные из вложенного data:", { firstName, lastName, hasAvatar: !!avatar, dataKeys: Object.keys(data) });
+          }
+          // Формат 3: проверяем другие возможные форматы
+          else {
+            console.warn("[vk] Неожиданный формат ответа от VKWebAppGetUserInfo:", {
+              response,
+              keys: Object.keys(response),
+            });
           }
 
           if (firstName || lastName || avatar) {
@@ -210,7 +225,7 @@ export const getUserAsync = async (): Promise<VKUser | undefined> => {
               avatar: avatar || undefined,
             };
             cachedUser = user;
-            console.log("[vk] Данные пользователя успешно получены:", {
+            console.log("[vk] ✅ Данные пользователя успешно получены:", {
               id: user.id,
               firstName: user.first_name,
               lastName: user.last_name,
@@ -218,8 +233,19 @@ export const getUserAsync = async (): Promise<VKUser | undefined> => {
             });
             return user;
           } else {
-            console.warn("[vk] Ответ от VKWebAppGetUserInfo не содержит ожидаемых полей:", response);
+            console.warn("[vk] ⚠️ Ответ от VKWebAppGetUserInfo не содержит ожидаемых полей:", {
+              response,
+              responseType: typeof response,
+              hasFirstName: "first_name" in response,
+              hasLastName: "last_name" in response,
+              hasData: "data" in response,
+            });
           }
+        } else {
+          console.warn("[vk] ⚠️ Неожиданный тип ответа от VKWebAppGetUserInfo:", {
+            response,
+            responseType: typeof response,
+          });
         }
       }
       
@@ -265,6 +291,48 @@ export const getUserAsync = async (): Promise<VKUser | undefined> => {
       console.error("[vk] Критическая ошибка получения данных пользователя:", error);
     }
 
+    // Fallback: пытаемся получить данные из window.vk (если доступен)
+    if (typeof window !== "undefined" && window.vk) {
+      try {
+        // Проверяем, есть ли данные пользователя в window.vk напрямую
+        const vkData = window.vk as any;
+        if (vkData.user) {
+          const userData = vkData.user;
+          const firstName = String(userData.first_name || "");
+          const lastName = String(userData.last_name || "");
+          const avatar = String(userData.photo_200 || userData.photo || "");
+          
+          if (firstName || lastName || avatar) {
+            const user: VKUser = {
+              id: parseInt(userId),
+              first_name: firstName,
+              last_name: lastName,
+              avatar: avatar || undefined,
+            };
+            cachedUser = user;
+            console.log("[vk] ✅ Данные пользователя получены из window.vk.user:", {
+              id: user.id,
+              firstName: user.first_name,
+              lastName: user.last_name,
+              hasAvatar: !!user.avatar,
+            });
+            return user;
+          }
+        }
+        
+        // Проверяем initData на наличие имени и фамилии (обычно их там нет, но проверим)
+        if (vkData.initData) {
+          const initData = vkData.initData;
+          console.log("[vk] Проверяем initData на наличие данных пользователя:", {
+            hasInitData: !!initData,
+            initDataKeys: typeof initData === "object" ? Object.keys(initData) : [],
+          });
+        }
+      } catch (fallbackError) {
+        console.warn("[vk] Ошибка при попытке получить данные из window.vk:", fallbackError);
+      }
+    }
+    
     // Fallback: возвращаем только ID (имя и фамилия будут пустыми)
     const fallbackUser: VKUser = {
       id: parseInt(userId),
@@ -272,7 +340,7 @@ export const getUserAsync = async (): Promise<VKUser | undefined> => {
       last_name: "",
     };
     // Не кешируем fallback, чтобы можно было повторить попытку
-    console.warn("[vk] Не удалось получить данные пользователя, возвращаем только ID");
+    console.warn("[vk] ⚠️ Не удалось получить данные пользователя (имя и фамилию), возвращаем только ID. Возможно, требуется дополнительная настройка прав доступа в VK Mini App.");
     return fallbackUser;
   })();
 
