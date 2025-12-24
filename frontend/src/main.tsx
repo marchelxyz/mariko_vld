@@ -16,11 +16,32 @@ const initVKApp = () => {
   // Проверяем доступность VK WebApp
   const vk = typeof window !== "undefined" ? window.vk?.WebApp : undefined;
   if (vk) {
+    // Логируем подробную информацию о VK WebApp
+    const initDataKeys = vk.initData ? Object.keys(vk.initData) : [];
+    const initDataString = vk.initData ? JSON.stringify(vk.initData) : 'null';
+    
     logger.info('app', 'VK WebApp доступен, инициализируем приложение', {
       version: vk.version,
       platform: vk.platform,
-      hasInitData: !!vk.initData
+      hasInitData: !!vk.initData,
+      initDataKeys: initDataKeys,
+      initDataPreview: initDataString.substring(0, 200),
+      vkUserId: vk.initData?.vk_user_id || 'не найден'
     });
+    
+    // Логируем URL параметры для диагностики
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const vkParams: Record<string, string> = {};
+      urlParams.forEach((value, key) => {
+        if (key.startsWith('vk_')) {
+          vkParams[key] = value;
+        }
+      });
+      if (Object.keys(vkParams).length > 0) {
+        logger.info('app', 'VK параметры из URL', vkParams);
+      }
+    }
     
     try {
       markReady();
@@ -42,6 +63,20 @@ const initVKApp = () => {
   } else {
     // Если не в VK или VK WebApp еще не загружен, просто инициализируем без VK методов
     logger.info('app', 'VK WebApp не найден, продолжаем инициализацию без VK методов');
+    
+    // Проверяем URL параметры для диагностики
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const hasVkParams = urlParams.has('vk_app_id') || urlParams.has('vk_user_id');
+      if (hasVkParams) {
+        logger.warn('app', 'Обнаружены VK параметры в URL, но window.vk.WebApp недоступен', {
+          url: window.location.href.substring(0, 200),
+          hasVkAppId: urlParams.has('vk_app_id'),
+          hasVkUserId: urlParams.has('vk_user_id')
+        });
+      }
+    }
+    
     // Не вызываем markReady() и requestFullscreenMode() если VK недоступен
     // Они могут вызвать ошибки
   }
