@@ -66,27 +66,11 @@ function resolveRecalcUrl(): string {
 const CART_RECALC_ENDPOINT = resolveRecalcUrl();
 
 export async function submitCartOrder(payload: CartOrderPayload): Promise<CartOrderResponse> {
-  // Добавляем VK ID в заголовки, если доступен
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  
-  // Пытаемся получить VK ID из window
-  if (typeof window !== "undefined" && (window as any).__VK_USER_ID__) {
-    headers["X-VK-Id"] = (window as any).__VK_USER_ID__;
-    // Также добавляем VK ID в payload
-    payload.meta = {
-      ...payload.meta,
-      vkUserId: (window as any).__VK_USER_ID__,
-      vkFullName: payload.customerName,
-    };
-    payload.customerVkId = (window as any).__VK_USER_ID__;
-    payload.customerVkName = payload.customerName;
-  }
-
   const response = await fetch(CART_SUBMIT_ENDPOINT, {
     method: "POST",
-    headers,
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(payload),
   });
 
