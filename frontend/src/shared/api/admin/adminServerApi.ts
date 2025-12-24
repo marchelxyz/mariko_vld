@@ -1,7 +1,7 @@
 import { getCartApiBaseUrl } from "@shared/api/cart";
 import type { CartOrderRecord } from "@shared/api/cart";
 import type { Permission, UserRole } from "@shared/types";
-import { getUser } from "@/lib/telegram";
+import { getUser } from "@/lib/platform";
 import { logger } from "@/lib/logger";
 
 function normalizeBaseUrl(base: string | undefined): string {
