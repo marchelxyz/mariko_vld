@@ -1,7 +1,8 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
-import { getTg, markReady, requestFullscreenMode, setupFullscreenHandlers } from "@/lib/telegram";
+import { getTg, setupFullscreenHandlers } from "@/lib/telegram";
+import { getPlatform, markReady, requestFullscreenMode } from "@/lib/platform";
 import { logger } from "@/lib/logger";
 
 const hideInitialSpinner = () => {
@@ -11,23 +12,52 @@ const hideInitialSpinner = () => {
   }
 };
 
-const tg = getTg();
+const platform = getPlatform();
 
-// Инициализация Telegram WebApp (если запущено в Telegram)
-if (tg) {
-  // Настройка обработчиков полноэкранного режима перед ready()
-  setupFullscreenHandlers();
-  
-  // Сигнализируем Telegram, что приложение готово
+// Инициализация платформы (Telegram или VK)
+if (platform === "telegram") {
+  const tg = getTg();
+  if (tg) {
+    // Настройка обработчиков полноэкранного режима перед ready()
+    setupFullscreenHandlers();
+    
+    // Сигнализируем Telegram, что приложение готово
+    markReady();
+    
+    // Запрос полноэкранного режима при старте несколько раз
+    // для надежного перехода в полноэкранный режим
+    // Согласно документации: https://core.telegram.org/bots/webapps#initializing-mini-apps
+    requestFullscreenMode();
+    
+    // Повторные вызовы с задержкой для надежности
+    // Используем expand() как fallback для старых версий Telegram
+    setTimeout(() => {
+      requestFullscreenMode();
+    }, 100);
+    
+    setTimeout(() => {
+      requestFullscreenMode();
+    }, 500);
+    
+    // Дополнительный вызов после полной загрузки DOM
+    if (typeof document !== "undefined") {
+      if (document.readyState === "complete") {
+        requestFullscreenMode();
+      } else {
+        window.addEventListener("load", () => {
+          requestFullscreenMode();
+        });
+      }
+    }
+  }
+} else if (platform === "vk") {
+  // Инициализация VK Mini App
   markReady();
   
-  // Запрос полноэкранного режима при старте несколько раз
-  // для надежного перехода в полноэкранный режим
-  // Согласно документации: https://core.telegram.org/bots/webapps#initializing-mini-apps
+  // Запрос полноэкранного режима
   requestFullscreenMode();
   
   // Повторные вызовы с задержкой для надежности
-  // Используем expand() как fallback для старых версий Telegram
   setTimeout(() => {
     requestFullscreenMode();
   }, 100);
@@ -48,7 +78,7 @@ if (tg) {
   }
 }
 
-// Глобальный перехват ошибок для диагностики в WebView Telegram
+// Глобальный перехват ошибок для диагностики в WebView
 if (typeof window !== "undefined") {
   window.addEventListener("error", (event) => {
     try {
@@ -62,19 +92,24 @@ if (typeof window !== "undefined") {
         lineno: event.lineno,
         colno: event.colno,
         originalError: event.error ? String(event.error) : undefined,
+        platform,
       });
-      const instance = getTg();
-      try {
-        if (instance && typeof instance.showAlert === 'function') {
-          instance.showAlert(message);
-        } else {
-          alert(message);
+      
+      // Пытаемся показать ошибку через платформу
+      if (platform === "telegram") {
+        const tg = getTg();
+        try {
+          if (tg && typeof tg.showAlert === 'function') {
+            tg.showAlert(message);
+            return;
+          }
+        } catch (alertError) {
+          console.warn('showAlert failed, using fallback', alertError);
         }
-      } catch (alertError) {
-        // Если showAlert вызывает ошибку, используем обычный alert
-        console.warn('showAlert failed, using fallback', alertError);
-        alert(message);
       }
+      
+      // Fallback на обычный alert
+      alert(message);
     } catch (_) {
       logger.error('global', new Error(event?.message ?? "Unknown runtime error"));
       alert(event?.message ?? "Unknown runtime error");
@@ -92,19 +127,24 @@ if (typeof window !== "undefined") {
       logger.error('global', error, {
         type: 'unhandledrejection',
         originalReason: reason ? String(reason) : undefined,
+        platform,
       });
-      const instance = getTg();
-      try {
-        if (instance && typeof instance.showAlert === 'function') {
-          instance.showAlert(message);
-        } else {
-          alert(message);
+      
+      // Пытаемся показать ошибку через платформу
+      if (platform === "telegram") {
+        const tg = getTg();
+        try {
+          if (tg && typeof tg.showAlert === 'function') {
+            tg.showAlert(message);
+            return;
+          }
+        } catch (alertError) {
+          console.warn('showAlert failed, using fallback', alertError);
         }
-      } catch (alertError) {
-        // Если showAlert вызывает ошибку, используем обычный alert
-        console.warn('showAlert failed, using fallback', alertError);
-        alert(message);
       }
+      
+      // Fallback на обычный alert
+      alert(message);
     } catch (_) {
       logger.error('global', new Error('Unhandled rejection'));
       alert(`Unhandled rejection`);
@@ -113,27 +153,33 @@ if (typeof window !== "undefined") {
 }
 
 try {
-  logger.info('app', 'Инициализация приложения');
+  logger.info('app', 'Инициализация приложения', { platform });
   createRoot(document.getElementById("root")!).render(<App />);
   hideInitialSpinner();
-  logger.info('app', 'Приложение успешно инициализировано');
+  logger.info('app', 'Приложение успешно инициализировано', { platform });
 } catch (err: unknown) {
   logger.error('app', err instanceof Error ? err : new Error('Ошибка рендеринга приложения'), {
     type: 'render_error',
+    platform,
   });
   try {
     const message = err instanceof Error ? err.message : String(err);
-    const instance = getTg();
-    try {
-      if (instance && typeof instance.showAlert === 'function') {
-        instance.showAlert(`Render error: ${message}`);
-      } else {
-        alert(`Render error: ${message}`);
+    
+    // Пытаемся показать ошибку через платформу
+    if (platform === "telegram") {
+      const tg = getTg();
+      try {
+        if (tg && typeof tg.showAlert === 'function') {
+          tg.showAlert(`Render error: ${message}`);
+          return;
+        }
+      } catch (alertError) {
+        console.warn('showAlert failed, using fallback', alertError);
       }
-    } catch (alertError) {
-      console.warn('showAlert failed, using fallback', alertError);
-      alert(`Render error: ${message}`);
     }
+    
+    // Fallback на обычный alert
+    alert(`Render error: ${message}`);
   } catch (_) {
     const message = err instanceof Error ? err.message : String(err);
     alert(`Render error: ${message}`);
