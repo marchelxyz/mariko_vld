@@ -1,19 +1,21 @@
 import { ArrowLeft, ListOrdered, ShoppingBag } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useCart, useCityContext } from "@/contexts";
 import { BottomNavigation, CartDrawer, Header } from "@shared/ui/widgets";
 import { fetchRestaurantMenu } from "@/shared/api/menuApi";
 import { isMarikoDeliveryEnabledForCity } from "@/shared/config/marikoDelivery";
 import { getMenuByRestaurantId, type MenuItem, type RestaurantMenu } from "@shared/data";
 import { useAdmin } from "@shared/hooks";
-import { MenuItemComponent } from "@shared/ui";
+import { MenuItemComponent, DishCardSkeleton } from "@shared/ui";
+import { toast } from "@/hooks/use-toast";
 
 /**
  * Отображает меню выбранного ресторана с навигацией по категориям и карточками блюд.
  */
 const Menu = (): JSX.Element => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { selectedRestaurant, selectedCity } = useCityContext();
   const { addItem: addCartItem, removeItem: removeCartItem, getItemCount } = useCart();
   const { isSuperAdmin, isAdmin } = useAdmin();
@@ -22,8 +24,13 @@ const Menu = (): JSX.Element => {
   const [menu, setMenu] = useState<RestaurantMenu | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
+  const [dishModalImageFailed, setDishModalImageFailed] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [isCartOpen, setIsCartOpen] = useState(false);
+
+  useEffect(() => {
+    setDishModalImageFailed(false);
+  }, [activeDish]);
 
   // Загружаем меню для выбранного ресторана
   useEffect(() => {
@@ -127,6 +134,32 @@ const Menu = (): JSX.Element => {
     navigate("/orders");
   }, [navigate]);
 
+  const handleBookingClick = useCallback(() => {
+    if (!selectedCity?.id) {
+      toast({
+        title: "Выберите город",
+        description: "Бронирование доступно после выбора города.",
+      });
+      return;
+    }
+
+    if (!selectedRestaurant?.remarkedRestaurantId) {
+      toast({
+        title: "Бронь недоступна",
+        description:
+          "Бронирование пока недоступно для этого ресторана. Обратитесь к администратору.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    navigate("/booking", {
+      state: {
+        from: location.pathname,
+      },
+    });
+  }, [location.pathname, navigate, selectedCity?.id, selectedRestaurant?.remarkedRestaurantId]);
+
   const handleAddToCart = useCallback(
     (dish: MenuItem) => {
       if (!canUseCartFeatures) {
@@ -159,15 +192,54 @@ const Menu = (): JSX.Element => {
 
   const itemsToRender = useMemo(() => currentCategory?.items ?? [], [currentCategory]);
 
-  // Индикатор загрузки
+  // Индикатор загрузки - показываем скелетоны карточек блюд
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-transparent overflow-hidden flex flex-col">
-        <Header />
-        <div className="flex-1 px-4 md:px-6 max-w-4xl mx-auto w-full flex items-center justify-center">
-          <div className="w-12 h-12 border-4 border-mariko-primary border-t-transparent rounded-full animate-spin" />
+      <div className="app-screen bg-transparent overflow-hidden">
+        <div className="bg-transparent pb-5 md:pb-6">
+          <Header />
         </div>
-        <BottomNavigation currentPage="home" />
+        <div className="app-content app-bottom-space">
+          <div className="app-shell app-shell-wide w-full pb-6 md:pb-8">
+            {/* Back Button and Title */}
+            <div className="mt-10 flex items-center gap-4 mb-6">
+              <button
+                onClick={() => navigate("/")}
+                className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+              <h1 className="text-white font-el-messiri text-3xl md:text-4xl font-bold flex-1">
+                Меню
+              </h1>
+            </div>
+
+            {/* Скелетоны категорий */}
+            <div className="mb-6 overflow-x-auto scrollbar-hide">
+              <div className="flex gap-2.5 pb-3 flex-wrap md:flex-nowrap">
+                {[...Array(4)].map((_, index) => (
+                  <div
+                    key={index}
+                    className="h-8 md:h-12 w-20 md:w-32 bg-white/10 rounded-full animate-pulse"
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Скелетон заголовка категории */}
+            <div className="mb-6">
+              <div className="h-8 md:h-9 w-48 md:w-64 bg-white/10 rounded animate-pulse" />
+            </div>
+
+            {/* Скелетоны карточек блюд */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
+              {[...Array(10)].map((_, index) => (
+                <DishCardSkeleton key={index} variant="default" />
+              ))}
+            </div>
+          </div>
+          <BottomNavigation currentPage="home" />
+        </div>
       </div>
     );
   }
@@ -175,44 +247,50 @@ const Menu = (): JSX.Element => {
   // Если нет меню для этого ресторана, показываем заглушку
   if (!menu || !visibleMenu) {
     return (
-      <div className="min-h-screen bg-transparent overflow-hidden flex flex-col">
-        <Header />
-        <div className="flex-1 px-4 md:px-6 max-w-4xl mx-auto w-full">
-          <div className="mt-10 flex items-center gap-4 mb-8">
-            <button
-              onClick={() => navigate("/")}
-              className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
-            >
-              <ArrowLeft className="w-6 h-6" />
-            </button>
-            <h1 className="text-white font-el-messiri text-3xl md:text-4xl font-bold flex-1">
-              Меню
-            </h1>
-          </div>
-          <div className="bg-mariko-secondary rounded-[24px] p-8 text-center">
-            <p className="text-white font-el-messiri text-xl mb-4">
-              Меню для этого ресторана пока не доступно
-            </p>
-            <button
-              onClick={() => navigate("/")}
-              className="bg-white text-mariko-primary px-6 py-3 rounded-full font-el-messiri font-bold hover:bg-white/90 transition-colors"
-            >
-              На главную
-            </button>
-          </div>
+      <div className="app-screen bg-transparent overflow-hidden">
+        <div className="bg-transparent pb-5 md:pb-6">
+          <Header />
         </div>
-        <BottomNavigation currentPage="home" />
+        <div className="app-content app-bottom-space">
+          <div className="app-shell app-shell-wide w-full">
+            <div className="mt-10 flex items-center gap-4 mb-8">
+              <button
+                onClick={() => navigate("/")}
+                className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+              <h1 className="text-white font-el-messiri text-3xl md:text-4xl font-bold flex-1">
+                Меню
+              </h1>
+            </div>
+            <div className="bg-mariko-secondary rounded-[24px] p-8 text-center">
+              <p className="text-white font-el-messiri text-xl mb-4">
+                Меню для этого ресторана пока не доступно
+              </p>
+              <button
+                onClick={() => navigate("/")}
+                className="bg-white text-mariko-primary px-6 py-3 rounded-full font-el-messiri font-bold hover:bg-white/90 transition-colors"
+              >
+                На главную
+              </button>
+            </div>
+          </div>
+          <BottomNavigation currentPage="home" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-transparent overflow-hidden flex flex-col">
-      {/* Header */}
-      <Header />
+    <div className="app-screen bg-transparent overflow-hidden">
+      <div className="bg-transparent pb-5 md:pb-6">
+        <Header />
+      </div>
 
       {/* Main Content */}
-      <div className="flex-1 px-4 md:px-6 max-w-6xl mx-auto w-full pb-28">
+      <div className="app-content app-bottom-space">
+        <div className="app-shell app-shell-wide w-full pb-6 md:pb-8">
         {/* Back Button and Title */}
         <div className="mt-10 flex items-center gap-4 mb-6">
           <button
@@ -287,7 +365,7 @@ const Menu = (): JSX.Element => {
         {/* Menu Items Grid */}
         <div>
           {itemsToRender.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
               {itemsToRender.map((item: MenuItem) => {
                 const quantity = getItemCount(item.id);
                 return (
@@ -326,114 +404,102 @@ const Menu = (): JSX.Element => {
       {/* Dish Modal */}
       {activeDish && (
         <div
-          className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+          className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm"
           onClick={() => setActiveDish(null)}
         >
-          {/* Стеклянная рамка для блюда */}
           <div
-            className="relative flex flex-col gap-4 items-center max-w-[90vw] max-h-[90vh] p-6 md:p-8
-              bg-white/12 backdrop-blur-md
-              border border-white/25
-              rounded-[30px]
-              shadow-2xl
-              hover:bg-white/15 transition-all duration-300
-              overflow-y-auto cursor-pointer"
-            onClick={(e) => {
-              e.stopPropagation();
-              setActiveDish(null);
-            }}
+            className="relative flex w-full max-w-[520px] max-h-[90vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
           >
-            {/* Градиент для стеклянного эффекта */}
-            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-white/5 rounded-[30px] pointer-events-none" />
-
-            {/* Блик сверху */}
-            <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-white/15 to-transparent rounded-t-[30px] pointer-events-none" />
-
-            {/* Гвоздики в углах рамки */}
-            <div className="absolute top-3 left-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
-              bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
-              shadow-lg border border-gray-500/50
-              before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
-              before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
-
-            <div className="absolute top-3 right-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
-              bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
-              shadow-lg border border-gray-500/50
-              before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
-              before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
-
-            <div className="absolute bottom-3 left-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
-              bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
-              shadow-lg border border-gray-500/50
-              before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
-              before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
-
-            <div className="absolute bottom-3 right-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
-              bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
-              shadow-lg border border-gray-500/50
-              before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
-              before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
-
-            {/* Контент блюда */}
-            <div className="relative z-10 flex flex-col gap-4 items-center text-center">
-              {activeDish.imageUrl && (
+            <div className="relative aspect-[4/3] w-full shrink-0">
+              {activeDish.imageUrl && !dishModalImageFailed ? (
                 <img
                   src={activeDish.imageUrl}
                   alt={activeDish.name}
-                  className="max-h-[40vh] md:max-h-[50vh] w-auto rounded-[20px] shadow-lg"
+                  className="h-full w-full object-cover"
+                  onError={() => setDishModalImageFailed(true)}
                 />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-gray-200 text-gray-600">
+                  Нет изображения
+                </div>
               )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
 
-              {/* Бейджи блюда */}
-              <div className="flex gap-2 flex-wrap justify-center">
-                {activeDish.isRecommended && (
-                  <span className="bg-mariko-primary text-white px-3 py-1 rounded-full text-sm font-medium">
-                    👑 Рекомендуем
-                  </span>
-                )}
-                {activeDish.isNew && (
-                  <span className="bg-mariko-secondary text-white px-3 py-1 rounded-full text-sm font-medium">
-                    ✨ Новинка
-                  </span>
-                )}
-                {activeDish.isVegetarian && (
-                  <span className="bg-green-600 text-white px-3 py-1 rounded-full text-sm font-medium">
-                    🌱 Вегетарианское
-                  </span>
-                )}
-                {activeDish.isSpicy && (
-                  <span className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-medium">
-                    🌶️ Острое
-                  </span>
-                )}
-              </div>
-
-              <h3 className="font-el-messiri text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
-                {activeDish.name}
-              </h3>
-
-              {activeDish.description && (
-                <p className="text-base md:text-lg leading-relaxed text-white/90 drop-shadow-lg max-w-md mx-auto">
-                  {activeDish.description}
+              <div className="absolute bottom-3 left-4 right-4 space-y-2 text-white drop-shadow-lg">
+                <p className="font-el-messiri text-2xl font-semibold leading-tight">
+                  {activeDish.name}
                 </p>
-              )}
+              </div>
+              <button
+                type="button"
+                className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-1 text-sm text-white backdrop-blur"
+                onClick={() => setActiveDish(null)}
+              >
+                Закрыть
+              </button>
+            </div>
 
-              <div className="flex items-center gap-4 mt-2">
-                <span className="font-el-messiri text-2xl md:text-3xl font-bold text-mariko-secondary drop-shadow-lg">
+            <div className="space-y-4 overflow-y-auto px-5 pb-5 pt-4">
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="font-el-messiri text-2xl font-bold text-mariko-secondary">
                   {activeDish.price}₽
                 </span>
-                {activeDish.weight && (
-                  <span className="text-white/80 text-lg drop-shadow-lg">
-                    {activeDish.weight}
-                  </span>
-                )}
+                {activeDish.weight && <span className="text-sm text-gray-600">{activeDish.weight}</span>}
               </div>
+
+              {(activeDish.isRecommended ||
+                activeDish.isNew ||
+                activeDish.isVegetarian ||
+                activeDish.isSpicy) && (
+                <div className="flex flex-wrap justify-center gap-2">
+                  {activeDish.isRecommended && (
+                    <span className="rounded-full bg-mariko-primary px-3 py-1 text-sm font-medium text-white">
+                      👑 Рекомендуем
+                    </span>
+                  )}
+                  {activeDish.isNew && (
+                    <span className="rounded-full bg-mariko-secondary px-3 py-1 text-sm font-medium text-white">
+                      ✨ Новинка
+                    </span>
+                  )}
+                  {activeDish.isVegetarian && (
+                    <span className="rounded-full bg-green-600 px-3 py-1 text-sm font-medium text-white">
+                      🌱 Вегетарианское
+                    </span>
+                  )}
+                  {activeDish.isSpicy && (
+                    <span className="rounded-full bg-red-600 px-3 py-1 text-sm font-medium text-white">
+                      🌶️ Острое
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {activeDish.description && (
+                <p className="text-base leading-relaxed text-gray-800">{activeDish.description}</p>
+              )}
+
+              <p className="text-sm text-gray-600">
+                Забронируйте столик заранее — лучшие места уходят быстро.
+              </p>
+              <button
+                type="button"
+                className="w-full rounded-xl bg-mariko-primary px-4 py-3 text-center font-semibold text-white shadow-lg transition hover:brightness-110 active:scale-[0.99]"
+                onClick={() => {
+                  setActiveDish(null);
+                  handleBookingClick();
+                }}
+              >
+                Забронировать
+              </button>
             </div>
           </div>
         </div>
       )}
     </div>
-  );
+  </div>
+);
 };
 
 export default Menu;

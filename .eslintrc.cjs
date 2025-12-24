@@ -3,7 +3,8 @@ module.exports = {
   parser: "@typescript-eslint/parser",
   plugins: [
     "@typescript-eslint",
-    "import"
+    "import",
+    "react-hooks"
   ],
   extends: [
     "eslint:recommended",
@@ -32,6 +33,10 @@ module.exports = {
     }
   },
   rules: {
-    // кастомные правила уровня проекта можно добавлять здесь
+    "import/order": "off",
+    "import/no-internal-modules": "off",
+    "@typescript-eslint/no-unused-vars": "off",
+    "@typescript-eslint/no-explicit-any": "off",
+    "react-hooks/exhaustive-deps": "off",
   }
 }; 

@@ -221,6 +221,7 @@ export async function createRestaurantViaServer(
     twoGisUrl?: string;
     socialNetworks?: Array<{ name: string; url: string }>;
     remarkedRestaurantId?: number;
+    reviewLink: string;
   }
 ): Promise<{ success: boolean; restaurantId?: string; errorMessage?: string }> {
   const headers: Record<string, string> = {
@@ -263,6 +264,7 @@ export async function updateRestaurantViaServer(
     twoGisUrl?: string;
     socialNetworks?: Array<{ name: string; url: string }>;
     remarkedRestaurantId?: number;
+    reviewLink?: string;
   }
 ): Promise<{ success: boolean; errorMessage?: string }> {
   const headers: Record<string, string> = {

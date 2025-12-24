@@ -8,6 +8,7 @@ export type PromotionSlide = PromotionCardData;
 interface PromotionsCarouselProps {
   promotions: PromotionSlide[];
   autoPlayIntervalMs?: number;
+  isLoading?: boolean;
   onBookTable?: () => void;
 }
 
@@ -17,6 +18,7 @@ const SWIPE_THRESHOLD_PX = 45;
 export const PromotionsCarousel = ({
   promotions,
   autoPlayIntervalMs = AUTO_PLAY_INTERVAL_MS,
+  isLoading = false,
   onBookTable,
 }: PromotionsCarouselProps) => {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -89,22 +91,31 @@ export const PromotionsCarousel = ({
     startXRef.current = null;
   };
 
+  // Если нет слайдов, показываем пустую карусель с placeholder или индикатор загрузки
   if (!slideCount) {
-    return null;
+    return (
+      <div className="relative w-full mx-auto">
+        <div className="relative w-full select-none overflow-hidden rounded-[20px] border border-white/20 bg-white/10 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-lg aspect-[4/3] md:h-[220px] md:w-[293px] md:aspect-auto lg:h-[220px] lg:w-[293px]">
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute -left-16 -top-20 h-40 w-40 rounded-full bg-mariko-primary/35 blur-[70px]" />
+            <div className="absolute -right-10 bottom-[-60px] h-36 w-36 rounded-full bg-white/15 blur-[55px]" />
+          </div>
+          {isLoading ? (
+            <div className="w-full h-full animate-pulse bg-white/5 rounded-[18px]" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-white/50 text-sm">
+              Акций пока нет
+            </div>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="relative w-full mx-auto">
-      <div className="mb-3 flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <span className="font-el-messiri text-lg md:text-xl font-semibold text-white drop-shadow">
-            Акции
-          </span>
-        </div>
-      </div>
-
       <div
-        className="relative w-full select-none overflow-hidden rounded-[20px] border border-white/20 bg-white/10 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-lg"
+        className="relative w-full select-none overflow-hidden rounded-[20px] border border-white/20 bg-white/10 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-lg aspect-[4/3] md:h-[220px] md:w-[293px] md:aspect-auto lg:h-[220px] lg:w-[293px]"
         style={{ touchAction: "pan-y" }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -124,19 +135,19 @@ export const PromotionsCarousel = ({
         </div>
 
         <div
-          className="flex transition-transform duration-500 ease-in-out"
+          className="flex h-full transition-transform duration-500 ease-in-out"
           style={{
             width: `${slideCount * 100}%`,
             transform:
               slideCount > 0
-                ? `translateX(-${(activeIndex / slideCount) * 100}%)`
+                ? `translateX(-${activeIndex * (100 / slideCount)}%)`
                 : undefined,
           }}
         >
           {promotions.map((promotion) => (
             <div
               key={promotion.id}
-              className="flex-shrink-0"
+              className="flex-shrink-0 h-full"
               style={{ width: `${100 / slideCount}%` }}
             >
               <PromotionSlideCard
@@ -201,7 +212,7 @@ export const PromotionsCarousel = ({
             className="relative w-full max-w-[520px] overflow-hidden rounded-2xl bg-white shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="relative aspect-[2/1] w-full">
+            <div className="relative aspect-[4/3] w-full">
               {resolvedOpenedImageUrl && !modalImageFailed ? (
                 <img
                   src={resolvedOpenedImageUrl}
@@ -270,7 +281,7 @@ const PromotionSlideCard = ({
     <button
       type="button"
       onClick={onClick}
-      className="relative block aspect-[2/1] w-full overflow-hidden rounded-[18px] text-left"
+      className="relative block w-full h-full overflow-hidden rounded-[18px] text-left"
     >
       {resolvedUrl && !failed ? (
         <img

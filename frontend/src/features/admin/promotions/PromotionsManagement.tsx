@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Component, type ErrorInfo, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Image as ImageIcon, Megaphone, Plus, Save, Trash2, Copy, Upload } from "lucide-react";
 import { useAdmin, useCities } from "@shared/hooks";
+import { Permission, UserRole } from "@shared/types";
 import { type PromotionCardData } from "@shared/data";
 import {
   fetchPromotionImageLibrary,
@@ -60,8 +61,101 @@ const normalizeImageUrl = (raw?: string | null) => {
   }
 };
 
-export function PromotionsManagement(): JSX.Element {
-  const { cities, isLoading: isCitiesLoading } = useCities();
+type PromotionsErrorContext = {
+  currentCityId: string | null;
+  copyFromCityId: string | null;
+  accessibleCitiesCount: number;
+  promotionsCount: number;
+  allowedRestaurants: string[];
+  isSuperAdmin: boolean;
+  userRole: UserRole;
+};
+
+type PromotionsErrorBoundaryProps = {
+  children: ReactNode;
+  context?: () => PromotionsErrorContext | undefined;
+};
+
+type PromotionsErrorBoundaryState = {
+  hasError: boolean;
+  error?: Error | null;
+};
+
+const normalizeBaseUrl = (value?: string) => {
+  if (!value) return "";
+  return value.endsWith("/") ? value.slice(0, -1) : value;
+};
+
+const resolveAdminLogsUrl = () => {
+  const adminBase = normalizeBaseUrl(import.meta.env.VITE_ADMIN_API_URL);
+  const serverBase = normalizeBaseUrl(import.meta.env.VITE_SERVER_API_URL);
+  if (adminBase) {
+    return `${adminBase}/admin/logs`;
+  }
+  if (serverBase) {
+    return `${serverBase}/cart/admin/logs`;
+  }
+  return "/api/cart/admin/logs";
+};
+
+const ADMIN_LOGS_URL = resolveAdminLogsUrl();
+
+async function reportPromotionsError(
+  error: Error,
+  info: ErrorInfo,
+  context?: PromotionsErrorContext,
+): Promise<void> {
+  try {
+    await fetch(ADMIN_LOGS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        level: "error",
+        category: "promotions",
+        message: error.message,
+        stack: error.stack,
+        componentStack: info.componentStack,
+        context,
+        timestamp: new Date().toISOString(),
+      }),
+    });
+  } catch {
+    // Игнорируем сбои логирования, чтобы не мешать пользователю
+  }
+}
+
+class PromotionsErrorBoundary extends Component<
+  PromotionsErrorBoundaryProps,
+  PromotionsErrorBoundaryState
+> {
+  state: PromotionsErrorBoundaryState = { hasError: false, error: null };
+
+  async componentDidCatch(error: Error, info: ErrorInfo) {
+    this.setState({ hasError: true, error });
+    const context = this.props.context ? this.props.context() : undefined;
+    await reportPromotionsError(error, info, context);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white/80">
+          <p className="font-semibold text-white">Не удалось загрузить «Управление акциями».</p>
+          <p className="text-sm text-white/70 mt-1">Обновите страницу или попробуйте позже.</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function PromotionsManagementContent({
+  onContextChange,
+}: {
+  onContextChange?: (context: PromotionsErrorContext) => void;
+}): JSX.Element {
+  const { cities: allCities, isLoading: isCitiesLoading } = useCities();
+  const { isSuperAdmin, allowedRestaurants, hasPermission, userRole } = useAdmin();
   const { toast } = useToast();
   const [promotions, setPromotions] = useState<PromotionCardData[]>([]);
   const [currentCityId, setCurrentCityId] = useState<string | null>(null);
@@ -76,16 +170,62 @@ export function PromotionsManagement(): JSX.Element {
   const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
   const [openLibraryForId, setOpenLibraryForId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const noPromotionsAccess = !hasPermission(Permission.MANAGE_PROMOTIONS);
+
+  const accessibleCities = useMemo(() => {
+    if (isSuperAdmin() || userRole === UserRole.ADMIN) {
+      return allCities;
+    }
+    if (!allowedRestaurants?.length) {
+      return [];
+    }
+    const allowedSet = new Set(allowedRestaurants);
+    return allCities.filter((city) => city.restaurants?.some((restaurant) => allowedSet.has(restaurant.id)));
+  }, [allCities, allowedRestaurants, isSuperAdmin, userRole]);
 
   useEffect(() => {
-    if (!isCitiesLoading && cities.length && !currentCityId) {
-      setCurrentCityId(cities[0].id);
+    if (!isCitiesLoading && accessibleCities.length && !currentCityId) {
+      setCurrentCityId(accessibleCities[0].id);
     }
-  }, [cities, currentCityId, isCitiesLoading]);
+    if (!isCitiesLoading && currentCityId && !accessibleCities.some((city) => city.id === currentCityId)) {
+      setCurrentCityId(accessibleCities[0]?.id ?? null);
+    }
+  }, [accessibleCities, currentCityId, isCitiesLoading]);
+
+  useEffect(() => {
+    if (copyFromCityId && !accessibleCities.some((city) => city.id === copyFromCityId)) {
+      setCopyFromCityId(null);
+    }
+  }, [accessibleCities, copyFromCityId]);
+
+  useEffect(() => {
+    onContextChange?.({
+      currentCityId,
+      copyFromCityId,
+      accessibleCitiesCount: accessibleCities.length,
+      promotionsCount: promotions.length,
+      allowedRestaurants: allowedRestaurants ?? [],
+      isSuperAdmin: isSuperAdmin(),
+      userRole,
+    });
+  }, [
+    accessibleCities.length,
+    allowedRestaurants,
+    copyFromCityId,
+    currentCityId,
+    isSuperAdmin,
+    onContextChange,
+    promotions.length,
+    userRole,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
+      if (noPromotionsAccess) {
+        setPromotions([]);
+        return;
+      }
       if (!currentCityId) {
         setPromotions([]);
         return;
@@ -121,7 +261,7 @@ export function PromotionsManagement(): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [currentCityId, toast]);
+  }, [currentCityId, noPromotionsAccess, toast]);
 
   useEffect(() => {
     if (!copyFromCityId) {
@@ -129,6 +269,10 @@ export function PromotionsManagement(): JSX.Element {
       return;
     }
     const loadSource = async () => {
+      if (noPromotionsAccess) {
+        setSourcePromotions([]);
+        return;
+      }
       try {
         const source = await fetchPromotions(copyFromCityId);
         const normalized = (source ?? []).map((p, index) => ({
@@ -143,16 +287,44 @@ export function PromotionsManagement(): JSX.Element {
       }
     };
     void loadSource();
-  }, [copyFromCityId]);
+  }, [copyFromCityId, noPromotionsAccess]);
 
   useEffect(() => {
+    if (noPromotionsAccess) {
+      setImageLibrary([]);
+      return;
+    }
     if (currentCityId) {
       void loadImageLibrary();
     } else {
       setImageLibrary([]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentCityId]);
+  }, [currentCityId, noPromotionsAccess]);
+
+  const emptyState = useMemo(() => promotions.length === 0, [promotions.length]);
+
+  const filteredLibrary = useMemo(() => {
+    if (!librarySearch.trim()) return imageLibrary;
+    const query = librarySearch.trim().toLowerCase();
+    return imageLibrary.filter((img) => img.path.toLowerCase().includes(query));
+  }, [imageLibrary, librarySearch]);
+
+  const preparedLibrary = useMemo(
+    () =>
+      filteredLibrary.map((img) => ({
+        ...img,
+        url: normalizeImageUrl(img.url || buildLibraryImageUrl(img)),
+      })),
+    [filteredLibrary],
+  );
+
+  if (noPromotionsAccess) {
+    return null;
+  }
+
+  if (!isCitiesLoading && accessibleCities.length === 0) {
+    return null;
+  }
 
   const handleAdd = () => {
     const id = ensureUuid();
@@ -338,23 +510,6 @@ export function PromotionsManagement(): JSX.Element {
     }
   };
 
-  const emptyState = useMemo(() => promotions.length === 0, [promotions.length]);
-
-  const filteredLibrary = useMemo(() => {
-    if (!librarySearch.trim()) return imageLibrary;
-    const query = librarySearch.trim().toLowerCase();
-    return imageLibrary.filter((img) => img.path.toLowerCase().includes(query));
-  }, [imageLibrary, librarySearch]);
-
-  const preparedLibrary = useMemo(
-    () =>
-      filteredLibrary.map((img) => ({
-        ...img,
-        url: normalizeImageUrl(img.url || buildLibraryImageUrl(img)),
-      })),
-    [filteredLibrary],
-  );
-
   if (isLoadingPromos && !promotions.length) {
     return (
       <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-white flex items-center gap-3">
@@ -412,11 +567,16 @@ export function PromotionsManagement(): JSX.Element {
                 <SelectValue placeholder={isCitiesLoading ? "Загрузка..." : "Выберите город"} />
               </SelectTrigger>
               <SelectContent>
-                {cities.map((city) => (
+                {accessibleCities.map((city) => (
                   <SelectItem key={city.id} value={city.id}>
                     {city.name}
                   </SelectItem>
                 ))}
+                {!accessibleCities.length && (
+                  <div className="px-3 py-2 text-sm text-white/60">
+                    Нет доступных городов
+                  </div>
+                )}
               </SelectContent>
             </Select>
             {isLoadingPromos && (
@@ -444,13 +604,18 @@ export function PromotionsManagement(): JSX.Element {
                   <SelectValue placeholder="Выберите город-источник" />
                 </SelectTrigger>
                 <SelectContent>
-                  {cities
+                  {accessibleCities
                     .filter((city) => city.id !== currentCityId)
                     .map((city) => (
                       <SelectItem key={city.id} value={city.id}>
                         {city.name}
                       </SelectItem>
                     ))}
+                  {!accessibleCities.length && (
+                    <div className="px-3 py-2 text-sm text-white/60">
+                      Нет доступных городов
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
               <Button onClick={handleCopyFrom} variant="secondary" className="bg-white/10 text-white">
@@ -629,3 +794,27 @@ export function PromotionsManagement(): JSX.Element {
     </div>
   );
 }
+
+export function PromotionsManagement(): JSX.Element {
+  const contextRef = useRef<PromotionsErrorContext>({
+    currentCityId: null,
+    copyFromCityId: null,
+    accessibleCitiesCount: 0,
+    promotionsCount: 0,
+    allowedRestaurants: [],
+    isSuperAdmin: false,
+    userRole: UserRole.USER,
+  });
+
+  return (
+    <PromotionsErrorBoundary context={() => contextRef.current}>
+      <PromotionsManagementContent
+        onContextChange={(ctx) => {
+          contextRef.current = ctx;
+        }}
+      />
+    </PromotionsErrorBoundary>
+  );
+}
+
+export default PromotionsManagement;

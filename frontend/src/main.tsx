@@ -1,15 +1,51 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
-import { getTg, markReady } from "@/lib/telegram";
+import { getTg, markReady, requestFullscreenMode, setupFullscreenHandlers } from "@/lib/telegram";
 import { logger } from "@/lib/logger";
+
+const hideInitialSpinner = () => {
+  const spinner = document.getElementById("loading-spinner");
+  if (spinner) {
+    spinner.style.display = "none";
+  }
+};
 
 const tg = getTg();
 
 // Инициализация Telegram WebApp (если запущено в Telegram)
 if (tg) {
+  // Настройка обработчиков полноэкранного режима перед ready()
+  setupFullscreenHandlers();
+  
+  // Сигнализируем Telegram, что приложение готово
   markReady();
-  tg.expand?.();
+  
+  // Запрос полноэкранного режима при старте несколько раз
+  // для надежного перехода в полноэкранный режим
+  // Согласно документации: https://core.telegram.org/bots/webapps#initializing-mini-apps
+  requestFullscreenMode();
+  
+  // Повторные вызовы с задержкой для надежности
+  // Используем expand() как fallback для старых версий Telegram
+  setTimeout(() => {
+    requestFullscreenMode();
+  }, 100);
+  
+  setTimeout(() => {
+    requestFullscreenMode();
+  }, 500);
+  
+  // Дополнительный вызов после полной загрузки DOM
+  if (typeof document !== "undefined") {
+    if (document.readyState === "complete") {
+      requestFullscreenMode();
+    } else {
+      window.addEventListener("load", () => {
+        requestFullscreenMode();
+      });
+    }
+  }
 }
 
 // Глобальный перехват ошибок для диагностики в WebView Telegram
@@ -79,6 +115,7 @@ if (typeof window !== "undefined") {
 try {
   logger.info('app', 'Инициализация приложения');
   createRoot(document.getElementById("root")!).render(<App />);
+  hideInitialSpinner();
   logger.info('app', 'Приложение успешно инициализировано');
 } catch (err: unknown) {
   logger.error('app', err instanceof Error ? err : new Error('Ошибка рендеринга приложения'), {

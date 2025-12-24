@@ -37,4 +37,5 @@ export * from "./city-selector";
 export * from "./editable-field";
 export * from "./quick-action-button";
 export * from "./menu-item";
+export * from "./dish-card-skeleton";
 export * from "./service-card";

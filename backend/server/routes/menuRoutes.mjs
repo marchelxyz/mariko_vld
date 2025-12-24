@@ -1,7 +1,7 @@
 import express from "express";
-import { db, ensureDatabase, queryMany, queryOne, query } from "../postgresClient.mjs";
+import { ensureDatabase, queryMany, queryOne, query } from "../postgresClient.mjs";
 import { createLogger } from "../utils/logger.mjs";
-import { authoriseAdmin } from "../services/adminService.mjs";
+import { ADMIN_PERMISSION, authoriseAdmin } from "../services/adminService.mjs";
 
 const logger = createLogger('menu');
 
@@ -71,6 +71,14 @@ export function createMenuRouter() {
       // Группируем блюда по категориям
       const itemsByCategory = new Map();
       itemsData.forEach((item) => {
+        const imageUrl = item.image_url || undefined;
+        logger.debug('Загрузка блюда из БД', { 
+          itemId: item.id, 
+          name: item.name, 
+          imageUrl,
+          hasImageUrl: !!item.image_url 
+        });
+        
         const list = itemsByCategory.get(item.category_id) || [];
         list.push({
           id: item.id,
@@ -78,7 +86,7 @@ export function createMenuRouter() {
           description: item.description || undefined,
           price: Number(item.price),
           weight: item.weight || undefined,
-          imageUrl: item.image_url || undefined,
+          imageUrl,
           isVegetarian: !!item.is_vegetarian,
           isSpicy: !!item.is_spicy,
           isNew: !!item.is_new,
@@ -146,7 +154,7 @@ export function createAdminMenuRouter() {
     });
 
     // Проверка авторизации
-    const admin = await authoriseAdmin(req, res);
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_MENU);
     if (!admin) {
       const duration = Date.now() - startTime;
       logger.requestError('POST', '/:restaurantId', new Error('Не авторизован'), 401);
@@ -174,6 +182,12 @@ export function createAdminMenuRouter() {
         return res.status(404).json({ success: false, message: "Ресторан не найден" });
       }
 
+      if (admin.role !== "super_admin" && admin.role !== "admin" && !admin.allowedRestaurants?.includes(restaurantId)) {
+        const duration = Date.now() - startTime;
+        logger.requestError('POST', '/:restaurantId', new Error('Нет доступа к ресторану'), 403);
+        return res.status(403).json({ success: false, message: "Нет доступа к этому ресторану" });
+      }
+
       // Удаляем все существующие категории и блюда для ресторана
       const deleteStartTime = Date.now();
       await query(`DELETE FROM menu_items WHERE category_id IN (SELECT id FROM menu_categories WHERE restaurant_id = $1)`, [restaurantId]);
@@ -188,56 +202,106 @@ export function createAdminMenuRouter() {
         return res.json({ success: true });
       }
 
-      // Вставляем новые категории и блюда
+      // Подготавливаем данные для batch-вставки категорий
+      const categoryValues = [];
+      const categoryParams = [];
+      let paramIndex = 1;
+      const categoryIdMap = new Map(); // Маппинг старых ID на новые для связи с блюдами
+
       for (let catIndex = 0; catIndex < menu.categories.length; catIndex++) {
         const category = menu.categories[catIndex];
         const categoryId = category.id || `${restaurantId}-category-${catIndex}`;
+        categoryIdMap.set(catIndex, categoryId);
 
-        // Вставляем категорию
+        categoryValues.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, NOW(), NOW())`);
+        categoryParams.push(
+          categoryId,
+          restaurantId,
+          category.name || '',
+          category.description || null,
+          category.displayOrder ?? catIndex + 1,
+          category.isActive !== false,
+        );
+        paramIndex += 6;
+      }
+
+      // Batch-вставка всех категорий одним запросом
+      if (categoryValues.length > 0) {
         await query(
           `INSERT INTO menu_categories (id, restaurant_id, name, description, display_order, is_active, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
-          [
-            categoryId,
-            restaurantId,
-            category.name || '',
-            category.description || null,
-            category.displayOrder ?? catIndex + 1,
-            category.isActive !== false,
-          ]
+           VALUES ${categoryValues.join(', ')}`,
+          categoryParams
         );
+        logger.debug(`Вставлено категорий batch-запросом: ${categoryValues.length}`);
+      }
 
-        // Вставляем блюда категории
+      // Подготавливаем данные для batch-вставки блюд
+      const itemValues = [];
+      const itemParams = [];
+      paramIndex = 1;
+
+      for (let catIndex = 0; catIndex < menu.categories.length; catIndex++) {
+        const category = menu.categories[catIndex];
+        const categoryId = categoryIdMap.get(catIndex);
+
         if (Array.isArray(category.items)) {
           for (let itemIndex = 0; itemIndex < category.items.length; itemIndex++) {
             const item = category.items[itemIndex];
             const itemId = item.id || `${categoryId}-item-${itemIndex}`;
 
-            await query(
-              `INSERT INTO menu_items (
-                id, category_id, name, description, price, weight, image_url,
-                is_vegetarian, is_spicy, is_new, is_recommended, is_active, display_order,
-                created_at, updated_at
-              )
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())`,
-              [
-                itemId,
-                categoryId,
-                item.name || '',
-                item.description || null,
-                item.price || 0,
-                item.weight || null,
-                item.imageUrl || null,
-                !!item.isVegetarian,
-                !!item.isSpicy,
-                !!item.isNew,
-                !!item.isRecommended,
-                item.isActive !== false,
-                item.displayOrder ?? itemIndex + 1,
-              ]
+            itemValues.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7}, $${paramIndex + 8}, $${paramIndex + 9}, $${paramIndex + 10}, $${paramIndex + 11}, $${paramIndex + 12}, NOW(), NOW())`);
+            itemParams.push(
+              itemId,
+              categoryId,
+              item.name || '',
+              item.description || null,
+              item.price || 0,
+              item.weight || null,
+              item.imageUrl || null,
+              !!item.isVegetarian,
+              !!item.isSpicy,
+              !!item.isNew,
+              !!item.isRecommended,
+              item.isActive !== false,
+              item.displayOrder ?? itemIndex + 1,
             );
+            paramIndex += 13;
           }
         }
+      }
+
+      // Batch-вставка всех блюд одним запросом (разбиваем на части если слишком много параметров)
+      // PostgreSQL имеет лимит ~65535 параметров, каждый item использует 13 параметров
+      // Максимум ~5000 блюд за раз (консервативно используем 1000)
+      const MAX_ITEMS_PER_BATCH = 1000;
+      const PARAMS_PER_ITEM = 13;
+      
+      if (itemValues.length > 0) {
+        for (let i = 0; i < itemValues.length; i += MAX_ITEMS_PER_BATCH) {
+          const batchSize = Math.min(MAX_ITEMS_PER_BATCH, itemValues.length - i);
+          const batchValues = [];
+          const batchParams = [];
+          let batchParamIndex = 1;
+          
+          // Пересоздаем значения и параметры для каждого батча с правильной нумерацией
+          for (let j = 0; j < batchSize; j++) {
+            const itemIndex = i + j;
+            batchValues.push(`($${batchParamIndex}, $${batchParamIndex + 1}, $${batchParamIndex + 2}, $${batchParamIndex + 3}, $${batchParamIndex + 4}, $${batchParamIndex + 5}, $${batchParamIndex + 6}, $${batchParamIndex + 7}, $${batchParamIndex + 8}, $${batchParamIndex + 9}, $${batchParamIndex + 10}, $${batchParamIndex + 11}, $${batchParamIndex + 12}, NOW(), NOW())`);
+            batchParams.push(...itemParams.slice(itemIndex * PARAMS_PER_ITEM, (itemIndex + 1) * PARAMS_PER_ITEM));
+            batchParamIndex += PARAMS_PER_ITEM;
+          }
+          
+          await query(
+            `INSERT INTO menu_items (
+              id, category_id, name, description, price, weight, image_url,
+              is_vegetarian, is_spicy, is_new, is_recommended, is_active, display_order,
+              created_at, updated_at
+            )
+            VALUES ${batchValues.join(', ')}`,
+            batchParams
+          );
+        }
+        logger.debug(`Вставлено блюд batch-запросами: ${itemValues.length}`);
       }
 
       const duration = Date.now() - startTime;

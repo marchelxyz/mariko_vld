@@ -11,11 +11,12 @@ import {
   Edit,
   Plus,
 } from 'lucide-react';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { adminApi } from "@shared/api/admin";
 import { citiesApi } from "@shared/api/cities";
 import { getAllCitiesAsync, type City, type Restaurant } from "@shared/data";
 import { useAdmin } from "@shared/hooks";
+import { Permission, UserRole } from "@shared/types";
 import { EditRestaurantModal, CreateCityModal } from "./ui";
 import { logger } from "@/lib/logger";
 import {
@@ -53,22 +54,47 @@ const normalizeCity = (city: City & { is_active?: boolean }): CityWithStatus => 
  * Компонент управления городами
  */
 export function CitiesManagement(): JSX.Element {
-  const { userId } = useAdmin();
+  const { userId, allowedRestaurants, isSuperAdmin, userRole, hasPermission, isLoading: isAdminLoading } = useAdmin();
   const [citiesWithStatus, setCitiesWithStatus] = useState<CityWithStatus[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [cityToDelete, setCityToDelete] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [restaurantToEdit, setRestaurantToEdit] = useState<Restaurant | null>(null);
   const [isCreateCityModalOpen, setIsCreateCityModalOpen] = useState(false);
+  const canManageCities = isSuperAdmin() || userRole === UserRole.ADMIN;
+
+  const filterCitiesByAccess = useCallback(
+    (cities: CityWithStatus[]): CityWithStatus[] => {
+      if (isSuperAdmin() || userRole === UserRole.ADMIN) {
+        return cities;
+      }
+      if (!allowedRestaurants?.length) {
+        return [];
+      }
+      const allowed = new Set(allowedRestaurants);
+      return cities
+        .map((city) => ({
+          ...city,
+          restaurants: city.restaurants.filter((restaurant) => allowed.has(restaurant.id)),
+        }))
+        .filter((city) => city.restaurants.length > 0);
+    },
+    [allowedRestaurants, isSuperAdmin, userRole],
+  );
 
   // Загрузка городов из базы данных
   useEffect(() => {
     const loadCities = async () => {
+      if (isAdminLoading || !hasPermission(Permission.MANAGE_RESTAURANTS)) {
+        return;
+      }
       setIsLoading(true);
       logger.info('cities', 'Начало загрузки городов');
       try {
         const cities = await getAllCitiesAsync();
-        const citiesWithStatus = cities.map((city) => normalizeCity(city as City & { is_active?: boolean }));
+        const citiesWithStatus = filterCitiesByAccess(
+          cities.map((city) => normalizeCity(city as City & { is_active?: boolean })),
+        );
 
         logger.info('cities', 'Города загружены', {
           total: citiesWithStatus.length,
@@ -86,17 +112,22 @@ export function CitiesManagement(): JSX.Element {
     };
 
     loadCities();
-  }, []);
+  }, [filterCitiesByAccess, hasPermission, isAdminLoading]);
 
   // Real-time подписка на изменения
   useEffect(() => {
+    if (isAdminLoading || !hasPermission(Permission.MANAGE_RESTAURANTS)) {
+      return;
+    }
     logger.info('cities', 'Подписка на изменения городов активирована');
 
     const unsubscribe = citiesApi.subscribeToCitiesChanges(async () => {
       // Перезагружаем все города при любом изменении
       logger.debug('cities', 'Обновление городов через подписку');
       const cities = await getAllCitiesAsync();
-      const citiesWithStatus = cities.map((city) => normalizeCity(city as City & { is_active?: boolean }));
+      const citiesWithStatus = filterCitiesByAccess(
+        cities.map((city) => normalizeCity(city as City & { is_active?: boolean })),
+      );
       
       setCitiesWithStatus(citiesWithStatus);
       logger.info('cities', 'Города обновлены в реальном времени', {
@@ -108,7 +139,7 @@ export function CitiesManagement(): JSX.Element {
       logger.info('cities', 'Отписка от изменений городов');
       unsubscribe();
     };
-  }, []);
+  }, [filterCitiesByAccess, hasPermission, isAdminLoading]);
 
   // Фильтрация городов
   const filteredCities = useMemo(() => {
@@ -121,10 +152,18 @@ export function CitiesManagement(): JSX.Element {
     );
   }, [citiesWithStatus, searchQuery]);
 
+  if (!hasPermission(Permission.MANAGE_RESTAURANTS)) {
+    return null;
+  }
+
   /**
    * Переключить активность города
    */
   const handleToggleActive = async (cityId: string) => {
+    if (!canManageCities) {
+      alert('Недостаточно прав для управления городами');
+      return;
+    }
     const city = citiesWithStatus.find((c) => c.id === cityId);
     if (!city) return;
 
@@ -159,6 +198,10 @@ export function CitiesManagement(): JSX.Element {
    * Удалить город
    */
   const handleDeleteCity = () => {
+    if (!canManageCities) {
+      alert('Недостаточно прав для удаления города');
+      return;
+    }
     if (!cityToDelete) {
       return;
     }
@@ -224,6 +267,7 @@ export function CitiesManagement(): JSX.Element {
     twoGisUrl: string;
     socialNetworks: Array<{ name: string; url: string }>;
     remarkedRestaurantId?: number;
+    reviewLink: string;
   }) => {
     if (!restaurantToEdit) return;
 
@@ -236,6 +280,7 @@ export function CitiesManagement(): JSX.Element {
       twoGisUrl: updates.twoGisUrl.trim() ? updates.twoGisUrl : undefined,
       socialNetworks: updates.socialNetworks.length > 0 ? updates.socialNetworks : undefined,
       remarkedRestaurantId: updates.remarkedRestaurantId,
+      reviewLink: updates.reviewLink.trim(),
     });
 
     if (result) {
@@ -296,6 +341,7 @@ export function CitiesManagement(): JSX.Element {
             twoGisUrl: city.restaurant.twoGisUrl,
             socialNetworks: city.restaurant.socialNetworks,
             remarkedRestaurantId: city.restaurant.remarkedRestaurantId,
+            reviewLink: city.restaurant.reviewLink,
           });
 
           logger.debug('cities', 'Результат создания ресторана', restaurantResult);
@@ -434,13 +480,15 @@ export function CitiesManagement(): JSX.Element {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1"
           />
-          <Button
-            onClick={() => setIsCreateCityModalOpen(true)}
-            className="bg-mariko-primary hover:bg-mariko-primary/90"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Создать город
-          </Button>
+          {canManageCities && (
+            <Button
+              onClick={() => setIsCreateCityModalOpen(true)}
+              className="bg-mariko-primary hover:bg-mariko-primary/90"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Создать город
+            </Button>
+          )}
         </div>
       </div>
 
@@ -482,6 +530,7 @@ export function CitiesManagement(): JSX.Element {
                   onClick={() => handleToggleActive(city.id)}
                   title={city.isActive ? 'Деактивировать' : 'Активировать'}
                   className="h-8 w-8 md:h-9 md:w-9 p-0"
+                  disabled={!canManageCities}
                 >
                   {city.isActive ? (
                     <EyeOff className="w-3.5 h-3.5 md:w-4 md:h-4" />
@@ -496,6 +545,7 @@ export function CitiesManagement(): JSX.Element {
                   onClick={() => setCityToDelete(city.id)}
                   title="Удалить"
                   className="h-8 w-8 md:h-9 md:w-9 p-0"
+                  disabled={!canManageCities}
                 >
                   <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 </Button>

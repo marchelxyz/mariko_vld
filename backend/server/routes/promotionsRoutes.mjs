@@ -1,8 +1,8 @@
 import express from "express";
 import { randomUUID } from "crypto";
-import { db, ensureDatabase, queryMany, queryOne, query } from "../postgresClient.mjs";
+import { ensureDatabase, queryMany, queryOne, query } from "../postgresClient.mjs";
 import { createLogger } from "../utils/logger.mjs";
-import { authoriseAdmin } from "../services/adminService.mjs";
+import { ADMIN_PERMISSION, authoriseAdmin, resolveAllowedCitiesByRestaurants } from "../services/adminService.mjs";
 
 const logger = createLogger('promotions');
 
@@ -121,7 +121,7 @@ export function createAdminPromotionsRouter() {
     });
 
     // Проверка авторизации (мягкая проверка - права уже проверены при входе в админ-панель)
-    const admin = await authoriseAdmin(req, res);
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_PROMOTIONS);
     if (!admin) {
       // Если не админ, возвращаем ошибку
       const duration = Date.now() - startTime;
@@ -148,6 +148,20 @@ export function createAdminPromotionsRouter() {
         const duration = Date.now() - startTime;
         logger.requestError('POST', '/:cityId', new Error('Город не найден'), 404);
         return res.status(404).json({ success: false, message: "Город не найден" });
+      }
+
+      if (admin.role !== "super_admin" && admin.role !== "admin") {
+        if (!admin.allowedRestaurants?.length) {
+          const duration = Date.now() - startTime;
+          logger.requestError('POST', '/:cityId', new Error('Нет доступа к городам'), 403);
+          return res.status(403).json({ success: false, message: "Нет доступа к городам" });
+        }
+        const allowedCities = await resolveAllowedCitiesByRestaurants(admin.allowedRestaurants);
+        if (!allowedCities.includes(cityId)) {
+          const duration = Date.now() - startTime;
+          logger.requestError('POST', '/:cityId', new Error('Город недоступен'), 403);
+          return res.status(403).json({ success: false, message: "Нет доступа к этому городу" });
+        }
       }
 
       // Удаляем все существующие акции для города

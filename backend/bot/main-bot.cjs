@@ -1,4 +1,4 @@
-const { Telegraf, Markup } = require('telegraf');
+const { Telegraf } = require('telegraf');
 const { message } = require('telegraf/filters');
 const express = require('express');
 const cors = require('cors');
@@ -13,9 +13,7 @@ const botEnvPath = fs.existsSync(path.join(__dirname, '.env.local'))
 require('dotenv').config({ path: botEnvPath });
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const WEBAPP_URL = process.env.WEBAPP_URL || "https://ineedaglokk.ru";
-const PROFILE_SYNC_URL =
-  process.env.PROFILE_SYNC_URL || `${WEBAPP_URL.replace(/\/$/, "")}/api/cart/profile/sync`;
+const WEBAPP_URL = process.env.WEBAPP_URL;
 const API_PORT = Number(process.env.API_PORT || process.env.PORT || 4000);
 const ADMIN_PANEL_TOKEN = process.env.ADMIN_PANEL_TOKEN;
 const ADMIN_TELEGRAM_IDS = (process.env.ADMIN_TELEGRAM_IDS || '')
@@ -24,7 +22,17 @@ const ADMIN_TELEGRAM_IDS = (process.env.ADMIN_TELEGRAM_IDS || '')
   .filter(Boolean);
 const isProduction = process.env.NODE_ENV === 'production';
 
-if (!BOT_TOKEN) {
+const parseBooleanEnv = (value, fallback) => {
+  if (value == null) return fallback;
+  const normalized = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'y', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'n', 'off'].includes(normalized)) return false;
+  return fallback;
+};
+
+const BOT_POLLING_ENABLED = parseBooleanEnv(process.env.BOT_POLLING_ENABLED, true);
+
+if (!BOT_TOKEN && BOT_POLLING_ENABLED) {
   console.error("❌ BOT_TOKEN не найден в переменных окружения!");
   console.error("💡 Получите токен от @BotFather и добавьте в .env файл");
   process.exit(1);
@@ -54,6 +62,43 @@ const maskToken = (token) => {
 };
 
 const escapeMarkdown = (text = "") => text.replace(/([_*[\]()])/g, "\\$1");
+
+process.on('unhandledRejection', (reason) => {
+  console.error('❌ Unhandled promise rejection:', reason);
+  process.exit(1);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught exception:', error);
+  process.exit(1);
+});
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isTelegramConflictError = (error) => {
+  const errorCode = error?.response?.error_code ?? error?.code;
+  if (errorCode === 409) return true;
+  const msg = String(error?.description || error?.message || '');
+  return msg.includes('409') && msg.toLowerCase().includes('conflict');
+};
+
+const normalizeHttpUrl = (rawUrl) => {
+  if (!rawUrl) return null;
+  try {
+    const url = new URL(rawUrl);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+      return null;
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
+};
+
+const NORMALIZED_WEBAPP_URL = normalizeHttpUrl(WEBAPP_URL);
+if (!NORMALIZED_WEBAPP_URL) {
+  console.warn('⚠️ WEBAPP_URL не задан или некорректен — кнопка открытия Mini App будет отключена');
+}
 
 // ============================ TELEGRAM WEBAPP AUTH ============================
 const verifyTelegramInitData = (rawData) => {
@@ -141,34 +186,24 @@ const bot = new Telegraf(BOT_TOKEN, {
 });
 
 console.log('🍴 Хачапури Марико бот запущен!');
+if (!BOT_POLLING_ENABLED) {
+  console.log('⏸️ BOT_POLLING_ENABLED=false — Telegram polling отключен (standby режим)');
+}
 
-const syncProfilePhone = async (user, phone) => {
-  if (!user || !user.id || !phone) return;
-  const fullName =
-    [user.first_name, user.last_name].filter(Boolean).join(" ").trim() ||
-    user.username ||
-    "Пользователь";
-
-  try {
-    await fetch(PROFILE_SYNC_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Telegram-Id": user.id.toString(),
-      },
-      body: JSON.stringify({
-        id: user.id.toString(),
-        telegramId: user.id,
-        name: fullName,
-        phone,
-      }),
-    });
-  } catch (error) {
-    console.warn("Не удалось синхронизировать телефон профиля", error?.message || error);
-  }
+const buildOpenWebAppMarkup = ({ mode = 'web_app' } = {}) => {
+  if (!NORMALIZED_WEBAPP_URL) return null;
+  const button =
+    mode === 'url'
+      ? { text: "🍽️ Начать", url: NORMALIZED_WEBAPP_URL }
+      : { text: "🍽️ Начать", web_app: { url: NORMALIZED_WEBAPP_URL } };
+  return {
+    reply_markup: {
+      inline_keyboard: [[button]],
+    },
+  };
 };
 
-const sendWelcome = (chatId, firstName) => {
+const sendWelcome = async (chatId, firstName) => {
   const message = [
     `🇬🇪 Гамарджоба, ${firstName}! Добро пожаловать в *Хачапури Марико*.`,
     "",
@@ -178,55 +213,65 @@ const sendWelcome = (chatId, firstName) => {
     "• ⭐ Оставить отзыв",
     "• 🚀 Заказать доставку (скоро)",
     "",
-    "Оставьте номер, чтобы мы быстрее подобрали для вас лучшие блюда и акции!",
-    "Нажми на «Покушать» и будь вкусно накормлен всегда!",
+    "Нажми на «Начать» и будь вкусно накормлен всегда!",
   ].join("\n");
 
-  return bot.telegram.sendMessage(
-    chatId,
-    message,
-    {
-      parse_mode: 'Markdown',
-      disable_web_page_preview: true,
-      ...Markup.keyboard([
-        [{ text: "📞 Оставить номер", request_contact: true }],
-      ])
-        .oneTime()
-        .resize(),
-    },
-  );
+  const baseOptions = {
+    parse_mode: 'Markdown',
+    disable_web_page_preview: true,
+  };
+
+  const webAppMarkup = buildOpenWebAppMarkup({ mode: 'web_app' });
+  if (webAppMarkup) {
+    try {
+      return await bot.telegram.sendMessage(chatId, message, { ...baseOptions, ...webAppMarkup });
+    } catch (error) {
+      console.warn(
+        'Не удалось отправить приветствие с web_app кнопкой — отправляю запасной вариант',
+        error?.description || error?.message || error,
+      );
+    }
+  }
+
+  const urlMarkup = buildOpenWebAppMarkup({ mode: 'url' });
+  if (urlMarkup) {
+    try {
+      return await bot.telegram.sendMessage(chatId, message, { ...baseOptions, ...urlMarkup });
+    } catch (error) {
+      console.warn(
+        'Не удалось отправить приветствие с url кнопкой — отправляю без кнопки',
+        error?.description || error?.message || error,
+      );
+    }
+  }
+
+  return bot.telegram.sendMessage(chatId, message, { disable_web_page_preview: true });
 };
 
-bot.start((ctx) => {
-  const chatId = ctx.chat.id;
-  const user = ctx.from;
-  const firstName = escapeMarkdown(user?.first_name || 'друг');
-  sendWelcome(chatId, firstName);
+const sendWelcomeOnce = async (ctx) => {
+  if (!ctx || !ctx.chat?.id) return;
+  ctx.state = ctx.state || {};
+  if (ctx.state.welcomeSent) return;
+  ctx.state.welcomeSent = true;
+
+  const firstName = escapeMarkdown(ctx.from?.first_name || 'друг');
+  await sendWelcome(ctx.chat.id, firstName);
+};
+
+bot.start(async (ctx) => {
+  await sendWelcomeOnce(ctx);
 });
 
-bot.command('webapp', (ctx) => {
-  const chatId = ctx.chat.id;
-  sendWelcome(chatId, escapeMarkdown(ctx.from?.first_name || 'друг'));
+bot.command('webapp', async (ctx) => {
+  await sendWelcomeOnce(ctx);
 });
 
-bot.on(message('contact'), (ctx) => {
-  const chatId = ctx.chat.id;
-  const contact = ctx.message?.contact;
-  if (contact?.phone_number) {
-    syncProfilePhone(ctx.from, contact.phone_number);
-    ctx.reply("Спасибо! Номер сохранили в профиле. Теперь мы будем для вас подбирать все самое лучшее!");
-  }
-});
-
-bot.on(message('text'), (ctx) => {
+bot.on(message('text'), async (ctx) => {
   const text = ctx.message?.text;
-  if (!text || text === '/start' || text === '/webapp') {
+  if (!text || text === '/webapp') {
     return;
   }
-  const chatId = ctx.chat.id;
-  const user = ctx.from;
-  const firstName = escapeMarkdown(user?.first_name || 'друг');
-  sendWelcome(chatId, firstName);
+  await sendWelcomeOnce(ctx);
 });
 
 bot.catch((error) => {
@@ -236,15 +281,49 @@ bot.catch((error) => {
   }
 });
 
-bot.launch().then(() => {
-  bot.telegram.getMe().then((me) => {
-    console.log(`✅ Подключен как: @${me.username} (${me.first_name})`);
-    console.log("✅ Бот успешно запущен в polling режиме!");
-  });
-}).catch((error) => {
-  console.error("❌ Ошибка подключения к боту:", error.message);
-  process.exit(1);
-});
+const launchBot = async () => {
+  const retryDelayMs = Number(process.env.BOT_RETRY_DELAY_MS || 10_000);
+
+  while (true) {
+    try {
+      await bot.telegram.deleteWebhook(true);
+    } catch (error) {
+      console.warn(
+        '⚠️ Не удалось удалить webhook перед polling запуском (продолжаю)',
+        error?.description || error?.message || error,
+      );
+    }
+
+    try {
+      await bot.launch({ dropPendingUpdates: true });
+      const me = await bot.telegram.getMe();
+      console.log(`✅ Подключен как: @${me.username} (${me.first_name})`);
+      console.log("✅ Бот успешно запущен в polling режиме!");
+      return;
+    } catch (error) {
+      if (isTelegramConflictError(error)) {
+        console.error(
+          "❌ Telegram 409 Conflict: бот уже запущен где-то ещё (или идёт деплой с временным дублем).",
+          error?.description || error?.message || error,
+        );
+        try {
+          bot.stop('conflict-retry');
+        } catch {
+          // ignore
+        }
+        await sleep(retryDelayMs);
+        continue;
+      }
+
+      console.error("❌ Ошибка подключения к боту:", error.message);
+      process.exit(1);
+    }
+  }
+};
+
+if (BOT_POLLING_ENABLED) {
+  launchBot();
+}
 
 const gracefulShutdown = (signal) => {
   console.log(`🛑 Получен сигнал ${signal}, завершение работы...`);

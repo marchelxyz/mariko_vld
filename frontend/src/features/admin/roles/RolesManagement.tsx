@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { Shield, UserCheck, UserX, Search, ChevronRight, Loader2 } from "lucide-react";
+import { Shield, UserCheck, UserX, Search, ChevronRight, Loader2, Truck, Megaphone } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { adminServerApi, type AdminPanelUser } from "@shared/api/admin";
 import { getAllCitiesAsync, type City } from "@shared/data";
 import { useAdmin } from "@shared/hooks";
-import { UserRole } from "@shared/types";
+import { Permission, UserRole } from "@shared/types";
 import {
   Button,
   Input,
@@ -37,9 +37,13 @@ export function RolesManagement(): JSX.Element {
     { id: string; label: string; cityName: string; address: string }[]
   >([]);
 
+  const { isSuperAdmin, allowedRestaurants: myAllowedRestaurants, hasPermission, userRole } = useAdmin();
+  const canManageRoles = hasPermission(Permission.MANAGE_ROLES);
+
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ["admin-users"],
     queryFn: () => adminServerApi.getUsers(),
+    enabled: canManageRoles,
   });
 
   type RestaurantOption = { id: string; label: string; cityName: string; address: string };
@@ -59,8 +63,10 @@ export function RolesManagement(): JSX.Element {
       const cities = await getAllCitiesAsync();
       setRestaurantOptions(mapCityRestaurants(cities));
     };
-    void loadRestaurants();
-  }, []);
+    if (canManageRoles) {
+      void loadRestaurants();
+    }
+  }, [canManageRoles]);
 
   useEffect(() => {
     if (!showDialog) {
@@ -81,12 +87,24 @@ export function RolesManagement(): JSX.Element {
     });
   }, [users, searchQuery]);
 
-  const filteredRestaurants = useMemo(() => {
-    if (!restaurantSearch.trim()) {
+  const scopedRestaurantOptions = useMemo(() => {
+    if (isSuperAdmin() || userRole === UserRole.ADMIN) {
       return restaurantOptions;
     }
+    if (!myAllowedRestaurants?.length) {
+      return [];
+    }
+    const allowed = new Set(myAllowedRestaurants);
+    return restaurantOptions.filter((restaurant) => allowed.has(restaurant.id));
+  }, [isSuperAdmin, myAllowedRestaurants, restaurantOptions, userRole]);
+
+  const filteredRestaurants = useMemo(() => {
+    const source = scopedRestaurantOptions;
+    if (!restaurantSearch.trim()) {
+      return source;
+    }
     const query = restaurantSearch.toLowerCase();
-    return restaurantOptions.filter((restaurant) => {
+    return source.filter((restaurant) => {
       const address = restaurant.address?.toLowerCase() ?? "";
       return (
         restaurant.label.toLowerCase().includes(query) ||
@@ -94,7 +112,11 @@ export function RolesManagement(): JSX.Element {
         address.includes(query)
       );
     });
-  }, [restaurantOptions, restaurantSearch]);
+  }, [restaurantSearch, scopedRestaurantOptions]);
+
+  const roleRequiresRestaurants = (role: UserRole): boolean => {
+    return ![UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.USER].includes(role);
+  };
 
   const getRoleLabel = (role: UserRole): string => {
     switch (role) {
@@ -102,15 +124,67 @@ export function RolesManagement(): JSX.Element {
         return "Супер-администратор";
       case UserRole.ADMIN:
         return "Администратор";
+      case UserRole.MANAGER:
+        return "Управляющий";
+      case UserRole.RESTAURANT_MANAGER:
+        return "Менеджер ресторана";
+      case UserRole.MARKETER:
+        return "Маркетолог";
+      case UserRole.DELIVERY_MANAGER:
+        return "Менеджер по доставке";
       default:
         return "Пользователь";
+    }
+  };
+
+  const assignableRoles = useMemo(
+    () => {
+      const base = [
+        { value: UserRole.ADMIN, label: getRoleLabel(UserRole.ADMIN) },
+        { value: UserRole.MANAGER, label: getRoleLabel(UserRole.MANAGER) },
+        { value: UserRole.RESTAURANT_MANAGER, label: getRoleLabel(UserRole.RESTAURANT_MANAGER) },
+        { value: UserRole.MARKETER, label: getRoleLabel(UserRole.MARKETER) },
+        { value: UserRole.DELIVERY_MANAGER, label: getRoleLabel(UserRole.DELIVERY_MANAGER) },
+        { value: UserRole.USER, label: getRoleLabel(UserRole.USER) },
+      ];
+      if (isSuperAdmin()) {
+        return [{ value: UserRole.SUPER_ADMIN, label: getRoleLabel(UserRole.SUPER_ADMIN) }, ...base];
+      }
+      return base;
+    },
+    [isSuperAdmin],
+  );
+
+  useEffect(() => {
+    if (!roleRequiresRestaurants(selectedRole)) {
+      setSelectedRestaurants([]);
+    }
+  }, [selectedRole]);
+
+  const getRoleBadge = (role: UserRole) => {
+    switch (role) {
+      case UserRole.SUPER_ADMIN:
+        return { className: "bg-red-600/70 text-white", icon: <Shield className="w-4 h-4 mr-1" /> };
+      case UserRole.ADMIN:
+        return { className: "bg-mariko-primary text-white", icon: <Shield className="w-4 h-4 mr-1" /> };
+      case UserRole.MANAGER:
+        return { className: "bg-amber-500/80 text-white", icon: <Shield className="w-4 h-4 mr-1" /> };
+      case UserRole.RESTAURANT_MANAGER:
+        return { className: "bg-blue-500 text-white", icon: <UserCheck className="w-4 h-4 mr-1" /> };
+      case UserRole.MARKETER:
+        return { className: "bg-purple-600/80 text-white", icon: <Megaphone className="w-4 h-4 mr-1" /> };
+      case UserRole.DELIVERY_MANAGER:
+        return { className: "bg-emerald-600/80 text-white", icon: <Truck className="w-4 h-4 mr-1" /> };
+      default:
+        return { className: "bg-slate-500 text-white", icon: <UserX className="w-4 h-4 mr-1" /> };
     }
   };
 
   const openDialogForUser = (user: AdminPanelUser) => {
     setSelectedUser(user);
     setSelectedRole(user.role);
-    setSelectedRestaurants(user.allowedRestaurants ?? []);
+    const availableIds = new Set(scopedRestaurantOptions.map((option) => option.id));
+    setSelectedRestaurants((user.allowedRestaurants ?? []).filter((id) => availableIds.has(id)));
     setShowDialog(true);
   };
 
@@ -128,7 +202,7 @@ export function RolesManagement(): JSX.Element {
     try {
       await adminServerApi.updateUserRole(selectedUser.id || selectedUser.telegramId || "", {
         role: selectedRole,
-        allowedRestaurants: selectedRole === UserRole.ADMIN ? selectedRestaurants : [],
+        allowedRestaurants: roleRequiresRestaurants(selectedRole) ? selectedRestaurants : [],
       });
       alert("Роль обновлена");
       setShowDialog(false);
@@ -141,6 +215,10 @@ export function RolesManagement(): JSX.Element {
       setIsSaving(false);
     }
   };
+
+  if (!hasPermission(Permission.MANAGE_ROLES)) {
+    return null;
+  }
 
   if (isLoading) {
     return (
@@ -183,18 +261,17 @@ export function RolesManagement(): JSX.Element {
               {user.phone && <p className="text-white/70 text-sm">Телефон: {user.phone}</p>}
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <span
-                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
-                  user.role === UserRole.SUPER_ADMIN
-                    ? "bg-red-600/70 text-white"
-                    : user.role === UserRole.ADMIN
-                      ? "bg-mariko-primary text-white"
-                      : "bg-blue-500 text-white"
-                }`}
-              >
-                {user.role === UserRole.SUPER_ADMIN ? <Shield className="w-4 h-4 mr-1" /> : user.role === UserRole.ADMIN ? <UserCheck className="w-4 h-4 mr-1" /> : <UserX className="w-4 h-4 mr-1" />}
-                {getRoleLabel(user.role)}
-              </span>
+              {(() => {
+                const badge = getRoleBadge(user.role);
+                return (
+                  <span
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${badge.className}`}
+                  >
+                    {badge.icon}
+                    {getRoleLabel(user.role)}
+                  </span>
+                );
+              })()}
               <Button variant="outline" className="w-full sm:w-auto" onClick={() => openDialogForUser(user)}>
                 Настроить
                 <ChevronRight className="w-4 h-4 ml-1" />
@@ -225,9 +302,11 @@ export function RolesManagement(): JSX.Element {
                   <SelectValue placeholder="Выберите роль" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={UserRole.SUPER_ADMIN}>Супер-администратор</SelectItem>
-                  <SelectItem value={UserRole.ADMIN}>Администратор</SelectItem>
-                  <SelectItem value={UserRole.USER}>Пользователь</SelectItem>
+                  {assignableRoles.map((role) => (
+                    <SelectItem key={role.value} value={role.value}>
+                      {role.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {selectedRole === UserRole.SUPER_ADMIN && (
@@ -237,7 +316,7 @@ export function RolesManagement(): JSX.Element {
               )}
             </div>
 
-            {selectedRole === UserRole.ADMIN && (
+            {roleRequiresRestaurants(selectedRole) && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Доступные рестораны</Label>
@@ -273,7 +352,7 @@ export function RolesManagement(): JSX.Element {
                   ))}
                   {!filteredRestaurants.length && (
                     <p className="text-mariko-dark/60 text-sm text-center py-4">
-                      {restaurantOptions.length
+                      {scopedRestaurantOptions.length
                         ? "Ничего не найдено"
                         : "Список ресторанов пуст. Добавьте их в справочнике."}
                     </p>

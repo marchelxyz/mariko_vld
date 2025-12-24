@@ -3,6 +3,14 @@ import { useState, useEffect } from 'react';
 import { Button, Input, Label } from "@shared/ui";
 import type { Restaurant, DeliveryAggregator, SocialNetwork } from "@shared/data";
 
+/**
+ * Предопределенные агрегаторы доставки
+ */
+const PREDEFINED_AGGREGATORS = [
+  { name: 'Яндекс Еда', icon: '/images/action button/Vector.png' },
+  { name: 'Delivery Club', icon: '/images/action button/Logo.png' },
+] as const;
+
 type EditRestaurantModalProps = {
   restaurant: Restaurant | null;
   isOpen: boolean;
@@ -16,6 +24,7 @@ type EditRestaurantModalProps = {
     twoGisUrl: string;
     socialNetworks: SocialNetwork[];
     remarkedRestaurantId?: number;
+    reviewLink: string;
   }) => Promise<void>;
 };
 
@@ -57,6 +66,7 @@ export function EditRestaurantModal({
   const [twoGisUrl, setTwoGisUrl] = useState('');
   const [socialNetworks, setSocialNetworks] = useState<SocialNetwork[]>([]);
   const [remarkedRestaurantId, setRemarkedRestaurantId] = useState<string>('');
+  const [reviewLink, setReviewLink] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -69,6 +79,7 @@ export function EditRestaurantModal({
       setTwoGisUrl(restaurant.twoGisUrl || '');
       setSocialNetworks(restaurant.socialNetworks || []);
       setRemarkedRestaurantId(restaurant.remarkedRestaurantId?.toString() || '');
+      setReviewLink(restaurant.reviewLink || '');
     }
   }, [restaurant, isOpen]);
 
@@ -81,9 +92,17 @@ export function EditRestaurantModal({
     setPhoneNumber(formatted);
   };
 
-  const handleAddDeliveryAggregator = () => {
-    if (deliveryAggregators.length < 5) {
-      setDeliveryAggregators([...deliveryAggregators, { name: '', url: '' }]);
+  const handleToggleDeliveryAggregator = (aggregatorName: string) => {
+    const existingIndex = deliveryAggregators.findIndex(agg => agg.name === aggregatorName);
+    
+    if (existingIndex >= 0) {
+      // Удаляем агрегатор, если он уже добавлен
+      setDeliveryAggregators(deliveryAggregators.filter((_, i) => i !== existingIndex));
+    } else {
+      // Добавляем агрегатор, если его еще нет и не превышен лимит
+      if (deliveryAggregators.length < 5) {
+        setDeliveryAggregators([...deliveryAggregators, { name: aggregatorName, url: '' }]);
+      }
     }
   };
 
@@ -91,9 +110,9 @@ export function EditRestaurantModal({
     setDeliveryAggregators(deliveryAggregators.filter((_, i) => i !== index));
   };
 
-  const handleUpdateDeliveryAggregator = (index: number, field: 'name' | 'url', value: string) => {
+  const handleUpdateDeliveryAggregatorUrl = (index: number, url: string) => {
     const updated = [...deliveryAggregators];
-    updated[index] = { ...updated[index], [field]: value };
+    updated[index] = { ...updated[index], url };
     setDeliveryAggregators(updated);
   };
 
@@ -116,6 +135,10 @@ export function EditRestaurantModal({
   const handleSave = async () => {
     if (!name.trim() || !address.trim()) {
       alert('Пожалуйста, заполните название и адрес ресторана');
+      return;
+    }
+    if (!reviewLink.trim()) {
+      alert('Пожалуйста, заполните ссылку на отзывы');
       return;
     }
 
@@ -143,6 +166,7 @@ export function EditRestaurantModal({
           }
           return parsed;
         })() : undefined,
+        reviewLink: reviewLink.trim(),
       });
       onClose();
     } catch (error) {
@@ -211,47 +235,78 @@ export function EditRestaurantModal({
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label className="text-white">Агрегаторы доставки (до 5)</Label>
-              {deliveryAggregators.length < 5 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddDeliveryAggregator}
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Добавить
-                </Button>
-              )}
+            <Label className="text-white">Ссылка на отзывы *</Label>
+            <Input
+              value={reviewLink}
+              onChange={(e) => setReviewLink(e.target.value)}
+              placeholder="https://vhachapuri.ru/otziv_..."
+            />
+            <p className="text-white/60 text-xs mt-1">
+              Ссылка на страницу отзывов ресторана. Используется в кнопке "Оставить отзыв"
+            </p>
+          </div>
+
+          <div>
+            <Label className="text-white mb-2 block">Агрегаторы доставки</Label>
+            
+            {/* Кнопки выбора агрегаторов */}
+            <div className="flex flex-wrap gap-2 mb-3">
+              {PREDEFINED_AGGREGATORS.map((agg) => {
+                const isAdded = deliveryAggregators.some(a => a.name === agg.name);
+                const canAdd = deliveryAggregators.length < 5;
+                
+                return (
+                  <Button
+                    key={agg.name}
+                    type="button"
+                    variant={isAdded ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleToggleDeliveryAggregator(agg.name)}
+                    disabled={!isAdded && !canAdd}
+                    className="flex items-center gap-2"
+                  >
+                    {isAdded ? (
+                      <>
+                        <X className="w-4 h-4" />
+                        {agg.name}
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4" />
+                        {agg.name}
+                      </>
+                    )}
+                  </Button>
+                );
+              })}
             </div>
+
+            {/* Список добавленных агрегаторов с полем для ссылки */}
             <div className="space-y-2">
               {deliveryAggregators.map((agg, index) => (
-                <div key={index} className="flex gap-2 items-start">
-                  <Input
-                    value={agg.name}
-                    onChange={(e) => handleUpdateDeliveryAggregator(index, 'name', e.target.value)}
-                    placeholder="Название агрегатора"
-                    className="flex-1"
-                  />
-                  <Input
-                    value={agg.url}
-                    onChange={(e) => handleUpdateDeliveryAggregator(index, 'url', e.target.value)}
-                    placeholder="Ссылка"
-                    className="flex-1"
-                  />
+                <div key={index} className="flex gap-2 items-start bg-white/10 rounded-lg p-3">
+                  <div className="flex-1">
+                    <div className="text-white text-sm font-medium mb-1">{agg.name}</div>
+                    <Input
+                      value={agg.url}
+                      onChange={(e) => handleUpdateDeliveryAggregatorUrl(index, e.target.value)}
+                      placeholder="Введите ссылку на ресторан в агрегаторе"
+                      className="w-full"
+                    />
+                  </div>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     onClick={() => handleRemoveDeliveryAggregator(index)}
+                    className="mt-6"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
               ))}
               {deliveryAggregators.length === 0 && (
-                <p className="text-white/50 text-sm">Нет агрегаторов доставки</p>
+                <p className="text-white/50 text-sm">Выберите агрегаторы доставки из списка выше</p>
               )}
             </div>
           </div>
@@ -338,7 +393,7 @@ export function EditRestaurantModal({
           <Button
             variant="default"
             onClick={handleSave}
-            disabled={!name.trim() || !address.trim() || isSaving}
+            disabled={!name.trim() || !address.trim() || !reviewLink.trim() || isSaving}
           >
             <Save className="w-4 h-4 mr-2" />
             {isSaving ? 'Сохранение...' : 'Сохранить'}

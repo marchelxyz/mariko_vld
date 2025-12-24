@@ -62,7 +62,7 @@ function MenuItemComponentBase({
       {/* Фото/иконка блюда */}
       <div className={`${
         isMobile ? 'aspect-[4/3]' : 
-        isCompact ? 'aspect-[3/2]' : 
+        isCompact ? 'aspect-[4/3]' : 
         'aspect-[4/3]'
       } bg-gray-100 flex items-center justify-center relative`}>
         {item.imageUrl ? (
@@ -112,18 +112,16 @@ function MenuItemComponentBase({
               isMobile ? 'text-[10px] md:text-xs' :
               isCompact ? 'text-[11px] md:text-sm' : 
               'text-xs md:text-sm'
-            }`}>
+            } min-h-[2.5em]`}>
               {item.name}
             </h3>
-            {item.weight && (
-              <p className={`text-gray-500 mt-0.5 ${
-                isMobile ? 'text-[8px] md:text-[9px]' :
-                isCompact ? 'text-[9px] md:text-xs' : 
-                'text-[10px] md:text-xs'
-              }`}>
-                {item.weight}
-              </p>
-            )}
+            <p className={`text-gray-500 mt-0.5 min-h-[1.2em] ${
+              isMobile ? 'text-[8px] md:text-[9px]' :
+              isCompact ? 'text-[9px] md:text-xs' : 
+              'text-[10px] md:text-xs'
+            }`}>
+              {item.weight ?? ""}
+            </p>
           </div>
         </div>
         
@@ -180,25 +178,23 @@ function MenuItemComponentBase({
           )}
         </div>
         
-        {/* Дополнительные маркеры */}
-        {(item.isVegetarian || item.isSpicy) && (
-          <div className="flex items-center gap-1 mt-1">
-            {item.isVegetarian && (
-              <span className={`text-green-600 ${
-                isMobile ? 'text-[8px] md:text-[9px]' :
-                isCompact ? 'text-[10px] md:text-xs' : 
-                'text-[10px] md:text-xs'
-              }`}>🌱</span>
-            )}
-            {item.isSpicy && (
-              <span className={`text-red-600 ${
-                isMobile ? 'text-[8px] md:text-[9px]' :
-                isCompact ? 'text-[10px] md:text-xs' : 
-                'text-[10px] md:text-xs'
-              }`}>🌶️</span>
-            )}
-          </div>
-        )}
+        {/* Дополнительные маркеры - всегда резервируем место для единообразия высоты карточек */}
+        <div className="flex items-center gap-1 mt-1 min-h-[16px] md:min-h-[18px]">
+          {item.isVegetarian && (
+            <span className={`text-green-600 ${
+              isMobile ? 'text-[8px] md:text-[9px]' :
+              isCompact ? 'text-[10px] md:text-xs' : 
+              'text-[10px] md:text-xs'
+            }`}>🌱</span>
+          )}
+          {item.isSpicy && (
+            <span className={`text-red-600 ${
+              isMobile ? 'text-[8px] md:text-[9px]' :
+              isCompact ? 'text-[10px] md:text-xs' : 
+              'text-[10px] md:text-xs'
+            }`}>🌶️</span>
+          )}
+        </div>
       </div>
     </div>
   );

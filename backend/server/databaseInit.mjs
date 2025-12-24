@@ -15,6 +15,7 @@ const SCHEMAS = {
       gender VARCHAR(20),
       photo TEXT,
       notifications_enabled BOOLEAN DEFAULT true,
+      onboarding_tour_shown BOOLEAN DEFAULT false,
       favorite_city_id VARCHAR(255),
       favorite_city_name VARCHAR(255),
       favorite_restaurant_id VARCHAR(255),
@@ -81,7 +82,17 @@ const SCHEMAS = {
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       telegram_id BIGINT UNIQUE NOT NULL,
       name VARCHAR(255) NOT NULL,
-      role VARCHAR(50) NOT NULL DEFAULT 'admin' CHECK (role IN ('super_admin', 'admin', 'user')),
+      role VARCHAR(50) NOT NULL DEFAULT 'admin' CHECK (
+        role IN (
+          'super_admin',
+          'admin',
+          'manager',
+          'restaurant_manager',
+          'marketer',
+          'delivery_manager',
+          'user'
+        )
+      ),
       permissions JSONB DEFAULT '{}'::jsonb,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -144,6 +155,7 @@ const SCHEMAS = {
       two_gis_url TEXT,
       social_networks JSONB DEFAULT '[]'::jsonb,
       remarked_restaurant_id INTEGER,
+      review_link TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
@@ -218,6 +230,18 @@ const SCHEMAS = {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `,
+
+  city_recommended_dishes: `
+    CREATE TABLE IF NOT EXISTS city_recommended_dishes (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      city_id VARCHAR(255) NOT NULL,
+      menu_item_id VARCHAR(255) NOT NULL,
+      display_order INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(city_id, menu_item_id)
+    );
+  `,
 };
 
 /**
@@ -257,6 +281,9 @@ const INDEXES = [
     `CREATE INDEX IF NOT EXISTS idx_menu_items_category_id ON menu_items(category_id);`,
     `CREATE INDEX IF NOT EXISTS idx_menu_items_display_order ON menu_items(display_order);`,
     `CREATE INDEX IF NOT EXISTS idx_menu_items_is_active ON menu_items(is_active);`,
+    `CREATE INDEX IF NOT EXISTS idx_city_recommended_dishes_city_id ON city_recommended_dishes(city_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_city_recommended_dishes_menu_item_id ON city_recommended_dishes(menu_item_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_city_recommended_dishes_display_order ON city_recommended_dishes(display_order);`,
 ];
 
 /**
@@ -305,6 +332,7 @@ export async function initializeDatabase() {
       "promotions",         // promotions зависит от cities
       "menu_categories",    // menu_categories зависит от restaurants
       "menu_items",         // menu_items зависит от menu_categories
+      "city_recommended_dishes", // city_recommended_dishes зависит от cities и menu_items
     ];
 
     // Создаем таблицы в правильном порядке
@@ -325,6 +353,27 @@ export async function initializeDatabase() {
         console.error(`SQL запрос:`, SCHEMAS[tableName]?.substring(0, 200) + "...");
         throw error;
       }
+    }
+
+    // Обновляем constraint по ролям админов на случай, если таблица уже существовала
+    try {
+      await query(`ALTER TABLE admin_users DROP CONSTRAINT IF EXISTS admin_users_role_check`);
+      await query(
+        `ALTER TABLE admin_users 
+         ADD CONSTRAINT admin_users_role_check CHECK (
+           role IN (
+             'super_admin',
+             'admin',
+             'manager',
+             'restaurant_manager',
+             'marketer',
+             'delivery_manager',
+             'user'
+           )
+         )`,
+      );
+    } catch (error) {
+      console.warn("⚠️  Не удалось обновить constraint ролей админов:", error?.message || error);
     }
 
     // Создаем foreign keys отдельно (после создания всех таблиц)
@@ -379,6 +428,20 @@ export async function initializeDatabase() {
               ADD CONSTRAINT fk_promotions_city 
               FOREIGN KEY (city_id) REFERENCES cities(id) ON DELETE CASCADE`,
       },
+      {
+        name: "fk_city_recommended_dishes_city",
+        table: "city_recommended_dishes",
+        sql: `ALTER TABLE city_recommended_dishes 
+              ADD CONSTRAINT fk_city_recommended_dishes_city 
+              FOREIGN KEY (city_id) REFERENCES cities(id) ON DELETE CASCADE`,
+      },
+      {
+        name: "fk_city_recommended_dishes_menu_item",
+        table: "city_recommended_dishes",
+        sql: `ALTER TABLE city_recommended_dishes 
+              ADD CONSTRAINT fk_city_recommended_dishes_menu_item 
+              FOREIGN KEY (menu_item_id) REFERENCES menu_items(id) ON DELETE CASCADE`,
+      },
     ];
 
     for (const fk of foreignKeys) {
@@ -408,6 +471,42 @@ export async function initializeDatabase() {
           console.log(`ℹ️  Foreign key ${fk.name} пропущен (уже существует или не требуется)`);
         }
       }
+    }
+
+    // Миграция: добавляем поле review_link в таблицу restaurants
+    try {
+      const columnExists = await query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'restaurants' AND column_name = 'review_link'
+      `);
+      
+      if (columnExists.rows.length === 0) {
+        await query(`ALTER TABLE restaurants ADD COLUMN review_link TEXT`);
+        console.log("✅ Поле review_link добавлено в таблицу restaurants");
+      } else {
+        console.log("ℹ️  Поле review_link уже существует в таблице restaurants");
+      }
+    } catch (error) {
+      console.warn("⚠️  Предупреждение при добавлении поля review_link:", error?.message || error);
+    }
+
+    // Миграция: добавляем поле onboarding_tour_shown в таблицу user_profiles
+    try {
+      const columnExists = await query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'user_profiles' AND column_name = 'onboarding_tour_shown'
+      `);
+      
+      if (columnExists.rows.length === 0) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN onboarding_tour_shown BOOLEAN DEFAULT false`);
+        console.log("✅ Поле onboarding_tour_shown добавлено в таблицу user_profiles");
+      } else {
+        console.log("ℹ️  Поле onboarding_tour_shown уже существует в таблице user_profiles");
+      }
+    } catch (error) {
+      console.warn("⚠️  Предупреждение при добавлении поля onboarding_tour_shown:", error?.message || error);
     }
 
     // Создаем индексы
@@ -462,6 +561,9 @@ export async function checkDatabaseTables() {
       "restaurants",
       "bookings",
       "promotions",
+      "menu_categories",
+      "menu_items",
+      "city_recommended_dishes",
     ];
     
     const result = await query(`

@@ -123,15 +123,45 @@ class AdminApi {
         return Object.values(Permission);
 
       case UserRole.ADMIN:
-        // Админ видит справочники, но не управляет городами/ролями
+        return [
+          Permission.MANAGE_ROLES,
+          Permission.MANAGE_RESTAURANTS,
+          Permission.MANAGE_MENU,
+          Permission.MANAGE_PROMOTIONS,
+          Permission.MANAGE_DELIVERIES,
+          Permission.VIEW_CITIES,
+          Permission.VIEW_RESTAURANTS,
+          Permission.VIEW_USERS,
+          Permission.VIEW_MENU,
+        ];
+
+      case UserRole.MANAGER:
         return [
           Permission.VIEW_CITIES,
           Permission.VIEW_RESTAURANTS,
+          Permission.MANAGE_RESTAURANTS,
           Permission.MANAGE_MENU,
+          Permission.MANAGE_PROMOTIONS,
+          Permission.MANAGE_DELIVERIES,
           Permission.VIEW_MENU,
           Permission.VIEW_USERS,
-          Permission.MANAGE_REVIEWS,
-          Permission.VIEW_REVIEWS,
+        ];
+
+      case UserRole.RESTAURANT_MANAGER:
+        return [
+          Permission.MANAGE_MENU,
+          Permission.MANAGE_DELIVERIES,
+          Permission.VIEW_MENU,
+        ];
+
+      case UserRole.MARKETER:
+        return [
+          Permission.MANAGE_PROMOTIONS,
+        ];
+
+      case UserRole.DELIVERY_MANAGER:
+        return [
+          Permission.MANAGE_DELIVERIES,
         ];
 
       case UserRole.USER:
@@ -154,7 +184,7 @@ class AdminApi {
    */
   isAdmin(userId: string): boolean {
     const role = this.getUserRole(userId);
-    return role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN;
+    return role !== UserRole.USER;
   }
 
   /**

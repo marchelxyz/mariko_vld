@@ -10,6 +10,14 @@ export enum UserRole {
   SUPER_ADMIN = 'super_admin',
   /** Администратор ресторана */
   ADMIN = 'admin',
+  /** Управляющий (полное управление рестораном в рамках разрешённых точек) */
+  MANAGER = 'manager',
+  /** Менеджер ресторана (стоп-лист и статусы заказов) */
+  RESTAURANT_MANAGER = 'restaurant_manager',
+  /** Маркетолог (акции и маркетинговые активности) */
+  MARKETER = 'marketer',
+  /** Менеджер по доставке */
+  DELIVERY_MANAGER = 'delivery_manager',
   /** Обычный пользователь */
   USER = 'user',
 }
@@ -41,6 +49,14 @@ export enum Permission {
   // Управление отзывами
   MANAGE_REVIEWS = 'manage_reviews',
   VIEW_REVIEWS = 'view_reviews',
+
+  // Управление акциями
+  MANAGE_PROMOTIONS = 'manage_promotions',
+  VIEW_PROMOTIONS = 'view_promotions',
+
+  // Управление доставкой
+  MANAGE_DELIVERIES = 'manage_deliveries',
+  VIEW_DELIVERIES = 'view_deliveries',
 }
 
 /**

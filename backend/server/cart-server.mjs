@@ -2,6 +2,9 @@
 
 import express from "express";
 import cors from "cors";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { PORT } from "./config.mjs";
 import { db } from "./postgresClient.mjs";
@@ -13,9 +16,34 @@ import { createGeocodeRouter } from "./routes/geocodeRoutes.mjs";
 import { createCitiesRouter } from "./routes/citiesRoutes.mjs";
 import { createBookingRouter } from "./routes/bookingRoutes.mjs";
 import { createPromotionsRouter, createAdminPromotionsRouter } from "./routes/promotionsRoutes.mjs";
+import { createRecommendedDishesRouter, createAdminRecommendedDishesRouter } from "./routes/recommendedDishesRoutes.mjs";
 import { createMenuRouter, createAdminMenuRouter } from "./routes/menuRoutes.mjs";
 import { createStorageRouter } from "./routes/storageRoutes.mjs";
 import { logger } from "./utils/logger.mjs";
+
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+
+function resolveFrontendStaticRoot() {
+  const candidates = [
+    process.env.STATIC_ROOT,
+    "/usr/share/nginx/html",
+    path.resolve(currentDir, "../../frontend/dist"),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(path.join(candidate, "index.html"))) {
+        return candidate;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return null;
+}
+
+const frontendStaticRoot = resolveFrontendStaticRoot();
 
 const app = express();
 
@@ -146,6 +174,13 @@ app.use("/api/cart/promotions", promotionsRouter);
 // Админские роуты для акций
 const adminPromotionsRouter = createAdminPromotionsRouter();
 app.use("/api/admin/promotions", adminPromotionsRouter);
+// Роуты для рекомендуемых блюд
+const recommendedDishesRouter = createRecommendedDishesRouter();
+app.use("/api/recommended-dishes", recommendedDishesRouter);
+app.use("/api/cart/recommended-dishes", recommendedDishesRouter);
+// Админские роуты для рекомендуемых блюд
+const adminRecommendedDishesRouter = createAdminRecommendedDishesRouter();
+app.use("/api/admin/recommended-dishes", adminRecommendedDishesRouter);
 // Роуты для меню ресторанов
 const menuRouter = createMenuRouter();
 app.use("/api/menu", menuRouter);
@@ -158,18 +193,28 @@ const storageRouter = createStorageRouter();
 app.use("/api/storage", storageRouter);
 app.use("/api/admin/storage", storageRouter);
 
-app.use((req, res) => {
-  logger.warn('404 Not Found', { method: req.method, path: req.path });
-  res.status(404).json({ success: false, message: "Not Found" });
-});
+if (frontendStaticRoot) {
+  logger.info("Отдаём статику фронтенда из директории", { frontendStaticRoot });
 
-// Healthcheck endpoint для контейнеров
-app.get("/health", (req, res) => {
-  res.status(200).json({ 
-    status: "ok", 
-    timestamp: new Date().toISOString(),
-    database: Boolean(db)
+  const staticHandler = express.static(frontendStaticRoot, { index: false });
+
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/api")) {
+      return next();
+    }
+    return staticHandler(req, res, next);
   });
+
+  // Express 5 использует path-to-regexp v6: строковый "*" может падать.
+  // Regex-роут работает стабильно и нужен как SPA fallback.
+  app.get(/^(?!\/api).*/, (req, res) => {
+    return res.sendFile(path.join(frontendStaticRoot, "index.html"));
+  });
+}
+
+app.use((req, res) => {
+  logger.warn("404 Not Found", { method: req.method, path: req.path });
+  res.status(404).json({ success: false, message: "Not Found" });
 });
 
 // Инициализируем БД при старте сервера

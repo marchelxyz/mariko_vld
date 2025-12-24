@@ -1,15 +1,12 @@
-import { CalendarDays, MapPin, Star as StarIcon, Truck } from "lucide-react";
+import { CalendarDays, ChevronDown, MapPin, Star as StarIcon, Truck, Briefcase } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useCityContext } from "@/contexts";
 import { BottomNavigation, Header } from "@shared/ui/widgets";
 import { EmbeddedPageConfig } from "@/shared/config/webviewPages";
 import {
-  CITY_PROMOTION_LINKS,
   RESTAURANT_REVIEW_LINKS,
   VACANCIES_LINK,
-  getMenuByRestaurantId,
-  MenuCategory,
   MenuItem,
 } from "@shared/data";
 import {
@@ -21,47 +18,73 @@ import { PromotionsCarousel, type PromotionSlide } from "./PromotionsCarousel";
 import { toast } from "@/hooks/use-toast";
 import { safeOpenLink, storage } from "@/lib/telegram";
 import { fetchPromotions } from "@shared/api/promotionsApi";
+import { fetchRecommendedDishes } from "@shared/api/recommendedDishesApi";
 import { useBookingSlotsPrefetch } from "@shared/hooks";
+import { FirstRunTour } from "@/features/onboarding";
 
-const promotionsForCarousel: PromotionSlide[] = [
-  {
-    id: "birthday",
-    title: "Именинникам — праздник в Mariko",
-    description: "Теплые скидки и десерт для компании в день рождения.",
-    imageUrl: "/images/promotions/zhukovsky/promo birhtday.jpg",
-    badge: "Жуковский",
-  },
-  {
-    id: "self-delivery",
-    title: "Самовывоз выгоднее",
-    description: "Заказывайте онлайн, забирайте сами и экономьте на доставке.",
-    imageUrl: "/images/promotions/zhukovsky/promo self delivery.jpg",
-    badge: "Жуковский",
-  },
-  {
-    id: "women",
-    title: "Девичники и встречи с подругами",
-    description: "Сеты для компании и бокал игристого для уютного вечера.",
-    imageUrl: "/images/promotions/zhukovsky/promo women.jpg",
-    badge: "Жуковский",
-  },
-];
+const PROMOTIONS_CACHE_PREFIX = "mariko:promotions:v1:";
+
+type PromotionsCachePayload = {
+  version: 1;
+  updatedAt: number;
+  promotions: PromotionSlide[];
+};
+
+const normalizePromotions = (list: PromotionSlide[] | null | undefined): PromotionSlide[] =>
+  (list ?? [])
+    .filter((promo) => promo.isActive !== false)
+    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+
+const readPromotionsCache = (cityId: string): PromotionSlide[] | null => {
+  if (!cityId || typeof window === "undefined") {
+    return null;
+  }
+  try {
+    const raw = window.localStorage.getItem(`${PROMOTIONS_CACHE_PREFIX}${cityId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PromotionsCachePayload>;
+    if (!Array.isArray(parsed?.promotions)) return null;
+    return parsed.promotions as PromotionSlide[];
+  } catch {
+    return null;
+  }
+};
+
+const writePromotionsCache = (cityId: string, promotions: PromotionSlide[]) => {
+  if (!cityId || typeof window === "undefined") {
+    return;
+  }
+  try {
+    const payload: PromotionsCachePayload = {
+      version: 1,
+      updatedAt: Date.now(),
+      promotions,
+    };
+    window.localStorage.setItem(`${PROMOTIONS_CACHE_PREFIX}${cityId}`, JSON.stringify(payload));
+  } catch {
+    // ignore cache write failures
+  }
+};
 
 const Index = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { selectedRestaurant, selectedCity } = useCityContext();
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
-  const [recommended, setRecommended] = useState<MenuItem[]>([]);
+  const [dishModalImageFailed, setDishModalImageFailed] = useState(false);
   const [cityChangedFlash, setCityChangedFlash] = useState(false);
   const prevCityIdRef = useRef<string | null>(null);
   const [promotions, setPromotions] = useState<PromotionSlide[]>([]);
-
-  // 🔧 ВРЕМЕННОЕ СКРЫТИЕ: измените на true чтобы показать раздел "Рекомендуем попробовать"
-  const showRecommendedSection = false;
+  const [isLoadingPromotions, setIsLoadingPromotions] = useState(true);
+  const [recommendedDishes, setRecommendedDishes] = useState<MenuItem[]>([]);
+  const [isLoadingRecommended, setIsLoadingRecommended] = useState(false);
 
   // Предзагрузка слотов бронирования в фоновом режиме
   useBookingSlotsPrefetch(selectedRestaurant);
+
+  useEffect(() => {
+    setDishModalImageFailed(false);
+  }, [activeDish]);
 
   const handleBookingClick = () => {
     console.log("[Booking] handleBookingClick вызван", {
@@ -116,25 +139,38 @@ const Index = () => {
   // Подтягиваем акции из localStorage (управляются через админку)
   useEffect(() => {
     let cancelled = false;
+    const cityId = selectedCity?.id;
 
     const loadPromotions = async () => {
-      if (!selectedCity?.id) {
-        setPromotions([]);
+      if (!cityId) {
+        if (!cancelled) {
+          setPromotions([]);
+          setIsLoadingPromotions(false);
+        }
         return;
       }
+
+      const cached = readPromotionsCache(cityId);
+      if (cached && !cancelled) {
+        setPromotions(normalizePromotions(cached));
+        setIsLoadingPromotions(false);
+      } else if (!cancelled) {
+        setIsLoadingPromotions(true);
+      }
+
       try {
-        const list = await fetchPromotions(selectedCity.id);
+        const list = await fetchPromotions(cityId);
         if (!cancelled) {
-          const normalized =
-            list
-              ?.filter((promo) => promo.isActive !== false)
-              ?.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)) ?? [];
+          const normalized = normalizePromotions(list);
           setPromotions(normalized);
+          setIsLoadingPromotions(false);
+          writePromotionsCache(cityId, normalized);
         }
       } catch (error) {
         console.error("Ошибка загрузки акций:", error);
         if (!cancelled) {
-          setPromotions([]);
+          setPromotions(cached ? normalizePromotions(cached) : []);
+          setIsLoadingPromotions(false);
         }
       }
     };
@@ -157,7 +193,8 @@ const Index = () => {
 
 
   const handleReviewClick = () => {
-    const externalReviewLink = RESTAURANT_REVIEW_LINKS[selectedRestaurant.id];
+    // Используем ссылку из базы данных, если она есть, иначе используем статический маппинг для обратной совместимости
+    const externalReviewLink = selectedRestaurant.reviewLink || RESTAURANT_REVIEW_LINKS[selectedRestaurant.id];
 
     if (externalReviewLink && selectedCity?.id && selectedCity?.name) {
       openEmbeddedPage(`review-${selectedRestaurant.id}`, {
@@ -191,30 +228,82 @@ const Index = () => {
     }
   };
 
-  // Random recommended menu items
+  // Загружаем рекомендуемые блюда для города
   useEffect(() => {
     let cancelled = false;
-    if (!showRecommendedSection || !selectedRestaurant?.id) {
-      setRecommended([]);
+    if (!selectedCity?.id) {
+      setRecommendedDishes([]);
       return;
     }
 
-    getMenuByRestaurantId(selectedRestaurant.id).then((menu) => {
+    const cityId = selectedCity.id;
+    let scheduledHandle: number | ReturnType<typeof setTimeout> | null = null;
+
+    const run = () => {
       if (cancelled) return;
-      if (!menu) {
-        setRecommended([]);
-        return;
-      }
-      const allItems: MenuItem[] = menu.categories.flatMap((c: MenuCategory) => c.items);
-      const recommendedItems = allItems.filter((i) => i.isRecommended);
-      const shuffled = recommendedItems.sort(() => 0.5 - Math.random());
-      setRecommended(shuffled.slice(0, 4));
-    });
+
+      setIsLoadingRecommended(true);
+      fetchRecommendedDishes(cityId)
+        .then((dishes) => {
+          if (cancelled) return;
+          if (!dishes || dishes.length === 0) {
+            setRecommendedDishes([]);
+            return;
+          }
+          // Перемешиваем блюда при каждом визите
+          const shuffled = [...dishes].sort(() => 0.5 - Math.random());
+          // Определяем количество блюд для отображения
+          // На планшетах (md) показываем 3, на больших экранах (lg+) показываем до 6
+          // Используем медиа-запрос через matchMedia для более точного определения
+          let count = 6; // по умолчанию для больших экранов
+          if (typeof window !== "undefined") {
+            const isTablet = window.matchMedia("(min-width: 768px) and (max-width: 1023px)").matches;
+            if (isTablet) {
+              count = 3;
+            }
+          }
+          setRecommendedDishes(shuffled.slice(0, Math.min(count, shuffled.length)));
+        })
+        .catch((error) => {
+          console.error("Ошибка загрузки рекомендуемых блюд:", error);
+          if (!cancelled) {
+            setRecommendedDishes([]);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setIsLoadingRecommended(false);
+          }
+        });
+    };
+
+    // Рекомендации ниже приоритета акций/городов — выполняем в idle.
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      scheduledHandle = (
+        window as unknown as {
+          requestIdleCallback: (cb: () => void, options?: { timeout?: number }) => number;
+        }
+      ).requestIdleCallback(run, { timeout: 2500 });
+    } else {
+      scheduledHandle = setTimeout(run, 0);
+    }
 
     return () => {
       cancelled = true;
+      if (scheduledHandle === null || typeof window === "undefined") {
+        return;
+      }
+      if ("cancelIdleCallback" in window && typeof scheduledHandle === "number") {
+        (
+          window as unknown as {
+            cancelIdleCallback: (id: number) => void;
+          }
+        ).cancelIdleCallback(scheduledHandle);
+      } else {
+        clearTimeout(scheduledHandle);
+      }
     };
-  }, [selectedRestaurant?.id, showRecommendedSection]);
+  }, [selectedCity?.id]);
 
   // Легкая подсветка всех CTA при смене города, чтобы показать изменение контекста
   useEffect(() => {
@@ -233,283 +322,334 @@ const Index = () => {
   }, [selectedCity?.id]);
 
   return (
-    <div className="min-h-screen overflow-hidden flex flex-col bg-transparent">
+    <div className="app-screen overflow-hidden bg-transparent">
+      <FirstRunTour enabled={Boolean(selectedRestaurant?.id)} />
       {/* ВЕРХНЯЯ СЕКЦИЯ: Header с красным фоном и скруглением снизу */}
-      <div className="bg-transparent pb-6 md:pb-8 relative">
+      <div className="bg-transparent pb-5 md:pb-6 relative">
         <Header showCitySelector={true} />
       </div>
 
       {/* СРЕДНЯЯ СЕКЦИЯ: Main Content */}
-      <div className="flex-1 bg-transparent relative pb-24 md:pb-32">
-        <div className="px-3 md:px-6 max-w-sm md:max-w-6xl mx-auto w-full">
+      <div className="app-content bg-transparent relative app-bottom-space">
+        <div className="app-shell app-shell-wide w-full">
 
-          {/* Quick Action Buttons Grid */}
-          <div className="mt-6 md:mt-8 grid grid-cols-4 gap-2 md:gap-3">
-            <QuickActionButton
-              icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
-              title="Бронь столика"
-              highlighted={cityChangedFlash}
-              onClick={() => {
-                console.log("[Home] QuickActionButton onClick вызван напрямую");
-                handleBookingClick();
-              }}
-            />
+          <div className="space-y-6 md:space-y-8">
+            {/* Quick Action Buttons */}
+              <div className="mt-6 md:mt-8 flex justify-center">
+              <div className={`grid gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4 max-w-4xl w-full mx-auto ${
+                // На мобильных показываем 4 кнопки
+                // На средних (md) и больших экранах показываем 5 кнопок (4 + вакансии)
+                'grid-cols-4 md:grid-cols-5'
+              } lg:max-w-[600px]`}>
+                <QuickActionButton
+                  icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
+                  title="Бронь столика"
+                  onboardingId="booking"
+                  highlighted={cityChangedFlash}
+                  onClick={() => {
+                    console.log("[Home] QuickActionButton onClick вызван напрямую");
+                    handleBookingClick();
+                  }}
+                />
 
-            <QuickActionButton
-              icon={<Truck className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
-              title="Заказать доставку"
-              highlighted={cityChangedFlash}
-              onClick={() => navigate("/delivery")}
-            />
+                <QuickActionButton
+                  icon={<Truck className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
+                  title="Заказать доставку"
+                  highlighted={cityChangedFlash}
+                  onClick={() => navigate("/delivery")}
+                />
 
-            <QuickActionButton
-              icon={<StarIcon className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary fill-none" strokeWidth={2} />}
-              title="Оставить отзыв"
-              highlighted={cityChangedFlash}
-              onClick={handleReviewClick}
-            />
+                <QuickActionButton
+                  icon={<StarIcon className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary fill-none" strokeWidth={2} />}
+                  title="Оставить отзыв"
+                  highlighted={cityChangedFlash}
+                  onClick={handleReviewClick}
+                />
 
-            <QuickActionButton
-              icon={<MapPin className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
-              title="Как нас найти?"
-              highlighted={cityChangedFlash}
-              onClick={() => navigate("/about")}
-            />
-          </div>
+                <QuickActionButton
+                  icon={<MapPin className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
+                  title="Как нас найти?"
+                  highlighted={cityChangedFlash}
+                  onClick={() => navigate("/about")}
+                />
 
-          {/* Promotions Carousel */}
-          {promotions.length > 0 && (
-            <div className="mt-6 md:mt-8">
-              <PromotionsCarousel
-                promotions={promotions}
-                onBookTable={handleBookingClick}
-              />
+                {/* Кнопка вакансий всегда в верхнем меню на средних и больших экранах */}
+                <QuickActionButton
+                  icon={<Briefcase className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
+                  title="Вакансии"
+                  highlighted={cityChangedFlash}
+                  className="hidden md:flex"
+                  onClick={() => {
+                    if (selectedCity?.id && selectedCity?.name) {
+                      openEmbeddedPage(`vacancies-${selectedCity.id}`, {
+                        title: `Вакансии — ${selectedCity.name}`,
+                        url: VACANCIES_LINK,
+                        allowedCityId: selectedCity.id,
+                        description: "Актуальные вакансии сети «Хачапури Марико».",
+                        fallbackLabel: "Открыть вакансии во внешнем окне",
+                      });
+                      return;
+                    }
+
+                    safeOpenLink(VACANCIES_LINK, {
+                      try_instant_view: true,
+                    });
+                  }}
+                />
+              </div>
             </div>
-          )}
 
-          {/* Menu Button (Full Width) */}
-          <div className="mt-6 md:mt-8">
-            <ServiceCard
-              title="Меню"
-              imageUrl="/images/services/MENU-CARD.png"
-              aspectRatio="aspect-[3/1]"
-              imageClassName="object-left translate-x-[2px]"
-              className="w-full"
-              highlighted={cityChangedFlash}
-              onClick={() => navigate('/menu')}
-            />
-          </div>
-
-          {/* Actions and Vacancies Services */}
-          <div className="mt-6 md:mt-8 mb-24 md:mb-28 grid grid-cols-2 gap-3 md:gap-6">
-            <ServiceCard
-              title="Акции"
-              imageUrl="/images/services/promo self delivery 1.png"
-              aspectRatio="aspect-[4/3]"
-              imageClassName="object-left translate-x-[2px]"
-              className="max-w-[180px] md:max-w-[220px] mx-auto"
-              highlighted={cityChangedFlash}
-              onClick={() => {
-                const promoLink = selectedCity?.id ? CITY_PROMOTION_LINKS[selectedCity.id] : null;
-
-                if (promoLink && selectedCity?.id && selectedCity?.name) {
-                  openEmbeddedPage(`promotions-${selectedCity.id}`, {
-                    title: `Акции — ${selectedCity.name}`,
-                    url: promoLink,
-                    allowedCityId: selectedCity.id,
-                    description: `Специальные предложения для гостей ресторана в ${selectedCity.name}.`,
-                    fallbackLabel: "Открыть акции во внешнем окне",
-                  });
-                  return;
-                }
-
-                if (!promoLink) {
-                  toast({
-                    title: 'Акции скоро появятся',
-                    description: 'Для вашего города пока нет ссылки на акции.',
-                  });
-                  return;
-                }
-
-                safeOpenLink(promoLink, { try_instant_view: true });
-              }}
-            />
-            <ServiceCard
-              title="Вакансии"
-              imageUrl="/images/services/JOBCARD.png"
-              aspectRatio="aspect-[4/3]"
-              imageClassName="object-left translate-x-[2px]"
-              className="max-w-[180px] md:max-w-[220px] mx-auto"
-              highlighted={cityChangedFlash}
-              onClick={() => {
-                if (selectedCity?.id && selectedCity?.name) {
-                  openEmbeddedPage(`vacancies-${selectedCity.id}`, {
-                    title: `Вакансии — ${selectedCity.name}`,
-                    url: VACANCIES_LINK,
-                    allowedCityId: selectedCity.id,
-                    description: "Актуальные вакансии сети «Хачапури Марико».",
-                    fallbackLabel: "Открыть вакансии во внешнем окне",
-                  });
-                  return;
-                }
-
-                safeOpenLink(VACANCIES_LINK, {
-                  try_instant_view: true,
-                });
-              }}
-            />
-          </div>
-
-          {/* Recommended Section (временно скрыто) */}
-          {showRecommendedSection && (
-            <div className="mt-10 md:mt-12 -mx-3 md:-mx-6">
-              {/* Heading bar */}
-              <div className="w-full bg-white py-3 md:py-4 flex items-center justify-between px-4 md:px-6 mb-4 md:mb-6">
-                <span className="font-el-messiri text-base md:text-lg font-semibold text-black">
-                  Рекомендуем попробовать
+            {/* Promotions Title - растягивается на всю ширину, текст слева */}
+            <div className="mt-6 md:mt-8 w-full">
+              <div className="max-w-4xl w-full mx-auto px-1">
+                <span className="font-el-messiri text-lg md:text-xl font-semibold text-white drop-shadow md:hidden">
+                  Акции
                 </span>
-                <ChevronDown className="w-5 h-5 md:w-6 md:h-6 text-black" />
+              </div>
+            </div>
+
+            {/* Promotions and Menu/Vacancies Layout */}
+            <div className="mt-3 md:mt-4 flex justify-center">
+              {/* Мобильная версия: карусель отдельно, меню и вакансии отдельно */}
+              <div className="flex flex-col md:hidden items-center max-w-4xl w-full mx-auto">
+                {/* Promotions */}
+                <div className="flex justify-center mb-6 w-full">
+                  <div className="w-full max-w-[420px] mx-auto">
+                    <PromotionsCarousel
+                      promotions={promotions}
+                      isLoading={isLoadingPromotions}
+                      onBookTable={handleBookingClick}
+                    />
+                  </div>
+                </div>
+
+                {/* Menu and Vacancies */}
+                <div className="flex justify-center w-full overflow-x-hidden">
+                  <div className="w-full max-w-[440px] mx-auto">
+                    <div className="grid grid-cols-2 gap-3 w-full">
+                      <ServiceCard
+                        title="Меню"
+                        imageUrl="/images/services/MENU-CARD.png"
+                        aspectRatio="aspect-[4/3]"
+                        imageClassName="object-left translate-x-[2px]"
+                        className="max-w-[200px] w-full"
+                        highlighted={cityChangedFlash}
+                        onClick={() => navigate("/menu")}
+                      />
+                      <ServiceCard
+                        title="Вакансии"
+                        imageUrl="/images/services/JOBCARD.png"
+                        aspectRatio="aspect-[4/3]"
+                        imageClassName="object-left translate-x-[2px]"
+                        className="max-w-[200px] w-full"
+                        highlighted={cityChangedFlash}
+                        onClick={() => {
+                          if (selectedCity?.id && selectedCity?.name) {
+                            openEmbeddedPage(`vacancies-${selectedCity.id}`, {
+                              title: `Вакансии — ${selectedCity.name}`,
+                              url: VACANCIES_LINK,
+                              allowedCityId: selectedCity.id,
+                              description: "Актуальные вакансии сети «Хачапури Марико».",
+                              fallbackLabel: "Открыть вакансии во внешнем окне",
+                            });
+                            return;
+                          }
+
+                          safeOpenLink(VACANCIES_LINK, {
+                            try_instant_view: true,
+                          });
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="px-3 md:px-6 mb-16 md:mb-20">
-                {/* Random recommended menu items grid */}
-                {/* Компактная сетка 2x2 на мобильных, адаптивная на больших экранах */}
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
-                  {recommended.map((item) => (
-                    <div key={item.id}>
-                      {/* Мобильный вариант для экранов < 768px */}
-                      <div className="block md:hidden">
-                        <MenuItemComponent
-                          item={item}
-                          variant="mobile"
-                          onClick={() => handleDishClick(item)}
-                        />
-                      </div>
-                      {/* Компактный вариант для экранов >= 768px */}
-                      <div className="hidden md:block">
-                        <MenuItemComponent
-                          item={item}
-                          variant="compact"
-                          onClick={() => handleDishClick(item)}
-                        />
-                      </div>
+              {/* Средние и большие экраны: контейнер с каруселью, меню и вакансиями */}
+              {/* Центрируем контейнер с учетом бокового меню: равные отступы слева (от меню) и справа (от края) */}
+              {/* Когда боковое меню активно, .app-screen уже имеет padding-left для меню (160px) */}
+              {/* marginLeft и marginRight должны быть равны для симметрии */}
+              <div className="hidden md:flex md:flex-row md:items-start md:gap-6" 
+                   style={{
+                     maxWidth: 'calc(100vw - var(--app-rail-offset, 0px) - 2 * max(var(--app-rail-offset, 0px), clamp(18px, 5vw, 36px)) + 120px)',
+                     marginLeft: 'max(var(--app-rail-offset, 0px), clamp(18px, 5vw, 36px))',
+                     marginRight: 'max(var(--app-rail-offset, 0px), clamp(18px, 5vw, 36px))'
+                   }}>
+                {/* Promotions */}
+                <div className="flex justify-center w-auto">
+                  <div className="w-full max-w-[520px]">
+                    <PromotionsCarousel
+                      promotions={promotions}
+                      isLoading={isLoadingPromotions}
+                      onBookTable={handleBookingClick}
+                    />
+                  </div>
+                </div>
+
+                {/* Menu and Vacancies */}
+                <div className="flex justify-center w-auto overflow-x-hidden">
+                  <div className="w-full max-w-[480px] lg:max-w-[480px]">
+                    <div className="grid grid-cols-1 gap-3 lg:gap-4 w-full">
+                      <ServiceCard
+                        title="Меню"
+                        imageUrl="/images/services/MENU-CARD.png"
+                        aspectRatio="aspect-[4/3]"
+                        imageClassName="object-left translate-x-[2px]"
+                        className="max-w-[230px] md:max-w-[230px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
+                        highlighted={cityChangedFlash}
+                        onClick={() => navigate("/menu")}
+                      />
                     </div>
-                  ))}
+                  </div>
                 </div>
               </div>
             </div>
-          )}
+
+            {/* Recommended Section */}
+            {recommendedDishes.length > 0 && (
+              <div className="mt-10 md:mt-12 -mx-3 md:-mx-6">
+                {/* Heading bar */}
+                <div className="relative w-full py-3 md:py-4 flex items-center justify-between px-4 md:px-6 mb-4 md:mb-6 rounded-[20px] border border-white/20 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-lg" style={{ backgroundColor: '#963434' }}>
+                  <div className="pointer-events-none absolute inset-0">
+                    <div className="absolute -left-16 -top-20 h-40 w-40 rounded-full bg-mariko-primary/35 blur-[70px]" />
+                    <div className="absolute -right-10 bottom-[-60px] h-36 w-36 rounded-full bg-white/15 blur-[55px]" />
+                  </div>
+                  <span className="relative font-el-messiri text-base md:text-lg font-semibold text-white">
+                    Рекомендуем попробовать
+                  </span>
+                  <ChevronDown className="relative w-5 h-5 md:w-6 md:h-6 text-white" />
+                </div>
+
+                <div className="px-3 md:px-6 mb-16 md:mb-20">
+                  {isLoadingRecommended ? (
+                    <div className="text-center py-8 text-gray-500">Загрузка рекомендаций...</div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
+                      {recommendedDishes.map((item) => (
+                        <div key={item.id}>
+                          {/* Мобильный вариант для экранов < 768px */}
+                          <div className="block md:hidden">
+                            <MenuItemComponent
+                              item={item}
+                              variant="mobile"
+                              onClick={() => handleDishClick(item)}
+                            />
+                          </div>
+                          {/* Компактный вариант для экранов >= 768px */}
+                          <div className="hidden md:block">
+                            <MenuItemComponent
+                              item={item}
+                              variant="compact"
+                              onClick={() => handleDishClick(item)}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
         </div>
 
-        {/* НАВИГАЦИЯ: позиционирована поверх белого фона */}
-        <div className="absolute bottom-0 left-0 right-0 z-50">
-          <BottomNavigation currentPage="home" />
-        </div>
-
-
+        <BottomNavigation currentPage="home" />
 
         {activeDish && (
           <div
-            className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 backdrop-blur-sm" 
+            className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm"
             onClick={() => setActiveDish(null)}
           >
-            {/* Стеклянная рамка для блюда */}
-            <div 
-              className="relative flex flex-col gap-4 items-center max-w-[90vw] max-h-[90vh] p-6 md:p-8
-                bg-white/12 backdrop-blur-md
-                border border-white/25
-                rounded-[30px]
-                shadow-2xl
-                hover:bg-white/15 transition-all duration-300
-                overflow-y-auto cursor-pointer" 
-              onClick={() => setActiveDish(null)}
+            <div
+              className="relative flex w-full max-w-[520px] max-h-[90vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
             >
-              {/* Градиент для стеклянного эффекта */}
-              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-white/5 rounded-[30px] pointer-events-none" />
-              
-              {/* Блик сверху */}
-              <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-white/15 to-transparent rounded-t-[30px] pointer-events-none" />
-              
-              {/* Гвоздики в углах рамки */}
-              <div className="absolute top-3 left-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
-                bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
-                shadow-lg border border-gray-500/50
-                before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
-                before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
-              
-              <div className="absolute top-3 right-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
-                bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
-                shadow-lg border border-gray-500/50
-                before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
-                before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
-              
-              <div className="absolute bottom-3 left-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
-                bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
-                shadow-lg border border-gray-500/50
-                before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
-                before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
-              
-              <div className="absolute bottom-3 right-3 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full
-                bg-gradient-to-br from-gray-300 via-gray-400 to-gray-600
-                shadow-lg border border-gray-500/50
-                before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-1 before:h-1 md:before:w-1.5 md:before:h-1.5
-                before:bg-gradient-to-br before:from-white/80 before:to-white/30 before:rounded-full before:blur-[1px]" />
-              
-              {/* Контент блюда */}
-              <div className="relative z-10 flex flex-col gap-4 items-center text-center">
-                {activeDish.imageUrl && (
+              <div className="relative aspect-[4/3] w-full shrink-0">
+                {activeDish.imageUrl && !dishModalImageFailed ? (
                   <img
                     src={activeDish.imageUrl}
                     alt={activeDish.name}
-                    className="max-h-[40vh] md:max-h-[50vh] w-auto rounded-[20px] shadow-lg"
+                    className="h-full w-full object-cover"
+                    onError={() => setDishModalImageFailed(true)}
                   />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-gray-200 text-gray-600">
+                    Нет изображения
+                  </div>
                 )}
-                
-                {/* Бейджи блюда */}
-                <div className="flex gap-2 flex-wrap justify-center">
-                  {activeDish.isRecommended && (
-                    <span className="bg-mariko-primary text-white px-3 py-1 rounded-full text-sm font-medium">
-                      👑 Рекомендуем
-                    </span>
-                  )}
-                  {activeDish.isNew && (
-                    <span className="bg-mariko-secondary text-white px-3 py-1 rounded-full text-sm font-medium">
-                      ✨ Новинка
-                    </span>
-                  )}
-                  {activeDish.isVegetarian && (
-                    <span className="bg-green-600 text-white px-3 py-1 rounded-full text-sm font-medium">
-                      🌱 Вегетарианское
-                    </span>
-                  )}
-                  {activeDish.isSpicy && (
-                    <span className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-medium">
-                      🌶️ Острое
-                    </span>
-                  )}
-                </div>
-                
-                <h3 className="font-el-messiri text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
-                  {activeDish.name}
-                </h3>
-                
-                {activeDish.description && (
-                  <p className="text-base md:text-lg leading-relaxed text-white/90 drop-shadow-lg max-w-md mx-auto">
-                    {activeDish.description}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+                <div className="absolute bottom-3 left-4 right-4 space-y-2 text-white drop-shadow-lg">
+                  <p className="font-el-messiri text-2xl font-semibold leading-tight">
+                    {activeDish.name}
                   </p>
-                )}
-                
-                <div className="flex items-center gap-4 mt-2">
-                  <span className="font-el-messiri text-2xl md:text-3xl font-bold text-mariko-secondary drop-shadow-lg">
+                </div>
+                <button
+                  type="button"
+                  className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-1 text-sm text-white backdrop-blur"
+                  onClick={() => setActiveDish(null)}
+                >
+                  Закрыть
+                </button>
+              </div>
+
+              <div className="space-y-4 overflow-y-auto px-5 pb-5 pt-4">
+                <div className="flex items-baseline justify-between gap-4">
+                  <span className="font-el-messiri text-2xl font-bold text-mariko-secondary">
                     {activeDish.price}₽
                   </span>
                   {activeDish.weight && (
-                    <span className="text-white/80 text-lg drop-shadow-lg">
-                      {activeDish.weight}
-                    </span>
+                    <span className="text-sm text-gray-600">{activeDish.weight}</span>
                   )}
                 </div>
+
+                {(activeDish.isRecommended ||
+                  activeDish.isNew ||
+                  activeDish.isVegetarian ||
+                  activeDish.isSpicy) && (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {activeDish.isRecommended && (
+                      <span className="rounded-full bg-mariko-primary px-3 py-1 text-sm font-medium text-white">
+                        👑 Рекомендуем
+                      </span>
+                    )}
+                    {activeDish.isNew && (
+                      <span className="rounded-full bg-mariko-secondary px-3 py-1 text-sm font-medium text-white">
+                        ✨ Новинка
+                      </span>
+                    )}
+                    {activeDish.isVegetarian && (
+                      <span className="rounded-full bg-green-600 px-3 py-1 text-sm font-medium text-white">
+                        🌱 Вегетарианское
+                      </span>
+                    )}
+                    {activeDish.isSpicy && (
+                      <span className="rounded-full bg-red-600 px-3 py-1 text-sm font-medium text-white">
+                        🌶️ Острое
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {activeDish.description && (
+                  <p className="text-base leading-relaxed text-gray-800">
+                    {activeDish.description}
+                  </p>
+                )}
+
+                <p className="text-sm text-gray-600">
+                  Забронируйте столик заранее — лучшие места уходят быстро.
+                </p>
+                <button
+                  type="button"
+                  className="w-full rounded-xl bg-mariko-primary px-4 py-3 text-center font-semibold text-white shadow-lg transition hover:brightness-110 active:scale-[0.99]"
+                  onClick={() => {
+                    setActiveDish(null);
+                    handleBookingClick();
+                  }}
+                >
+                  Забронировать
+                </button>
               </div>
             </div>
           </div>

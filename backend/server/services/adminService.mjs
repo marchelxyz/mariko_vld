@@ -2,6 +2,69 @@ import { queryOne, queryMany, db } from "../postgresClient.mjs";
 import { ADMIN_TELEGRAM_IDS, ADMIN_ROLE_VALUES } from "../config.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
 
+export const ADMIN_PERMISSION = {
+  MANAGE_ROLES: "manage_roles",
+  MANAGE_RESTAURANTS: "manage_restaurants",
+  MANAGE_MENU: "manage_menu",
+  MANAGE_PROMOTIONS: "manage_promotions",
+  MANAGE_DELIVERIES: "manage_deliveries",
+  VIEW_USERS: "view_users",
+};
+
+const ROLE_PERMISSIONS = {
+  super_admin: new Set([
+    ADMIN_PERMISSION.MANAGE_ROLES,
+    ADMIN_PERMISSION.MANAGE_RESTAURANTS,
+    ADMIN_PERMISSION.MANAGE_MENU,
+    ADMIN_PERMISSION.MANAGE_PROMOTIONS,
+    ADMIN_PERMISSION.MANAGE_DELIVERIES,
+    ADMIN_PERMISSION.VIEW_USERS,
+  ]),
+  admin: new Set([
+    ADMIN_PERMISSION.MANAGE_ROLES,
+    ADMIN_PERMISSION.MANAGE_RESTAURANTS,
+    ADMIN_PERMISSION.MANAGE_MENU,
+    ADMIN_PERMISSION.MANAGE_PROMOTIONS,
+    ADMIN_PERMISSION.MANAGE_DELIVERIES,
+    ADMIN_PERMISSION.VIEW_USERS,
+  ]),
+  manager: new Set([
+    ADMIN_PERMISSION.MANAGE_RESTAURANTS,
+    ADMIN_PERMISSION.MANAGE_MENU,
+    ADMIN_PERMISSION.MANAGE_PROMOTIONS,
+    ADMIN_PERMISSION.MANAGE_DELIVERIES,
+    ADMIN_PERMISSION.VIEW_USERS,
+  ]),
+  restaurant_manager: new Set([
+    ADMIN_PERMISSION.MANAGE_MENU,
+    ADMIN_PERMISSION.MANAGE_DELIVERIES,
+    ADMIN_PERMISSION.VIEW_USERS,
+  ]),
+  marketer: new Set([
+    ADMIN_PERMISSION.MANAGE_PROMOTIONS,
+    ADMIN_PERMISSION.VIEW_USERS,
+  ]),
+  delivery_manager: new Set([
+    ADMIN_PERMISSION.MANAGE_DELIVERIES,
+    ADMIN_PERMISSION.VIEW_USERS,
+  ]),
+  user: new Set(),
+};
+
+export const getPermissionsForRole = (role) => Array.from(ROLE_PERMISSIONS[role] ?? []);
+
+export const hasPermissionForRole = (role, permission) => ROLE_PERMISSIONS[role]?.has(permission) ?? false;
+
+export const canAssignRole = (actorRole, targetRole) => {
+  if (actorRole === "super_admin") {
+    return true;
+  }
+  if (actorRole === "admin") {
+    return targetRole !== "super_admin";
+  }
+  return false;
+};
+
 export const parseRestaurantPermissions = (permissions) => {
   if (!permissions) {
     return [];
@@ -24,6 +87,22 @@ export const parseRestaurantPermissions = (permissions) => {
       .filter((id) => Boolean(id));
   }
   return [];
+};
+
+export const resolveAllowedCitiesByRestaurants = async (restaurantIds = []) => {
+  if (!db || !Array.isArray(restaurantIds) || restaurantIds.length === 0) {
+    return [];
+  }
+  try {
+    const rows = await queryMany(
+      `SELECT DISTINCT city_id FROM restaurants WHERE id = ANY($1)`,
+      [restaurantIds],
+    );
+    return rows.map((row) => row.city_id).filter(Boolean);
+  } catch (error) {
+    console.error("Ошибка получения городов для ресторанов:", error);
+    return [];
+  }
 };
 
 /**
@@ -118,12 +197,12 @@ export const listAdminRecords = async () => {
 
 export const resolveAdminContext = async (telegramId) => {
   if (!telegramId) {
-    return { role: "user", allowedRestaurants: [] };
+    return { role: "user", allowedRestaurants: [], permissions: [] };
   }
   // Проверяем, есть ли Telegram ID в списке администраторов из переменной окружения
   const normalizedId = normaliseTelegramId(telegramId);
   if (normalizedId && ADMIN_TELEGRAM_IDS.has(normalizedId)) {
-    return { role: "super_admin", allowedRestaurants: [] };
+    return { role: "super_admin", allowedRestaurants: [], permissions: getPermissionsForRole("super_admin") };
   }
   // Проверяем в базе данных
   const record = await fetchAdminRecordByTelegram(telegramId);
@@ -133,6 +212,7 @@ export const resolveAdminContext = async (telegramId) => {
   return {
     role,
     allowedRestaurants,
+    permissions: getPermissionsForRole(role),
   };
 };
 
@@ -154,6 +234,7 @@ export const buildUserWithRole = (profile, adminRecord) => {
     allowedRestaurants,
     createdAt: profile?.created_at ?? adminRecord?.created_at ?? null,
     updatedAt: adminRecord?.updated_at ?? null,
+    permissions: getPermissionsForRole(role),
   };
 };
 
@@ -171,15 +252,21 @@ export const authoriseSuperAdmin = async (req, res) => {
   return { ...context, telegramId };
 };
 
-export const authoriseAdmin = async (req, res) => {
+export const authoriseAdmin = async (req, res, requiredPermission = null) => {
   const telegramId = getTelegramIdFromRequest(req);
   if (!telegramId) {
     res.status(401).json({ success: false, message: "Требуется Telegram ID администратора" });
     return null;
   }
   const context = await resolveAdminContext(telegramId);
-  if (context.role !== "admin" && context.role !== "super_admin") {
+  const hasRoleAccess =
+    context.role !== "user" && (ADMIN_ROLE_VALUES.has(context.role) || ROLE_PERMISSIONS[context.role]);
+  if (!hasRoleAccess) {
     res.status(403).json({ success: false, message: "Нет прав администратора" });
+    return null;
+  }
+  if (requiredPermission && !hasPermissionForRole(context.role, requiredPermission)) {
+    res.status(403).json({ success: false, message: "Недостаточно прав для операции" });
     return null;
   }
   return { ...context, telegramId };
@@ -189,16 +276,21 @@ export const authoriseAdmin = async (req, res) => {
  * Мягкая проверка авторизации - проверяет только, что пользователь является админом или супер-админом.
  * Используется для чтения данных внутри админ-панели, где права уже проверены при входе.
  */
-export const authoriseAnyAdmin = async (req, res) => {
+export const authoriseAnyAdmin = async (req, res, requiredPermission = null) => {
   const telegramId = getTelegramIdFromRequest(req);
   if (!telegramId) {
     res.status(401).json({ success: false, message: "Требуется Telegram ID администратора" });
     return null;
   }
   const context = await resolveAdminContext(telegramId);
-  // Если пользователь не админ и не супер-админ, возвращаем null без ошибки
+  // Если пользователь не имеет административных прав, возвращаем null без ошибки
   // (предполагается, что доступ к админ-панели уже проверен на фронтенде)
-  if (context.role !== "admin" && context.role !== "super_admin") {
+  const hasRoleAccess =
+    context.role !== "user" && (ADMIN_ROLE_VALUES.has(context.role) || ROLE_PERMISSIONS[context.role]);
+  if (!hasRoleAccess) {
+    return null;
+  }
+  if (requiredPermission && !hasPermissionForRole(context.role, requiredPermission)) {
     return null;
   }
   return { ...context, telegramId };

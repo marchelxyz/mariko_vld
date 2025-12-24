@@ -36,7 +36,15 @@ const parseAdminTelegramIds = (raw) => {
   return parsed;
 };
 export const ADMIN_TELEGRAM_IDS = parseAdminTelegramIds(process.env.ADMIN_TELEGRAM_IDS);
-export const ADMIN_ROLE_VALUES = new Set(["super_admin", "admin", "user"]);
+export const ADMIN_ROLE_VALUES = new Set([
+  "super_admin",
+  "admin",
+  "manager",
+  "restaurant_manager",
+  "marketer",
+  "delivery_manager",
+  "user",
+]);
 export const ORDER_STATUS_VALUES = new Set([
   "draft",
   "processing",

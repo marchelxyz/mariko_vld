@@ -61,33 +61,73 @@ export function useEnsureUserProfileSync(): void {
     const baseUrl = getProfileSyncApiBaseUrl();
     const endpoint = `${baseUrl}/cart/profile/sync`;
 
-    fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Telegram-Id": userId,
-      },
-      body: JSON.stringify({
-        id: userId,
-        name: displayName,
-        photo,
-        telegramId: user.id,
-      }),
-    })
-      .then((response) => {
-        if (!response.ok) {
-          return response.text().then((text) => {
-            throw new Error(text || `Profile sync failed (${response.status})`);
-          });
-        }
-        localStorage?.setItem(signatureKey, signature);
-        return null;
-      })
-      .catch((error) => {
-        console.warn("[profile-sync] failed to bootstrap profile", error);
-      })
-      .finally(() => {
+    let cancelled = false;
+    let scheduledHandle: number | ReturnType<typeof setTimeout> | null = null;
+
+    const runSync = () => {
+      if (cancelled) {
         sessionStorage?.removeItem(pendingKey);
-      });
+        return;
+      }
+
+      fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Telegram-Id": userId,
+        },
+        body: JSON.stringify({
+          id: userId,
+          name: displayName,
+          photo,
+          telegramId: user.id,
+        }),
+      })
+        .then((response) => {
+          if (!response.ok) {
+            return response.text().then((text) => {
+              throw new Error(text || `Profile sync failed (${response.status})`);
+            });
+          }
+          localStorage?.setItem(signatureKey, signature);
+          return null;
+        })
+        .catch((error) => {
+          console.warn("[profile-sync] failed to bootstrap profile", error);
+        })
+        .finally(() => {
+          sessionStorage?.removeItem(pendingKey);
+        });
+    };
+
+    // Не критично для первого экрана → выполняем в idle, чтобы не конкурировать с основными запросами.
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      scheduledHandle = (
+        window as unknown as {
+          requestIdleCallback: (cb: () => void, options?: { timeout?: number }) => number;
+        }
+      ).requestIdleCallback(runSync, { timeout: 2000 });
+    } else if (typeof window !== "undefined") {
+      scheduledHandle = setTimeout(runSync, 0);
+    } else {
+      runSync();
+    }
+
+    return () => {
+      cancelled = true;
+      sessionStorage?.removeItem(pendingKey);
+      if (scheduledHandle === null || typeof window === "undefined") {
+        return;
+      }
+      if ("cancelIdleCallback" in window && typeof scheduledHandle === "number") {
+        (
+          window as unknown as {
+            cancelIdleCallback: (id: number) => void;
+          }
+        ).cancelIdleCallback(scheduledHandle);
+      } else {
+        clearTimeout(scheduledHandle);
+      }
+    };
   }, []);
 }

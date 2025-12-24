@@ -350,12 +350,12 @@ const OrdersPage = () => {
   };
 
   return (
-    <div className="min-h-screen overflow-hidden flex flex-col bg-transparent">
-      <div className="bg-transparent pb-6">
+    <div className="app-screen overflow-hidden bg-transparent">
+      <div className="bg-transparent pb-5 md:pb-6">
         <Header />
       </div>
-      <div className="flex-1 bg-transparent relative overflow-hidden pt-0 md:pt-2">
-        <div className="px-4 md:px-6 max-w-4xl mx-auto w-full pb-32">
+      <div className="app-content bg-transparent relative overflow-hidden pt-0 md:pt-2 app-bottom-space">
+        <div className="app-shell app-shell-wide w-full max-w-4xl pb-6 md:pb-8">
           <PageHeader
             title="Мои заказы"
             subtitle="Следите за статусом доставки"
@@ -421,9 +421,7 @@ const OrdersPage = () => {
             </div>
           )}
         </div>
-        <div className="absolute bottom-0 left-0 right-0 z-50">
-          <BottomNavigation currentPage="profile" />
-        </div>
+        <BottomNavigation currentPage="profile" />
       </div>
     </div>
   );
