@@ -102,15 +102,9 @@ function buildAdminHeaders(initial?: Record<string, string>): Record<string, str
     ...(initial ?? {}),
   };
 
-  const platform = getPlatform();
   const initData = getInitData();
-  
   if (initData) {
-    if (platform === "telegram") {
-      headers['X-Telegram-Init-Data'] = initData;
-    } else if (platform === "vk") {
-      headers['X-VK-Init-Data'] = initData;
-    }
+    headers['X-VK-Init-Data'] = initData;
   }
 
   return headers;

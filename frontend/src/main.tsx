@@ -1,8 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
-import { getTg, setupFullscreenHandlers } from "@/lib/telegram";
-import { getPlatform, markReady, requestFullscreenMode } from "@/lib/platform";
+import { markReady, requestFullscreenMode } from "@/lib/platform";
 import { logger } from "@/lib/logger";
 
 const hideInitialSpinner = () => {
@@ -12,69 +11,29 @@ const hideInitialSpinner = () => {
   }
 };
 
-const platform = getPlatform();
+// Инициализация VK Mini App
+markReady();
 
-// Инициализация платформы (Telegram или VK)
-if (platform === "telegram") {
-  const tg = getTg();
-  if (tg) {
-    // Настройка обработчиков полноэкранного режима перед ready()
-    setupFullscreenHandlers();
-    
-    // Сигнализируем Telegram, что приложение готово
-    markReady();
-    
-    // Запрос полноэкранного режима при старте несколько раз
-    // для надежного перехода в полноэкранный режим
-    // Согласно документации: https://core.telegram.org/bots/webapps#initializing-mini-apps
-    requestFullscreenMode();
-    
-    // Повторные вызовы с задержкой для надежности
-    // Используем expand() как fallback для старых версий Telegram
-    setTimeout(() => {
-      requestFullscreenMode();
-    }, 100);
-    
-    setTimeout(() => {
-      requestFullscreenMode();
-    }, 500);
-    
-    // Дополнительный вызов после полной загрузки DOM
-    if (typeof document !== "undefined") {
-      if (document.readyState === "complete") {
-        requestFullscreenMode();
-      } else {
-        window.addEventListener("load", () => {
-          requestFullscreenMode();
-        });
-      }
-    }
-  }
-} else if (platform === "vk") {
-  // Инициализация VK Mini App
-  markReady();
-  
-  // Запрос полноэкранного режима
+// Запрос полноэкранного режима
+requestFullscreenMode();
+
+// Повторные вызовы с задержкой для надежности
+setTimeout(() => {
   requestFullscreenMode();
-  
-  // Повторные вызовы с задержкой для надежности
-  setTimeout(() => {
+}, 100);
+
+setTimeout(() => {
+  requestFullscreenMode();
+}, 500);
+
+// Дополнительный вызов после полной загрузки DOM
+if (typeof document !== "undefined") {
+  if (document.readyState === "complete") {
     requestFullscreenMode();
-  }, 100);
-  
-  setTimeout(() => {
-    requestFullscreenMode();
-  }, 500);
-  
-  // Дополнительный вызов после полной загрузки DOM
-  if (typeof document !== "undefined") {
-    if (document.readyState === "complete") {
+  } else {
+    window.addEventListener("load", () => {
       requestFullscreenMode();
-    } else {
-      window.addEventListener("load", () => {
-        requestFullscreenMode();
-      });
-    }
+    });
   }
 }
 
@@ -92,21 +51,7 @@ if (typeof window !== "undefined") {
         lineno: event.lineno,
         colno: event.colno,
         originalError: event.error ? String(event.error) : undefined,
-        platform,
       });
-      
-      // Пытаемся показать ошибку через платформу
-      if (platform === "telegram") {
-        const tg = getTg();
-        try {
-          if (tg && typeof tg.showAlert === 'function') {
-            tg.showAlert(message);
-            return;
-          }
-        } catch (alertError) {
-          console.warn('showAlert failed, using fallback', alertError);
-        }
-      }
       
       // Fallback на обычный alert
       alert(message);
@@ -127,21 +72,7 @@ if (typeof window !== "undefined") {
       logger.error('global', error, {
         type: 'unhandledrejection',
         originalReason: reason ? String(reason) : undefined,
-        platform,
       });
-      
-      // Пытаемся показать ошибку через платформу
-      if (platform === "telegram") {
-        const tg = getTg();
-        try {
-          if (tg && typeof tg.showAlert === 'function') {
-            tg.showAlert(message);
-            return;
-          }
-        } catch (alertError) {
-          console.warn('showAlert failed, using fallback', alertError);
-        }
-      }
       
       // Fallback на обычный alert
       alert(message);
@@ -153,32 +84,16 @@ if (typeof window !== "undefined") {
 }
 
 try {
-  logger.info('app', 'Инициализация приложения', { platform });
+  logger.info('app', 'Инициализация приложения VK');
   createRoot(document.getElementById("root")!).render(<App />);
   hideInitialSpinner();
-  logger.info('app', 'Приложение успешно инициализировано', { platform });
+  logger.info('app', 'Приложение успешно инициализировано');
 } catch (err: unknown) {
   logger.error('app', err instanceof Error ? err : new Error('Ошибка рендеринга приложения'), {
     type: 'render_error',
-    platform,
   });
   try {
     const message = err instanceof Error ? err.message : String(err);
-    
-    // Пытаемся показать ошибку через платформу
-    if (platform === "telegram") {
-      const tg = getTg();
-      try {
-        if (tg && typeof tg.showAlert === 'function') {
-          tg.showAlert(`Render error: ${message}`);
-          return;
-        }
-      } catch (alertError) {
-        console.warn('showAlert failed, using fallback', alertError);
-      }
-    }
-    
-    // Fallback на обычный alert
     alert(`Render error: ${message}`);
   } catch (_) {
     const message = err instanceof Error ? err.message : String(err);

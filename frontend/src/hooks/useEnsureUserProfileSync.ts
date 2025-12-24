@@ -40,24 +40,15 @@ export function useEnsureUserProfileSync(): void {
     }
 
     // Для VK всегда используем асинхронное получение данных пользователя
-    if (platform === "vk") {
-      getUserAsync().then((user) => {
-        if (user?.id) {
-          syncProfile(user, platform);
-        }
-      });
-      return;
-    }
-
-    // Для Telegram используем синхронное получение
-    const user = getUser();
-    if (user?.id) {
-      syncProfile(user, platform);
-    }
+    getUserAsync().then((user) => {
+      if (user?.id) {
+        syncProfile(user);
+      }
+    });
   }, []);
 }
 
-function syncProfile(user: { id: number; first_name: string; last_name?: string; username?: string; photo_url?: string; avatar?: string }, platform: string): void {
+function syncProfile(user: { id: number; first_name: string; last_name?: string; username?: string; photo_url?: string; avatar?: string }): void {
   const userId = user.id.toString();
   const displayName =
     [user.first_name, user.last_name].filter(Boolean).join(" ").trim() ||
@@ -91,27 +82,19 @@ function syncProfile(user: { id: number; first_name: string; last_name?: string;
       return;
     }
 
-    // Определяем заголовок в зависимости от платформы
-    const headerName = platform === "vk" ? "X-VK-Id" : "X-Telegram-Id";
-    
-    // Формируем тело запроса в зависимости от платформы
+    // Формируем тело запроса для VK
     const body: Record<string, unknown> = {
       id: userId,
       name: displayName,
       photo,
+      vkId: user.id,
     };
-    
-    if (platform === "telegram") {
-      body.telegramId = user.id;
-    } else if (platform === "vk") {
-      body.vkId = user.id;
-    }
 
     fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        [headerName]: userId,
+        "X-VK-Id": userId,
       },
       body: JSON.stringify(body),
     })

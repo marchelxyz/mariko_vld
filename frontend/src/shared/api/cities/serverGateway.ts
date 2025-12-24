@@ -28,24 +28,15 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
     ...(options?.headers ?? {}),
   };
 
-  const platform = getPlatform();
   const initData = getInitData();
   if (initData) {
-    if (platform === "telegram") {
-      headers['X-Telegram-Init-Data'] = initData;
-    } else if (platform === "vk") {
-      headers['X-VK-Init-Data'] = initData;
-    }
+    headers['X-VK-Init-Data'] = initData;
   }
 
   // Также добавляем ID пользователя, если доступен
   const user = getUser();
   if (user?.id) {
-    if (platform === "telegram") {
-      headers['X-Telegram-Id'] = String(user.id);
-    } else if (platform === "vk") {
-      headers['X-VK-Id'] = String(user.id);
-    }
+    headers['X-VK-Id'] = String(user.id);
   }
   
   try {
@@ -142,9 +133,9 @@ export async function createCityViaServer(
     const initData = getTg()?.initData;
     if (initData) {
       headers['X-Telegram-Init-Data'] = initData;
-      logger.debug('cities', `${platform} initData добавлен в заголовки`);
+      logger.debug('cities', 'VK initData добавлен в заголовки');
     } else {
-      logger.warn('cities', `${platform} initData не найден`);
+      logger.warn('cities', 'VK initData не найден');
     }
 
     // Также добавляем прямой Telegram ID, если доступен
