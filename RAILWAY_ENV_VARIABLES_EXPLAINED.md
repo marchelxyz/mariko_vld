@@ -97,3 +97,49 @@ VITE_CART_ORDERS_URL=https://backend.up.railway.app/api/cart/orders
 ### Без VITE_SERVER_API_URL (но с тремя переменными выше):
 - ✅ Всё будет работать нормально
 - ⚠️ Просто больше переменных для управления
+
+---
+
+## CORS_ALLOWED_ORIGINS (Backend)
+
+### Что это?
+Переменная окружения для backend сервиса, которая задает список доменов, с которых разрешены запросы к API (CORS policy).
+
+### Зачем нужна?
+**КРИТИЧЕСКИ ВАЖНА** для работы приложения, когда фронтенд и бэкенд на разных доменах:
+- Фронтенд на Vercel: `https://mariko-vld.vercel.app`
+- Backend на Railway: `https://hm-projecttt-vladapp.up.railway.app`
+- Браузер блокирует запросы между разными доменами без правильной настройки CORS
+
+**Особенно важно для VK Mini App**, потому что приложение загружается с домена Vercel, а запросы идут на Railway backend.
+
+### Как настроить?
+
+```env
+# Один домен
+CORS_ALLOWED_ORIGINS=https://mariko-vld.vercel.app
+
+# Несколько доменов (через запятую)
+CORS_ALLOWED_ORIGINS=https://mariko-vld.vercel.app,https://your-custom-domain.com
+```
+
+### Что произойдёт без неё?
+
+**Если переменная не задана:**
+- ✅ Backend разрешает запросы со всех origins (только для разработки!)
+- ⚠️ Небезопасно для production
+
+**Если переменная задана, но домен не добавлен:**
+- ❌ Браузер блокирует все запросы с фронтенда
+- ❌ Приложение не может работать
+- ❌ В консоли браузера будут ошибки: `Access to fetch ... has been blocked by CORS policy`
+
+### Рекомендация
+
+**Всегда настраивайте `CORS_ALLOWED_ORIGINS` в production!**
+
+1. Добавьте домен Vercel: `https://mariko-vld.vercel.app`
+2. Если используете кастомный домен, добавьте и его
+3. Не используйте wildcard (`*`) в production
+
+Подробнее см. [`VK_CORS_FIX.md`](./VK_CORS_FIX.md)
