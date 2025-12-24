@@ -1,5 +1,5 @@
 import { queryOne, queryMany, db } from "../postgresClient.mjs";
-import { ADMIN_TELEGRAM_IDS, ADMIN_ROLE_VALUES } from "../config.mjs";
+import { ADMIN_TELEGRAM_IDS, ADMIN_VK_IDS, ADMIN_ROLE_VALUES } from "../config.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
 
 export const ADMIN_PERMISSION = {
@@ -145,6 +145,21 @@ export const getTelegramIdFromRequest = (req) => {
   return null;
 };
 
+/**
+ * Получает VK ID из заголовков запроса
+ */
+export const getVkIdFromRequest = (req) => {
+  const raw = req.get("x-vk-id");
+  if (!raw) {
+    return null;
+  }
+  const trimmed = typeof raw === "string" ? raw.trim() : String(raw).trim();
+  if (!trimmed || !/^\d+$/.test(trimmed)) {
+    return null;
+  }
+  return trimmed;
+};
+
 export const fetchAdminRecordByTelegram = async (telegramId) => {
   if (!db || !telegramId) {
     return null;
@@ -195,13 +210,24 @@ export const listAdminRecords = async () => {
   }
 };
 
-export const resolveAdminContext = async (telegramId) => {
+export const resolveAdminContext = async (telegramId, vkId = null) => {
+  // Сначала проверяем VK ID, если он передан
+  if (vkId) {
+    const normalizedVkId = String(vkId).trim();
+    if (normalizedVkId && ADMIN_VK_IDS.has(normalizedVkId)) {
+      console.log('[adminService] VK ID found in ADMIN_VK_IDS, returning super_admin', { vkId: normalizedVkId });
+      return { role: "super_admin", allowedRestaurants: [], permissions: getPermissionsForRole("super_admin") };
+    }
+  }
+  
+  // Затем проверяем Telegram ID
   if (!telegramId) {
     return { role: "user", allowedRestaurants: [], permissions: [] };
   }
   // Проверяем, есть ли Telegram ID в списке администраторов из переменной окружения
   const normalizedId = normaliseTelegramId(telegramId);
   if (normalizedId && ADMIN_TELEGRAM_IDS.has(normalizedId)) {
+    console.log('[adminService] Telegram ID found in ADMIN_TELEGRAM_IDS, returning super_admin', { telegramId: normalizedId });
     return { role: "super_admin", allowedRestaurants: [], permissions: getPermissionsForRole("super_admin") };
   }
   // Проверяем в базе данных
@@ -240,25 +266,29 @@ export const buildUserWithRole = (profile, adminRecord) => {
 
 export const authoriseSuperAdmin = async (req, res) => {
   const telegramId = getTelegramIdFromRequest(req);
-  if (!telegramId) {
-    res.status(401).json({ success: false, message: "Требуется Telegram ID администратора" });
+  const vkId = getVkIdFromRequest(req);
+  
+  if (!telegramId && !vkId) {
+    res.status(401).json({ success: false, message: "Требуется Telegram ID или VK ID администратора" });
     return null;
   }
-  const context = await resolveAdminContext(telegramId);
+  const context = await resolveAdminContext(telegramId, vkId);
   if (context.role !== "super_admin") {
     res.status(403).json({ success: false, message: "Доступ только для супер-админа" });
     return null;
   }
-  return { ...context, telegramId };
+  return { ...context, telegramId, vkId };
 };
 
 export const authoriseAdmin = async (req, res, requiredPermission = null) => {
   const telegramId = getTelegramIdFromRequest(req);
-  if (!telegramId) {
-    res.status(401).json({ success: false, message: "Требуется Telegram ID администратора" });
+  const vkId = getVkIdFromRequest(req);
+  
+  if (!telegramId && !vkId) {
+    res.status(401).json({ success: false, message: "Требуется Telegram ID или VK ID администратора" });
     return null;
   }
-  const context = await resolveAdminContext(telegramId);
+  const context = await resolveAdminContext(telegramId, vkId);
   const hasRoleAccess =
     context.role !== "user" && (ADMIN_ROLE_VALUES.has(context.role) || ROLE_PERMISSIONS[context.role]);
   if (!hasRoleAccess) {
@@ -269,7 +299,7 @@ export const authoriseAdmin = async (req, res, requiredPermission = null) => {
     res.status(403).json({ success: false, message: "Недостаточно прав для операции" });
     return null;
   }
-  return { ...context, telegramId };
+  return { ...context, telegramId, vkId };
 };
 
 /**
@@ -278,11 +308,13 @@ export const authoriseAdmin = async (req, res, requiredPermission = null) => {
  */
 export const authoriseAnyAdmin = async (req, res, requiredPermission = null) => {
   const telegramId = getTelegramIdFromRequest(req);
-  if (!telegramId) {
-    res.status(401).json({ success: false, message: "Требуется Telegram ID администратора" });
+  const vkId = getVkIdFromRequest(req);
+  
+  if (!telegramId && !vkId) {
+    res.status(401).json({ success: false, message: "Требуется Telegram ID или VK ID администратора" });
     return null;
   }
-  const context = await resolveAdminContext(telegramId);
+  const context = await resolveAdminContext(telegramId, vkId);
   // Если пользователь не имеет административных прав, возвращаем null без ошибки
   // (предполагается, что доступ к админ-панели уже проверен на фронтенде)
   const hasRoleAccess =
@@ -293,5 +325,5 @@ export const authoriseAnyAdmin = async (req, res, requiredPermission = null) => 
   if (requiredPermission && !hasPermissionForRole(context.role, requiredPermission)) {
     return null;
   }
-  return { ...context, telegramId };
+  return { ...context, telegramId, vkId };
 };

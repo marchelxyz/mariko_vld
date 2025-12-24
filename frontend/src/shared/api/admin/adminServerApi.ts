@@ -1,7 +1,8 @@
 import { getCartApiBaseUrl } from "@shared/api/cart";
 import type { CartOrderRecord } from "@shared/api/cart";
 import type { Permission, UserRole } from "@shared/types";
-import { getUser } from "@/lib/platform";
+import { getUser, getPlatform } from "@/lib/platform";
+import { getUserId as getVkUserId } from "@/lib/vkCore";
 import { logger } from "@/lib/logger";
 
 function normalizeBaseUrl(base: string | undefined): string {
@@ -67,6 +68,21 @@ const parseAdminTelegramIds = (raw: string | undefined): Set<string> => {
   );
 };
 const ADMIN_TELEGRAM_IDS = parseAdminTelegramIds(import.meta.env.VITE_ADMIN_TELEGRAM_IDS);
+
+// Парсим список VK ID администраторов (через запятую)
+const parseAdminVkIds = (raw: string | undefined): Set<string> => {
+  if (!raw) {
+    return new Set();
+  }
+  return new Set(
+    raw
+      .split(",")
+      .map((id) => id.trim())
+      .filter((id) => id && /^\d+$/.test(id))
+      .map((id) => String(id))
+  );
+};
+const ADMIN_VK_IDS = parseAdminVkIds(import.meta.env.VITE_ADMIN_VK_IDS);
 
 export type AdminRole = UserRole;
 
@@ -165,6 +181,14 @@ const getFallbackTelegramId = (): string | undefined => {
   return undefined;
 };
 
+// Получаем первый VK ID из списка как fallback
+const getFallbackVkId = (): string | undefined => {
+  if (ADMIN_VK_IDS.size > 0) {
+    return Array.from(ADMIN_VK_IDS)[0];
+  }
+  return undefined;
+};
+
 const resolveTelegramId = (override?: string): string | undefined => {
   logger.debug('admin-api', 'resolveTelegramId', {
     override,
@@ -175,10 +199,14 @@ const resolveTelegramId = (override?: string): string | undefined => {
     logger.debug('admin-api', 'Using override ID', { override });
     return override;
   }
-  const user = getUser();
-  if (user?.id) {
-    logger.debug('admin-api', 'Using Telegram user ID', { userId: user.id });
-    return user.id.toString();
+  const platform = getPlatform();
+  // Для Telegram платформы используем ID пользователя
+  if (platform !== "vk") {
+    const user = getUser();
+    if (user?.id) {
+      logger.debug('admin-api', 'Using Telegram user ID', { userId: user.id });
+      return user.id.toString();
+    }
   }
   // Fallback: используем первый ID из списка администраторов
   const fallback = getFallbackTelegramId();
@@ -186,13 +214,42 @@ const resolveTelegramId = (override?: string): string | undefined => {
   return fallback;
 };
 
-const buildHeaders = (overrideTelegramId?: string): Record<string, string> => {
+const resolveVkId = (override?: string): string | undefined => {
+  logger.debug('admin-api', 'resolveVkId', {
+    override,
+    adminVkIds: Array.from(ADMIN_VK_IDS),
+  });
+  // Используем override только если это похоже на нормальный числовой vk id
+  if (override && /^\d+$/.test(override)) {
+    logger.debug('admin-api', 'Using override VK ID', { override });
+    return override;
+  }
+  const platform = getPlatform();
+  // Для VK платформы используем VK ID пользователя
+  if (platform === "vk") {
+    const vkUserId = getVkUserId();
+    if (vkUserId) {
+      logger.debug('admin-api', 'Using VK user ID', { vkUserId });
+      return vkUserId;
+    }
+  }
+  // Fallback: используем первый ID из списка администраторов
+  const fallback = getFallbackVkId();
+  logger.debug('admin-api', 'Using fallback VK ID', { fallback });
+  return fallback;
+};
+
+const buildHeaders = (overrideTelegramId?: string, overrideVkId?: string): Record<string, string> => {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
   const telegramId = resolveTelegramId(overrideTelegramId);
   if (telegramId) {
     headers["X-Telegram-Id"] = telegramId;
+  }
+  const vkId = resolveVkId(overrideVkId);
+  if (vkId) {
+    headers["X-VK-Id"] = vkId;
   }
   return headers;
 };
@@ -223,11 +280,11 @@ const handleResponse = async <T>(response: Response): Promise<T> => {
 };
 
 export const adminServerApi = {
-  async getCurrentAdmin(overrideTelegramId?: string): Promise<AdminMeResponse> {
+  async getCurrentAdmin(overrideTelegramId?: string, overrideVkId?: string): Promise<AdminMeResponse> {
     const url = `${ADMIN_API_BASE}/me`;
     logger.debug('admin-api', 'getCurrentAdmin', { url });
     const response = await fetch(url, {
-      headers: buildHeaders(overrideTelegramId),
+      headers: buildHeaders(overrideTelegramId, overrideVkId),
     });
     if (!response.ok) {
       const errorText = await response.text().catch(() => "");
@@ -243,7 +300,7 @@ export const adminServerApi = {
 
   async getUsers(): Promise<AdminPanelUser[]> {
     const response = await fetch(`${ADMIN_API_BASE}/users`, {
-      headers: buildHeaders(),
+      headers: buildHeaders(undefined, undefined),
     });
     const data = await handleResponse<{ success: boolean; users: AdminPanelUser[] }>(response);
     return data.users ?? [];
@@ -252,7 +309,7 @@ export const adminServerApi = {
   async updateUserRole(userId: string, payload: UpdateRolePayload): Promise<AdminPanelUser> {
     const response = await fetch(`${ADMIN_API_BASE}/users/${encodeURIComponent(userId)}`, {
       method: "PATCH",
-      headers: buildHeaders(),
+      headers: buildHeaders(undefined, undefined),
       body: JSON.stringify(payload),
     });
     const data = await handleResponse<{ success: boolean; user: AdminPanelUser }>(response);
@@ -273,7 +330,7 @@ export const adminServerApi = {
     const response = await fetch(
       `${ADMIN_API_BASE}/orders${search.toString() ? `?${search.toString()}` : ""}`,
       {
-        headers: buildHeaders(),
+        headers: buildHeaders(undefined, undefined),
       },
     );
     const data = await handleResponse<AdminOrdersResponse>(response);
@@ -285,7 +342,7 @@ export const adminServerApi = {
       `${ADMIN_API_BASE}/orders/${encodeURIComponent(orderId)}/status`,
       {
         method: "PATCH",
-        headers: buildHeaders(),
+        headers: buildHeaders(undefined, undefined),
         body: JSON.stringify({ status }),
       },
     );
@@ -297,7 +354,7 @@ export const adminServerApi = {
       `${ADMIN_API_BASE}/restaurants/${encodeURIComponent(restaurantId)}/status`,
       {
         method: "PATCH",
-        headers: buildHeaders(),
+        headers: buildHeaders(undefined, undefined),
         body: JSON.stringify({ isActive }),
       },
     );
@@ -322,7 +379,7 @@ export const adminServerApi = {
     const response = await fetch(
       `${ADMIN_API_BASE}/guests${search.toString() ? `?${search.toString()}` : ""}`,
       {
-        headers: buildHeaders(),
+        headers: buildHeaders(undefined, undefined),
       },
     );
     const data = await handleResponse<AdminGuestsResponse>(response);
@@ -333,7 +390,7 @@ export const adminServerApi = {
     const response = await fetch(
       `${ADMIN_API_BASE}/guests/${encodeURIComponent(guestId)}/bookings`,
       {
-        headers: buildHeaders(),
+        headers: buildHeaders(undefined, undefined),
       },
     );
     const data = await handleResponse<GuestBookingsResponse>(response);
