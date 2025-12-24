@@ -18,9 +18,9 @@ type OnboardingTourShownResponse = {
   message?: string;
 };
 
-const buildHeaders = (userId: string): Record<string, string> => ({
+const buildHeaders = (userId: string, isVK: boolean = false): Record<string, string> => ({
   "Content-Type": "application/json",
-  "X-Telegram-Id": userId,
+  [isVK ? "X-VK-Id" : "X-Telegram-Id"]: userId,
 });
 
 const handleResponse = async (response: Response): Promise<OnboardingTourShownResponse> => {
@@ -33,18 +33,18 @@ const handleResponse = async (response: Response): Promise<OnboardingTourShownRe
 };
 
 export const onboardingServerApi = {
-  async getOnboardingTourShown(userId: string): Promise<boolean> {
+  async getOnboardingTourShown(userId: string, isVK: boolean = false): Promise<boolean> {
     const response = await fetch(`${ONBOARDING_ENDPOINT}?id=${encodeURIComponent(userId)}`, {
-      headers: buildHeaders(userId),
+      headers: buildHeaders(userId, isVK),
     });
     const data = await handleResponse(response);
     return data.shown === true;
   },
 
-  async setOnboardingTourShown(userId: string, shown: boolean): Promise<boolean> {
+  async setOnboardingTourShown(userId: string, shown: boolean, isVK: boolean = false): Promise<boolean> {
     const response = await fetch(ONBOARDING_ENDPOINT, {
       method: "POST",
-      headers: buildHeaders(userId),
+      headers: buildHeaders(userId, isVK),
       body: JSON.stringify({ id: userId, shown }),
     });
     await handleResponse(response);
