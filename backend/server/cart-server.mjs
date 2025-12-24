@@ -84,7 +84,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Явная обработка preflight запросов для надежности
-app.options('*', cors(corsOptions));
+// Используем регулярное выражение вместо '*' для совместимости с path-to-regexp v6+
+app.options(/.*/, cors(corsOptions));
 
 // Middleware для логирования всех запросов (для диагностики CORS)
 app.use((req, res, next) => {
