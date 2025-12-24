@@ -8,19 +8,13 @@ import {
   mapProfileRowToClient,
 } from "../services/profileService.mjs";
 import { fetchRestaurantIntegrationConfig, enqueueIikoOrder } from "../services/integrationService.mjs";
-import { normaliseNullableString, normaliseVkId } from "../utils.mjs";
+import { normaliseNullableString } from "../utils.mjs";
 import { addressService } from "../services/addressService.mjs";
-import { sendOrderStatusNotification, sendWelcomeNotification } from "../services/vkNotificationService.mjs";
 
 const healthPayload = () => ({ status: "ok", database: Boolean(db) });
 
 const getTelegramIdFromHeaders = (req) => {
   const raw = req.get("x-telegram-id");
-  return typeof raw === "string" ? raw.trim() : null;
-};
-
-const getVkIdFromHeaders = (req) => {
-  const raw = req.get("x-vk-id");
   return typeof raw === "string" ? raw.trim() : null;
 };
 
@@ -77,13 +71,10 @@ export function registerCartRoutes(app) {
 
     const body = req.body ?? {};
     const headerTelegramId = getTelegramIdFromHeaders(req);
-    const headerVkId = getVkIdFromHeaders(req);
     const resolvedId =
       (typeof body.id === "string" && body.id.trim()) ||
       headerTelegramId ||
-      headerVkId ||
-      (typeof body.telegramId === "string" && body.telegramId.trim()) ||
-      (typeof body.vkId === "string" && body.vkId.trim());
+      (typeof body.telegramId === "string" && body.telegramId.trim());
 
     if (!resolvedId) {
       return res.status(400).json({ success: false, message: "Не удалось определить пользователя" });
@@ -92,8 +83,7 @@ export function registerCartRoutes(app) {
     try {
       const row = await upsertUserProfileRecord({
         id: resolvedId,
-        telegramId: body.telegramId ?? headerTelegramId ?? (headerTelegramId ? body.id : null),
-        vkId: body.vkId ?? headerVkId ?? (headerVkId ? body.id : null),
+        telegramId: body.telegramId ?? headerTelegramId ?? body.id,
         name: body.name,
         phone: body.phone ?? body.customerPhone,
         primaryAddressId: body.primaryAddressId,
@@ -158,8 +148,7 @@ export function registerCartRoutes(app) {
     }
     const body = req.body ?? {};
     const headerTelegramId = getTelegramIdFromHeaders(req);
-    const headerVkId = getVkIdFromHeaders(req);
-    const resolvedId = normaliseNullableString(body.id) ?? headerTelegramId ?? headerVkId;
+    const resolvedId = normaliseNullableString(body.id) ?? headerTelegramId;
     if (!resolvedId) {
       return res
         .status(400)
@@ -168,8 +157,7 @@ export function registerCartRoutes(app) {
     try {
       const row = await upsertUserProfileRecord({
         id: resolvedId,
-        telegramId: body.telegramId ?? headerTelegramId ?? (headerTelegramId ? resolvedId : null),
-        vkId: body.vkId ?? headerVkId ?? (headerVkId ? resolvedId : null),
+        telegramId: body.telegramId ?? headerTelegramId ?? resolvedId,
         name: body.name,
         phone: body.phone,
         primaryAddressId: body.primaryAddressId,
@@ -264,41 +252,22 @@ export function registerCartRoutes(app) {
     }
 
     const orderId = `mock-${Date.now()}`;
-    const headerTelegramId = getTelegramIdFromHeaders(req);
-    const headerVkId = getVkIdFromHeaders(req);
-    
     const resolvedTelegramId =
       typeof orderPayload?.customerTelegramId === "string" && orderPayload.customerTelegramId.length
         ? orderPayload.customerTelegramId
         : typeof orderPayload?.meta?.telegramUserId === "string"
           ? orderPayload.meta.telegramUserId
-          : headerTelegramId
-          ? headerTelegramId
           : null;
-    
-    const resolvedVkId =
-      typeof orderPayload?.customerVkId === "string" && orderPayload.customerVkId.length
-        ? orderPayload.customerVkId
-        : typeof orderPayload?.meta?.vkUserId === "string"
-          ? orderPayload.meta.vkUserId
-          : headerVkId
-          ? headerVkId
-          : null;
-    
     const resolvedTelegramUsername =
       orderPayload?.customerTelegramUsername ?? orderPayload?.meta?.telegramUsername ?? null;
     const resolvedTelegramName =
       orderPayload?.customerTelegramName ?? orderPayload?.meta?.telegramFullName ?? null;
-    const resolvedVkName =
-      orderPayload?.customerVkName ?? orderPayload?.meta?.vkFullName ?? null;
 
     const composedMeta = {
       ...(orderPayload?.meta && typeof orderPayload.meta === "object" ? orderPayload.meta : {}),
       telegramUserId: resolvedTelegramId ?? orderPayload?.meta?.telegramUserId ?? null,
       telegramUsername: resolvedTelegramUsername,
       telegramFullName: resolvedTelegramName,
-      vkUserId: resolvedVkId ?? orderPayload?.meta?.vkUserId ?? null,
-      vkFullName: resolvedVkName,
       deliveryLocation:
         orderPayload?.deliveryLatitude && orderPayload?.deliveryLongitude
           ? {
@@ -354,17 +323,15 @@ export function registerCartRoutes(app) {
         }
         console.log(`✅ Order ${orderId} saved to PostgreSQL`);
 
-        // Сохраняем последний адрес в профиле (если есть ID и адрес)
-        const userId = resolvedTelegramId || resolvedVkId;
-        if (userId && orderPayload.orderType === "delivery") {
+        // Сохраняем последний адрес в профиле (если есть Telegram ID и адрес)
+        if (resolvedTelegramId && orderPayload.orderType === "delivery") {
           const lastAddressText =
             orderPayload.deliveryAddress ??
             composedMeta?.deliveryAddressParts?.street ??
             null;
           const profilePayload = {
-            id: userId,
-            telegramId: resolvedTelegramId || null,
-            vkId: resolvedVkId || null,
+            id: resolvedTelegramId,
+            telegramId: resolvedTelegramId,
             lastAddressText,
             lastAddressLat: orderPayload.deliveryLatitude ?? composedMeta?.deliveryLocation?.lat,
             lastAddressLon: orderPayload.deliveryLongitude ?? composedMeta?.deliveryLocation?.lon,
@@ -373,21 +340,6 @@ export function registerCartRoutes(app) {
           upsertUserProfileRecord(profilePayload).catch((profileError) =>
             console.warn("Не удалось обновить профиль адресом", profileError),
           );
-        }
-
-        // Отправляем уведомление о создании заказа через VK (если есть VK ID)
-        if (resolvedVkId) {
-          try {
-            const restaurantName = orderPayload.restaurantId || "Ресторан";
-            await sendOrderStatusNotification(resolvedVkId, {
-              orderId,
-              status: orderPayload?.status ?? "processing",
-              restaurantName,
-              total: total,
-            });
-          } catch (notificationError) {
-            console.warn("Не удалось отправить VK уведомление о заказе:", notificationError);
-          }
         }
 
         // ⚠️ Не отправляем в iiko до оплаты. Интеграция будет запущена после webhook оплаты.
@@ -416,19 +368,12 @@ export function registerCartRoutes(app) {
     }
 
     const rawTelegramId = req.query?.telegramId ?? req.get("x-telegram-id");
-    const rawVkId = req.query?.vkId ?? req.get("x-vk-id");
     const rawPhone = req.query?.phone ?? req.get("x-customer-phone");
     const telegramId =
       typeof rawTelegramId === "string"
         ? rawTelegramId.trim()
         : Array.isArray(rawTelegramId)
           ? rawTelegramId[0]?.trim()
-          : "";
-    const vkId =
-      typeof rawVkId === "string"
-        ? rawVkId.trim()
-        : Array.isArray(rawVkId)
-          ? rawVkId[0]?.trim()
           : "";
     const phone =
       typeof rawPhone === "string"
@@ -437,10 +382,10 @@ export function registerCartRoutes(app) {
           ? rawPhone[0]?.trim()
           : "";
 
-    if (!telegramId && !vkId && !phone) {
+    if (!telegramId && !phone) {
       return res.status(400).json({
         success: false,
-        message: "Передайте telegramId, vkId или phone, чтобы получить список заказов",
+        message: "Передайте telegramId (или phone), чтобы получить список заказов",
       });
     }
 
@@ -456,12 +401,7 @@ export function registerCartRoutes(app) {
       if (telegramId) {
         queryText += ` AND meta->>'telegramUserId' = $${paramIndex++}`;
         params.push(telegramId);
-      }
-      if (vkId) {
-        queryText += ` AND meta->>'vkUserId' = $${paramIndex++}`;
-        params.push(vkId);
-      }
-      if (phone && !telegramId && !vkId) {
+      } else if (phone) {
         queryText += ` AND customer_phone = $${paramIndex++}`;
         params.push(phone);
       }
@@ -509,12 +449,10 @@ export function registerCartRoutes(app) {
       return;
     }
     const headerTelegramId = getTelegramIdFromHeaders(req);
-    const headerVkId = getVkIdFromHeaders(req);
     const userId =
       normaliseNullableString(req.query?.userId) ??
       normaliseNullableString(req.query?.id) ??
-      headerTelegramId ??
-      headerVkId;
+      headerTelegramId;
     if (!userId) {
       return res.status(400).json({ success: false, message: "Нужен userId" });
     }
@@ -527,9 +465,8 @@ export function registerCartRoutes(app) {
       return;
     }
     const headerTelegramId = getTelegramIdFromHeaders(req);
-    const headerVkId = getVkIdFromHeaders(req);
     const { userId: bodyUserId, ...payload } = req.body ?? {};
-    const userId = normaliseNullableString(bodyUserId) ?? headerTelegramId ?? headerVkId;
+    const userId = normaliseNullableString(bodyUserId) ?? headerTelegramId;
     if (!userId) {
       return res.status(400).json({ success: false, message: "Нужен userId" });
     }
@@ -545,9 +482,8 @@ export function registerCartRoutes(app) {
       return;
     }
     const headerTelegramId = getTelegramIdFromHeaders(req);
-    const headerVkId = getVkIdFromHeaders(req);
     const { userId: bodyUserId, ...payload } = req.body ?? {};
-    const userId = normaliseNullableString(bodyUserId) ?? headerTelegramId ?? headerVkId;
+    const userId = normaliseNullableString(bodyUserId) ?? headerTelegramId;
     const addressId = req.params.addressId;
     if (!userId || !addressId) {
       return res.status(400).json({ success: false, message: "Нужны userId и addressId" });
@@ -564,8 +500,7 @@ export function registerCartRoutes(app) {
       return;
     }
     const headerTelegramId = getTelegramIdFromHeaders(req);
-    const headerVkId = getVkIdFromHeaders(req);
-    const userId = normaliseNullableString(req.query?.userId) ?? headerTelegramId ?? headerVkId;
+    const userId = normaliseNullableString(req.query?.userId) ?? headerTelegramId;
     const addressId = req.params.addressId;
     if (!userId || !addressId) {
       return res.status(400).json({ success: false, message: "Нужны userId и addressId" });
@@ -582,8 +517,7 @@ export function registerCartRoutes(app) {
       return;
     }
     const headerTelegramId = getTelegramIdFromHeaders(req);
-    const headerVkId = getVkIdFromHeaders(req);
-    const userId = normaliseNullableString(req.body?.userId) ?? headerTelegramId ?? headerVkId;
+    const userId = normaliseNullableString(req.body?.userId) ?? headerTelegramId;
     const addressId = req.params.addressId;
     if (!userId || !addressId) {
       return res.status(400).json({ success: false, message: "Нужны userId и addressId" });
