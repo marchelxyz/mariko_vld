@@ -1,15 +1,21 @@
+import bridge from "@vkontakte/vk-bridge";
 import type { VKInitData, VKUser } from "@/types";
 
 /**
  * Централизованные хелперы для интеграции с VK Mini Apps.
  * 
- * Цель этого модуля - инкапсулировать прямой доступ к
- * `window.vk.WebApp`, корректно обрабатывать определение возможностей
+ * Использует официальные библиотеки:
+ * - @vkontakte/vk-bridge - для работы с VK Bridge API
+ * - window.vk.WebApp - для доступа к WebApp API (если доступен)
+ * 
+ * Цель этого модуля - инкапсулировать прямой доступ к VK API,
+ * корректно обрабатывать определение возможностей
  * и предоставлять удобные fallback'и для неподдерживаемых клиентов.
  */
 
 /**
  * Возвращает экземпляр VK WebApp, если доступен.
+ * Использует window.vk.WebApp для доступа к WebApp API.
  */
 export const getVk = (): VKWebApp | undefined => {
   if (typeof window === "undefined") {
@@ -17,6 +23,17 @@ export const getVk = (): VKWebApp | undefined => {
   }
   // VK WebApp доступен через window.vk.WebApp после инициализации SDK
   return window.vk?.WebApp;
+};
+
+/**
+ * Проверяет, доступен ли VK Bridge.
+ */
+export const isBridgeAvailable = (): boolean => {
+  try {
+    return typeof bridge !== "undefined" && bridge !== null;
+  } catch {
+    return false;
+  }
 };
 
 /**
@@ -144,8 +161,23 @@ export const getUserAsync = async (): Promise<VKUser | undefined> => {
 
   userRequestPromise = (async () => {
     try {
-      // Используем VK Bridge для получения данных пользователя
+      // Используем официальный VK Bridge для получения данных пользователя
       // Согласно документации: https://dev.vk.com/ru/mini-apps/overview/data-handling
+      if (isBridgeAvailable()) {
+        const response = await bridge.send("VKWebAppGetUserInfo", {});
+        if (response && typeof response === "object" && "first_name" in response) {
+          const user: VKUser = {
+            id: parseInt(userId),
+            first_name: (response as { first_name: string }).first_name || "",
+            last_name: (response as { last_name?: string }).last_name || "",
+            avatar: (response as { photo_200?: string }).photo_200,
+          };
+          cachedUser = user;
+          return user;
+        }
+      }
+      
+      // Fallback: используем старый способ через window.vk.Bridge
       if (window.vk?.Bridge && typeof window.vk.Bridge.send === "function") {
         const response = await window.vk.Bridge.send("VKWebAppGetUserInfo", {});
         if (response && typeof response === "object" && "first_name" in response) {
