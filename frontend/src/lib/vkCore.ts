@@ -230,6 +230,23 @@ export const safeSendData = (payload: unknown) => {
  * Простое хранилище на основе localStorage.
  */
 const memoryStorage = new Map<string, string>();
+const storageSubscribers = new Map<string, Set<(value: string | null) => void>>();
+
+type StorageListener = (value: string | null) => void;
+
+const notifyStorageSubscribers = (key: string, value: string | null) => {
+  const subscribers = storageSubscribers.get(key);
+  if (!subscribers) {
+    return;
+  }
+  subscribers.forEach((cb) => {
+    try {
+      cb(value);
+    } catch (error) {
+      console.error("[vk] storage listener failed", error);
+    }
+  });
+};
 
 export const storage = {
   /**
@@ -274,6 +291,7 @@ export const storage = {
         console.warn("[vk] localStorage write failed", error);
       }
     }
+    notifyStorageSubscribers(key, value);
   },
 
   /**
@@ -288,6 +306,7 @@ export const storage = {
         console.warn("[vk] localStorage remove failed", error);
       }
     }
+    notifyStorageSubscribers(key, null);
   },
 
   /**
@@ -302,6 +321,16 @@ export const storage = {
         console.warn("[vk] localStorage clear failed", error);
       }
     }
+
+    storageSubscribers.forEach((listeners) => {
+      listeners.forEach((cb) => {
+        try {
+          cb(null);
+        } catch (error) {
+          console.error("[vk] storage listener failed during clear", error);
+        }
+      });
+    });
   },
 
   /**
@@ -327,5 +356,24 @@ export const storage = {
     } catch (error) {
       console.warn("[vk] failed to serialise JSON storage", error);
     }
+  },
+
+  /**
+   * Позволяет подписаться на изменения конкретного ключа.
+   */
+  subscribe(key: string, listener: StorageListener): () => void {
+    if (!storageSubscribers.has(key)) {
+      storageSubscribers.set(key, new Set());
+    }
+    const listeners = storageSubscribers.get(key)!;
+    listeners.add(listener);
+    listener(this.getItem(key));
+
+    return () => {
+      listeners.delete(listener);
+      if (listeners.size === 0) {
+        storageSubscribers.delete(key);
+      }
+    };
   },
 };
