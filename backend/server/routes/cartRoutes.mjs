@@ -239,9 +239,11 @@ export function registerCartRoutes(app) {
     // Используем getUserIdFromHeaders, который поддерживает и VK ID, и Telegram ID
     const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerVkId = getVkIdFromHeaders(req);
     const requestedId =
       normaliseNullableString(req.query?.id) ??
       normaliseNullableString(req.query?.userId) ??
+      headerVkId ??
       headerUserId ??
       headerTelegramId;
     if (!requestedId) {
@@ -279,14 +281,16 @@ export function registerCartRoutes(app) {
     try {
       const shown = body.shown === true;
       // Определяем telegramId и vkId для сохранения в профиле
-      // Если есть VK ID, используем его как основной идентификатор
-      const isVkUser = !!headerVkId || !!headerUserId;
+      // Если есть VK ID в заголовках, это VK пользователь
+      const isVkUser = !!headerVkId || (!!headerUserId && !headerTelegramId);
       const telegramId = body.telegramId ?? (headerTelegramId && !isVkUser ? headerTelegramId : null);
+      // Для VK пользователей используем VK ID из заголовков или из body
       const vkId = body.vkId ?? (headerVkId || (isVkUser && headerUserId ? headerUserId : null));
       
       const row = await upsertUserProfileRecord({
         id: resolvedId,
-        telegramId: telegramId ?? (isVkUser ? null : resolvedId), // Не используем VK ID как telegramId
+        // Для VK пользователей не устанавливаем telegramId, если он не указан явно
+        telegramId: isVkUser ? (telegramId || null) : (telegramId ?? resolvedId),
         vkId: vkId ? String(vkId) : undefined,
         onboardingTourShown: shown,
       });
