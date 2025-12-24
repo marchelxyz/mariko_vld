@@ -313,6 +313,50 @@ set_railway_var "$BACKEND_SERVICE" "YANDEX_STORAGE_REGION" "$YANDEX_STORAGE_REGI
 set_railway_var "$BACKEND_SERVICE" "YANDEX_STORAGE_ENDPOINT" "$YANDEX_STORAGE_ENDPOINT"
 set_railway_var "$BACKEND_SERVICE" "YANDEX_STORAGE_PUBLIC_URL" "$YANDEX_STORAGE_PUBLIC_URL"
 
+# VK Mini App
+VK_APP_ID=$(read_env_value "$BACKEND_ENV" "VK_APP_ID")
+VK_SERVICE_TOKEN=$(read_env_value "$BACKEND_ENV" "VK_SERVICE_TOKEN")
+VK_SECRET_KEY=$(read_env_value "$BACKEND_ENV" "VK_SECRET_KEY")
+VK_API_VERSION=$(read_env_value "$BACKEND_ENV" "VK_API_VERSION")
+
+if [[ -z "$VK_API_VERSION" ]]; then
+  VK_API_VERSION="5.131"
+fi
+
+if [[ "$INTERACTIVE" == "--interactive" ]]; then
+  VK_APP_ID=$(prompt_value "VK_APP_ID" "$VK_APP_ID" "VK Mini App ID")
+  VK_SERVICE_TOKEN=$(prompt_value "VK_SERVICE_TOKEN" "$VK_SERVICE_TOKEN" "VK Service Token (только для сервера)")
+  VK_SECRET_KEY=$(prompt_value "VK_SECRET_KEY" "$VK_SECRET_KEY" "VK Secret Key")
+fi
+
+set_railway_var "$BACKEND_SERVICE" "VK_APP_ID" "$VK_APP_ID"
+set_railway_var "$BACKEND_SERVICE" "VK_SERVICE_TOKEN" "$VK_SERVICE_TOKEN"
+set_railway_var "$BACKEND_SERVICE" "VK_SECRET_KEY" "$VK_SECRET_KEY"
+set_railway_var "$BACKEND_SERVICE" "VK_API_VERSION" "$VK_API_VERSION"
+
+# CORS configuration
+# ВАЖНО: Для VK Mini App необходимо добавить домен Vercel, с которого загружается приложение
+CORS_ALLOWED_ORIGINS=$(read_env_value "$BACKEND_ENV" "CORS_ALLOWED_ORIGINS")
+
+if [[ "$INTERACTIVE" == "--interactive" ]]; then
+  if [[ -z "$CORS_ALLOWED_ORIGINS" ]]; then
+    # Предлагаем добавить домен Vercel по умолчанию
+    DEFAULT_CORS="https://mariko-vld.vercel.app"
+    info "Для работы VK Mini App необходимо добавить домен Vercel в CORS_ALLOWED_ORIGINS"
+    CORS_ALLOWED_ORIGINS=$(prompt_value "CORS_ALLOWED_ORIGINS" "$DEFAULT_CORS" "Разрешенные origins через запятую (например: https://mariko-vld.vercel.app,https://your-domain.com)")
+  else
+    CORS_ALLOWED_ORIGINS=$(prompt_value "CORS_ALLOWED_ORIGINS" "$CORS_ALLOWED_ORIGINS" "Разрешенные origins через запятую")
+  fi
+fi
+
+# Если CORS_ALLOWED_ORIGINS не задан, но есть домен Vercel, предлагаем добавить его
+if [[ -z "$CORS_ALLOWED_ORIGINS" ]]; then
+  warn "CORS_ALLOWED_ORIGINS не задан. Для работы VK Mini App рекомендуется добавить домен Vercel."
+  warn "Например: CORS_ALLOWED_ORIGINS=https://mariko-vld.vercel.app"
+else
+  set_railway_var "$BACKEND_SERVICE" "CORS_ALLOWED_ORIGINS" "$CORS_ALLOWED_ORIGINS"
+fi
+
 # Port (Railway автоматически предоставляет PORT)
 set_railway_var "$BACKEND_SERVICE" "CART_SERVER_PORT" "\$PORT"
 
