@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import { getUser } from "@/lib/telegram";
+import { useVK } from "./VKContext";
 import { onboardingServerApi } from "@shared/api/onboarding";
 
 interface OnboardingContextType {
@@ -25,13 +26,21 @@ interface OnboardingProviderProps {
 export const OnboardingProvider = ({ children }: OnboardingProviderProps) => {
   const [onboardingTourShown, setOnboardingTourShownState] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const { user: vkUser } = useVK();
 
   useEffect(() => {
     let cancelled = false;
     let scheduledHandle: number | ReturnType<typeof setTimeout> | null = null;
 
     const loadOnboardingFlag = async () => {
-      const userId = getUser()?.id;
+      // Пытаемся получить userId из Telegram или VK
+      const telegramUser = getUser();
+      const userId = telegramUser?.id 
+        ? String(telegramUser.id)
+        : vkUser?.id 
+        ? String(vkUser.id)
+        : null;
+      
       if (!userId) {
         // Если пользователь не определен, считаем что подсказки не показывались
         if (!cancelled) {
@@ -41,7 +50,7 @@ export const OnboardingProvider = ({ children }: OnboardingProviderProps) => {
       }
 
       try {
-        const shown = await onboardingServerApi.getOnboardingTourShown(userId);
+        const shown = await onboardingServerApi.getOnboardingTourShown(userId, !!vkUser);
         if (!cancelled) {
           setOnboardingTourShownState(shown);
         }
@@ -90,22 +99,29 @@ export const OnboardingProvider = ({ children }: OnboardingProviderProps) => {
         clearTimeout(scheduledHandle);
       }
     };
-  }, []);
+  }, [vkUser]);
 
-  const setOnboardingTourShown = async (shown: boolean) => {
-    const userId = getUser()?.id;
+  const setOnboardingTourShown = useCallback(async (shown: boolean) => {
+    // Пытаемся получить userId из Telegram или VK
+    const telegramUser = getUser();
+    const userId = telegramUser?.id 
+      ? String(telegramUser.id)
+      : vkUser?.id 
+      ? String(vkUser.id)
+      : null;
+    
     if (!userId) {
       console.warn("[onboarding] user ID not available, cannot persist tour flag");
       return;
     }
 
     try {
-      await onboardingServerApi.setOnboardingTourShown(userId, shown);
+      await onboardingServerApi.setOnboardingTourShown(userId, shown, !!vkUser);
       setOnboardingTourShownState(shown);
     } catch (error) {
       console.warn("[onboarding] failed to persist tour flag", error);
     }
-  };
+  }, [vkUser]);
 
   return (
     <OnboardingContext.Provider
