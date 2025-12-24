@@ -295,9 +295,9 @@ const Menu = (): JSX.Element => {
         <div className="mt-10 flex items-center gap-4 mb-6">
           <button
             onClick={() => navigate("/")}
-            className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"
+            className="p-2 md:p-3 lg:p-4 text-white hover:bg-white/10 rounded-full transition-colors"
           >
-            <ArrowLeft className="w-6 h-6" />
+            <ArrowLeft className="w-6 h-6 md:w-7 md:h-7 lg:w-8 lg:h-8" />
           </button>
           <h1 className="text-white font-el-messiri text-3xl md:text-4xl font-bold flex-1">
             Меню
@@ -335,7 +335,7 @@ const Menu = (): JSX.Element => {
                   type="button"
                   aria-pressed={isActive}
                   onClick={() => setActiveCategory(category.id)}
-                  className={`relative inline-flex items-center justify-center rounded-full border font-el-messiri font-semibold whitespace-nowrap tracking-wide transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:ring-white/70 px-3.5 py-2 md:px-6 md:py-3 text-xs md:text-base ${
+                  className={`relative inline-flex items-center justify-center rounded-full border font-el-messiri font-semibold whitespace-nowrap tracking-wide transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:ring-white/70 px-3.5 py-2 md:px-6 md:py-3 lg:px-8 lg:py-4 text-xs md:text-base lg:text-lg ${
                     isActive
                       ? "bg-white text-mariko-primary border-white/60 shadow-[0_8px_24px_rgba(15,23,42,0.2)]"
                       : "bg-white/10 text-white/80 border-white/10 hover:border-white/30 hover:bg-white/15"
