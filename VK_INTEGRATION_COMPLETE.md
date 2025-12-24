@@ -51,13 +51,7 @@ VK_APP_ID=ваш_app_id
 VK_SERVICE_TOKEN=ваш_сервисный_ключ
 VK_SECRET_KEY=ваш_защищённый_ключ
 VK_API_VERSION=5.131
-
-# CORS configuration (ВАЖНО для работы VK Mini App!)
-# Добавьте домен Vercel, с которого загружается приложение
-CORS_ALLOWED_ORIGINS=https://mariko-vld.vercel.app
 ```
-
-⚠️ **КРИТИЧЕСКИ ВАЖНО**: Без настройки `CORS_ALLOWED_ORIGINS` приложение не сможет делать запросы к backend API из ВКонтакте!
 
 ⚠️ **ВАЖНО**: 
 - `VK_SERVICE_TOKEN` используется только на сервере для отправки уведомлений через VK API
