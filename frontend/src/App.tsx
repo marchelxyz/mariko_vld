@@ -3,7 +3,7 @@ import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
 import RandomBackgroundPattern from "@/components/RandomBackgroundPattern";
 import { DebugGrid } from "@/components/DebugGrid";
-import { AdminProvider, CartProvider, RestaurantProvider, DebugGridProvider, OnboardingProvider, VKProvider } from "@/contexts";
+import { AdminProvider, CartProvider, RestaurantProvider, DebugGridProvider, OnboardingProvider } from "@/contexts";
 import { useEnsureUserProfileSync } from "@/hooks";
 import { logger } from "@/lib/logger";
 import { isActive, onActivated, onDeactivated, requestFullscreenMode } from "@/lib/telegram";
@@ -126,11 +126,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <VKProvider>
-          <OnboardingProvider>
-            <AppContent />
-          </OnboardingProvider>
-        </VKProvider>
+        <OnboardingProvider>
+          <AppContent />
+        </OnboardingProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
