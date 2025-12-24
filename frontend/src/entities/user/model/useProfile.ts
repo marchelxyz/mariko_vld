@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { profileApi } from "@shared/api";
 import type { UserProfile } from "@shared/types";
-import { getUser, storage } from "@/lib/platform";
+import { getUser, getUserAsync, storage, getPlatform } from "@/lib/platform";
 
 const inflightProfileRequests = new Map<string, Promise<UserProfile>>();
 
@@ -25,6 +25,40 @@ const resolveUserId = (): string => {
 const resolvePhotoUrl = (): string => {
   const user = getUser();
   return (user?.photo_url || user?.avatar || "").trim();
+};
+
+/**
+ * Получает имя пользователя из платформы (VK или Telegram).
+ * Для VK использует асинхронный метод для получения полных данных.
+ */
+const resolveUserName = async (): Promise<string> => {
+  const platform = getPlatform();
+  
+  // Для VK нужно использовать асинхронный метод
+  if (platform === "vk") {
+    try {
+      const user = await getUserAsync();
+      if (user) {
+        const parts = [user.first_name, user.last_name].filter(Boolean);
+        if (parts.length > 0) {
+          return parts.join(" ");
+        }
+      }
+    } catch (error) {
+      console.warn("Не удалось получить имя пользователя из VK:", error);
+    }
+  }
+  
+  // Для других платформ используем синхронный метод
+  const user = getUser();
+  if (user) {
+    const parts = [user.first_name, user.last_name].filter(Boolean);
+    if (parts.length > 0) {
+      return parts.join(" ");
+    }
+  }
+  
+  return "";
 };
 
 const defaultProfile: UserProfile = {
@@ -99,12 +133,36 @@ export const useProfile = () => {
 
       const userProfile = await getUserProfileShared(currentUserId);
       const photoUrl = resolvePhotoUrl();
+      
+      // Получаем имя пользователя из платформы (VK/Telegram)
+      const platformUserName = await resolveUserName();
+      
+      // Если имя из платформы есть, но в профиле его нет или оно дефолтное, используем имя из платформы
+      const finalName = platformUserName && platformUserName.trim() 
+        ? (userProfile.name && userProfile.name !== "Пользователь" && userProfile.name.trim() 
+            ? userProfile.name 
+            : platformUserName.trim())
+        : (userProfile.name || defaultProfile.name);
+      
       const resolvedProfile: UserProfile = {
         ...defaultProfile,
         ...userProfile,
         id: currentUserId,
+        name: finalName,
         photo: photoUrl || userProfile.photo || defaultProfile.photo,
       };
+      
+      // Если получили имя из платформы и его нет в профиле на сервере, обновляем профиль
+      if (platformUserName && platformUserName.trim() && 
+          (!userProfile.name || userProfile.name === "Пользователь" || !userProfile.name.trim())) {
+        try {
+          await profileApi.updateUserProfile(currentUserId, { name: platformUserName.trim() });
+        } catch (updateErr) {
+          console.warn("Не удалось обновить профиль именем из платформы:", updateErr);
+          // Не считаем это критической ошибкой, продолжаем с локальным именем
+        }
+      }
+      
       setProfile(resolvedProfile);
       try {
         storage.setItem(storageKey, JSON.stringify(resolvedProfile));
