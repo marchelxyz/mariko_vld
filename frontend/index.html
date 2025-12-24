@@ -139,20 +139,25 @@
         script.defer = true;
         document.head.appendChild(script);
       } else {
-        // В VK Mini Apps SDK доступен автоматически через window.vk.WebApp
-        // Добавляем диагностику для отладки
+        // В VK Mini Apps SDK доступен автоматически через window.vk.WebApp в iframe
+        // Не нужно загружать отдельный скрипт - VK предоставляет его автоматически
         console.log('[VK] Определена платформа VK, ожидаем window.vk.WebApp');
         
         // Проверяем доступность VK WebApp с задержкой
         let checkCount = 0;
+        const maxChecks = 100; // 10 секунд максимум
         const checkVK = setInterval(function() {
           checkCount++;
           if (window.vk && window.vk.WebApp) {
-            console.log('[VK] window.vk.WebApp доступен', window.vk.WebApp);
+            console.log('[VK] window.vk.WebApp доступен', {
+              version: window.vk.WebApp.version,
+              platform: window.vk.WebApp.platform,
+              initData: window.vk.WebApp.initData ? 'present' : 'missing'
+            });
             clearInterval(checkVK);
-          } else if (checkCount > 50) {
-            // После 5 секунд прекращаем проверку
-            console.warn('[VK] window.vk.WebApp не найден после 5 секунд ожидания');
+          } else if (checkCount >= maxChecks) {
+            // После 10 секунд прекращаем проверку
+            console.warn('[VK] window.vk.WebApp не найден после 10 секунд ожидания. Возможно, приложение открыто не в iframe VK.');
             clearInterval(checkVK);
           }
         }, 100);

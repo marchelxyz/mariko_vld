@@ -16,37 +16,93 @@ const initVKApp = () => {
   // Проверяем доступность VK WebApp
   const vk = typeof window !== "undefined" ? window.vk?.WebApp : undefined;
   if (vk) {
-    logger.info('app', 'VK WebApp доступен, инициализируем приложение');
-    markReady();
-    requestFullscreenMode();
+    logger.info('app', 'VK WebApp доступен, инициализируем приложение', {
+      version: vk.version,
+      platform: vk.platform,
+      hasInitData: !!vk.initData
+    });
     
-    // Повторные вызовы с задержкой для надежности
-    setTimeout(() => {
+    try {
+      markReady();
       requestFullscreenMode();
-    }, 100);
-    
-    setTimeout(() => {
-      requestFullscreenMode();
-    }, 500);
+      
+      // Повторные вызовы с задержкой для надежности
+      setTimeout(() => {
+        requestFullscreenMode();
+      }, 100);
+      
+      setTimeout(() => {
+        requestFullscreenMode();
+      }, 500);
+    } catch (error) {
+      logger.error('app', error instanceof Error ? error : new Error('Ошибка инициализации VK'), {
+        type: 'vk_init_error'
+      });
+    }
   } else {
-    // Если не в VK или VK WebApp еще не загружен, просто инициализируем
-    logger.info('app', 'VK WebApp не найден, продолжаем инициализацию');
-    markReady();
-    requestFullscreenMode();
+    // Если не в VK или VK WebApp еще не загружен, просто инициализируем без VK методов
+    logger.info('app', 'VK WebApp не найден, продолжаем инициализацию без VK методов');
+    // Не вызываем markReady() и requestFullscreenMode() если VK недоступен
+    // Они могут вызвать ошибки
   }
+};
+
+// Функция для ожидания доступности VK WebApp
+const waitForVKAndInit = () => {
+  let attempts = 0;
+  const maxAttempts = 50; // 5 секунд максимум
+  
+  const checkInterval = setInterval(() => {
+    attempts++;
+    const vk = typeof window !== "undefined" ? window.vk?.WebApp : undefined;
+    
+    if (vk) {
+      clearInterval(checkInterval);
+      logger.info('app', 'VK WebApp стал доступен после ожидания');
+      initVKApp();
+    } else if (attempts >= maxAttempts) {
+      clearInterval(checkInterval);
+      logger.warn('app', 'VK WebApp не стал доступен после ожидания, продолжаем без VK');
+      initVKApp();
+    }
+  }, 100);
 };
 
 // Инициализируем сразу, если DOM готов
 if (typeof document !== "undefined" && document.readyState === "complete") {
-  initVKApp();
+  // Проверяем, есть ли параметры VK в URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const isVK = urlParams.has('vk_app_id') || urlParams.has('vk_user_id');
+  
+  if (isVK) {
+    // Если в VK, ждем доступности SDK
+    waitForVKAndInit();
+  } else {
+    // Если не в VK, инициализируем сразу
+    initVKApp();
+  }
 } else if (typeof window !== "undefined") {
   // Ждем загрузки DOM
   window.addEventListener("load", () => {
-    initVKApp();
+    const urlParams = new URLSearchParams(window.location.search);
+    const isVK = urlParams.has('vk_app_id') || urlParams.has('vk_user_id');
+    
+    if (isVK) {
+      waitForVKAndInit();
+    } else {
+      initVKApp();
+    }
   });
   
-  // Также пробуем инициализировать через небольшой таймаут на случай, если VK SDK загружается асинхронно
+  // Также пробуем инициализировать через небольшой таймаут
   setTimeout(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const isVK = urlParams.has('vk_app_id') || urlParams.has('vk_user_id');
+    
+    if (isVK && !window.vk?.WebApp) {
+      // Если в VK, но SDK еще не загружен, продолжаем ждать
+      return;
+    }
     initVKApp();
   }, 100);
 } else {
