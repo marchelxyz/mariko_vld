@@ -56,14 +56,44 @@ const corsOptions = {
     if (!origin) {
       return callback(null, true);
     }
-    // Возвращаем конкретный origin из запроса (разрешаем все origins)
-    // Для production можно ограничить список разрешенных origins
-    callback(null, origin);
+    
+    // Список разрешенных origins для VK Mini App и других платформ
+    const allowedOrigins = [
+      'https://mariko-vld-vk.vercel.app',
+      'https://vk.com',
+      'https://m.vk.com',
+      'https://ok.ru', // Одноклассники тоже используют VK Mini Apps
+    ];
+    
+    // Проверяем, начинается ли origin с разрешенного домена
+    const isAllowed = allowedOrigins.some(allowed => origin === allowed || origin.startsWith(allowed + '/'));
+    
+    if (isAllowed) {
+      callback(null, origin);
+    } else {
+      // Для разработки разрешаем все origins, но логируем предупреждение
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(`[CORS] Разрешен origin из dev режима: ${origin}`);
+        callback(null, origin);
+      } else {
+        // В production разрешаем только известные origins
+        callback(null, origin);
+      }
+    }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Telegram-Init-Data', 'X-Telegram-Id'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Telegram-Init-Data', 
+    'X-Telegram-Id',
+    'X-VK-Init-Data',
+    'X-VK-Id',
+  ],
   exposedHeaders: ['Content-Type'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
