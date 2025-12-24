@@ -22,7 +22,7 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
   const [isRail, setIsRail] = useState(false);
 
   useEffect(() => {
-    const mql = window.matchMedia("(min-width: 1100px)");
+    const mql = window.matchMedia("(min-width: 768px)");
     const handleMedia = (event: MediaQueryListEvent | MediaQueryList) => {
       const matches = "matches" in event ? event.matches : event.matches;
       setIsRail(matches);
@@ -125,12 +125,11 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
       className={cn(
         // Чёрный фон 30% и сильный blur
         "fixed bottom-0 left-0 right-0 z-40 rounded-t-2xl bg-black/30 backdrop-blur-3xl border-t border-white/5 shadow-[0_-12px_28px_rgba(0,0,0,0.3)]",
-        "md:static md:rounded-2xl md:mx-auto md:max-w-4xl md:mb-4 md:shadow-none",
         className,
       )}
       style={{ paddingBottom: "calc(6px + var(--tg-safe-area-bottom, 0px))" }}
     >
-      <div className="flex items-stretch justify-between px-3 py-2 md:px-6 md:py-3">
+      <div className="flex items-stretch justify-between px-3 py-2">
         {items.map(({ key, label, icon: Icon, ...rest }) => {
           const isActive = key === activeKey;
           return (
@@ -146,8 +145,8 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
                   : "text-white/70 hover:text-white hover:bg-white/5",
               )}
             >
-              <Icon className="h-5 w-5 md:h-6 md:w-6" />
-              <span className="text-xs md:text-sm font-semibold">{label}</span>
+              <Icon className="h-5 w-5" />
+              <span className="text-xs font-semibold">{label}</span>
             </button>
           );
         })}
