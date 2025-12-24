@@ -126,38 +126,15 @@
     <script>
       // Определяем платформу перед загрузкой SDK
       (function() {
-        let isVK = false;
-        let isTelegram = false;
+        const isVK = window.location.search.includes('vk_') || 
+                     window.location.href.includes('vk.com') ||
+                     (typeof window !== 'undefined' && window.parent !== window && 
+                      window.parent.location.href.includes('vk.com'));
         
-        // Безопасная проверка location (может быть заблокирована в iframe)
-        try {
-          const search = window.location.search || '';
-          const href = window.location.href || '';
-          
-          isVK = search.includes('vk_') || href.includes('vk.com');
-          isTelegram = search.includes('tgWebApp') || search.includes('tgWebAppStartParam') || href.includes('telegram.org');
-          
-          // Проверяем parent frame только если доступен
-          if (typeof window !== 'undefined' && window.parent !== window) {
-            try {
-              const parentHref = window.parent.location.href || '';
-              if (parentHref.includes('vk.com')) {
-                isVK = true;
-              }
-              if (parentHref.includes('telegram.org')) {
-                isTelegram = true;
-              }
-            } catch (e) {
-              // Доступ к parent.location заблокирован (нормально для iframe)
-            }
-          }
-        } catch (e) {
-          // Доступ к location заблокирован (нормально для iframe VK)
-          // Проверяем наличие VK Bridge как альтернативный способ определения платформы
-          if (typeof window !== 'undefined' && (window.vk || window.__VK_BRIDGE__)) {
-            isVK = true;
-          }
-        }
+        const isTelegram = window.location.search.includes('tgWebApp') ||
+                          window.location.search.includes('tgWebAppStartParam') ||
+                          (typeof window !== 'undefined' && window.parent !== window && 
+                           window.parent.location.href.includes('telegram.org'));
         
         // Сохраняем информацию о платформе для использования в приложении
         window.__PLATFORM__ = isVK ? 'vk' : (isTelegram ? 'telegram' : 'web');

@@ -72,15 +72,10 @@ const isTelegramEnvironment = (): boolean => {
     return false;
   }
   
-  // Проверяем URL параметры (безопасно, с обработкой ошибок для iframe)
-  try {
-    const search = window.location.search;
-    if (search.includes('vk_') && !search.includes('tgWebApp')) {
-      return false;
-    }
-  } catch (error) {
-    // В iframe (например, VK) доступ к window.location может быть заблокирован
-    // Это нормально, продолжаем проверку другими способами
+  // Проверяем URL параметры
+  const search = window.location.search;
+  if (search.includes('vk_') && !search.includes('tgWebApp')) {
+    return false;
   }
   
   // Проверяем наличие Telegram WebApp API
