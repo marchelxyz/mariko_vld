@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { getUser, getUserAsync, getPlatform } from "@/lib/platform";
+import { getUser, getUserAsync, getPlatform, getInitData } from "@/lib/platform";
 
 function getProfileSyncApiBaseUrl(): string {
   // Используем VITE_SERVER_API_URL если он установлен (предпочтительный вариант)
@@ -90,12 +90,20 @@ function syncProfile(user: { id: number; first_name: string; last_name?: string;
       vkId: user.id,
     };
 
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "X-VK-Id": userId,
+    };
+
+    // Добавляем initData для проверки подписи
+    const initData = getInitData();
+    if (initData) {
+      headers["X-VK-Init-Data"] = initData;
+    }
+
     fetch(endpoint, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-VK-Id": userId,
-      },
+      headers,
       body: JSON.stringify(body),
     })
       .then((response) => {
