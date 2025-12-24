@@ -33,6 +33,11 @@ const resolvePhotoUrl = async (): Promise<string> => {
   if (platform === "vk") {
     try {
       const user = await getUserAsync();
+      console.log("[profile] resolvePhotoUrl для VK:", {
+        hasUser: !!user,
+        hasAvatar: !!user?.avatar,
+        avatar: user?.avatar?.substring(0, 50) || "нет",
+      });
       if (user?.avatar) {
         return user.avatar.trim();
       }
@@ -57,6 +62,11 @@ const resolveUserName = async (): Promise<string> => {
   if (platform === "vk") {
     try {
       const user = await getUserAsync();
+      console.log("[profile] resolveUserName для VK:", {
+        hasUser: !!user,
+        firstName: user?.first_name || "нет",
+        lastName: user?.last_name || "нет",
+      });
       if (user) {
         const parts = [user.first_name, user.last_name].filter(Boolean);
         if (parts.length > 0) {

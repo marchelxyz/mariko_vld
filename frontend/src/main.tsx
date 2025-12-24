@@ -14,13 +14,26 @@ const hideInitialSpinner = () => {
 };
 
 // Инициализация VK Mini App с ожиданием доступности SDK
-const initVKApp = () => {
+const initVKApp = async () => {
   // Инициализируем VK Bridge, если мы в VK
   if (isInVk()) {
     try {
       // Инициализируем bridge для работы с VK API
-      bridge.send("VKWebAppInit", {});
-      logger.info('app', 'VK Bridge инициализирован');
+      // Важно: VKWebAppInit должен быть вызван перед другими методами
+      const initResponse = await bridge.send("VKWebAppInit", {});
+      logger.info('app', 'VK Bridge инициализирован', { initResponse });
+      
+      // После инициализации можно сразу попробовать получить данные пользователя для диагностики
+      try {
+        const userInfo = await bridge.send("VKWebAppGetUserInfo", {});
+        logger.info('app', 'Тестовый запрос данных пользователя успешен', { 
+          hasFirstName: !!(userInfo as any)?.first_name,
+          hasPhoto: !!(userInfo as any)?.photo_200 || !!(userInfo as any)?.photo,
+          responseKeys: userInfo ? Object.keys(userInfo as object) : [],
+        });
+      } catch (userInfoError) {
+        logger.warn('app', 'Тестовый запрос данных пользователя не удался', userInfoError);
+      }
     } catch (error) {
       logger.warn('app', 'Не удалось инициализировать VK Bridge', error);
     }
@@ -100,18 +113,18 @@ const waitForVKAndInit = () => {
   let attempts = 0;
   const maxAttempts = 50; // 5 секунд максимум
   
-  const checkInterval = setInterval(() => {
+  const checkInterval = setInterval(async () => {
     attempts++;
     const vk = typeof window !== "undefined" ? window.vk?.WebApp : undefined;
     
     if (vk) {
       clearInterval(checkInterval);
       logger.info('app', 'VK WebApp стал доступен после ожидания');
-      initVKApp();
+      await initVKApp();
     } else if (attempts >= maxAttempts) {
       clearInterval(checkInterval);
       logger.warn('app', 'VK WebApp не стал доступен после ожидания, продолжаем без VK');
-      initVKApp();
+      await initVKApp();
     }
   }, 100);
 };
@@ -127,7 +140,7 @@ if (typeof document !== "undefined" && document.readyState === "complete") {
     waitForVKAndInit();
   } else {
     // Если не в VK, инициализируем сразу
-    initVKApp();
+    void initVKApp();
   }
 } else if (typeof window !== "undefined") {
   // Ждем загрузки DOM
@@ -138,12 +151,12 @@ if (typeof document !== "undefined" && document.readyState === "complete") {
     if (isVK) {
       waitForVKAndInit();
     } else {
-      initVKApp();
+      void initVKApp();
     }
   });
   
   // Также пробуем инициализировать через небольшой таймаут
-  setTimeout(() => {
+  setTimeout(async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const isVK = urlParams.has('vk_app_id') || urlParams.has('vk_user_id');
     
@@ -151,10 +164,10 @@ if (typeof document !== "undefined" && document.readyState === "complete") {
       // Если в VK, но SDK еще не загружен, продолжаем ждать
       return;
     }
-    initVKApp();
+    await initVKApp();
   }, 100);
 } else {
-  initVKApp();
+  void initVKApp();
 }
 
 // Глобальный перехват ошибок для диагностики в WebView

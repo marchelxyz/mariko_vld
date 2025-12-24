@@ -137,8 +137,8 @@ export const getUser = (): VKUser | undefined => {
  * Использует кеш или запрашивает данные через VK Bridge API.
  */
 export const getUserAsync = async (): Promise<VKUser | undefined> => {
-  // Если данные уже в кеше, возвращаем их
-  if (cachedUser && cachedUser.first_name) {
+  // Если данные уже в кеше (даже без имени), возвращаем их
+  if (cachedUser) {
     return cachedUser;
   }
 
@@ -147,52 +147,122 @@ export const getUserAsync = async (): Promise<VKUser | undefined> => {
     return userRequestPromise;
   }
 
-  const vk = getVk();
-  if (!vk) {
+  // Проверяем, что мы в VK
+  if (!isInVk()) {
+    console.warn("[vk] getUserAsync вызван вне VK");
     return undefined;
   }
 
-  const initData = vk.initData;
+  const vk = getVk();
+  const initData = vk?.initData || getInitData();
   const userId = initData?.vk_user_id;
 
   if (!userId) {
+    console.warn("[vk] getUserAsync: vk_user_id не найден в initData");
     return undefined;
   }
 
   userRequestPromise = (async () => {
     try {
-      // Используем официальный VK Bridge для получения данных пользователя
-      // Согласно документации: https://dev.vk.com/ru/mini-apps/overview/data-handling
-      if (isBridgeAvailable()) {
+      // Сначала убеждаемся, что bridge инициализирован
+      if (!isBridgeAvailable()) {
+        console.warn("[vk] Bridge недоступен для получения данных пользователя");
+      } else {
+        // Инициализируем bridge, если еще не инициализирован
+        try {
+          await bridge.send("VKWebAppInit", {});
+        } catch (initError) {
+          console.warn("[vk] Ошибка инициализации bridge:", initError);
+        }
+
+        // Используем официальный VK Bridge для получения данных пользователя
+        // Согласно документации: https://dev.vk.com/ru/bridge/methods/VKWebAppGetUserInfo
         const response = await bridge.send("VKWebAppGetUserInfo", {});
-        if (response && typeof response === "object" && "first_name" in response) {
-          const user: VKUser = {
-            id: parseInt(userId),
-            first_name: (response as { first_name: string }).first_name || "",
-            last_name: (response as { last_name?: string }).last_name || "",
-            avatar: (response as { photo_200?: string }).photo_200,
-          };
-          cachedUser = user;
-          return user;
+        
+        console.log("[vk] Ответ от VKWebAppGetUserInfo:", response);
+        
+        if (response && typeof response === "object") {
+          // Проверяем разные форматы ответа
+          let firstName = "";
+          let lastName = "";
+          let avatar = "";
+
+          // Формат 1: прямой ответ с полями
+          if ("first_name" in response) {
+            firstName = String((response as { first_name?: string }).first_name || "");
+            lastName = String((response as { last_name?: string }).last_name || "");
+            avatar = String((response as { photo_200?: string; photo?: string }).photo_200 || 
+                           (response as { photo_200?: string; photo?: string }).photo || "");
+          }
+          // Формат 2: ответ вложен в data
+          else if ("data" in response && typeof response.data === "object") {
+            const data = response.data as Record<string, unknown>;
+            firstName = String(data.first_name || "");
+            lastName = String(data.last_name || "");
+            avatar = String(data.photo_200 || data.photo || "");
+          }
+
+          if (firstName || lastName || avatar) {
+            const user: VKUser = {
+              id: parseInt(userId),
+              first_name: firstName,
+              last_name: lastName,
+              avatar: avatar || undefined,
+            };
+            cachedUser = user;
+            console.log("[vk] Данные пользователя успешно получены:", {
+              id: user.id,
+              firstName: user.first_name,
+              lastName: user.last_name,
+              hasAvatar: !!user.avatar,
+            });
+            return user;
+          } else {
+            console.warn("[vk] Ответ от VKWebAppGetUserInfo не содержит ожидаемых полей:", response);
+          }
         }
       }
       
       // Fallback: используем старый способ через window.vk.Bridge
       if (window.vk?.Bridge && typeof window.vk.Bridge.send === "function") {
-        const response = await window.vk.Bridge.send("VKWebAppGetUserInfo", {});
-        if (response && typeof response === "object" && "first_name" in response) {
-          const user: VKUser = {
-            id: parseInt(userId),
-            first_name: (response as { first_name: string }).first_name || "",
-            last_name: (response as { last_name?: string }).last_name || "",
-            avatar: (response as { photo_200?: string }).photo_200,
-          };
-          cachedUser = user;
-          return user;
+        try {
+          const response = await window.vk.Bridge.send("VKWebAppGetUserInfo", {});
+          console.log("[vk] Ответ от window.vk.Bridge.send:", response);
+          
+          if (response && typeof response === "object") {
+            let firstName = "";
+            let lastName = "";
+            let avatar = "";
+
+            if ("first_name" in response) {
+              firstName = String((response as { first_name?: string }).first_name || "");
+              lastName = String((response as { last_name?: string }).last_name || "");
+              avatar = String((response as { photo_200?: string; photo?: string }).photo_200 || 
+                             (response as { photo_200?: string; photo?: string }).photo || "");
+            } else if ("data" in response && typeof response.data === "object") {
+              const data = response.data as Record<string, unknown>;
+              firstName = String(data.first_name || "");
+              lastName = String(data.last_name || "");
+              avatar = String(data.photo_200 || data.photo || "");
+            }
+
+            if (firstName || lastName || avatar) {
+              const user: VKUser = {
+                id: parseInt(userId),
+                first_name: firstName,
+                last_name: lastName,
+                avatar: avatar || undefined,
+              };
+              cachedUser = user;
+              return user;
+            }
+          }
+        } catch (bridgeError) {
+          console.warn("[vk] Ошибка при использовании window.vk.Bridge:", bridgeError);
         }
       }
     } catch (error) {
-      console.warn("[vk] failed to get user info", error);
+      console.error("[vk] Критическая ошибка получения данных пользователя:", error);
     }
 
     // Fallback: возвращаем только ID (имя и фамилия будут пустыми)
@@ -202,14 +272,15 @@ export const getUserAsync = async (): Promise<VKUser | undefined> => {
       last_name: "",
     };
     // Не кешируем fallback, чтобы можно было повторить попытку
+    console.warn("[vk] Не удалось получить данные пользователя, возвращаем только ID");
     return fallbackUser;
   })();
 
   const result = await userRequestPromise;
   userRequestPromise = null;
   
-  // Кешируем только если получили имя
-  if (result && result.first_name) {
+  // Кешируем результат, даже если имя пустое (но есть ID)
+  if (result) {
     cachedUser = result;
   }
   
