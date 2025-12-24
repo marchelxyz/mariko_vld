@@ -495,7 +495,7 @@ const Index = () => {
                         imageUrl="/images/services/MENU-CARD.png"
                         aspectRatio="aspect-[4/3]"
                         imageClassName="object-left translate-x-[2px]"
-                        className="max-w-[230px] md:max-w-[230px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
+                        className="max-w-[230px] md:max-w-[230px] lg:max-w-none lg:h-[400px] lg:w-[450px] w-full [&>div:first-child]:lg:!h-[320px] [&>div:first-child]:lg:!aspect-auto"
                         highlighted={cityChangedFlash}
                         onClick={() => navigate("/menu")}
                       />
