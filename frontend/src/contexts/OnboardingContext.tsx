@@ -1,6 +1,5 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
-import { getUser, isInTelegram } from "@/lib/telegram";
-import { useVK } from "./VKContext";
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { getUser } from "@/lib/telegram";
 import { onboardingServerApi } from "@shared/api/onboarding";
 
 interface OnboardingContextType {
@@ -26,24 +25,13 @@ interface OnboardingProviderProps {
 export const OnboardingProvider = ({ children }: OnboardingProviderProps) => {
   const [onboardingTourShown, setOnboardingTourShownState] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const { user: vkUser, isVK } = useVK();
 
   useEffect(() => {
     let cancelled = false;
     let scheduledHandle: number | ReturnType<typeof setTimeout> | null = null;
 
     const loadOnboardingFlag = async () => {
-      // Определяем платформу: сначала проверяем Telegram, потом VK
-      const inTelegram = isInTelegram();
-      const telegramUser = inTelegram ? getUser() : null;
-      
-      // Пытаемся получить userId из Telegram или VK
-      const userId = telegramUser?.id 
-        ? String(telegramUser.id)
-        : (!inTelegram && vkUser?.id)
-        ? String(vkUser.id)
-        : null;
-      
+      const userId = getUser()?.id;
       if (!userId) {
         // Если пользователь не определен, считаем что подсказки не показывались
         if (!cancelled) {
@@ -52,11 +40,8 @@ export const OnboardingProvider = ({ children }: OnboardingProviderProps) => {
         return;
       }
 
-      // Определяем платформу для API: если не в Telegram, то используем isVK
-      const platformIsVK = !inTelegram && isVK;
-
       try {
-        const shown = await onboardingServerApi.getOnboardingTourShown(userId, platformIsVK);
+        const shown = await onboardingServerApi.getOnboardingTourShown(userId);
         if (!cancelled) {
           setOnboardingTourShownState(shown);
         }
@@ -105,35 +90,22 @@ export const OnboardingProvider = ({ children }: OnboardingProviderProps) => {
         clearTimeout(scheduledHandle);
       }
     };
-  }, [vkUser, isVK]);
+  }, []);
 
-  const setOnboardingTourShown = useCallback(async (shown: boolean) => {
-    // Определяем платформу: сначала проверяем Telegram, потом VK
-    const inTelegram = isInTelegram();
-    const telegramUser = inTelegram ? getUser() : null;
-    
-    // Пытаемся получить userId из Telegram или VK
-    const userId = telegramUser?.id 
-      ? String(telegramUser.id)
-      : (!inTelegram && vkUser?.id)
-      ? String(vkUser.id)
-      : null;
-    
+  const setOnboardingTourShown = async (shown: boolean) => {
+    const userId = getUser()?.id;
     if (!userId) {
       console.warn("[onboarding] user ID not available, cannot persist tour flag");
       return;
     }
 
-    // Определяем платформу для API: если не в Telegram, то используем isVK
-    const platformIsVK = !inTelegram && isVK;
-
     try {
-      await onboardingServerApi.setOnboardingTourShown(userId, shown, platformIsVK);
+      await onboardingServerApi.setOnboardingTourShown(userId, shown);
       setOnboardingTourShownState(shown);
     } catch (error) {
       console.warn("[onboarding] failed to persist tour flag", error);
     }
-  }, [vkUser, isVK]);
+  };
 
   return (
     <OnboardingContext.Provider
