@@ -74,9 +74,7 @@ export const botApi = {
         };
 
         // Добавляем платформенный ID в зависимости от платформы
-        if (platform === "telegram") {
-          profileData.telegramId = platformUserId || undefined;
-        } else if (platform === "vk") {
+        if (platform === "vk") {
           profileData.vkId = platformUserId || undefined;
         }
 
@@ -122,7 +120,7 @@ export const botApi = {
         gender: "Не указан",
         photo: "",
         notificationsEnabled: true,
-        telegramId: getPlatform() === "telegram" && Number.isFinite(parseInt(userId)) ? parseInt(userId) : undefined,
+        telegramId: undefined,
         favoriteCityId: null,
         favoriteCityName: null,
         favoriteRestaurantId: null,

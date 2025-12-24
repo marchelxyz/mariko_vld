@@ -100,6 +100,14 @@ function syncProfile(user: { id: number; first_name: string; last_name?: string;
     if (initData) {
       headers["X-VK-Init-Data"] = initData;
     }
+    
+    // Логируем заголовки для диагностики
+    console.log('[profile-sync] Отправка запроса синхронизации профиля', {
+      userId,
+      hasInitData: !!initData,
+      initDataPreview: initData ? initData.substring(0, 100) : undefined,
+      endpoint
+    });
 
     fetch(endpoint, {
       method: "POST",
