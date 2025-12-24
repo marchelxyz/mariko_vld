@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { PORT, CORS_ALLOWED_ORIGINS } from "./config.mjs";
+import { PORT } from "./config.mjs";
 import { db } from "./postgresClient.mjs";
 import { initializeDatabase, checkDatabaseTables } from "./databaseInit.mjs";
 import { registerCartRoutes } from "./routes/cartRoutes.mjs";
@@ -54,49 +54,19 @@ const corsOptions = {
   origin: function (origin, callback) {
     // Разрешаем запросы без origin (например, мобильные приложения или Postman)
     if (!origin) {
-      logger.debug("CORS: разрешаем запрос без origin");
       return callback(null, true);
     }
-    
-    // Если задан список разрешенных origins, проверяем его
-    if (CORS_ALLOWED_ORIGINS && CORS_ALLOWED_ORIGINS.length > 0) {
-      if (CORS_ALLOWED_ORIGINS.includes(origin)) {
-        logger.debug("CORS: origin разрешен", { origin });
-        return callback(null, true);
-      } else {
-        logger.warn("CORS: origin не разрешен", { origin, allowedOrigins: CORS_ALLOWED_ORIGINS });
-        return callback(new Error("Not allowed by CORS"), false);
-      }
-    }
-    
-    // Если список не задан, разрешаем все origins (для разработки)
-    logger.debug("CORS: разрешаем origin (все origins разрешены)", { origin });
+    // Возвращаем конкретный origin из запроса (разрешаем все origins)
+    // Для production можно ограничить список разрешенных origins
     callback(null, origin);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Telegram-Init-Data', 'X-Telegram-Id', 'X-VK-Id', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Telegram-Init-Data', 'X-Telegram-Id', 'X-VK-Id'],
   exposedHeaders: ['Content-Type'],
-  optionsSuccessStatus: 200, // Для старых браузеров
-  preflightContinue: false,
 };
 
 app.use(cors(corsOptions));
-
-// Явная обработка preflight запросов для надежности
-app.options('*', cors(corsOptions));
-
-// Middleware для логирования всех запросов (для диагностики CORS)
-app.use((req, res, next) => {
-  logger.debug("Incoming request", {
-    method: req.method,
-    path: req.path,
-    origin: req.headers.origin,
-    'user-agent': req.headers['user-agent'],
-  });
-  next();
-});
-
 app.use(express.json());
 
 // Эндпоинт для диагностики и инициализации БД
@@ -241,23 +211,6 @@ if (frontendStaticRoot) {
     return res.sendFile(path.join(frontendStaticRoot, "index.html"));
   });
 }
-
-// Middleware для обработки ошибок CORS
-app.use((err, req, res, next) => {
-  if (err.message === "Not allowed by CORS") {
-    logger.warn("CORS error", {
-      method: req.method,
-      path: req.path,
-      origin: req.headers.origin,
-    });
-    return res.status(403).json({
-      success: false,
-      message: "CORS: Origin not allowed",
-      origin: req.headers.origin,
-    });
-  }
-  next(err);
-});
 
 app.use((req, res) => {
   logger.warn("404 Not Found", { method: req.method, path: req.path });
