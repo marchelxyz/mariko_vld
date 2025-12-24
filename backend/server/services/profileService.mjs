@@ -114,14 +114,27 @@ export const buildProfileUpsertPayload = (input) => {
   if (input.favoriteRestaurantAddress !== undefined) {
     payload.favorite_restaurant_address = normaliseNullableString(input.favoriteRestaurantAddress);
   }
-  const telegramId =
-    input.telegramId !== undefined
-      ? normaliseTelegramId(input.telegramId)
-      : normaliseTelegramId(input.id);
-  if (telegramId) {
-    const numeric = Number(telegramId);
-    payload.telegram_id = Number.isFinite(numeric) ? numeric : null;
+  // Устанавливаем telegram_id только если он явно указан
+  // Не используем id как telegram_id, если есть vkId (чтобы не путать VK ID с Telegram ID)
+  if (input.telegramId !== undefined) {
+    const telegramId = normaliseTelegramId(input.telegramId);
+    if (telegramId) {
+      const numeric = Number(telegramId);
+      payload.telegram_id = Number.isFinite(numeric) ? numeric : null;
+    } else {
+      payload.telegram_id = null;
+    }
+  } else if (input.vkId === undefined) {
+    // Если vkId не указан, то это может быть Telegram пользователь
+    // Используем id как telegram_id только если нет vkId
+    const telegramId = normaliseTelegramId(input.id);
+    if (telegramId) {
+      const numeric = Number(telegramId);
+      payload.telegram_id = Number.isFinite(numeric) ? numeric : null;
+    }
   }
+  // Если vkId указан, но telegramId не указан, то telegram_id остается null (не перезаписываем)
+  
   if (input.vkId !== undefined) {
     const vkId = typeof input.vkId === "string" ? input.vkId.trim() : String(input.vkId);
     const numeric = Number(vkId);
