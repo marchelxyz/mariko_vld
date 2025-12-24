@@ -167,6 +167,7 @@ export function onDeactivated(callback: () => void): () => void {
 
 /**
  * Получает initData из VK (для API запросов).
+ * Возвращает строку в формате query string для использования в заголовках.
  */
 export function getInitData(): string | undefined {
   const vk = getVk();
@@ -179,7 +180,52 @@ export function getInitData(): string | undefined {
         params.append(key, String(value));
       }
     });
-    return params.toString();
+    const result = params.toString();
+    
+    // Логируем для диагностики (только в режиме разработки)
+    if (import.meta.env.DEV) {
+      console.log('[platform] getInitData из vk.initData:', {
+        hasInitData: !!vk.initData,
+        initDataKeys: Object.keys(vk.initData),
+        resultLength: result.length,
+        resultPreview: result.substring(0, 100)
+      });
+    }
+    
+    return result;
+  }
+  
+  // Fallback: пытаемся получить initData из URL параметров
+  if (typeof window !== "undefined") {
+    const urlParams = new URLSearchParams(window.location.search);
+    const vkParams = new URLSearchParams();
+    
+    // Собираем все параметры, начинающиеся с vk_
+    urlParams.forEach((value, key) => {
+      if (key.startsWith('vk_')) {
+        vkParams.append(key, value);
+      }
+    });
+    
+    // Если нашли хотя бы один параметр VK, возвращаем их как строку
+    if (vkParams.toString()) {
+      const result = vkParams.toString();
+      
+      // Логируем для диагностики (только в режиме разработки)
+      if (import.meta.env.DEV) {
+        console.log('[platform] getInitData из URL параметров:', {
+          resultLength: result.length,
+          resultPreview: result.substring(0, 100)
+        });
+      }
+      
+      return result;
+    }
+  }
+  
+  // Логируем предупреждение, если initData не найден
+  if (import.meta.env.DEV && isInVk()) {
+    console.warn('[platform] getInitData: initData не найден, хотя платформа определена как VK');
   }
   
   return undefined;
