@@ -3,6 +3,8 @@ import App from "./App.tsx";
 import "./index.css";
 import { markReady, requestFullscreenMode } from "@/lib/platform";
 import { logger } from "@/lib/logger";
+import bridge from "@vkontakte/vk-bridge";
+import { isInVk } from "@/lib/vkCore";
 
 const hideInitialSpinner = () => {
   const spinner = document.getElementById("loading-spinner");
@@ -13,6 +15,17 @@ const hideInitialSpinner = () => {
 
 // Инициализация VK Mini App с ожиданием доступности SDK
 const initVKApp = () => {
+  // Инициализируем VK Bridge, если мы в VK
+  if (isInVk()) {
+    try {
+      // Инициализируем bridge для работы с VK API
+      bridge.send("VKWebAppInit", {});
+      logger.info('app', 'VK Bridge инициализирован');
+    } catch (error) {
+      logger.warn('app', 'Не удалось инициализировать VK Bridge', error);
+    }
+  }
+  
   // Проверяем доступность VK WebApp
   const vk = typeof window !== "undefined" ? window.vk?.WebApp : undefined;
   if (vk) {
