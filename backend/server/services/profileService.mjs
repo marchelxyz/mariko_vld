@@ -2,7 +2,7 @@ import { queryOne, queryMany, db } from "../postgresClient.mjs";
 import { normaliseNullableString, normalisePhone, normaliseTelegramId } from "../utils.mjs";
 
 export const PROFILE_SELECT_FIELDS =
-  "id,name,phone,birth_date,gender,photo,telegram_id,notifications_enabled,onboarding_tour_shown,favorite_city_id,favorite_city_name,favorite_restaurant_id,favorite_restaurant_name,favorite_restaurant_address,primary_address_id,last_address_text,last_address_lat,last_address_lon,last_address_updated_at,created_at,updated_at";
+  "id,name,phone,birth_date,gender,photo,telegram_id,vk_id,notifications_enabled,onboarding_tour_shown,favorite_city_id,favorite_city_name,favorite_restaurant_id,favorite_restaurant_name,favorite_restaurant_address,primary_address_id,last_address_text,last_address_lat,last_address_lon,last_address_updated_at,created_at,updated_at";
 
 export const mapProfileRowToClient = (row, fallbackId = "") => ({
   id: row?.id ?? fallbackId,
@@ -30,6 +30,12 @@ export const mapProfileRowToClient = (row, fallbackId = "") => ({
       ? row.telegram_id
       : typeof row?.telegram_id === "string"
         ? Number(row.telegram_id)
+        : undefined,
+  vkId:
+    typeof row?.vk_id === "number"
+      ? row.vk_id
+      : typeof row?.vk_id === "string"
+        ? Number(row.vk_id)
         : undefined,
   createdAt: row?.created_at ?? null,
   updatedAt: row?.updated_at ?? null,
@@ -116,6 +122,18 @@ export const buildProfileUpsertPayload = (input) => {
     const numeric = Number(telegramId);
     payload.telegram_id = Number.isFinite(numeric) ? numeric : null;
   }
+  
+  // Обработка VK ID
+  if (input.vkId !== undefined) {
+    const vkId = input.vkId;
+    if (vkId !== null && vkId !== undefined) {
+      const numeric = Number(vkId);
+      payload.vk_id = Number.isFinite(numeric) ? numeric : null;
+    } else {
+      payload.vk_id = null;
+    }
+  }
+  
   return payload;
 };
 
@@ -171,12 +189,22 @@ export const fetchUserProfile = async (identifier) => {
 
     const numeric = Number(asString);
     if (Number.isFinite(numeric)) {
+      // Сначала пробуем найти по telegram_id
       const fallback = await queryOne(
         `SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles WHERE telegram_id = $1 LIMIT 1`,
         [numeric],
       );
       if (fallback) {
         return fallback;
+      }
+      
+      // Затем пробуем найти по vk_id
+      const vkFallback = await queryOne(
+        `SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles WHERE vk_id = $1 LIMIT 1`,
+        [numeric],
+      );
+      if (vkFallback) {
+        return vkFallback;
       }
     }
     return null;
