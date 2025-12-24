@@ -9,7 +9,6 @@ const SCHEMAS = {
     CREATE TABLE IF NOT EXISTS user_profiles (
       id VARCHAR(255) PRIMARY KEY,
       telegram_id BIGINT UNIQUE,
-      vk_id BIGINT UNIQUE,
       name VARCHAR(255) NOT NULL DEFAULT 'Пользователь',
       phone VARCHAR(20),
       birth_date VARCHAR(10),
@@ -250,7 +249,6 @@ const SCHEMAS = {
  */
 const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_user_profiles_telegram_id ON user_profiles(telegram_id);`,
-  `CREATE INDEX IF NOT EXISTS idx_user_profiles_vk_id ON user_profiles(vk_id);`,
   `CREATE INDEX IF NOT EXISTS idx_user_profiles_phone ON user_profiles(phone);`,
   `CREATE INDEX IF NOT EXISTS idx_user_addresses_user_id ON user_addresses(user_id);`,
   `CREATE INDEX IF NOT EXISTS idx_user_addresses_primary ON user_addresses(user_id, is_primary) WHERE is_primary = true;`,
@@ -509,32 +507,6 @@ export async function initializeDatabase() {
       }
     } catch (error) {
       console.warn("⚠️  Предупреждение при добавлении поля onboarding_tour_shown:", error?.message || error);
-    }
-
-    // Миграция: добавляем поле vk_id в таблицу user_profiles
-    try {
-      const columnExists = await query(`
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name = 'user_profiles' AND column_name = 'vk_id'
-      `);
-      
-      if (columnExists.rows.length === 0) {
-        await query(`ALTER TABLE user_profiles ADD COLUMN vk_id BIGINT UNIQUE`);
-        console.log("✅ Поле vk_id добавлено в таблицу user_profiles");
-        
-        // Создаем индекс для vk_id
-        try {
-          await query(`CREATE INDEX IF NOT EXISTS idx_user_profiles_vk_id ON user_profiles(vk_id);`);
-          console.log("✅ Индекс для vk_id создан");
-        } catch (indexError) {
-          console.warn("⚠️  Предупреждение при создании индекса для vk_id:", indexError?.message || indexError);
-        }
-      } else {
-        console.log("ℹ️  Поле vk_id уже существует в таблице user_profiles");
-      }
-    } catch (error) {
-      console.warn("⚠️  Предупреждение при добавлении поля vk_id:", error?.message || error);
     }
 
     // Создаем индексы
