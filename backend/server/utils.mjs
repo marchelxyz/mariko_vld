@@ -19,6 +19,27 @@ export const normaliseTelegramId = (value) => {
   return null;
 };
 
+export const normaliseVkId = (value) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(Math.trunc(value));
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric)) {
+      return String(Math.trunc(numeric));
+    }
+    return trimmed;
+  }
+  return null;
+};
+
 export const normaliseNullableString = (value) => {
   if (typeof value !== "string") {
     return null;
