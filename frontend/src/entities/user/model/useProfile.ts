@@ -22,7 +22,26 @@ const resolveUserId = (): string => {
   return user?.id?.toString() || "demo_user";
 };
 
-const resolvePhotoUrl = (): string => {
+/**
+ * Получает URL фото пользователя из платформы (VK или Telegram).
+ * Для VK использует асинхронный метод для получения полных данных.
+ */
+const resolvePhotoUrl = async (): Promise<string> => {
+  const platform = getPlatform();
+  
+  // Для VK нужно использовать асинхронный метод
+  if (platform === "vk") {
+    try {
+      const user = await getUserAsync();
+      if (user?.avatar) {
+        return user.avatar.trim();
+      }
+    } catch (error) {
+      console.warn("Не удалось получить фото пользователя из VK:", error);
+    }
+  }
+  
+  // Для других платформ используем синхронный метод
   const user = getUser();
   return (user?.photo_url || user?.avatar || "").trim();
 };
@@ -91,8 +110,8 @@ export const useProfile = () => {
     loadProfile();
   }, []);
 
-  const applyProfileUpdate = (incomingProfile: Partial<UserProfile>) => {
-    const photoUrl = resolvePhotoUrl();
+  const applyProfileUpdate = async (incomingProfile: Partial<UserProfile>) => {
+    const photoUrl = await resolvePhotoUrl();
     setProfile((currentProfile) => {
       const mergedProfile = {
         ...defaultProfile,
@@ -124,7 +143,7 @@ export const useProfile = () => {
         const cached = storage.getItem(storageKey);
         if (cached) {
           const parsed = JSON.parse(cached) as Partial<UserProfile>;
-          applyProfileUpdate({ ...parsed, id: currentUserId });
+          await applyProfileUpdate({ ...parsed, id: currentUserId });
           setIsInitialized(true);
         }
       } catch (cacheErr) {
@@ -132,7 +151,7 @@ export const useProfile = () => {
       }
 
       const userProfile = await getUserProfileShared(currentUserId);
-      const photoUrl = resolvePhotoUrl();
+      const photoUrl = await resolvePhotoUrl();
       
       // Получаем имя пользователя из платформы (VK/Telegram)
       const platformUserName = await resolveUserName();
@@ -152,14 +171,29 @@ export const useProfile = () => {
         photo: photoUrl || userProfile.photo || defaultProfile.photo,
       };
       
-      // Если получили имя из платформы и его нет в профиле на сервере, обновляем профиль
+      // Если получили имя или фото из платформы и их нет в профиле на сервере, обновляем профиль
+      const profileUpdates: Partial<UserProfile> = {};
+      let shouldUpdateProfile = false;
+      
       if (platformUserName && platformUserName.trim() && 
           (!userProfile.name || userProfile.name === "Пользователь" || !userProfile.name.trim())) {
+        profileUpdates.name = platformUserName.trim();
+        shouldUpdateProfile = true;
+      }
+      
+      // Если получили фото из платформы и его нет в профиле на сервере, обновляем профиль
+      if (photoUrl && photoUrl.trim() && 
+          (!userProfile.photo || !userProfile.photo.trim() || userProfile.photo === defaultProfile.photo)) {
+        profileUpdates.photo = photoUrl.trim();
+        shouldUpdateProfile = true;
+      }
+      
+      if (shouldUpdateProfile) {
         try {
-          await profileApi.updateUserProfile(currentUserId, { name: platformUserName.trim() });
+          await profileApi.updateUserProfile(currentUserId, profileUpdates);
         } catch (updateErr) {
-          console.warn("Не удалось обновить профиль именем из платформы:", updateErr);
-          // Не считаем это критической ошибкой, продолжаем с локальным именем
+          console.warn("Не удалось обновить профиль данными из платформы:", updateErr);
+          // Не считаем это критической ошибкой, продолжаем с локальными данными
         }
       }
       
@@ -173,13 +207,21 @@ export const useProfile = () => {
     } catch (err) {
       setError("Не удалось загрузить профиль");
       console.error("Ошибка загрузки профиля:", err);
-      const photoUrl = resolvePhotoUrl();
-      const resolvedPhoto = photoUrl || defaultProfile.photo;
-      setProfile((prevProfile) => ({
-        ...defaultProfile,
-        ...prevProfile,
-        photo: resolvedPhoto,
-      }));
+      try {
+        const photoUrl = await resolvePhotoUrl();
+        const resolvedPhoto = photoUrl || defaultProfile.photo;
+        setProfile((prevProfile) => ({
+          ...defaultProfile,
+          ...prevProfile,
+          photo: resolvedPhoto,
+        }));
+      } catch (photoErr) {
+        console.warn("Не удалось получить фото при ошибке загрузки профиля:", photoErr);
+        setProfile((prevProfile) => ({
+          ...defaultProfile,
+          ...prevProfile,
+        }));
+      }
       // В случае ошибки оставляем дефолтный профиль
       setIsInitialized(true);
     } finally {
@@ -190,7 +232,7 @@ export const useProfile = () => {
   const updateProfile = async (updates: Partial<UserProfile>) => {
     try {
       setError(null); // Очищаем предыдущие ошибки
-      const photoUrl = resolvePhotoUrl();
+      const photoUrl = await resolvePhotoUrl();
       const resolvedPhoto = photoUrl || defaultProfile.photo;
       const { photo: _ignoredPhoto, ...restUpdates } = updates;
       const updatedProfile = { ...profile, ...restUpdates, photo: resolvedPhoto };
@@ -228,7 +270,7 @@ export const useProfile = () => {
         const savedProfile = storage.getItem(`profile_${currentUserId}`);
         if (savedProfile) {
           const parsedProfile = JSON.parse(savedProfile);
-          const photoUrl = resolvePhotoUrl();
+          const photoUrl = await resolvePhotoUrl();
           setProfile({
             ...defaultProfile,
             ...parsedProfile,
@@ -252,13 +294,13 @@ export const useProfile = () => {
     const storageKey = `profile_${userId}`;
 
     storageUnsubscribeRef.current?.();
-    storageUnsubscribeRef.current = storage.subscribe(storageKey, (value) => {
+    storageUnsubscribeRef.current = storage.subscribe(storageKey, async (value) => {
       if (!value) {
         return;
       }
       try {
         const parsedProfile = JSON.parse(value) as Partial<UserProfile>;
-        applyProfileUpdate(parsedProfile);
+        await applyProfileUpdate(parsedProfile);
       } catch (err) {
         console.warn("Не удалось распарсить профиль из хранилища:", err);
       }
