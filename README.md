@@ -43,6 +43,7 @@ docs/                  # Документация
 - [`RAILWAY.md`](./RAILWAY.md) — специфичные настройки Railway
 - [`ADMIN_SETUP.md`](./ADMIN_SETUP.md) — настройка админ-доступа
 - [`VK_MINI_APP_SETUP.md`](./VK_MINI_APP_SETUP.md) — настройка мини-приложения ВКонтакте
+- [`VK_MINI_APP_QUICK_START.md`](./VK_MINI_APP_QUICK_START.md) — быстрый старт для ВК мини-приложения
 
 ## Полезные команды (корень)
 - `npm run env:local` — собрать `.env.local` для фронта/сервера/бота.  
