@@ -54,10 +54,46 @@ const memoryStorage = new Map<string, string>();
 const noop = () => {};
 
 /**
- * Returns the Telegram WebApp instance if available.
+ * Проверяет, что мы действительно в Telegram окружении, а не в VK или другом
+ */
+const isTelegramEnvironment = (): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  
+  // Проверяем флаг платформы из index.html
+  const platform = (window as any).__PLATFORM__;
+  if (platform === 'vk') {
+    return false;
+  }
+  
+  // Проверяем наличие VK Bridge - если он есть, это не Telegram
+  if ((window as any).vk?.Bridge) {
+    return false;
+  }
+  
+  // Проверяем URL параметры
+  const search = window.location.search;
+  if (search.includes('vk_') && !search.includes('tgWebApp')) {
+    return false;
+  }
+  
+  // Проверяем наличие Telegram WebApp API
+  const tg = window.Telegram?.WebApp;
+  if (!tg) {
+    return false;
+  }
+  
+  // Дополнительная проверка: Telegram WebApp должен иметь initData или version
+  // VK может случайно создать объект, но не будет иметь эти свойства
+  return Boolean(tg.initData || tg.initDataUnsafe || tg.version);
+};
+
+/**
+ * Returns the Telegram WebApp instance if available and we're in Telegram environment.
  */
 export const getTg = (): TelegramWebApp | undefined => {
-  if (typeof window === "undefined") {
+  if (!isTelegramEnvironment()) {
     return undefined;
   }
   return window.Telegram?.WebApp;
@@ -93,6 +129,11 @@ export const isSupported = (check: (tg: TelegramWebApp) => unknown): boolean => 
  * Ensures lifecycle listeners are wired and safe area values are initialised.
  */
 const ensureLifecycleBinding = () => {
+  // Проверяем, что мы в Telegram окружении перед настройкой lifecycle
+  if (!isTelegramEnvironment()) {
+    return;
+  }
+  
   const tg = getTg();
   if (!tg || lifecycleBound) {
     return;
@@ -340,6 +381,10 @@ export const isActive = (): boolean => {
  * Signals that the WebApp is ready.
  */
 export const markReady = () => {
+  if (!isTelegramEnvironment()) {
+    return;
+  }
+  
   const tg = getTg();
   if (!tg) return;
   try {
@@ -353,6 +398,10 @@ export const markReady = () => {
  * Attempts to close the WebApp gracefully.
  */
 export const closeApp = () => {
+  if (!isTelegramEnvironment()) {
+    return;
+  }
+  
   const tg = getTg();
   if (!tg) return;
   try {
@@ -368,6 +417,10 @@ export const closeApp = () => {
  * Согласно документации: https://core.telegram.org/bots/webapps#initializing-mini-apps
  */
 export const requestFullscreenMode = () => {
+  if (!isTelegramEnvironment()) {
+    return;
+  }
+  
   const tg = getTg();
   if (!tg) return;
 
@@ -412,6 +465,10 @@ export const requestFullscreenMode = () => {
  * Согласно документации: https://core.telegram.org/bots/webapps#events-available-for-mini-apps
  */
 export const setupFullscreenHandlers = () => {
+  if (!isTelegramEnvironment()) {
+    return;
+  }
+  
   const tg = getTg();
   if (!tg) return;
 
@@ -461,14 +518,16 @@ export const setupFullscreenHandlers = () => {
  * Opens links inside Telegram if possible, falls back to window.open otherwise.
  */
 export const safeOpenLink = (url: string, options?: { try_instant_view?: boolean }) => {
-  const tg = getTg();
-  try {
-    if (tg && typeof tg.openLink === "function") {
-      tg.openLink(url, options);
-      return true;
+  if (isTelegramEnvironment()) {
+    const tg = getTg();
+    try {
+      if (tg && typeof tg.openLink === "function") {
+        tg.openLink(url, options);
+        return true;
+      }
+    } catch (error) {
+      console.warn("[telegram] openLink failed, falling back", error);
     }
-  } catch (error) {
-    console.warn("[telegram] openLink failed, falling back", error);
   }
 
   if (typeof window !== "undefined") {
@@ -483,6 +542,10 @@ export const safeOpenLink = (url: string, options?: { try_instant_view?: boolean
  * Sends data to the bot backend with automatic JSON serialisation.
  */
 export const safeSendData = (payload: unknown) => {
+  if (!isTelegramEnvironment()) {
+    return false;
+  }
+  
   const tg = getTg();
   if (!tg) return false;
 
@@ -500,15 +563,17 @@ export const safeSendData = (payload: unknown) => {
  * Attempts to share a message using Telegram native UI, falls back to Web Share API or link share.
  */
 export const safeShareMessage = async (payload: TelegramShareMessageParams | string): Promise<boolean> => {
-  const tg = getTg();
   const normalised = typeof payload === "string" ? { text: payload } : payload;
 
-  if (tg?.shareMessage) {
-    try {
-      await tg.shareMessage(normalised);
-      return true;
-    } catch (error) {
-      console.warn("[telegram] shareMessage failed", error);
+  if (isTelegramEnvironment()) {
+    const tg = getTg();
+    if (tg?.shareMessage) {
+      try {
+        await tg.shareMessage(normalised);
+        return true;
+      } catch (error) {
+        console.warn("[telegram] shareMessage failed", error);
+      }
     }
   }
 
@@ -533,13 +598,15 @@ export const safeShareMessage = async (payload: TelegramShareMessageParams | str
  * Attempts to download a file using native APIs, falls back to opening the URL.
  */
 export const safeDownloadFile = async (params: TelegramDownloadFileParams): Promise<boolean> => {
-  const tg = getTg();
-  if (tg?.downloadFile) {
-    try {
-      await tg.downloadFile(params);
-      return true;
-    } catch (error) {
-      console.warn("[telegram] downloadFile failed", error);
+  if (isTelegramEnvironment()) {
+    const tg = getTg();
+    if (tg?.downloadFile) {
+      try {
+        await tg.downloadFile(params);
+        return true;
+      } catch (error) {
+        console.warn("[telegram] downloadFile failed", error);
+      }
     }
   }
 
@@ -553,21 +620,44 @@ export const safeDownloadFile = async (params: TelegramDownloadFileParams): Prom
  * Falls back gracefully when features are unavailable.
  */
 const getStoragePriority = (): TelegramAsyncKeyValueStorage[] => {
+  // Проверяем, что мы действительно в Telegram, а не в VK
+  if (!isTelegramEnvironment()) {
+    return [];
+  }
+  
   const tg = getTg();
   if (!tg) {
     return [];
   }
 
   const storages: TelegramAsyncKeyValueStorage[] = [];
-  if (tg.SecureStorage) {
-    storages.push(tg.SecureStorage);
+  
+  // Проверяем наличие storage методов с дополнительной проверкой
+  // чтобы избежать ошибок в VK окружении
+  try {
+    if (tg.SecureStorage && typeof tg.SecureStorage.setItem === 'function') {
+      storages.push(tg.SecureStorage);
+    }
+  } catch (e) {
+    // Игнорируем ошибки при проверке SecureStorage
   }
-  if (tg.DeviceStorage) {
-    storages.push(tg.DeviceStorage);
+  
+  try {
+    if (tg.DeviceStorage && typeof tg.DeviceStorage.setItem === 'function') {
+      storages.push(tg.DeviceStorage);
+    }
+  } catch (e) {
+    // Игнорируем ошибки при проверке DeviceStorage
   }
-  if (tg.CloudStorage) {
-    storages.push(tg.CloudStorage);
+  
+  try {
+    if (tg.CloudStorage && typeof tg.CloudStorage.setItem === 'function') {
+      storages.push(tg.CloudStorage);
+    }
+  } catch (e) {
+    // Игнорируем ошибки при проверке CloudStorage
   }
+  
   return storages;
 };
 
@@ -598,6 +688,11 @@ const notifyStorageSubscribers = (key: string, value: string | null) => {
 };
 
 const queueAsyncWrite = (key: string, value: string | null) => {
+  // Проверяем, что мы в Telegram окружении перед использованием Telegram storage
+  if (!isTelegramEnvironment()) {
+    return;
+  }
+  
   const storages = getStoragePriority();
   if (!storages.length) {
     return;
@@ -606,20 +701,36 @@ const queueAsyncWrite = (key: string, value: string | null) => {
   Promise.resolve().then(async () => {
     for (const storage of storages) {
       try {
+        // Дополнительная проверка перед использованием storage
+        if (!storage || typeof storage.setItem !== 'function') {
+          continue;
+        }
+        
         if (value === null) {
-          await storage.removeItem(key);
+          if (typeof storage.removeItem === 'function') {
+            await storage.removeItem(key);
+          }
         } else {
           await storage.setItem(key, value);
         }
         // Continue to next storage to keep them in sync.
       } catch (error) {
-        console.warn("[telegram] storage write failed", error);
+        // Тихая обработка ошибок - просто логируем и продолжаем
+        // Это нормально для VK окружения, где Telegram storage недоступен
+        if (isTelegramEnvironment()) {
+          console.warn("[telegram] storage write failed", error);
+        }
       }
     }
   });
 };
 
 const hydrateKeyFromAsyncStorages = (key: string) => {
+  // Проверяем, что мы в Telegram окружении перед использованием Telegram storage
+  if (!isTelegramEnvironment()) {
+    return;
+  }
+  
   if (pendingHydrationKeys.has(key)) {
     return;
   }
@@ -634,6 +745,11 @@ const hydrateKeyFromAsyncStorages = (key: string) => {
     .then(async () => {
       for (const storage of storages) {
         try {
+          // Дополнительная проверка перед использованием storage
+          if (!storage || typeof storage.getItem !== 'function') {
+            continue;
+          }
+          
           const value = await storage.getItem(key);
           if (typeof value === "string") {
             memoryStorage.set(key, value);
@@ -643,7 +759,10 @@ const hydrateKeyFromAsyncStorages = (key: string) => {
             return;
           }
         } catch (error) {
-          console.warn("[telegram] storage hydration failed", error);
+          // Тихая обработка ошибок для VK окружения
+          if (isTelegramEnvironment()) {
+            console.warn("[telegram] storage hydration failed", error);
+          }
         }
       }
     })
@@ -692,19 +811,29 @@ export const storage = {
       return memoryStorage.get(key) ?? null;
     }
 
-    const storages = getStoragePriority();
-    for (const asyncStorage of storages) {
-      try {
-        const value = await asyncStorage.getItem(key);
-        if (typeof value === "string") {
-          memoryStorage.set(key, value);
-          const local = getLocalStorage();
-          local?.setItem(key, value);
-          notifyStorageSubscribers(key, value);
-          return value;
+    // Используем Telegram storage только если мы в Telegram окружении
+    if (isTelegramEnvironment()) {
+      const storages = getStoragePriority();
+      for (const asyncStorage of storages) {
+        try {
+          if (!asyncStorage || typeof asyncStorage.getItem !== 'function') {
+            continue;
+          }
+          
+          const value = await asyncStorage.getItem(key);
+          if (typeof value === "string") {
+            memoryStorage.set(key, value);
+            const local = getLocalStorage();
+            local?.setItem(key, value);
+            notifyStorageSubscribers(key, value);
+            return value;
+          }
+        } catch (error) {
+          // Тихая обработка ошибок для VK окружения
+          if (isTelegramEnvironment()) {
+            console.warn("[telegram] storage async get failed", error);
+          }
         }
-      } catch (error) {
-        console.warn("[telegram] storage async get failed", error);
       }
     }
 
@@ -767,30 +896,42 @@ export const storage = {
       }
     }
 
-    const storages = getStoragePriority();
-    if (storages.length) {
-      Promise.resolve().then(async () => {
-        for (const storage of storages) {
-          try {
-            if (typeof storage.clear === "function") {
-              await storage.clear();
-              continue;
-            }
-            if (storage.getKeys) {
-              const keys = await storage.getKeys();
-              if (keys?.length && storage.removeItems) {
-                await storage.removeItems(keys);
-              } else if (keys?.length) {
-                await Promise.all(keys.map((key: string) => storage.removeItem(key)));
+    // Используем Telegram storage только если мы в Telegram окружении
+    if (isTelegramEnvironment()) {
+      const storages = getStoragePriority();
+      if (storages.length) {
+        Promise.resolve().then(async () => {
+          for (const storage of storages) {
+            try {
+              if (!storage) {
+                continue;
               }
-              continue;
+              
+              if (typeof storage.clear === "function") {
+                await storage.clear();
+                continue;
+              }
+              if (storage.getKeys && typeof storage.getKeys === 'function') {
+                const keys = await storage.getKeys();
+                if (keys?.length && storage.removeItems && typeof storage.removeItems === 'function') {
+                  await storage.removeItems(keys);
+                } else if (keys?.length && storage.removeItem && typeof storage.removeItem === 'function') {
+                  await Promise.all(keys.map((key: string) => storage.removeItem(key)));
+                }
+                continue;
+              }
+              if (storage.removeItem && typeof storage.removeItem === 'function') {
+                await Promise.all(existingKeys.map((key: string) => storage.removeItem(key)));
+              }
+            } catch (error) {
+              // Тихая обработка ошибок для VK окружения
+              if (isTelegramEnvironment()) {
+                console.warn("[telegram] storage clear failed", error);
+              }
             }
-            await Promise.all(existingKeys.map((key: string) => storage.removeItem(key)));
-          } catch (error) {
-            console.warn("[telegram] storage clear failed", error);
           }
-        }
-      });
+        });
+      }
     }
 
     storageSubscribers.forEach((listeners) => {

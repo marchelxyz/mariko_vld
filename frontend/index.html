@@ -122,10 +122,39 @@
     
     <div id="root"></div>
 
-    <!-- Telegram WebApp API -->
-    <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- VK Mini App SDK -->
-    <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+    <!-- Platform detection and conditional SDK loading -->
+    <script>
+      // Определяем платформу перед загрузкой SDK
+      (function() {
+        const isVK = window.location.search.includes('vk_') || 
+                     window.location.href.includes('vk.com') ||
+                     (typeof window !== 'undefined' && window.parent !== window && 
+                      window.parent.location.href.includes('vk.com'));
+        
+        const isTelegram = window.location.search.includes('tgWebApp') ||
+                          window.location.search.includes('tgWebAppStartParam') ||
+                          (typeof window !== 'undefined' && window.parent !== window && 
+                           window.parent.location.href.includes('telegram.org'));
+        
+        // Сохраняем информацию о платформе для использования в приложении
+        window.__PLATFORM__ = isVK ? 'vk' : (isTelegram ? 'telegram' : 'web');
+        
+        // Загружаем Telegram SDK только если это Telegram
+        if (isTelegram && !isVK) {
+          const script = document.createElement('script');
+          script.src = 'https://telegram.org/js/telegram-web-app.js';
+          script.defer = true;
+          document.head.appendChild(script);
+        }
+        
+        // Загружаем VK SDK только если это VK
+        if (isVK) {
+          const script = document.createElement('script');
+          script.src = 'https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js';
+          document.head.appendChild(script);
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
     
     <!-- Remove loading spinner when app loads -->
