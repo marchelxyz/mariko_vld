@@ -29,12 +29,7 @@ const buildHeaders = (userId: string): Record<string, string> => {
   const platform = getPlatform();
   const initData = getInitData();
 
-  if (platform === "telegram") {
-    headers["X-Telegram-Id"] = userId;
-    if (initData) {
-      headers["X-Telegram-Init-Data"] = initData;
-    }
-  } else if (platform === "vk") {
+  if (platform === "vk") {
     headers["X-VK-Id"] = userId;
     if (initData) {
       headers["X-VK-Init-Data"] = initData;

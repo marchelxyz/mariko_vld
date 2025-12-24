@@ -39,6 +39,17 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
     headers['X-VK-Id'] = String(user.id);
   }
   
+  // Логируем заголовки для диагностики (только в режиме разработки)
+  if (import.meta.env.DEV && (initData || user?.id)) {
+    console.log('[API] Заголовки VK для запроса:', {
+      url,
+      hasInitData: !!initData,
+      hasUserId: !!user?.id,
+      userId: user?.id,
+      initDataPreview: initData ? initData.substring(0, 100) : undefined
+    });
+  }
+  
   try {
     const response = await fetch(url, {
       credentials: 'include',
@@ -85,12 +96,8 @@ export async function setCityStatusViaServer(
 
   const platform = getPlatform();
   const initData = getInitData();
-  if (initData) {
-    if (platform === "telegram") {
-      headers['X-Telegram-Init-Data'] = initData;
-    } else if (platform === "vk") {
-      headers['X-VK-Init-Data'] = initData;
-    }
+  if (initData && platform === "vk") {
+    headers['X-VK-Init-Data'] = initData;
   }
 
   const response = await fetch(resolveServerUrl('/cities/status'), {
@@ -235,12 +242,8 @@ export async function createRestaurantViaServer(
 
   const platform = getPlatform();
   const initData = getInitData();
-  if (initData) {
-    if (platform === "telegram") {
-      headers['X-Telegram-Init-Data'] = initData;
-    } else if (platform === "vk") {
-      headers['X-VK-Init-Data'] = initData;
-    }
+  if (initData && platform === "vk") {
+    headers['X-VK-Init-Data'] = initData;
   }
 
   const response = await fetch(resolveServerUrl('/cities/restaurants'), {
@@ -283,12 +286,8 @@ export async function updateRestaurantViaServer(
 
   const platform = getPlatform();
   const initData = getInitData();
-  if (initData) {
-    if (platform === "telegram") {
-      headers['X-Telegram-Init-Data'] = initData;
-    } else if (platform === "vk") {
-      headers['X-VK-Init-Data'] = initData;
-    }
+  if (initData && platform === "vk") {
+    headers['X-VK-Init-Data'] = initData;
   }
 
   const response = await fetch(resolveServerUrl(`/cities/restaurants/${restaurantId}`), {
