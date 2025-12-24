@@ -110,7 +110,6 @@ railway status
 - `CART_ORDERS_TABLE` — название таблицы заказов (по умолчанию: `cart_orders`)
 - `ADMIN_TELEGRAM_IDS` — Telegram ID администраторов через запятую
 - `CART_SERVER_LOG_LEVEL` — уровень логирования (по умолчанию: `info`)
-- `CORS_ALLOWED_ORIGINS` — разрешенные origins для CORS (через запятую). **ВАЖНО**: Для VK Mini App необходимо добавить домен Vercel (например: `https://mariko-vld.vercel.app`)
 
 **Полный список переменных:** см. [`DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md#backend-railway)
 
