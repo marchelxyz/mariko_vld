@@ -78,6 +78,8 @@ const Index = () => {
   const [isLoadingPromotions, setIsLoadingPromotions] = useState(true);
   const [recommendedDishes, setRecommendedDishes] = useState<MenuItem[]>([]);
   const [isLoadingRecommended, setIsLoadingRecommended] = useState(false);
+  const promotionsContainerRef = useRef<HTMLDivElement>(null);
+  const [containerPadding, setContainerPadding] = useState<{ left: number; right: number }>({ left: 0, right: 0 });
 
   // Предзагрузка слотов бронирования в фоновом режиме
   useBookingSlotsPrefetch(selectedRestaurant);
@@ -321,6 +323,123 @@ const Index = () => {
     return () => clearTimeout(t);
   }, [selectedCity?.id]);
 
+  // Динамические отступы для контейнера с каруселью и кнопкой меню на средних экранах
+  useEffect(() => {
+    // Проверяем, что мы на среднем или большом экране (md+)
+    const mediaQuery = window.matchMedia('(min-width: 768px)');
+    if (!mediaQuery.matches) {
+      setContainerPadding({ left: 0, right: 0 });
+      return;
+    }
+
+    const updatePadding = () => {
+      // Проверяем, что мы все еще на среднем или большом экране
+      if (!mediaQuery.matches) {
+        setContainerPadding({ left: 0, right: 0 });
+        return;
+      }
+
+      if (!promotionsContainerRef.current) return;
+      
+      // Получаем доступную ширину экрана
+      const viewportWidth = window.innerWidth;
+      
+      // Получаем отступ от бокового меню (если есть)
+      const railOffsetStr = getComputedStyle(document.documentElement).getPropertyValue('--app-rail-offset') || '0px';
+      // Парсим значение, учитывая возможный calc()
+      let railOffset = 0;
+      if (railOffsetStr.includes('calc')) {
+        // Если это calc(), пытаемся вычислить значение
+        const match = railOffsetStr.match(/calc\(([^)]+)\)/);
+        if (match) {
+          // Упрощенный парсинг: ищем числа с px
+          const parts = match[1].split(/[+\-]/);
+          for (const part of parts) {
+            const num = parseFloat(part.trim());
+            if (!isNaN(num)) {
+              railOffset += num;
+            }
+          }
+        }
+      } else {
+        railOffset = parseFloat(railOffsetStr.replace('px', '')) || 0;
+      }
+      
+      // Доступная ширина для контейнера (с учетом бокового меню)
+      const availableWidth = viewportWidth - railOffset;
+      
+      // Минимальный отступ (как в оригинале: clamp(18px, 5vw, 36px))
+      const minPadding = Math.max(18, Math.min(36, viewportWidth * 0.05));
+      
+      // Измеряем ширину контейнера после применения текущих стилей
+      // Используем requestAnimationFrame для измерения после рендера
+      requestAnimationFrame(() => {
+        if (!promotionsContainerRef.current) return;
+        
+        const containerRect = promotionsContainerRef.current.getBoundingClientRect();
+        const containerWidth = containerRect.width;
+        
+        // Вычисляем отступы для центрирования контейнера
+        // Левая сторона: отступ от бокового меню или минимальный отступ (большее значение)
+        const leftPadding = Math.max(railOffset, minPadding);
+        
+        // Вычисляем, сколько места осталось для правого отступа
+        const remainingSpace = availableWidth - containerWidth - leftPadding;
+        
+        // Если контейнер слишком широкий, используем минимальные отступы
+        if (containerWidth + leftPadding + minPadding > availableWidth) {
+          setContainerPadding({ left: leftPadding, right: minPadding });
+        } else {
+          // Центрируем контейнер: равные отступы слева и справа, но не меньше минимальных
+          const totalPadding = availableWidth - containerWidth;
+          const equalPadding = totalPadding / 2;
+          setContainerPadding({ 
+            left: Math.max(leftPadding, equalPadding), 
+            right: Math.max(minPadding, equalPadding) 
+          });
+        }
+      });
+    };
+
+    // Небольшая задержка для первоначального расчета после рендера
+    const timeoutId = setTimeout(updatePadding, 100);
+
+    // Используем ResizeObserver для отслеживания изменений размера контейнера
+    const resizeObserver = new ResizeObserver(() => {
+      updatePadding();
+    });
+
+    if (promotionsContainerRef.current) {
+      resizeObserver.observe(promotionsContainerRef.current);
+    }
+
+    // Также отслеживаем изменения размера окна
+    window.addEventListener('resize', updatePadding);
+    
+    // Отслеживаем изменения медиа-запроса
+    const handleMediaChange = () => {
+      if (!mediaQuery.matches) {
+        setContainerPadding({ left: 0, right: 0 });
+      } else {
+        updatePadding();
+      }
+    };
+    mediaQuery.addEventListener('change', handleMediaChange);
+    
+    // Отслеживаем изменения CSS переменной --app-rail-offset через периодическую проверку
+    const intervalId = setInterval(() => {
+      updatePadding();
+    }, 200);
+
+    return () => {
+      clearTimeout(timeoutId);
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updatePadding);
+      mediaQuery.removeEventListener('change', handleMediaChange);
+      clearInterval(intervalId);
+    };
+  }, [promotions, isLoadingPromotions]);
+
   return (
     <div className="app-screen overflow-hidden bg-transparent">
       <FirstRunTour enabled={Boolean(selectedRestaurant?.id)} />
@@ -466,15 +585,14 @@ const Index = () => {
               </div>
 
               {/* Средние и большие экраны: контейнер с каруселью, меню и вакансиями */}
-              {/* Центрируем контейнер с учетом бокового меню: равные отступы слева (от меню) и справа (от края) */}
-              {/* Когда боковое меню активно, .app-screen уже имеет padding-left для меню (160px) */}
-              {/* marginLeft и marginRight должны быть равны для симметрии */}
-              <div className="hidden md:flex md:flex-row md:items-start md:gap-6" 
-                   style={{
-                     maxWidth: 'calc(100vw - var(--app-rail-offset, 0px) - 2 * max(var(--app-rail-offset, 0px), clamp(18px, 5vw, 36px)) + 120px)',
-                     marginLeft: 'max(var(--app-rail-offset, 0px), clamp(18px, 5vw, 36px))',
-                     marginRight: 'max(var(--app-rail-offset, 0px), clamp(18px, 5vw, 36px))'
-                   }}>
+              {/* Динамические отступы учитывают ширину контейнера для правильного центрирования */}
+              <div 
+                ref={promotionsContainerRef}
+                className="hidden md:flex md:flex-row md:items-start md:gap-6" 
+                style={{
+                  marginLeft: `${containerPadding.left}px`,
+                  marginRight: `${containerPadding.right}px`
+                }}>
                 {/* Promotions */}
                 <div className="flex justify-center w-auto">
                   <div className="w-full max-w-[520px]">
