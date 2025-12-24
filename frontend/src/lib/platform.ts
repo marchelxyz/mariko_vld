@@ -88,8 +88,14 @@ export function markReady(): void {
   if (vk) {
     try {
       vk.ready();
+      console.log("[platform] VK ready() вызван успешно");
     } catch (error) {
       console.warn("[platform] vk ready() failed", error);
+    }
+  } else {
+    // Если VK WebApp недоступен, но мы в VK (по URL параметрам), логируем предупреждение
+    if (isInVk()) {
+      console.warn("[platform] VK WebApp недоступен, но платформа определена как VK. Возможно, SDK еще не загружен.");
     }
   }
 }

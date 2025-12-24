@@ -11,30 +11,46 @@ const hideInitialSpinner = () => {
   }
 };
 
-// Инициализация VK Mini App
-markReady();
-
-// Запрос полноэкранного режима
-requestFullscreenMode();
-
-// Повторные вызовы с задержкой для надежности
-setTimeout(() => {
-  requestFullscreenMode();
-}, 100);
-
-setTimeout(() => {
-  requestFullscreenMode();
-}, 500);
-
-// Дополнительный вызов после полной загрузки DOM
-if (typeof document !== "undefined") {
-  if (document.readyState === "complete") {
+// Инициализация VK Mini App с ожиданием доступности SDK
+const initVKApp = () => {
+  // Проверяем доступность VK WebApp
+  const vk = typeof window !== "undefined" ? window.vk?.WebApp : undefined;
+  if (vk) {
+    logger.info('app', 'VK WebApp доступен, инициализируем приложение');
+    markReady();
     requestFullscreenMode();
-  } else {
-    window.addEventListener("load", () => {
+    
+    // Повторные вызовы с задержкой для надежности
+    setTimeout(() => {
       requestFullscreenMode();
-    });
+    }, 100);
+    
+    setTimeout(() => {
+      requestFullscreenMode();
+    }, 500);
+  } else {
+    // Если не в VK или VK WebApp еще не загружен, просто инициализируем
+    logger.info('app', 'VK WebApp не найден, продолжаем инициализацию');
+    markReady();
+    requestFullscreenMode();
   }
+};
+
+// Инициализируем сразу, если DOM готов
+if (typeof document !== "undefined" && document.readyState === "complete") {
+  initVKApp();
+} else if (typeof window !== "undefined") {
+  // Ждем загрузки DOM
+  window.addEventListener("load", () => {
+    initVKApp();
+  });
+  
+  // Также пробуем инициализировать через небольшой таймаут на случай, если VK SDK загружается асинхронно
+  setTimeout(() => {
+    initVKApp();
+  }, 100);
+} else {
+  initVKApp();
 }
 
 // Глобальный перехват ошибок для диагностики в WebView

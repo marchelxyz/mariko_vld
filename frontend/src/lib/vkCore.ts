@@ -21,14 +21,59 @@ export const getVk = (): VKWebApp | undefined => {
 
 /**
  * Проверяет, запущено ли приложение в VK.
+ * Проверяет как наличие window.vk.WebApp, так и URL параметры для надежности.
  */
-export const isInVk = (): boolean => Boolean(getVk());
+export const isInVk = (): boolean => {
+  // Сначала проверяем наличие VK WebApp API
+  if (getVk()) {
+    return true;
+  }
+  
+  // Если API недоступен, проверяем URL параметры VK
+  if (typeof window !== "undefined") {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasVkParams = urlParams.has('vk_app_id') || urlParams.has('vk_user_id');
+    const isVkDomain = window.location.href.includes('vk.com') || 
+                       window.location.href.includes('vk.ru') ||
+                       window.location.hostname.includes('vk');
+    
+    if (hasVkParams || isVkDomain) {
+      return true;
+    }
+  }
+  
+  return false;
+};
 
 /**
  * Возвращает initData из VK WebApp.
+ * Если window.vk.WebApp недоступен, пытается получить данные из URL параметров.
  */
 export const getInitData = (): VKInitData | undefined => {
-  return getVk()?.initData;
+  const vk = getVk();
+  if (vk?.initData) {
+    return vk.initData;
+  }
+  
+  // Fallback: пытаемся получить initData из URL параметров
+  if (typeof window !== "undefined") {
+    const urlParams = new URLSearchParams(window.location.search);
+    const initData: VKInitData = {};
+    
+    // Собираем все параметры, начинающиеся с vk_
+    urlParams.forEach((value, key) => {
+      if (key.startsWith('vk_')) {
+        (initData as Record<string, string>)[key] = value;
+      }
+    });
+    
+    // Если нашли хотя бы один параметр VK, возвращаем initData
+    if (Object.keys(initData).length > 0) {
+      return initData;
+    }
+  }
+  
+  return undefined;
 };
 
 /**
@@ -45,25 +90,29 @@ export const getUser = (): VKUser | undefined => {
     return cachedUser;
   }
 
-  const vk = getVk();
-  if (!vk) {
+  // Пытаемся получить initData (из window.vk.WebApp или URL параметров)
+  const initData = getInitData();
+  if (!initData) {
+    console.warn("[vk] getUser: initData недоступен");
     return undefined;
   }
 
-  const initData = vk.initData;
   const userId = initData?.vk_user_id;
-
   if (!userId) {
+    console.warn("[vk] getUser: vk_user_id не найден в initData", initData);
     return undefined;
   }
 
   // Для VK данные пользователя доступны только асинхронно
   // Возвращаем временный объект с ID, имя и фамилия будут загружены асинхронно
-  return {
+  const user = {
     id: parseInt(userId),
     first_name: "",
     last_name: "",
   };
+  
+  console.log("[vk] getUser: возвращаем пользователя с ID", user.id);
+  return user;
 };
 
 /**

@@ -123,8 +123,6 @@
     
     <div id="root"></div>
 
-    <!-- VK Mini Apps SDK -->
-    <script src="https://unpkg.com/@vkid/sdk@2.0.0/dist/umd/index.js"></script>
     <!-- Telegram WebApp API - загружается только если не в VK -->
     <script>
       // Проверяем, запущено ли приложение в VK
@@ -135,18 +133,29 @@
       
       if (!isVK) {
         // Загружаем Telegram скрипт только если не в VK
+        // В VK Mini Apps window.vk.WebApp доступен автоматически в iframe
         const script = document.createElement('script');
         script.src = 'https://telegram.org/js/telegram-web-app.js';
         script.defer = true;
         document.head.appendChild(script);
-      }
-    </script>
-    <script>
-      // Инициализация VK SDK после загрузки
-      if (typeof window !== 'undefined' && window.vkid) {
-        window.vkid.config({
-          app: 0, // ID приложения будет установлен при настройке VK Mini App
-        });
+      } else {
+        // В VK Mini Apps SDK доступен автоматически через window.vk.WebApp
+        // Добавляем диагностику для отладки
+        console.log('[VK] Определена платформа VK, ожидаем window.vk.WebApp');
+        
+        // Проверяем доступность VK WebApp с задержкой
+        let checkCount = 0;
+        const checkVK = setInterval(function() {
+          checkCount++;
+          if (window.vk && window.vk.WebApp) {
+            console.log('[VK] window.vk.WebApp доступен', window.vk.WebApp);
+            clearInterval(checkVK);
+          } else if (checkCount > 50) {
+            // После 5 секунд прекращаем проверку
+            console.warn('[VK] window.vk.WebApp не найден после 5 секунд ожидания');
+            clearInterval(checkVK);
+          }
+        }, 100);
       }
     </script>
     <script type="module" src="/src/main.tsx"></script>
