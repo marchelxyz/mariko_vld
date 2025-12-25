@@ -227,11 +227,27 @@ const resolveVkId = (override?: string): string | undefined => {
   const platform = getPlatform();
   // Для VK платформы используем VK ID пользователя
   if (platform === "vk") {
+    // Сначала пытаемся получить из initData (основной источник)
     const vkUserId = getVkUserId();
     if (vkUserId) {
-      logger.debug('admin-api', 'Using VK user ID', { vkUserId });
+      logger.debug('admin-api', 'Using VK user ID from initData', { vkUserId });
       return vkUserId;
     }
+    
+    // Fallback: пытаемся получить ID из объекта пользователя
+    // (может быть получен через VKWebAppGetUserInfo)
+    const user = getUser();
+    if (user?.id) {
+      const userIdStr = String(user.id);
+      logger.debug('admin-api', 'Using VK user ID from getUser()', { vkUserId: userIdStr });
+      return userIdStr;
+    }
+    
+    logger.warn('admin-api', 'VK ID не найден ни в initData, ни в getUser()', {
+      platform,
+      hasInitData: !!getVkUserId(),
+      hasUser: !!user,
+    });
   }
   // Fallback: используем первый ID из списка администраторов
   const fallback = getFallbackVkId();
