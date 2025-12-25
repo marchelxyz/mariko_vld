@@ -357,9 +357,44 @@ export const getUserAsync = async (): Promise<VKUser | undefined> => {
 
 /**
  * Синхронное получение ID пользователя из initData.
+ * Согласно документации VK: https://dev.vk.com/ru/mini-apps/development/data
+ * vk_user_id доступен в initData после авторизации пользователя.
+ * 
+ * Также проверяет кешированные данные пользователя как fallback.
  */
 export const getUserId = (): string | undefined => {
-  return getInitData()?.vk_user_id;
+  // Сначала проверяем initData (основной источник)
+  const initData = getInitData();
+  if (initData?.vk_user_id) {
+    const userId = String(initData.vk_user_id);
+    console.log("[vk] getUserId: получен из initData", { userId, initDataKeys: Object.keys(initData) });
+    return userId;
+  }
+  
+  // Fallback: проверяем кешированные данные пользователя
+  // (могут быть получены через VKWebAppGetUserInfo)
+  if (cachedUser?.id) {
+    const userId = String(cachedUser.id);
+    console.log("[vk] getUserId: получен из cachedUser", { userId });
+    return userId;
+  }
+  
+  // Fallback: проверяем window.vk.WebApp.initData
+  const vk = getVk();
+  if (vk?.initData?.vk_user_id) {
+    const userId = String(vk.initData.vk_user_id);
+    console.log("[vk] getUserId: получен из window.vk.WebApp.initData", { userId });
+    return userId;
+  }
+  
+  console.warn("[vk] getUserId: VK ID не найден ни в одном источнике", {
+    hasInitData: !!initData,
+    hasCachedUser: !!cachedUser,
+    hasVkWebApp: !!vk,
+    initDataKeys: initData ? Object.keys(initData) : [],
+  });
+  
+  return undefined;
 };
 
 /**
