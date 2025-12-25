@@ -122,6 +122,8 @@ export type Guest = {
   createdAt: string | null;
   updatedAt: string | null;
   telegramId: string | null;
+  vkId: string | null;
+  platform: "telegram" | "vk" | null;
 };
 
 export type GuestBooking = {
@@ -381,6 +383,7 @@ export const adminServerApi = {
     cityId?: string;
     search?: string;
     verified?: boolean;
+    platform?: "telegram" | "vk";
   } = {}): Promise<Guest[]> {
     const search = new URLSearchParams();
     if (params.cityId) {
@@ -391,6 +394,9 @@ export const adminServerApi = {
     }
     if (params.verified) {
       search.set("verified", "true");
+    }
+    if (params.platform) {
+      search.set("platform", params.platform);
     }
     const response = await fetch(
       `${ADMIN_API_BASE}/guests${search.toString() ? `?${search.toString()}` : ""}`,
