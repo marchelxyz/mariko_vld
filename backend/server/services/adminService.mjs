@@ -150,13 +150,22 @@ export const getTelegramIdFromRequest = (req) => {
  */
 export const getVkIdFromRequest = (req) => {
   const raw = req.get("x-vk-id");
+  console.log('[adminService] getVkIdFromRequest', { 
+    raw, 
+    rawType: typeof raw,
+    headers: req.headers ? Object.keys(req.headers).filter(k => k.toLowerCase().includes('vk')) : []
+  });
+  
   if (!raw) {
+    console.log('[adminService] getVkIdFromRequest: заголовок X-VK-Id отсутствует');
     return null;
   }
   const trimmed = typeof raw === "string" ? raw.trim() : String(raw).trim();
   if (!trimmed || !/^\d+$/.test(trimmed)) {
+    console.warn('[adminService] getVkIdFromRequest: некорректный формат VK ID', { raw, trimmed });
     return null;
   }
+  console.log('[adminService] getVkIdFromRequest: успешно получен VK ID', { vkId: trimmed });
   return trimmed;
 };
 
@@ -211,13 +220,36 @@ export const listAdminRecords = async () => {
 };
 
 export const resolveAdminContext = async (telegramId, vkId = null) => {
+  console.log('[adminService] resolveAdminContext', { 
+    telegramId, 
+    vkId, 
+    vkIdType: typeof vkId,
+    adminVkIds: Array.from(ADMIN_VK_IDS),
+    adminTelegramIds: Array.from(ADMIN_TELEGRAM_IDS)
+  });
+  
   // Сначала проверяем VK ID, если он передан
   if (vkId) {
     const normalizedVkId = String(vkId).trim();
+    console.log('[adminService] Проверяем VK ID', { 
+      vkId, 
+      normalizedVkId, 
+      inAdminList: ADMIN_VK_IDS.has(normalizedVkId),
+      adminVkIds: Array.from(ADMIN_VK_IDS)
+    });
+    
     if (normalizedVkId && ADMIN_VK_IDS.has(normalizedVkId)) {
       console.log('[adminService] VK ID found in ADMIN_VK_IDS, returning super_admin', { vkId: normalizedVkId });
       return { role: "super_admin", allowedRestaurants: [], permissions: getPermissionsForRole("super_admin") };
+    } else {
+      console.log('[adminService] VK ID не найден в ADMIN_VK_IDS', { 
+        normalizedVkId, 
+        adminVkIds: Array.from(ADMIN_VK_IDS),
+        comparison: Array.from(ADMIN_VK_IDS).map(id => ({ id, matches: id === normalizedVkId }))
+      });
     }
+  } else {
+    console.log('[adminService] VK ID не передан в resolveAdminContext');
   }
   
   // Затем проверяем Telegram ID
