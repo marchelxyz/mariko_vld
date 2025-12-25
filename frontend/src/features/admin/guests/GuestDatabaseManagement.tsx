@@ -82,6 +82,32 @@ function getStatusText(status: Guest['status']): string {
 }
 
 /**
+ * Получить иконку для платформы
+ */
+function getPlatformIcon(platform: Guest['platform']) {
+  if (platform === 'telegram') {
+    return (
+      <svg className="w-4 h-4 text-blue-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161c-.17 1.816-.9 6.218-1.27 8.25-.15.9-.445 1.2-.73 1.23-.6.06-1.055-.395-1.635-.77-.91-.54-1.425-.88-2.31-1.41-1.02-.66-1.36-1.02-2.1-1.635-.84-.6-.295-.93.18-1.47.125-.14 2.25-2.07 2.295-2.25.005-.03.01-.15-.06-.21-.07-.06-.17-.04-.24-.025-.1.02-1.695 1.08-4.785 3.17-.45.3-.86.445-1.23.44-.405-.01-1.185-.23-1.725-.42-.695-.24-1.245-.37-1.2-.78.02-.2.33-.405.915-.615 3.57-1.545 5.94-2.565 7.11-3.06 3.39-1.44 4.095-1.69 4.56-1.71.1-.005.32-.02.465.135.12.12.155.28.17.39.015.11.03.36.015.555z"/>
+      </svg>
+    );
+  } else {
+    return (
+      <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12.785 16.241s-.224-.027-.341-.092c-.24-.133-.375-.3-.375-.3s-.54-.72-.72-1.35c-.48-1.62-1.02-3.42-1.02-3.42s-.09-.24.09-.39c.18-.15.39-.09.39-.09l3.15.63c.24.06.39.24.39.39 0 .15-.15.33-.3.39l-1.35.54s.24.72.48 1.05c.15.21.3.3.48.3.18 0 .33-.09.33-.09l1.8-1.2c.24-.15.48-.15.6-.09.12.06.21.24.21.39 0 .15-.09.33-.21.45l-2.1 1.95s-.15.12-.3.12c-.15 0-.24-.06-.24-.06zM12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 21.6c-5.301 0-9.6-4.299-9.6-9.6S6.699 2.4 12 2.4 21.6 6.699 21.6 12 17.301 21.6 12 21.6z"/>
+      </svg>
+    );
+  }
+}
+
+/**
+ * Получить текст платформы
+ */
+function getPlatformText(platform: Guest['platform']): string {
+  return platform === 'telegram' ? 'Telegram' : 'ВКонтакте';
+}
+
+/**
  * Разделить имя и фамилию
  */
 function splitName(fullName: string | null): { firstName: string; lastName: string } {
@@ -140,6 +166,7 @@ function formatBirthDate(birthDate: string | null): string {
 function exportToCSV(guests: Guest[], filename: string): void {
   const headers = [
     'ID',
+    'Платформа',
     'Имя',
     'Фамилия',
     'Телефон',
@@ -156,6 +183,7 @@ function exportToCSV(guests: Guest[], filename: string): void {
     const { firstName, lastName } = splitName(guest.name);
     return [
       guest.id,
+      getPlatformText(guest.platform),
       firstName,
       lastName,
       normalizePhone(guest.phone),
@@ -250,6 +278,7 @@ export function GuestDatabaseManagement(): JSX.Element {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCityId, setSelectedCityId] = useState<string>('all');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [selectedPlatform, setSelectedPlatform] = useState<'all' | 'telegram' | 'vk'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const [guestBookings, setGuestBookings] = useState<GuestBooking[]>([]);
@@ -297,10 +326,12 @@ export function GuestDatabaseManagement(): JSX.Element {
     setIsLoading(true);
     try {
       const cityId = selectedCityId === 'all' ? undefined : selectedCityId;
+      const platform = selectedPlatform === 'all' ? undefined : selectedPlatform;
       const guestsData = await adminServerApi.getGuests({
         cityId,
         search: searchQuery || undefined,
         verified: verifiedOnly || undefined,
+        platform,
       });
       setGuests(guestsData);
     } catch (error) {
@@ -309,7 +340,7 @@ export function GuestDatabaseManagement(): JSX.Element {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedCityId, searchQuery, verifiedOnly, hasPermission, isAdminLoading]);
+  }, [selectedCityId, searchQuery, verifiedOnly, selectedPlatform, hasPermission, isAdminLoading]);
 
   useEffect(() => {
     loadGuests();
@@ -340,8 +371,10 @@ export function GuestDatabaseManagement(): JSX.Element {
     const verified = filteredGuests.filter((g) => g.isVerified).length;
     const fullProfile = filteredGuests.filter((g) => g.status === 'full_profile').length;
     const restaurantOnly = filteredGuests.filter((g) => g.status === 'restaurant_only').length;
+    const telegram = filteredGuests.filter((g) => g.platform === 'telegram').length;
+    const vk = filteredGuests.filter((g) => g.platform === 'vk').length;
 
-    return { total, verified, fullProfile, restaurantOnly };
+    return { total, verified, fullProfile, restaurantOnly, telegram, vk };
   }, [filteredGuests]);
 
   // Экспорт в Excel
@@ -402,6 +435,12 @@ export function GuestDatabaseManagement(): JSX.Element {
           <div className="text-red-400">
             Только ресторан: <span className="font-semibold">{stats.restaurantOnly}</span>
           </div>
+          <div className="text-blue-400">
+            Telegram: <span className="font-semibold">{stats.telegram}</span>
+          </div>
+          <div className="text-blue-500">
+            ВКонтакте: <span className="font-semibold">{stats.vk}</span>
+          </div>
         </div>
       </div>
 
@@ -428,6 +467,15 @@ export function GuestDatabaseManagement(): JSX.Element {
               {city.name}
             </option>
           ))}
+        </select>
+        <select
+          value={selectedPlatform}
+          onChange={(e) => setSelectedPlatform(e.target.value as 'all' | 'telegram' | 'vk')}
+          className="w-full sm:w-[180px] px-3 py-2 bg-mariko-secondary border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-mariko-primary"
+        >
+          <option value="all">Все платформы</option>
+          <option value="telegram">Telegram</option>
+          <option value="vk">ВКонтакте</option>
         </select>
         <Button
           variant={verifiedOnly ? "default" : "outline"}
@@ -468,6 +516,7 @@ export function GuestDatabaseManagement(): JSX.Element {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/10">
+                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Платформа</th>
                   <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Статус</th>
                   <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Имя</th>
                   <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Фамилия</th>
@@ -491,6 +540,14 @@ export function GuestDatabaseManagement(): JSX.Element {
                         : ''
                     }`}
                   >
+                    <td className="p-3 md:p-4">
+                      <div className="flex items-center gap-2" title={getPlatformText(guest.platform)}>
+                        {getPlatformIcon(guest.platform)}
+                        <span className="text-xs text-white/70 hidden sm:inline">
+                          {getPlatformText(guest.platform)}
+                        </span>
+                      </div>
+                    </td>
                     <td className="p-3 md:p-4">
                       <div className="flex items-center gap-2">
                         {getStatusIcon(guest.status)}

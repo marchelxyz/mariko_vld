@@ -504,6 +504,7 @@ export function createAdminRouter() {
       const cityId = typeof req.query?.cityId === "string" ? req.query.cityId.trim() : null;
       const searchQuery = typeof req.query?.search === "string" ? req.query.search.trim() : null;
       const verifiedOnly = req.query?.verified === "true";
+      const platformFilter = typeof req.query?.platform === "string" ? req.query.platform.trim() : null;
 
       // Получаем список ресторанов для фильтрации
       let allowedRestaurantIds = [];
@@ -573,6 +574,13 @@ export function createAdminRouter() {
         params.push(cityId, cityId);
       }
 
+      // Фильтрация по платформе
+      if (platformFilter === "telegram") {
+        conditions.push(`up.telegram_id IS NOT NULL`);
+      } else if (platformFilter === "vk") {
+        conditions.push(`up.telegram_id IS NULL`);
+      }
+
       // Поиск
       if (searchQuery) {
         const searchPattern = `%${searchQuery}%`;
@@ -630,6 +638,9 @@ export function createAdminRouter() {
           status = "restaurant_only";
         }
 
+        // Определяем платформу: если есть telegram_id, то Telegram, иначе VK
+        const platform = profile.telegram_id ? "telegram" : "vk";
+
         return {
           id: profile.id,
           name: profile.name || "Не указано",
@@ -647,6 +658,7 @@ export function createAdminRouter() {
           createdAt: profile.created_at,
           updatedAt: profile.updated_at,
           telegramId: profile.telegram_id ? String(profile.telegram_id) : null,
+          platform,
         };
       });
 
