@@ -506,6 +506,7 @@ export function createAdminRouter() {
       const cityId = typeof req.query?.cityId === "string" ? req.query.cityId.trim() : null;
       const searchQuery = typeof req.query?.search === "string" ? req.query.search.trim() : null;
       const verifiedOnly = req.query?.verified === "true";
+      const platformFilter = typeof req.query?.platform === "string" ? req.query.platform.trim() : null;
 
       // Получаем список ресторанов для фильтрации
       let allowedRestaurantIds = [];
@@ -536,6 +537,7 @@ export function createAdminRouter() {
           up.created_at,
           up.updated_at,
           up.telegram_id,
+          up.vk_id,
           r.city_id,
           c.name as city_name
         FROM user_profiles up
@@ -632,6 +634,14 @@ export function createAdminRouter() {
           status = "restaurant_only";
         }
 
+        // Определяем платформу на основе наличия telegram_id или vk_id
+        let platform = null;
+        if (profile.telegram_id) {
+          platform = "telegram";
+        } else if (profile.vk_id) {
+          platform = "vk";
+        }
+
         return {
           id: profile.id,
           name: profile.name || "Не указано",
@@ -649,13 +659,20 @@ export function createAdminRouter() {
           createdAt: profile.created_at,
           updatedAt: profile.updated_at,
           telegramId: profile.telegram_id ? String(profile.telegram_id) : null,
+          vkId: profile.vk_id ? String(profile.vk_id) : null,
+          platform,
         };
       });
 
       // Фильтрация по статусу верификации
-      const filteredGuests = verifiedOnly
+      let filteredGuests = verifiedOnly
         ? guests.filter((g) => g.isVerified)
         : guests;
+
+      // Фильтрация по платформе
+      if (platformFilter && (platformFilter === "telegram" || platformFilter === "vk")) {
+        filteredGuests = filteredGuests.filter((g) => g.platform === platformFilter);
+      }
 
       return res.json({
         success: true,

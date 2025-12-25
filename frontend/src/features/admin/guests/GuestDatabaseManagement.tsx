@@ -16,6 +16,8 @@ import {
   Users as UsersIcon,
   MessageSquare,
   X,
+  MessageCircle,
+  Brand,
 } from 'lucide-react';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { adminServerApi, type Guest, type GuestBooking } from "@shared/api/admin/adminServerApi";
@@ -147,6 +149,7 @@ function exportToCSV(guests: Guest[], filename: string): void {
     'Пол',
     'Город',
     'Ресторан',
+    'Платформа',
     'Статус',
     'Верифицирован',
     'Дата создания',
@@ -154,6 +157,7 @@ function exportToCSV(guests: Guest[], filename: string): void {
 
   const rows = guests.map((guest) => {
     const { firstName, lastName } = splitName(guest.name);
+    const platformText = guest.platform === 'telegram' ? 'Telegram' : guest.platform === 'vk' ? 'VK' : 'Не указано';
     return [
       guest.id,
       firstName,
@@ -163,6 +167,7 @@ function exportToCSV(guests: Guest[], filename: string): void {
       guest.gender || '',
       guest.cityName || '',
       guest.favoriteRestaurantName || '',
+      platformText,
       getStatusText(guest.status),
       guest.isVerified ? 'Да' : 'Нет',
       guest.createdAt ? new Date(guest.createdAt).toLocaleDateString('ru-RU') : '',
@@ -250,6 +255,7 @@ export function GuestDatabaseManagement(): JSX.Element {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCityId, setSelectedCityId] = useState<string>('all');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [selectedPlatform, setSelectedPlatform] = useState<'all' | 'telegram' | 'vk'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const [guestBookings, setGuestBookings] = useState<GuestBooking[]>([]);
@@ -297,10 +303,12 @@ export function GuestDatabaseManagement(): JSX.Element {
     setIsLoading(true);
     try {
       const cityId = selectedCityId === 'all' ? undefined : selectedCityId;
+      const platform = selectedPlatform === 'all' ? undefined : selectedPlatform;
       const guestsData = await adminServerApi.getGuests({
         cityId,
         search: searchQuery || undefined,
         verified: verifiedOnly || undefined,
+        platform,
       });
       setGuests(guestsData);
     } catch (error) {
@@ -309,7 +317,7 @@ export function GuestDatabaseManagement(): JSX.Element {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedCityId, searchQuery, verifiedOnly, hasPermission, isAdminLoading]);
+  }, [selectedCityId, searchQuery, verifiedOnly, selectedPlatform, hasPermission, isAdminLoading]);
 
   useEffect(() => {
     loadGuests();
@@ -340,8 +348,10 @@ export function GuestDatabaseManagement(): JSX.Element {
     const verified = filteredGuests.filter((g) => g.isVerified).length;
     const fullProfile = filteredGuests.filter((g) => g.status === 'full_profile').length;
     const restaurantOnly = filteredGuests.filter((g) => g.status === 'restaurant_only').length;
+    const telegramCount = filteredGuests.filter((g) => g.platform === 'telegram').length;
+    const vkCount = filteredGuests.filter((g) => g.platform === 'vk').length;
 
-    return { total, verified, fullProfile, restaurantOnly };
+    return { total, verified, fullProfile, restaurantOnly, telegramCount, vkCount };
   }, [filteredGuests]);
 
   // Экспорт в Excel
@@ -402,6 +412,18 @@ export function GuestDatabaseManagement(): JSX.Element {
           <div className="text-red-400">
             Только ресторан: <span className="font-semibold">{stats.restaurantOnly}</span>
           </div>
+          {stats.telegramCount > 0 && (
+            <div className="text-blue-400 flex items-center gap-1">
+              <MessageCircle className="w-3 h-3" />
+              <span>Telegram: <span className="font-semibold">{stats.telegramCount}</span></span>
+            </div>
+          )}
+          {stats.vkCount > 0 && (
+            <div className="text-blue-500 flex items-center gap-1">
+              <Brand className="w-3 h-3" />
+              <span>VK: <span className="font-semibold">{stats.vkCount}</span></span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -428,6 +450,15 @@ export function GuestDatabaseManagement(): JSX.Element {
               {city.name}
             </option>
           ))}
+        </select>
+        <select
+          value={selectedPlatform}
+          onChange={(e) => setSelectedPlatform(e.target.value as 'all' | 'telegram' | 'vk')}
+          className="w-full sm:w-[180px] px-3 py-2 bg-mariko-secondary border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-mariko-primary"
+        >
+          <option value="all">Все платформы</option>
+          <option value="telegram">Telegram</option>
+          <option value="vk">VK</option>
         </select>
         <Button
           variant={verifiedOnly ? "default" : "outline"}
@@ -469,6 +500,7 @@ export function GuestDatabaseManagement(): JSX.Element {
               <thead>
                 <tr className="border-b border-white/10">
                   <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Статус</th>
+                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Платформа</th>
                   <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Имя</th>
                   <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Фамилия</th>
                   <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Телефон</th>
@@ -498,6 +530,21 @@ export function GuestDatabaseManagement(): JSX.Element {
                           {getStatusText(guest.status)}
                         </span>
                       </div>
+                    </td>
+                    <td className="p-3 md:p-4">
+                      {guest.platform === 'telegram' ? (
+                        <div className="flex items-center gap-2" title="Telegram">
+                          <MessageCircle className="w-4 h-4 text-blue-400" />
+                          <span className="text-xs text-white/70 hidden md:inline">Telegram</span>
+                        </div>
+                      ) : guest.platform === 'vk' ? (
+                        <div className="flex items-center gap-2" title="VK">
+                          <Brand className="w-4 h-4 text-blue-500" />
+                          <span className="text-xs text-white/70 hidden md:inline">VK</span>
+                        </div>
+                      ) : (
+                        <span className="text-white/30 text-xs">-</span>
+                      )}
                     </td>
                     <td className="p-3 md:p-4 text-white font-medium">{firstName}</td>
                     <td className="p-3 md:p-4 text-white font-medium">{lastName}</td>
