@@ -1047,6 +1047,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
                           <div className="flex flex-wrap gap-3 text-sm text-white/80">
                             <span>{item.price} ₽</span>
                             {item.weight && <span>{item.weight}</span>}
+                            {item.calories && <span>{item.calories}</span>}
                             {item.isVegetarian && <span>🌱 Вегетарианское</span>}
                             {item.isSpicy && <span>🌶️ Острое</span>}
                             {item.isRecommended && <span>👑 Рекомендуем</span>}

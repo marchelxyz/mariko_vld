@@ -445,7 +445,11 @@ const Menu = (): JSX.Element => {
                 <span className="font-el-messiri text-2xl font-bold text-mariko-secondary">
                   {activeDish.price}₽
                 </span>
-                {activeDish.weight && <span className="text-sm text-gray-600">{activeDish.weight}</span>}
+                {(activeDish.weight || activeDish.calories) && (
+                  <span className="text-sm text-gray-600">
+                    {[activeDish.weight, activeDish.calories].filter(Boolean).join(' / ')}
+                  </span>
+                )}
               </div>
 
               {(activeDish.isRecommended ||
@@ -491,7 +495,7 @@ const Menu = (): JSX.Element => {
                   handleBookingClick();
                 }}
               >
-                Забронировать
+                Заказать/отложить
               </button>
             </div>
           </div>
