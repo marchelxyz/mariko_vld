@@ -4,6 +4,7 @@ export interface MenuItem {
   description: string;
   price: number;
   weight?: string;
+  calories?: string;
   imageUrl?: string;
   isVegetarian?: boolean;
   isSpicy?: boolean;

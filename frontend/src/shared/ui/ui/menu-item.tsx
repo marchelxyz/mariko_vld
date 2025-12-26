@@ -51,6 +51,7 @@ function MenuItemComponentBase({
   // Определяем классы в зависимости от варианта
   const isCompact = variant === 'compact';
   const isMobile = variant === 'mobile';
+  const metaText = [item.weight, item.calories].filter(Boolean).join(' / ');
   
   return (
     <div
@@ -120,7 +121,7 @@ function MenuItemComponentBase({
               isCompact ? 'text-[9px] md:text-xs' : 
               'text-[10px] md:text-xs'
             }`}>
-              {item.weight ?? ""}
+              {metaText}
             </p>
           </div>
         </div>

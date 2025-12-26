@@ -1,6 +1,6 @@
 import { ArrowLeft, ListOrdered, ShoppingBag } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useCart, useCityContext } from "@/contexts";
 import { BottomNavigation, CartDrawer, Header } from "@shared/ui/widgets";
 import { fetchRestaurantMenu } from "@/shared/api/menuApi";
@@ -10,12 +10,17 @@ import { useAdmin } from "@shared/hooks";
 import { MenuItemComponent, DishCardSkeleton } from "@shared/ui";
 import { toast } from "@/hooks/use-toast";
 
+type DesiredDish = {
+  id: string;
+  name: string;
+  count: number;
+};
+
 /**
  * Отображает меню выбранного ресторана с навигацией по категориям и карточками блюд.
  */
 const Menu = (): JSX.Element => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { selectedRestaurant, selectedCity } = useCityContext();
   const { addItem: addCartItem, removeItem: removeCartItem, getItemCount } = useCart();
   const { isSuperAdmin, isAdmin } = useAdmin();
@@ -27,6 +32,7 @@ const Menu = (): JSX.Element => {
   const [dishModalImageFailed, setDishModalImageFailed] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [desiredDishes, setDesiredDishes] = useState<DesiredDish[]>([]);
 
   useEffect(() => {
     setDishModalImageFailed(false);
@@ -134,31 +140,71 @@ const Menu = (): JSX.Element => {
     navigate("/orders");
   }, [navigate]);
 
-  const handleBookingClick = useCallback(() => {
-    if (!selectedCity?.id) {
-      toast({
-        title: "Выберите город",
-        description: "Бронирование доступно после выбора города.",
-      });
-      return;
-    }
+  const desiredDishesTotal = useMemo(
+    () => desiredDishes.reduce((total, item) => total + item.count, 0),
+    [desiredDishes],
+  );
 
-    if (!selectedRestaurant?.remarkedRestaurantId) {
-      toast({
-        title: "Бронь недоступна",
-        description:
-          "Бронирование пока недоступно для этого ресторана. Обратитесь к администратору.",
-        variant: "destructive",
-      });
-      return;
+  const desiredDishesComment = useMemo(() => {
+    if (!desiredDishes.length) {
+      return "";
     }
+    const positions = desiredDishes
+      .map((item, index) => `${index + 1}. ${item.name}${item.count > 1 ? ` x${item.count}` : ""}`)
+      .join(", ");
+    return `Пожелания по блюдам: ${positions}`;
+  }, [desiredDishes]);
 
-    navigate("/booking", {
-      state: {
-        from: location.pathname,
-      },
+  const handleAddDesiredDish = useCallback(
+    (dish: MenuItem) => {
+      if (desiredDishesTotal >= 10) {
+        toast({
+          title: "Лимит корзины",
+          description: "Можно добавить не больше 10 блюд.",
+        });
+        return;
+      }
+      setDesiredDishes((prev) => {
+        const existing = prev.find((item) => item.id === dish.id);
+        if (existing) {
+          if (desiredDishesTotal >= 10) {
+            return prev;
+          }
+          return prev.map((item) =>
+            item.id === dish.id ? { ...item, count: item.count + 1 } : item,
+          );
+        }
+        if (prev.length >= 10) {
+          return prev;
+        }
+        return [...prev, { id: dish.id, name: dish.name, count: 1 }];
+      });
+      toast({
+        title: "Добавлено",
+        description: `${dish.name} добавлено в корзину пожеланий.`,
+      });
+    },
+    [desiredDishesTotal],
+  );
+
+  const handleClearDesiredDishes = useCallback(() => {
+    setDesiredDishes([]);
+  }, []);
+
+  const handleRemoveDesiredDish = useCallback((dishId: string) => {
+    setDesiredDishes((prev) => {
+      const existing = prev.find((item) => item.id === dishId);
+      if (!existing) {
+        return prev;
+      }
+      if (existing.count > 1) {
+        return prev.map((item) =>
+          item.id === dishId ? { ...item, count: item.count - 1 } : item,
+        );
+      }
+      return prev.filter((item) => item.id !== dishId);
     });
-  }, [location.pathname, navigate, selectedCity?.id, selectedRestaurant?.remarkedRestaurantId]);
+  }, []);
 
   const handleAddToCart = useCallback(
     (dish: MenuItem) => {
@@ -362,6 +408,46 @@ const Menu = (): JSX.Element => {
           </div>
         )}
 
+        {desiredDishes.length > 0 && (
+          <div className="mb-6 rounded-2xl border border-white/15 bg-white/10 p-4 text-white shadow-[0_12px_36px_rgba(15,23,42,0.25)]">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-el-messiri text-xl font-semibold">Корзина пожеланий</p>
+                <p className="text-sm text-white/70">
+                  {desiredDishesTotal} из 10
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleClearDesiredDishes}
+                className="rounded-full border border-white/30 px-3 py-1 text-xs font-semibold text-white hover:bg-white/10 transition-colors"
+              >
+                Очистить
+              </button>
+            </div>
+            <div className="mt-3 space-y-1 text-sm text-white/90">
+              {desiredDishes.map((item) => (
+                <div key={item.id} className="flex items-center justify-between gap-3">
+                  <p>
+                    {item.name}
+                    {item.count > 1 ? ` x${item.count}` : ""}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveDesiredDish(item.id)}
+                    className="rounded-full border border-white/30 px-2.5 py-0.5 text-[11px] font-semibold text-white/90 hover:bg-white/10 transition-colors"
+                  >
+                    Убрать
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white/80">
+              {desiredDishesComment}
+            </div>
+          </div>
+        )}
+
         {/* Menu Items Grid */}
         <div>
           {itemsToRender.length > 0 ? (
@@ -445,7 +531,11 @@ const Menu = (): JSX.Element => {
                 <span className="font-el-messiri text-2xl font-bold text-mariko-secondary">
                   {activeDish.price}₽
                 </span>
-                {activeDish.weight && <span className="text-sm text-gray-600">{activeDish.weight}</span>}
+                {(activeDish.weight || activeDish.calories) && (
+                  <span className="text-sm text-gray-600">
+                    {[activeDish.weight, activeDish.calories].filter(Boolean).join(' / ')}
+                  </span>
+                )}
               </div>
 
               {(activeDish.isRecommended ||
@@ -481,17 +571,19 @@ const Menu = (): JSX.Element => {
               )}
 
               <p className="text-sm text-gray-600">
-                Забронируйте столик заранее — лучшие места уходят быстро.
+                Отложите блюда в корзину перед бронированием — так мы лучше учтем ваши вкусы.
               </p>
               <button
                 type="button"
                 className="w-full rounded-xl bg-mariko-primary px-4 py-3 text-center font-semibold text-white shadow-lg transition hover:brightness-110 active:scale-[0.99]"
                 onClick={() => {
+                  if (activeDish) {
+                    handleAddDesiredDish(activeDish);
+                  }
                   setActiveDish(null);
-                  handleBookingClick();
                 }}
               >
-                Забронировать
+                Заказать/отложить
               </button>
             </div>
           </div>

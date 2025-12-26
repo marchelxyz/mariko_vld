@@ -90,16 +90,25 @@ export function EditItemModal({
             />
           </div>
           <div>
-            <Label className="text-white">Статус блюда</Label>
-            <div className="flex items-center gap-2 mt-2">
-              <Switch
-                checked={item.isActive !== false}
-                onCheckedChange={(checked) => onChange({ isActive: Boolean(checked) })}
-              />
-              <span className="text-white/80 text-sm">
-                {item.isActive === false ? 'Скрыто' : 'Активно'}
-              </span>
-            </div>
+            <Label className="text-white">Калорийность</Label>
+            <Input
+              value={item.calories ?? ''}
+              onChange={(event) => onChange({ calories: event.target.value })}
+              placeholder="Например, 420 ккал"
+            />
+          </div>
+        </div>
+
+        <div>
+          <Label className="text-white">Статус блюда</Label>
+          <div className="flex items-center gap-2 mt-2">
+            <Switch
+              checked={item.isActive !== false}
+              onCheckedChange={(checked) => onChange({ isActive: Boolean(checked) })}
+            />
+            <span className="text-white/80 text-sm">
+              {item.isActive === false ? 'Скрыто' : 'Активно'}
+            </span>
           </div>
         </div>
 
