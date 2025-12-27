@@ -20,7 +20,7 @@ import {
   PopoverTrigger,
 } from "@shared/ui/popover";
 import { useProfile } from "@entities/user";
-import { useCityContext } from "@/contexts";
+import { useCityContext, useCart } from "@/contexts";
 import {
   getRemarkedReservesByPhone,
 } from "@shared/api/remarked";
@@ -33,7 +33,7 @@ import {
 } from "@shared/api/bookingApi";
 import { profileApi } from "@shared/api/profile";
 import { toast } from "@/hooks/use-toast";
-import { CalendarIcon, Loader2, RefreshCw } from "lucide-react";
+import { CalendarIcon, Loader2, RefreshCw, ShoppingCart } from "lucide-react";
 import { cn } from "@shared/utils";
 import { getCachedBookingSlots, cacheBookingSlots } from "@shared/utils/bookingSlotsCache";
 
@@ -113,9 +113,26 @@ function isValidRemarkedId(id: number | undefined): boolean {
   return /^\d{6}$/.test(idStr);
 }
 
+/**
+ * Форматирует содержимое корзины в текст для комментария
+ */
+function formatCartAsComment(items: Array<{ name: string; amount: number; price: number }>): string {
+  if (items.length === 0) {
+    return "";
+  }
+
+  const itemsList = items.map((item) => {
+    const amountText = item.amount > 1 ? ` (${item.amount} шт.)` : "";
+    return `• ${item.name}${amountText}`;
+  });
+
+  return `Мой заказ:\n${itemsList.join("\n")}`;
+}
+
 export function BookingForm({ onSuccess }: BookingFormProps) {
   const { selectedRestaurant } = useCityContext();
   const { profile } = useProfile();
+  const { items: cartItems } = useCart();
 
   // Используем useMemo для today, чтобы избежать пересоздания при каждом рендере
   const today = useMemo(() => {
@@ -858,12 +875,16 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       }
 
       const dateStr = format(selectedDate, "yyyy-MM-dd");
+      
+      // Формируем комментарий: событие + корзина + другие пожелания
+      const cartComment = cartItems.length > 0 ? formatCartAsComment(cartItems) : "";
       const fullComment = [
         selectedEvent?.comment,
+        cartComment,
         comment.trim(),
       ]
         .filter((item) => Boolean(item))
-        .join(". ");
+        .join("\n\n");
 
       // Вычисляем duration из выбранного слота (в минутах)
       const duration = selectedSlot ? Math.round(selectedSlot.duration / 60) : undefined;
@@ -979,6 +1000,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     guestsCount,
     selectedEvent,
     comment,
+    cartItems,
     profile,
     today,
     tokenError,
@@ -1234,6 +1256,50 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           "Забронировать столик"
         )}
       </Button>
+
+      {/* Отображение корзины после кнопки бронирования */}
+      {cartItems.length > 0 && (
+        <div className="rounded-[24px] border border-white/15 bg-white/10 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <ShoppingCart className="h-5 w-5 text-white/80" />
+            <h3 className="text-white font-el-messiri text-lg font-semibold">
+              Мой заказ
+            </h3>
+          </div>
+          <div className="space-y-2">
+            {cartItems.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between text-white/90"
+              >
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{item.name}</p>
+                  {item.weight && (
+                    <p className="text-xs text-white/60">{item.weight}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-white/70">
+                    {item.amount > 1 && `×${item.amount} `}
+                    {item.price.toLocaleString("ru-RU")} ₽
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="pt-2 border-t border-white/10">
+            <div className="flex items-center justify-between text-white">
+              <span className="text-sm font-medium">Итого:</span>
+              <span className="font-semibold">
+                {cartItems
+                  .reduce((sum, item) => sum + item.price * item.amount, 0)
+                  .toLocaleString("ru-RU")}{" "}
+                ₽
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
