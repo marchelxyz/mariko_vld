@@ -591,4 +591,173 @@ export function registerCartRoutes(app) {
     }
     return res.json({ success: true });
   });
+
+  // ===== Сохранение корзины пользователя =====
+  app.post("/api/cart/save", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const headerUserId = getUserIdFromHeaders(req);
+    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerVkId = getVerifiedVkIdFromHeaders(req);
+    const body = req.body ?? {};
+    
+    const resolvedId =
+      (typeof body.userId === "string" && body.userId.trim()) ||
+      (typeof body.id === "string" && body.id.trim()) ||
+      headerUserId;
+    
+    if (!resolvedId) {
+      return res.status(400).json({ success: false, message: "Не удалось определить пользователя" });
+    }
+
+    const items = Array.isArray(body.items) ? body.items : [];
+    const restaurantId = typeof body.restaurantId === "string" ? body.restaurantId : null;
+    const cityId = typeof body.cityId === "string" ? body.cityId : null;
+
+    try {
+      const telegramId = body.telegramId ?? (headerTelegramId ? Number(headerTelegramId) : null);
+      const vkId = body.vkId ?? (headerVkId ? Number(headerVkId) : null);
+
+      // Используем UPSERT для сохранения или обновления корзины
+      const result = await queryOne(
+        `INSERT INTO saved_carts (user_id, telegram_id, vk_id, items, restaurant_id, city_id, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())
+         ON CONFLICT (user_id) 
+         DO UPDATE SET 
+           telegram_id = EXCLUDED.telegram_id,
+           vk_id = EXCLUDED.vk_id,
+           items = EXCLUDED.items,
+           restaurant_id = EXCLUDED.restaurant_id,
+           city_id = EXCLUDED.city_id,
+           updated_at = NOW()
+         RETURNING *`,
+        [
+          resolvedId,
+          telegramId,
+          vkId,
+          JSON.stringify(items),
+          restaurantId,
+          cityId,
+        ],
+      );
+
+      if (!result) {
+        return res.status(500).json({ success: false, message: "Не удалось сохранить корзину" });
+      }
+
+      // Парсим JSON поля если они строки
+      const cart = {
+        ...result,
+        items: typeof result.items === "string" ? JSON.parse(result.items) : result.items,
+      };
+
+      return res.json({ success: true, cart });
+    } catch (error) {
+      console.error("Ошибка сохранения корзины:", error);
+      return res.status(500).json({ success: false, message: "Не удалось сохранить корзину" });
+    }
+  });
+
+  app.get("/api/cart/save", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const headerUserId = getUserIdFromHeaders(req);
+    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerVkId = getVerifiedVkIdFromHeaders(req);
+    
+    const requestedId =
+      normaliseNullableString(req.query?.userId) ??
+      normaliseNullableString(req.query?.id) ??
+      headerUserId;
+
+    if (!requestedId) {
+      return res.status(400).json({ success: false, message: "Передайте userId для получения корзины" });
+    }
+
+    try {
+      // Ищем корзину по user_id, telegram_id или vk_id
+      let result = await queryOne(
+        `SELECT * FROM saved_carts WHERE user_id = $1 LIMIT 1`,
+        [requestedId],
+      );
+
+      // Если не найдено по user_id, пробуем найти по telegram_id или vk_id
+      if (!result) {
+        if (headerTelegramId) {
+          result = await queryOne(
+            `SELECT * FROM saved_carts WHERE telegram_id = $1 LIMIT 1`,
+            [Number(headerTelegramId)],
+          );
+        }
+        if (!result && headerVkId) {
+          result = await queryOne(
+            `SELECT * FROM saved_carts WHERE vk_id = $1 LIMIT 1`,
+            [Number(headerVkId)],
+          );
+        }
+      }
+
+      if (!result) {
+        return res.json({ success: true, cart: null });
+      }
+
+      // Парсим JSON поля если они строки
+      const cart = {
+        ...result,
+        items: typeof result.items === "string" ? JSON.parse(result.items) : result.items,
+      };
+
+      return res.json({ success: true, cart });
+    } catch (error) {
+      console.error("Ошибка получения корзины:", error);
+      return res.status(500).json({ success: false, message: "Не удалось загрузить корзину" });
+    }
+  });
+
+  app.delete("/api/cart/save", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const headerUserId = getUserIdFromHeaders(req);
+    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerVkId = getVerifiedVkIdFromHeaders(req);
+    
+    const requestedId =
+      normaliseNullableString(req.query?.userId) ??
+      normaliseNullableString(req.query?.id) ??
+      headerUserId;
+
+    if (!requestedId) {
+      return res.status(400).json({ success: false, message: "Передайте userId для удаления корзины" });
+    }
+
+    try {
+      const result = await queryOne(
+        `DELETE FROM saved_carts WHERE user_id = $1 RETURNING id`,
+        [requestedId],
+      );
+
+      // Если не найдено по user_id, пробуем удалить по telegram_id или vk_id
+      if (!result) {
+        if (headerTelegramId) {
+          await queryOne(
+            `DELETE FROM saved_carts WHERE telegram_id = $1 RETURNING id`,
+            [Number(headerTelegramId)],
+          );
+        } else if (headerVkId) {
+          await queryOne(
+            `DELETE FROM saved_carts WHERE vk_id = $1 RETURNING id`,
+            [Number(headerVkId)],
+          );
+        }
+      }
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Ошибка удаления корзины:", error);
+      return res.status(500).json({ success: false, message: "Не удалось удалить корзину" });
+    }
+  });
 }
