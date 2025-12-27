@@ -316,11 +316,19 @@ export async function initializeDatabase() {
     // Проверяем подключение к БД с несколькими попытками
     let connectionEstablished = false;
     const maxConnectionAttempts = 3;
+    const baseWaitTime = 5000; // Увеличено до 5 секунд между попытками
     
     for (let attempt = 1; attempt <= maxConnectionAttempts; attempt++) {
       try {
         console.log(`🔄 Попытка подключения к БД (${attempt}/${maxConnectionAttempts})...`);
-        connectionEstablished = await checkConnection();
+        
+        // Добавляем таймаут для каждой попытки
+        const connectionPromise = checkConnection();
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("Connection timeout after 70 seconds")), 70000);
+        });
+        
+        connectionEstablished = await Promise.race([connectionPromise, timeoutPromise]);
         
         if (connectionEstablished) {
           console.log("✅ Подключение к БД успешно");
@@ -330,13 +338,21 @@ export async function initializeDatabase() {
         const isLastAttempt = attempt === maxConnectionAttempts;
         const errorInfo = {
           code: error.code || "UNKNOWN",
-          message: error.message,
+          message: error.message || String(error),
           address: error.address,
           port: error.port,
         };
         
+        // Логируем детали ошибки
+        console.error(`❌ Попытка ${attempt} не удалась:`);
+        console.error("  Код ошибки:", errorInfo.code);
+        console.error("  Сообщение:", errorInfo.message);
+        if (errorInfo.address) {
+          console.error("  Адрес:", `${errorInfo.address}:${errorInfo.port || 5432}`);
+        }
+        
         if (isLastAttempt) {
-          console.error("❌ Ошибка подключения к БД после всех попыток:");
+          console.error("\n❌ Ошибка подключения к БД после всех попыток:");
           console.error("Код ошибки:", errorInfo.code);
           console.error("Сообщение:", errorInfo.message);
           if (errorInfo.address) {
@@ -345,24 +361,32 @@ export async function initializeDatabase() {
           console.error("Полная ошибка:", error);
           
           // Предоставляем рекомендации по устранению проблемы
-          if (errorInfo.code === "ETIMEDOUT") {
-            console.error("\n💡 Рекомендации:");
-            console.error("1. Проверьте доступность базы данных по адресу:", errorInfo.address);
+          if (errorInfo.code === "ETIMEDOUT" || errorInfo.message.includes("timeout")) {
+            console.error("\n💡 Рекомендации для таймаута подключения:");
+            console.error("1. Проверьте доступность базы данных по адресу:", errorInfo.address || "неизвестен");
             console.error("2. Убедитесь, что порт", errorInfo.port || 5432, "открыт в файрволе");
             console.error("3. Проверьте правильность DATABASE_URL в переменных окружения");
             console.error("4. Убедитесь, что база данных запущена и принимает подключения");
+            console.error("5. Проверьте сетевую задержку до базы данных");
+            console.error("6. Рассмотрите возможность увеличения DATABASE_CONNECTION_TIMEOUT");
           } else if (errorInfo.code === "ECONNREFUSED") {
-            console.error("\n💡 Рекомендации:");
+            console.error("\n💡 Рекомендации для отказа в подключении:");
             console.error("1. База данных не принимает подключения на порту", errorInfo.port || 5432);
             console.error("2. Проверьте, запущена ли база данных");
             console.error("3. Проверьте настройки PostgreSQL (listen_addresses в postgresql.conf)");
+            console.error("4. Проверьте правила файрвола на сервере БД");
+          } else if (errorInfo.message.includes("Connection terminated")) {
+            console.error("\n💡 Рекомендации для разрыва соединения:");
+            console.error("1. Проверьте стабильность сетевого соединения");
+            console.error("2. Убедитесь, что база данных не перегружена");
+            console.error("3. Проверьте настройки keep-alive и таймауты на стороне БД");
+            console.error("4. Рассмотрите возможность использования connection pooling");
           }
           
           throw error;
         } else {
-          const waitTime = attempt * 2000; // 2, 4, 6 секунд
-          console.warn(`⚠️  Попытка ${attempt} не удалась. Повтор через ${waitTime}мс...`);
-          console.warn("Ошибка:", errorInfo.message);
+          const waitTime = attempt * baseWaitTime; // 5, 10, 15 секунд
+          console.warn(`⚠️  Повтор через ${waitTime}мс...`);
           await new Promise((resolve) => setTimeout(resolve, waitTime));
         }
       }

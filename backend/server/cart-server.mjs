@@ -270,31 +270,55 @@ async function startServer() {
 async function shutdown(signal) {
   logger.info(`Получен сигнал ${signal}, начинаем graceful shutdown...`);
   
-  if (server) {
-    server.close(() => {
-      logger.info("HTTP сервер закрыт");
-      
-      // Закрываем соединения с БД
-      if (db) {
-        db.end(() => {
-          logger.info("Соединения с БД закрыты");
+  let shutdownTimeout;
+  
+  const forceExit = () => {
+    logger.error("Принудительное завершение после таймаута graceful shutdown");
+    process.exit(1);
+  };
+  
+  // Устанавливаем таймаут принудительного завершения
+  shutdownTimeout = setTimeout(forceExit, 15000); // Увеличено до 15 секунд
+  
+  try {
+    if (server) {
+      server.close(() => {
+        logger.info("HTTP сервер закрыт");
+        clearTimeout(shutdownTimeout);
+        
+        // Закрываем соединения с БД
+        if (db) {
+          db.end(() => {
+            logger.info("Соединения с БД закрыты");
+            process.exit(0);
+          }).catch((err) => {
+            logger.error("Ошибка при закрытии соединений с БД", err);
+            // Даже при ошибке закрытия БД завершаем процесс
+            process.exit(0);
+          });
+        } else {
           process.exit(0);
-        }).catch((err) => {
-          logger.error("Ошибка при закрытии соединений с БД", err);
-          process.exit(1);
-        });
-      } else {
-        process.exit(0);
-      }
-    });
+        }
+      });
 
-    // Принудительное завершение через 10 секунд
-    setTimeout(() => {
-      logger.error("Принудительное завершение после таймаута");
-      process.exit(1);
-    }, 10000);
-  } else {
-    process.exit(0);
+      // Обрабатываем ошибки при закрытии сервера
+      server.on('error', (err) => {
+        logger.error("Ошибка при закрытии HTTP сервера", err);
+        clearTimeout(shutdownTimeout);
+        if (db) {
+          db.end(() => process.exit(0)).catch(() => process.exit(0));
+        } else {
+          process.exit(0);
+        }
+      });
+    } else {
+      clearTimeout(shutdownTimeout);
+      process.exit(0);
+    }
+  } catch (error) {
+    logger.error("Ошибка при graceful shutdown", error);
+    clearTimeout(shutdownTimeout);
+    process.exit(1);
   }
 }
 

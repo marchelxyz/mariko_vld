@@ -18,11 +18,14 @@ if (DATABASE_URL) {
     connectionString: DATABASE_URL,
     ssl: sslConfig,
     // Настройки таймаутов для подключения
-    connectionTimeoutMillis: Number.parseInt(process.env.DATABASE_CONNECTION_TIMEOUT || "30000", 10), // По умолчанию 30 секунд
+    connectionTimeoutMillis: Number.parseInt(process.env.DATABASE_CONNECTION_TIMEOUT || "60000", 10), // По умолчанию 60 секунд (увеличено для удаленных БД)
     idleTimeoutMillis: Number.parseInt(process.env.DATABASE_IDLE_TIMEOUT || "30000", 10), // По умолчанию 30 секунд
     max: Number.parseInt(process.env.DATABASE_POOL_MAX || "20", 10), // Максимальное количество клиентов в пуле
     // Настройки для retry при ошибках подключения
     allowExitOnIdle: false, // Не закрывать пул при отсутствии активных подключений
+    // Дополнительные настройки для стабильности подключения
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10000, // Начинаем keep-alive через 10 секунд
   });
 
   pool.on("error", (err) => {
@@ -106,11 +109,43 @@ export const checkConnection = async () => {
     return false;
   }
   try {
-    await db.query("SELECT 1");
+    // Используем query с таймаутом через Promise.race для более точного контроля
+    const queryPromise = db.query("SELECT 1");
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        const timeoutError = new Error("Connection timeout after 65 seconds");
+        timeoutError.code = "ETIMEDOUT";
+        reject(timeoutError);
+      }, 65000); // 65 секунд (чуть больше чем connectionTimeoutMillis)
+    });
+    
+    await Promise.race([queryPromise, timeoutPromise]);
     return true;
   } catch (error) {
-    console.error("Ошибка проверки подключения к БД:", error.message);
-    return false;
+    const errorMessage = error.message || String(error);
+    const errorCode = error.code || "UNKNOWN";
+    
+    // Определяем тип ошибки для более детального логирования
+    const isTimeoutError = 
+      errorCode === "ETIMEDOUT" || 
+      errorMessage.includes("timeout") ||
+      errorMessage.includes("Connection terminated");
+    
+    if (isTimeoutError) {
+      console.error("⏱️  Таймаут подключения к БД:", errorMessage);
+    } else {
+      console.error("Ошибка проверки подключения к БД:", errorMessage);
+    }
+    
+    console.error("Код ошибки:", errorCode);
+    
+    // Дополнительная информация для диагностики
+    if (error.address || error.port) {
+      console.error(`Адрес: ${error.address}:${error.port || 5432}`);
+    }
+    
+    // Пробрасываем ошибку дальше, чтобы вызывающий код мог обработать её
+    throw error;
   }
 };
 
@@ -134,14 +169,17 @@ export const query = async (text, params, retries = 1) => {
       lastError = error;
       
       // Если это ошибка подключения и есть попытки, ждем и повторяем
-      if (
-        (error.code === "ETIMEDOUT" || 
-         error.code === "ECONNREFUSED" || 
-         error.code === "ENOTFOUND" ||
-         error.code === "EHOSTUNREACH") &&
-        attempt < retries
-      ) {
-        const waitTime = (attempt + 1) * 1000; // Экспоненциальная задержка
+      const isConnectionError = 
+        error.code === "ETIMEDOUT" || 
+        error.code === "ECONNREFUSED" || 
+        error.code === "ENOTFOUND" ||
+        error.code === "EHOSTUNREACH" ||
+        error.message?.includes("Connection terminated") ||
+        error.message?.includes("timeout") ||
+        error.message?.includes("Connection timeout");
+      
+      if (isConnectionError && attempt < retries) {
+        const waitTime = (attempt + 1) * 2000; // Экспоненциальная задержка: 2, 4, 6 секунд
         console.warn(
           `⚠️ Ошибка подключения к БД (попытка ${attempt + 1}/${retries + 1}). Повтор через ${waitTime}мс...`,
           { code: error.code, message: error.message }
