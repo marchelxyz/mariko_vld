@@ -4,11 +4,11 @@
  * Скрипт для миграции данных из PostgreSQL VK Cloud в PostgreSQL Railway
  * 
  * Использование:
- *   VK_CLOUD_DATABASE_URL=postgresql://... RAILWAY_DATABASE_URL=postgresql://... node backend/server/scripts/migrateVkCloudToRailway.mjs
+ *   VK_CLOUD_DATABASE_URL=postgresql://... DATABASE_URL=postgresql://... node backend/server/scripts/migrateVkCloudToRailway.mjs
  * 
  * Или через .env файл:
- *   VK_CLOUD_DATABASE_URL=...
- *   RAILWAY_DATABASE_URL=...
+ *   VK_CLOUD_DATABASE_URL=... (источник - VK Cloud)
+ *   DATABASE_URL=... (цель - Railway PostgreSQL, создается автоматически Railway)
  *   node backend/server/scripts/migrateVkCloudToRailway.mjs
  */
 
@@ -33,7 +33,7 @@ if (fs.existsSync(localEnvPath)) {
 }
 
 const VK_CLOUD_DATABASE_URL = process.env.VK_CLOUD_DATABASE_URL;
-const RAILWAY_DATABASE_URL = process.env.RAILWAY_DATABASE_URL;
+const DATABASE_URL = process.env.DATABASE_URL; // Railway PostgreSQL (целевая БД)
 
 // Размер порции для миграции больших таблиц
 const BATCH_SIZE = 1000;
@@ -269,9 +269,10 @@ async function migrateDatabase() {
     process.exit(1);
   }
 
-  if (!RAILWAY_DATABASE_URL) {
-    console.error("❌ RAILWAY_DATABASE_URL не задан");
-    console.error("   Установите переменную окружения: export RAILWAY_DATABASE_URL=postgresql://...");
+  if (!DATABASE_URL) {
+    console.error("❌ DATABASE_URL не задан");
+    console.error("   Установите переменную окружения: export DATABASE_URL=postgresql://...");
+    console.error("   Или используйте переменную Railway (она создается автоматически)");
     process.exit(1);
   }
 
@@ -284,7 +285,7 @@ async function migrateDatabase() {
     // Создаем пулы подключений
     console.log("📡 Подключаемся к базам данных...");
     sourcePool = createPool(VK_CLOUD_DATABASE_URL, "VK Cloud");
-    targetPool = createPool(RAILWAY_DATABASE_URL, "Railway");
+    targetPool = createPool(DATABASE_URL, "Railway");
 
     // Проверяем подключения
     await sourcePool.query("SELECT 1");
