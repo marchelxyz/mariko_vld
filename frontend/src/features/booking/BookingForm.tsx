@@ -20,7 +20,7 @@ import {
   PopoverTrigger,
 } from "@shared/ui/popover";
 import { useProfile } from "@entities/user";
-import { useCityContext } from "@/contexts";
+import { useCityContext, useCart } from "@/contexts";
 import {
   getRemarkedReservesByPhone,
 } from "@shared/api/remarked";
@@ -113,9 +113,28 @@ function isValidRemarkedId(id: number | undefined): boolean {
   return /^\d{6}$/.test(idStr);
 }
 
+/**
+ * Форматирует корзину в текст для комментария
+ */
+function formatCartForComment(items: Array<{ name: string; amount: number; price: number }>): string {
+  if (!items || items.length === 0) {
+    return "";
+  }
+  
+  const lines = items.map((item) => {
+    const totalPrice = item.amount * item.price;
+    return `${item.name} × ${item.amount} = ${totalPrice} ₽`;
+  });
+  
+  const total = items.reduce((sum, item) => sum + item.amount * item.price, 0);
+  
+  return `Заказ:\n${lines.join("\n")}\nИтого: ${total} ₽`;
+}
+
 export function BookingForm({ onSuccess }: BookingFormProps) {
   const { selectedRestaurant } = useCityContext();
   const { profile } = useProfile();
+  const { items: cartItems, totalPrice: cartTotalPrice } = useCart();
 
   // Используем useMemo для today, чтобы избежать пересоздания при каждом рендере
   const today = useMemo(() => {
@@ -858,12 +877,16 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       }
 
       const dateStr = format(selectedDate, "yyyy-MM-dd");
+      
+      // Формируем комментарий: корзина + событие + другие пожелания
+      const cartComment = cartItems.length > 0 ? formatCartForComment(cartItems) : "";
       const fullComment = [
+        cartComment,
         selectedEvent?.comment,
         comment.trim(),
       ]
         .filter((item) => Boolean(item))
-        .join(". ");
+        .join("\n\n");
 
       // Вычисляем duration из выбранного слота (в минутах)
       const duration = selectedSlot ? Math.round(selectedSlot.duration / 60) : undefined;
@@ -1216,6 +1239,47 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
             </a>{" "}
             *
           </Label>
+        </div>
+      )}
+
+      {/* Отображение корзины */}
+      {cartItems.length > 0 && (
+        <div className="rounded-[24px] border border-white/20 bg-white/10 p-4 space-y-3">
+          <h3 className="text-white font-el-messiri text-base font-semibold">
+            Ваш заказ
+          </h3>
+          <div className="space-y-2">
+            {cartItems.map((item) => {
+              const itemTotal = item.amount * item.price;
+              return (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <div className="flex-1 text-white/90">
+                    <span className="font-medium">{item.name}</span>
+                    {item.weight && (
+                      <span className="text-white/60 ml-2">({item.weight})</span>
+                    )}
+                  </div>
+                  <div className="text-white font-medium ml-4">
+                    {item.amount} × {item.price} ₽ = {itemTotal} ₽
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="pt-2 border-t border-white/20 flex items-center justify-between">
+            <span className="text-white font-el-messiri text-base font-semibold">
+              Итого
+            </span>
+            <span className="text-white font-semibold text-lg">
+              {cartTotalPrice} ₽
+            </span>
+          </div>
+          <p className="text-white/70 text-xs pt-1">
+            Заказ будет добавлен в комментарий к бронированию
+          </p>
         </div>
       )}
 
