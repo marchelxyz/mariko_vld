@@ -220,6 +220,7 @@ const SCHEMAS = {
       description TEXT,
       price DECIMAL(10, 2) NOT NULL,
       weight VARCHAR(50),
+      calories VARCHAR(50),
       image_url TEXT,
       is_vegetarian BOOLEAN DEFAULT false,
       is_spicy BOOLEAN DEFAULT false,
@@ -241,6 +242,21 @@ const SCHEMAS = {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(city_id, menu_item_id)
+    );
+  `,
+
+  saved_carts: `
+    CREATE TABLE IF NOT EXISTS saved_carts (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id VARCHAR(255) NOT NULL,
+      telegram_id BIGINT,
+      vk_id BIGINT,
+      items JSONB NOT NULL DEFAULT '[]'::jsonb,
+      restaurant_id VARCHAR(255),
+      city_id VARCHAR(255),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id)
     );
   `,
 };
@@ -286,6 +302,9 @@ const INDEXES = [
     `CREATE INDEX IF NOT EXISTS idx_city_recommended_dishes_city_id ON city_recommended_dishes(city_id);`,
     `CREATE INDEX IF NOT EXISTS idx_city_recommended_dishes_menu_item_id ON city_recommended_dishes(menu_item_id);`,
     `CREATE INDEX IF NOT EXISTS idx_city_recommended_dishes_display_order ON city_recommended_dishes(display_order);`,
+    `CREATE INDEX IF NOT EXISTS idx_saved_carts_user_id ON saved_carts(user_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_saved_carts_telegram_id ON saved_carts(telegram_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_saved_carts_vk_id ON saved_carts(vk_id);`,
 ];
 
 /**
@@ -335,6 +354,7 @@ export async function initializeDatabase() {
       "menu_categories",    // menu_categories зависит от restaurants
       "menu_items",         // menu_items зависит от menu_categories
       "city_recommended_dishes", // city_recommended_dishes зависит от cities и menu_items
+      "saved_carts",       // saved_carts зависит от user_profiles
     ];
 
     // Создаем таблицы в правильном порядке
