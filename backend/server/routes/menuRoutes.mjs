@@ -86,6 +86,7 @@ export function createMenuRouter() {
           description: item.description || undefined,
           price: Number(item.price),
           weight: item.weight || undefined,
+          calories: item.calories || undefined,
           imageUrl,
           isVegetarian: !!item.is_vegetarian,
           isSpicy: !!item.is_spicy,
@@ -249,7 +250,7 @@ export function createAdminMenuRouter() {
             const item = category.items[itemIndex];
             const itemId = item.id || `${categoryId}-item-${itemIndex}`;
 
-            itemValues.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7}, $${paramIndex + 8}, $${paramIndex + 9}, $${paramIndex + 10}, $${paramIndex + 11}, $${paramIndex + 12}, NOW(), NOW())`);
+            itemValues.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7}, $${paramIndex + 8}, $${paramIndex + 9}, $${paramIndex + 10}, $${paramIndex + 11}, $${paramIndex + 12}, $${paramIndex + 13}, NOW(), NOW())`);
             itemParams.push(
               itemId,
               categoryId,
@@ -257,6 +258,7 @@ export function createAdminMenuRouter() {
               item.description || null,
               item.price || 0,
               item.weight || null,
+              item.calories || null,
               item.imageUrl || null,
               !!item.isVegetarian,
               !!item.isSpicy,
@@ -265,16 +267,16 @@ export function createAdminMenuRouter() {
               item.isActive !== false,
               item.displayOrder ?? itemIndex + 1,
             );
-            paramIndex += 13;
+            paramIndex += 14;
           }
         }
       }
 
       // Batch-вставка всех блюд одним запросом (разбиваем на части если слишком много параметров)
-      // PostgreSQL имеет лимит ~65535 параметров, каждый item использует 13 параметров
-      // Максимум ~5000 блюд за раз (консервативно используем 1000)
+      // PostgreSQL имеет лимит ~65535 параметров, каждый item использует 14 параметров
+      // Максимум ~4680 блюд за раз (консервативно используем 1000)
       const MAX_ITEMS_PER_BATCH = 1000;
-      const PARAMS_PER_ITEM = 13;
+      const PARAMS_PER_ITEM = 14;
       
       if (itemValues.length > 0) {
         for (let i = 0; i < itemValues.length; i += MAX_ITEMS_PER_BATCH) {
@@ -286,14 +288,14 @@ export function createAdminMenuRouter() {
           // Пересоздаем значения и параметры для каждого батча с правильной нумерацией
           for (let j = 0; j < batchSize; j++) {
             const itemIndex = i + j;
-            batchValues.push(`($${batchParamIndex}, $${batchParamIndex + 1}, $${batchParamIndex + 2}, $${batchParamIndex + 3}, $${batchParamIndex + 4}, $${batchParamIndex + 5}, $${batchParamIndex + 6}, $${batchParamIndex + 7}, $${batchParamIndex + 8}, $${batchParamIndex + 9}, $${batchParamIndex + 10}, $${batchParamIndex + 11}, $${batchParamIndex + 12}, NOW(), NOW())`);
+            batchValues.push(`($${batchParamIndex}, $${batchParamIndex + 1}, $${batchParamIndex + 2}, $${batchParamIndex + 3}, $${batchParamIndex + 4}, $${batchParamIndex + 5}, $${batchParamIndex + 6}, $${batchParamIndex + 7}, $${batchParamIndex + 8}, $${batchParamIndex + 9}, $${batchParamIndex + 10}, $${batchParamIndex + 11}, $${batchParamIndex + 12}, $${batchParamIndex + 13}, NOW(), NOW())`);
             batchParams.push(...itemParams.slice(itemIndex * PARAMS_PER_ITEM, (itemIndex + 1) * PARAMS_PER_ITEM));
             batchParamIndex += PARAMS_PER_ITEM;
           }
           
           await query(
             `INSERT INTO menu_items (
-              id, category_id, name, description, price, weight, image_url,
+              id, category_id, name, description, price, weight, calories, image_url,
               is_vegetarian, is_spicy, is_new, is_recommended, is_active, display_order,
               created_at, updated_at
             )

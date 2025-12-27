@@ -1,6 +1,6 @@
 import { db, ensureDatabase } from "../postgresClient.mjs";
 import { CART_ORDERS_TABLE, MAX_ORDERS_LIMIT } from "../config.mjs";
-import { queryMany, queryOne } from "../postgresClient.mjs";
+import { queryMany, queryOne, query } from "../postgresClient.mjs";
 import {
   upsertUserProfileRecord,
   fetchUserProfile,
@@ -527,5 +527,123 @@ export function registerCartRoutes(app) {
       return res.status(500).json({ success: false, message: "Не удалось назначить основной адрес" });
     }
     return res.json({ success: true });
+  });
+
+  /**
+   * Получить корзину пользователя
+   * GET /api/cart/cart
+   */
+  app.get("/api/cart/cart", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+
+    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const userId = normaliseNullableString(req.query?.userId) ?? headerTelegramId;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "Необходимо указать userId" });
+    }
+
+    try {
+      const cart = await queryOne(
+        `SELECT items FROM user_carts WHERE user_id = $1`,
+        [userId]
+      );
+
+      if (!cart) {
+        return res.json({ success: true, items: [] });
+      }
+
+      return res.json({ success: true, items: cart.items || [] });
+    } catch (error) {
+      console.error("Ошибка получения корзины:", error);
+      return res.status(500).json({ 
+        success: false, 
+        message: "Не удалось получить корзину",
+        error: error?.message || "Неизвестная ошибка",
+      });
+    }
+  });
+
+  /**
+   * Сохранить корзину пользователя
+   * POST /api/cart/cart
+   */
+  app.post("/api/cart/cart", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+
+    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const userId = normaliseNullableString(req.body?.userId) ?? headerTelegramId;
+    const items = req.body?.items;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "Необходимо указать userId" });
+    }
+
+    if (!Array.isArray(items)) {
+      return res.status(400).json({ success: false, message: "items должен быть массивом" });
+    }
+
+    try {
+      // Проверяем существование пользователя
+      const user = await queryOne(`SELECT id FROM user_profiles WHERE id = $1`, [userId]);
+      if (!user) {
+        return res.status(404).json({ success: false, message: "Пользователь не найден" });
+      }
+
+      // Сохраняем или обновляем корзину
+      await query(
+        `INSERT INTO user_carts (user_id, items, updated_at)
+         VALUES ($1, $2::jsonb, NOW())
+         ON CONFLICT (user_id) 
+         DO UPDATE SET items = $2::jsonb, updated_at = NOW()`,
+        [userId, JSON.stringify(items)]
+      );
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Ошибка сохранения корзины:", error);
+      return res.status(500).json({ 
+        success: false, 
+        message: "Не удалось сохранить корзину",
+        error: error?.message || "Неизвестная ошибка",
+      });
+    }
+  });
+
+  /**
+   * Очистить корзину пользователя
+   * DELETE /api/cart/cart
+   */
+  app.delete("/api/cart/cart", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+
+    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const userId = normaliseNullableString(req.query?.userId ?? req.body?.userId) ?? headerTelegramId;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "Необходимо указать userId" });
+    }
+
+    try {
+      await query(
+        `UPDATE user_carts SET items = '[]'::jsonb, updated_at = NOW() WHERE user_id = $1`,
+        [userId]
+      );
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Ошибка очистки корзины:", error);
+      return res.status(500).json({ 
+        success: false, 
+        message: "Не удалось очистить корзину",
+        error: error?.message || "Неизвестная ошибка",
+      });
+    }
   });
 }

@@ -219,6 +219,7 @@ const SCHEMAS = {
       description TEXT,
       price DECIMAL(10, 2) NOT NULL,
       weight VARCHAR(50),
+      calories VARCHAR(50),
       image_url TEXT,
       is_vegetarian BOOLEAN DEFAULT false,
       is_spicy BOOLEAN DEFAULT false,
@@ -240,6 +241,17 @@ const SCHEMAS = {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(city_id, menu_item_id)
+    );
+  `,
+
+  user_carts: `
+    CREATE TABLE IF NOT EXISTS user_carts (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id VARCHAR(255) NOT NULL,
+      items JSONB NOT NULL DEFAULT '[]'::jsonb,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id)
     );
   `,
 };
@@ -284,6 +296,8 @@ const INDEXES = [
     `CREATE INDEX IF NOT EXISTS idx_city_recommended_dishes_city_id ON city_recommended_dishes(city_id);`,
     `CREATE INDEX IF NOT EXISTS idx_city_recommended_dishes_menu_item_id ON city_recommended_dishes(menu_item_id);`,
     `CREATE INDEX IF NOT EXISTS idx_city_recommended_dishes_display_order ON city_recommended_dishes(display_order);`,
+    `CREATE INDEX IF NOT EXISTS idx_user_carts_user_id ON user_carts(user_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_user_carts_updated_at ON user_carts(updated_at DESC);`,
 ];
 
 /**
@@ -322,6 +336,7 @@ export async function initializeDatabase() {
     const tableOrder = [
       "user_profiles",      // Сначала создаем user_profiles
       "user_addresses",     // Потом user_addresses (зависит от user_profiles)
+      "user_carts",         // user_carts зависит от user_profiles
       "cart_orders",        // cart_orders независима
       "admin_users",        // admin_users независима
       "restaurant_payments", // restaurant_payments независима
@@ -442,6 +457,13 @@ export async function initializeDatabase() {
               ADD CONSTRAINT fk_city_recommended_dishes_menu_item 
               FOREIGN KEY (menu_item_id) REFERENCES menu_items(id) ON DELETE CASCADE`,
       },
+      {
+        name: "fk_user_carts_user",
+        table: "user_carts",
+        sql: `ALTER TABLE user_carts 
+              ADD CONSTRAINT fk_user_carts_user 
+              FOREIGN KEY (user_id) REFERENCES user_profiles(id) ON DELETE CASCADE`,
+      },
     ];
 
     for (const fk of foreignKeys) {
@@ -509,6 +531,24 @@ export async function initializeDatabase() {
       console.warn("⚠️  Предупреждение при добавлении поля onboarding_tour_shown:", error?.message || error);
     }
 
+    // Миграция: добавляем поле calories в таблицу menu_items
+    try {
+      const columnExists = await query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'menu_items' AND column_name = 'calories'
+      `);
+      
+      if (columnExists.rows.length === 0) {
+        await query(`ALTER TABLE menu_items ADD COLUMN calories VARCHAR(50)`);
+        console.log("✅ Поле calories добавлено в таблицу menu_items");
+      } else {
+        console.log("ℹ️  Поле calories уже существует в таблице menu_items");
+      }
+    } catch (error) {
+      console.warn("⚠️  Предупреждение при добавлении поля calories:", error?.message || error);
+    }
+
     // Создаем индексы
     console.log("📇 Создаем индексы...");
     for (const indexSql of INDEXES) {
@@ -553,6 +593,7 @@ export async function checkDatabaseTables() {
     const requiredTables = [
       "user_profiles",
       "user_addresses",
+      "user_carts",
       CART_ORDERS_TABLE,
       "admin_users",
       "restaurant_payments",
