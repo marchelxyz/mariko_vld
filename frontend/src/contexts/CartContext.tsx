@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { logger } from "@/lib/logger";
+import { getUser } from "@/lib/telegram";
+import type { MenuItem } from "@/shared/data/menuTypes";
 
 export type CartItem = {
   id: string;
@@ -30,6 +32,96 @@ type CartContextValue = {
 const CartContext = createContext<CartContextValue | undefined>(undefined);
 
 const CART_STORAGE_KEY = "mariko_cart_v1";
+
+/**
+ * Получает базовый URL API корзины
+ */
+function getCartApiBaseUrl(): string {
+  const cartApiUrl = import.meta.env.VITE_CART_API_URL ?? "/api/cart/submit";
+  return cartApiUrl.replace(/\/cart\/submit\/?$/, "");
+}
+
+/**
+ * Загружает корзину из базы данных
+ */
+async function loadCartFromDb(userId: string): Promise<CartItem[]> {
+  try {
+    const baseUrl = getCartApiBaseUrl();
+    const response = await fetch(`${baseUrl}/cart/cart?userId=${encodeURIComponent(userId)}`, {
+      method: "GET",
+      headers: {
+        "X-Telegram-Id": userId,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (data.success && Array.isArray(data.items)) {
+      return data.items.filter(
+        (item): item is CartItem =>
+          item &&
+          typeof item.id === "string" &&
+          typeof item.name === "string" &&
+          typeof item.price === "number" &&
+          typeof item.amount === "number",
+      );
+    }
+    return [];
+  } catch (error) {
+    logger.warn('cart', 'Не удалось загрузить корзину из БД', undefined, error instanceof Error ? error : new Error(String(error)));
+    return [];
+  }
+}
+
+/**
+ * Сохраняет корзину в базу данных
+ */
+async function saveCartToDb(userId: string, items: CartItem[]): Promise<void> {
+  try {
+    const baseUrl = getCartApiBaseUrl();
+    const response = await fetch(`${baseUrl}/cart/cart`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Telegram-Id": userId,
+      },
+      body: JSON.stringify({
+        userId,
+        items,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+  } catch (error) {
+    logger.warn('cart', 'Не удалось сохранить корзину в БД', undefined, error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+/**
+ * Очищает корзину в базе данных
+ */
+async function clearCartInDb(userId: string): Promise<void> {
+  try {
+    const baseUrl = getCartApiBaseUrl();
+    const response = await fetch(`${baseUrl}/cart/cart?userId=${encodeURIComponent(userId)}`, {
+      method: "DELETE",
+      headers: {
+        "X-Telegram-Id": userId,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+  } catch (error) {
+    logger.warn('cart', 'Не удалось очистить корзину в БД', undefined, error instanceof Error ? error : new Error(String(error)));
+  }
+}
 
 const loadCartFromStorage = (): CartItem[] => {
   if (typeof window === "undefined") {
@@ -79,11 +171,59 @@ const saveCartToStorage = (items: CartItem[]) => {
 
 export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element => {
   const [items, setItems] = useState<CartItem[]>(() => loadCartFromStorage());
+  const [isLoadingFromDb, setIsLoadingFromDb] = useState(true);
 
-  // Cинхронизируем корзину с браузерным хранилищем при любых изменениях
+  // Загружаем корзину из БД при инициализации (если есть userId)
   useEffect(() => {
+    const user = getUser();
+    const userId = user?.id?.toString();
+
+    if (userId) {
+      loadCartFromDb(userId)
+        .then((dbItems) => {
+          if (dbItems.length > 0) {
+            // Если в БД есть корзина, используем её
+            setItems(dbItems);
+            saveCartToStorage(dbItems);
+            logger.debug('cart', 'Корзина загружена из БД', { itemCount: dbItems.length });
+          } else {
+            // Если в БД корзины нет, но есть в localStorage, сохраняем в БД
+            const localItems = loadCartFromStorage();
+            if (localItems.length > 0) {
+              saveCartToDb(userId, localItems).catch(() => {
+                // Игнорируем ошибки сохранения
+              });
+            }
+          }
+        })
+        .catch(() => {
+          // При ошибке загрузки из БД продолжаем работать с localStorage
+        })
+        .finally(() => {
+          setIsLoadingFromDb(false);
+        });
+    } else {
+      setIsLoadingFromDb(false);
+    }
+  }, []);
+
+  // Синхронизируем корзину с браузерным хранилищем и БД при любых изменениях
+  useEffect(() => {
+    if (isLoadingFromDb) {
+      return; // Не сохраняем во время начальной загрузки
+    }
+
     saveCartToStorage(items);
-  }, [items]);
+
+    const user = getUser();
+    const userId = user?.id?.toString();
+    if (userId) {
+      // Сохраняем в БД асинхронно, не блокируя UI
+      saveCartToDb(userId, items).catch(() => {
+        // Игнорируем ошибки сохранения
+      });
+    }
+  }, [items, isLoadingFromDb]);
 
   const addItem = useCallback((item: MenuItem) => {
     logger.userAction('cart_add_item', { itemId: item.id, itemName: item.name });
@@ -140,6 +280,15 @@ export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element
   const clearCart = useCallback(() => {
     logger.userAction('cart_clear', { itemCount: items.length });
     setItems([]);
+
+    // Очищаем корзину в БД
+    const user = getUser();
+    const userId = user?.id?.toString();
+    if (userId) {
+      clearCartInDb(userId).catch(() => {
+        // Игнорируем ошибки очистки
+      });
+    }
   }, [items.length]);
 
   const getItemCount = useCallback(
