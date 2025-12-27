@@ -1,4 +1,4 @@
-import { db, query } from "./postgresClient.mjs";
+import { db, query, checkConnection } from "./postgresClient.mjs";
 import { CART_ORDERS_TABLE } from "./config.mjs";
 
 /**
@@ -313,23 +313,72 @@ export async function initializeDatabase() {
     console.log("🔄 Начинаем инициализацию базы данных...");
     console.log(`📊 DATABASE_URL установлен: ${process.env.DATABASE_URL ? "да" : "нет"}`);
     
-    // Проверяем подключение к БД и наличие расширения для UUID
-    try {
-      await query("SELECT 1 as test");
-      console.log("✅ Подключение к БД успешно");
-      
-      // Проверяем наличие расширения pgcrypto для gen_random_uuid()
+    // Проверяем подключение к БД с несколькими попытками
+    let connectionEstablished = false;
+    const maxConnectionAttempts = 3;
+    
+    for (let attempt = 1; attempt <= maxConnectionAttempts; attempt++) {
       try {
-        await query("CREATE EXTENSION IF NOT EXISTS pgcrypto");
-        console.log("✅ Расширение pgcrypto доступно");
-      } catch (extError) {
-        console.warn("⚠️  Не удалось создать расширение pgcrypto:", extError.message);
-        console.warn("⚠️  UUID будут генерироваться на стороне приложения");
+        console.log(`🔄 Попытка подключения к БД (${attempt}/${maxConnectionAttempts})...`);
+        connectionEstablished = await checkConnection();
+        
+        if (connectionEstablished) {
+          console.log("✅ Подключение к БД успешно");
+          break;
+        }
+      } catch (error) {
+        const isLastAttempt = attempt === maxConnectionAttempts;
+        const errorInfo = {
+          code: error.code || "UNKNOWN",
+          message: error.message,
+          address: error.address,
+          port: error.port,
+        };
+        
+        if (isLastAttempt) {
+          console.error("❌ Ошибка подключения к БД после всех попыток:");
+          console.error("Код ошибки:", errorInfo.code);
+          console.error("Сообщение:", errorInfo.message);
+          if (errorInfo.address) {
+            console.error("Адрес:", `${errorInfo.address}:${errorInfo.port || 5432}`);
+          }
+          console.error("Полная ошибка:", error);
+          
+          // Предоставляем рекомендации по устранению проблемы
+          if (errorInfo.code === "ETIMEDOUT") {
+            console.error("\n💡 Рекомендации:");
+            console.error("1. Проверьте доступность базы данных по адресу:", errorInfo.address);
+            console.error("2. Убедитесь, что порт", errorInfo.port || 5432, "открыт в файрволе");
+            console.error("3. Проверьте правильность DATABASE_URL в переменных окружения");
+            console.error("4. Убедитесь, что база данных запущена и принимает подключения");
+          } else if (errorInfo.code === "ECONNREFUSED") {
+            console.error("\n💡 Рекомендации:");
+            console.error("1. База данных не принимает подключения на порту", errorInfo.port || 5432);
+            console.error("2. Проверьте, запущена ли база данных");
+            console.error("3. Проверьте настройки PostgreSQL (listen_addresses в postgresql.conf)");
+          }
+          
+          throw error;
+        } else {
+          const waitTime = attempt * 2000; // 2, 4, 6 секунд
+          console.warn(`⚠️  Попытка ${attempt} не удалась. Повтор через ${waitTime}мс...`);
+          console.warn("Ошибка:", errorInfo.message);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        }
       }
-    } catch (error) {
-      console.error("❌ Ошибка подключения к БД:", error.message);
-      console.error("Полная ошибка:", error);
-      throw error;
+    }
+    
+    if (!connectionEstablished) {
+      throw new Error("Не удалось установить подключение к БД после всех попыток");
+    }
+    
+    // Проверяем наличие расширения pgcrypto для gen_random_uuid()
+    try {
+      await query("CREATE EXTENSION IF NOT EXISTS pgcrypto", [], 2);
+      console.log("✅ Расширение pgcrypto доступно");
+    } catch (extError) {
+      console.warn("⚠️  Не удалось создать расширение pgcrypto:", extError.message);
+      console.warn("⚠️  UUID будут генерироваться на стороне приложения");
     }
 
     // Определяем порядок создания таблиц (важно для foreign keys)
@@ -360,12 +409,20 @@ export async function initializeDatabase() {
         }
         
         console.log(`📝 Создаем таблицу: ${tableName}...`);
-        await query(schema);
+        // Используем 2 попытки для создания таблиц (retry при временных ошибках подключения)
+        await query(schema, [], 2);
         console.log(`✅ Таблица ${tableName} создана/проверена`);
       } catch (error) {
         console.error(`❌ Ошибка создания таблицы ${tableName}:`, error.message);
+        console.error(`Код ошибки:`, error.code);
         console.error(`Полная ошибка:`, error);
         console.error(`SQL запрос:`, SCHEMAS[tableName]?.substring(0, 200) + "...");
+        
+        // Если это ошибка подключения, выбрасываем её дальше
+        if (error.code === "ETIMEDOUT" || error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
+          throw error;
+        }
+        // Для других ошибок (например, синтаксических) также выбрасываем
         throw error;
       }
     }
