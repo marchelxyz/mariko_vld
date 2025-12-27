@@ -635,8 +635,10 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                 <div key={item.id} className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">{item.name}</p>
-                    {item.weight && (
-                      <p className="text-sm text-mariko-dark/70">{item.weight}</p>
+                    {(item.weight || item.calories) && (
+                      <p className="text-sm text-mariko-dark/70">
+                        {[item.weight, item.calories].filter(Boolean).join(' / ')}
+                      </p>
                     )}
                   </div>
                   <div className="flex items-center">
