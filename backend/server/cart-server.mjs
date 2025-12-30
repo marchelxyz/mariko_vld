@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { PORT } from "./config.mjs";
 import { db } from "./postgresClient.mjs";
 import { initializeDatabase, checkDatabaseTables } from "./databaseInit.mjs";
+import { runAutoMigration } from "./autoMigration.mjs";
 import { registerCartRoutes } from "./routes/cartRoutes.mjs";
 import { createAdminRouter } from "./routes/adminRoutes.mjs";
 import { createPaymentRouter } from "./routes/paymentRoutes.mjs";
@@ -229,6 +230,15 @@ async function startServer() {
   
   if (db) {
     try {
+      // Сначала проверяем и запускаем автоматическую миграцию, если нужно
+      const migrationResult = await runAutoMigration();
+      if (migrationResult.migrated) {
+        logger.info("Автоматическая миграция базы данных выполнена успешно");
+      } else if (migrationResult.reason && migrationResult.reason !== "SOURCE_DATABASE_URL не установлен") {
+        logger.info(`Автоматическая миграция пропущена: ${migrationResult.reason}`);
+      }
+      
+      // Затем инициализируем БД (создаем таблицы, если их нет)
       const initResult = await initializeDatabase();
       if (!initResult) {
         logger.warn("Инициализация БД завершилась с ошибками, но продолжаем запуск сервера");
