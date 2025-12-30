@@ -363,6 +363,85 @@ async function createTableInTarget(pool, tableName, structure) {
 }
 
 /**
+ * Нормализует JSON значение для вставки в БД
+ */
+function normalizeJsonValue(value, columnName) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  
+  // Если уже объект или массив, преобразуем в JSON строку
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch (error) {
+      console.warn(`   ⚠️  Ошибка сериализации JSON для колонки ${columnName}:`, error.message);
+      return null;
+    }
+  }
+  
+  // Если строка, проверяем, является ли она валидным JSON
+  if (typeof value === 'string') {
+    // Если строка уже выглядит как JSON объект/массив, возвращаем как есть
+    let trimmed = value.trim();
+    
+    // Удаляем лишние кавычки в начале и конце, если они есть
+    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || 
+        (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+      trimmed = trimmed.slice(1, -1);
+    }
+    
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || 
+        (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      try {
+        // Проверяем валидность JSON
+        JSON.parse(trimmed);
+        return trimmed;
+      } catch (error) {
+        // Если невалидный JSON, пытаемся исправить
+        console.warn(`   ⚠️  Исправляем невалидный JSON для колонки ${columnName}`);
+        
+        // Исправляем проблемы с экранированием кавычек
+        // Убираем двойное экранирование
+        let fixed = trimmed.replace(/\\\\"/g, '\\"').replace(/\\"/g, '"');
+        
+        // Исправляем случаи типа: ...uri_mariko_","name":"Яндекс Еда"}"}
+        // Убираем лишние закрывающие скобки и кавычки в конце
+        fixed = fixed.replace(/}"}+$/g, '}');
+        fixed = fixed.replace(/]"+$/g, ']');
+        
+        // Убираем лишние открывающие кавычки в начале
+        fixed = fixed.replace(/^"{/g, '{');
+        fixed = fixed.replace(/^"\[/g, '[');
+        
+        try {
+          const parsed = JSON.parse(fixed);
+          return JSON.stringify(parsed); // Возвращаем нормализованный JSON
+        } catch (parseError) {
+          // Если все еще невалидный, пытаемся найти и извлечь валидный JSON из строки
+          const jsonMatch = fixed.match(/\{.*\}|\[.*\]/);
+          if (jsonMatch) {
+            try {
+              const parsed = JSON.parse(jsonMatch[0]);
+              return JSON.stringify(parsed);
+            } catch {
+              // Если ничего не помогло, возвращаем пустой массив или объект
+              console.warn(`   ⚠️  Не удалось исправить JSON для ${columnName}, используем пустое значение`);
+              return trimmed.startsWith('[') ? '[]' : '{}';
+            }
+          }
+          return trimmed.startsWith('[') ? '[]' : '{}';
+        }
+      }
+    }
+    // Если не JSON, возвращаем как есть (будет преобразовано в JSON строку)
+    return value;
+  }
+  
+  return value;
+}
+
+/**
  * Копирует данные из исходной таблицы в целевую
  */
 async function copyTableData(sourcePool, targetPool, tableName) {
@@ -377,6 +456,21 @@ async function copyTableData(sourcePool, targetPool, tableName) {
     }
 
     console.log(`   📊 Всего записей для копирования: ${totalRows}`);
+
+    // Получаем информацию о типах колонок для правильной обработки JSON
+    const columnsInfoResult = await sourcePool.query(`
+      SELECT column_name, data_type, udt_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = $1
+    `, [tableName]);
+    
+    const columnTypes = {};
+    for (const col of columnsInfoResult.rows) {
+      columnTypes[col.column_name] = {
+        dataType: col.data_type,
+        udtName: col.udt_name
+      };
+    }
 
     // Получаем имена колонок из первой записи
     const sampleResult = await sourcePool.query(`SELECT * FROM ${tableName} LIMIT 1`);
@@ -417,7 +511,7 @@ async function copyTableData(sourcePool, targetPool, tableName) {
       } catch (orderError) {
         // Если ORDER BY не работает, пробуем без него
         console.warn(`   ⚠️  ORDER BY не работает для ${tableName}, используем альтернативный метод`);
-        return await copyTableDataAlternative(sourcePool, targetPool, tableName);
+        return await copyTableDataAlternative(sourcePool, targetPool, tableName, columnTypes);
       }
 
       if (batchResult.rows.length === 0) {
@@ -432,7 +526,15 @@ async function copyTableData(sourcePool, targetPool, tableName) {
       const values = [];
       for (const row of batchResult.rows) {
         for (const col of columns) {
-          values.push(row[col]);
+          const colType = columnTypes[col];
+          let value = row[col];
+          
+          // Обрабатываем JSON/JSONB колонки
+          if (colType && (colType.udtName === 'json' || colType.udtName === 'jsonb')) {
+            value = normalizeJsonValue(value, col);
+          }
+          
+          values.push(value);
         }
       }
 
@@ -453,9 +555,21 @@ async function copyTableData(sourcePool, targetPool, tableName) {
   } catch (error) {
     console.error(`\n   ❌ Ошибка копирования данных таблицы ${tableName}:`, error.message);
     // Если батчинг не сработал, пробуем построчно (для таблиц без ORDER BY)
-    if (error.message.includes("ORDER BY") || error.message.includes("does not exist")) {
+    if (error.message.includes("ORDER BY") || error.message.includes("does not exist") || error.message.includes("json")) {
       console.log(`   🔄 Пробуем альтернативный метод копирования...`);
-      return await copyTableDataAlternative(sourcePool, targetPool, tableName);
+      const columnsInfoResult = await sourcePool.query(`
+        SELECT column_name, data_type, udt_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = $1
+      `, [tableName]);
+      const columnTypes = {};
+      for (const col of columnsInfoResult.rows) {
+        columnTypes[col.column_name] = {
+          dataType: col.data_type,
+          udtName: col.udt_name
+        };
+      }
+      return await copyTableDataAlternative(sourcePool, targetPool, tableName, columnTypes);
     }
     throw error;
   }
@@ -464,13 +578,29 @@ async function copyTableData(sourcePool, targetPool, tableName) {
 /**
  * Альтернативный метод копирования данных (построчно)
  */
-async function copyTableDataAlternative(sourcePool, targetPool, tableName) {
+async function copyTableDataAlternative(sourcePool, targetPool, tableName, columnTypes = {}) {
   try {
     const sourceResult = await sourcePool.query(`SELECT * FROM ${tableName}`);
     const rows = sourceResult.rows;
     
     if (rows.length === 0) {
       return 0;
+    }
+
+    // Если типы колонок не переданы, получаем их
+    if (Object.keys(columnTypes).length === 0) {
+      const columnsInfoResult = await sourcePool.query(`
+        SELECT column_name, data_type, udt_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = $1
+      `, [tableName]);
+      
+      for (const col of columnsInfoResult.rows) {
+        columnTypes[col.column_name] = {
+          dataType: col.data_type,
+          udtName: col.udt_name
+        };
+      }
     }
 
     const columns = Object.keys(rows[0]);
@@ -480,7 +610,18 @@ async function copyTableDataAlternative(sourcePool, targetPool, tableName) {
     let copied = 0;
     for (const row of rows) {
       try {
-        const values = columns.map((col) => row[col]);
+        const values = columns.map((col) => {
+          const colType = columnTypes[col];
+          let value = row[col];
+          
+          // Обрабатываем JSON/JSONB колонки
+          if (colType && (colType.udtName === 'json' || colType.udtName === 'jsonb')) {
+            value = normalizeJsonValue(value, col);
+          }
+          
+          return value;
+        });
+        
         await targetPool.query(
           `INSERT INTO ${tableName} (${columnNames}) VALUES (${placeholders}) ON CONFLICT DO NOTHING`,
           values
@@ -492,6 +633,9 @@ async function copyTableDataAlternative(sourcePool, targetPool, tableName) {
       } catch (rowError) {
         // Пропускаем проблемные строки и продолжаем
         console.warn(`\n   ⚠️  Пропущена строка из-за ошибки:`, rowError.message);
+        if (rowError.detail) {
+          console.warn(`   Детали:`, rowError.detail);
+        }
       }
     }
     
@@ -504,13 +648,43 @@ async function copyTableDataAlternative(sourcePool, targetPool, tableName) {
 }
 
 /**
+ * Проверяет существование индекса
+ */
+async function indexExists(targetPool, indexName) {
+  try {
+    const result = await targetPool.query(`
+      SELECT COUNT(*) as count
+      FROM pg_indexes
+      WHERE schemaname = 'public' AND indexname = $1
+    `, [indexName]);
+    return parseInt(result.rows[0].count, 10) > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Создает индексы для таблицы
  */
 async function createIndexes(targetPool, tableName, indexes) {
   for (const indexDef of indexes) {
     try {
-      await targetPool.query(indexDef);
-      const indexName = indexDef.match(/CREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?([^\s]+)/i)?.[1];
+      // Извлекаем имя индекса из определения
+      const indexNameMatch = indexDef.match(/CREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?([^\s(]+)/i);
+      const indexName = indexNameMatch ? indexNameMatch[1].replace(/"/g, '') : null;
+      
+      // Проверяем существование индекса
+      if (indexName && await indexExists(targetPool, indexName)) {
+        continue; // Пропускаем, если индекс уже существует
+      }
+      
+      // Модифицируем определение индекса, добавляя IF NOT EXISTS если его нет
+      let modifiedIndexDef = indexDef;
+      if (!indexDef.includes('IF NOT EXISTS')) {
+        modifiedIndexDef = indexDef.replace(/CREATE\s+(UNIQUE\s+)?INDEX\s+/i, 'CREATE $1INDEX IF NOT EXISTS ');
+      }
+      
+      await targetPool.query(modifiedIndexDef);
       console.log(`   ✅ Индекс ${indexName || "unknown"} создан`);
     } catch (error) {
       const errorMsg = error.message || String(error);
@@ -597,11 +771,32 @@ async function createForeignKeys(targetPool, tableName, foreignKeys) {
 }
 
 /**
+ * Проверяет существование constraint
+ */
+async function constraintExists(targetPool, constraintName) {
+  try {
+    const result = await targetPool.query(`
+      SELECT COUNT(*) as count
+      FROM information_schema.table_constraints
+      WHERE constraint_schema = 'public' AND constraint_name = $1
+    `, [constraintName]);
+    return parseInt(result.rows[0].count, 10) > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Создает CHECK constraints для таблицы
  */
 async function createCheckConstraints(targetPool, tableName, checkConstraints) {
   for (const check of checkConstraints) {
     try {
+      // Проверяем существование constraint
+      if (await constraintExists(targetPool, check.name)) {
+        continue; // Пропускаем, если constraint уже существует
+      }
+      
       // Экранируем имя constraint кавычками, если оно начинается с цифры или содержит специальные символы
       const constraintName = /^[0-9]/.test(check.name) || check.name.includes('_') 
         ? `"${check.name}"` 
@@ -629,6 +824,11 @@ async function createCheckConstraints(targetPool, tableName, checkConstraints) {
 async function createUniqueConstraints(targetPool, tableName, uniqueConstraints) {
   for (const unique of uniqueConstraints) {
     try {
+      // Проверяем существование constraint
+      if (await constraintExists(targetPool, unique.name)) {
+        continue; // Пропускаем, если constraint уже существует
+      }
+      
       const columnsStr = unique.columns.map((col) => `"${col}"`).join(", ");
       const uniqueSql = `
         ALTER TABLE ${tableName}
@@ -789,11 +989,28 @@ async function getFullTableDefinition(sourcePool, tableName) {
   return `CREATE TABLE "${tableName}" (\n${columnDefs.join(",\n")}\n);`;
 }
 
+// Флаг для отслеживания состояния миграции
+let migrationInProgress = false;
+let poolsClosed = false;
+
 /**
  * Основная функция миграции
  * Экспортируется для программного использования
  */
 export async function migrateDatabase() {
+  // Защита от повторного запуска
+  if (migrationInProgress) {
+    console.warn("⚠️  Миграция уже выполняется, пропускаем повторный запуск");
+    return;
+  }
+  
+  if (poolsClosed) {
+    console.warn("⚠️  Пул подключений уже закрыт, невозможно запустить миграцию");
+    return;
+  }
+  
+  migrationInProgress = true;
+  
   console.log("🚀 Начинаем миграцию базы данных...");
   console.log("📊 Источник: VK Cloud PostgreSQL");
   console.log("📊 Целевая БД: Railway PostgreSQL\n");
@@ -805,8 +1022,8 @@ export async function migrateDatabase() {
 
   if (!sourceConnected || !targetConnected) {
     console.error("❌ Не удалось подключиться к одной из баз данных");
-    await sourcePool.end();
-    await targetPool.end();
+    migrationInProgress = false;
+    await closePools();
     const error = new Error("Не удалось подключиться к одной из баз данных");
     
     // Проверяем, запущен ли скрипт напрямую
@@ -873,6 +1090,30 @@ export async function migrateDatabase() {
         }
         migrationStats.tablesCreated++;
 
+        // Создаем PRIMARY KEY если он есть в исходной таблице
+        const primaryKey = await getPrimaryKey(sourcePool, tableName);
+        if (primaryKey) {
+          try {
+            // Проверяем, существует ли уже PRIMARY KEY
+            const existingPk = await getPrimaryKey(targetPool, tableName);
+            if (!existingPk) {
+              const pkColumns = primaryKey.columns.map((col) => `"${col}"`).join(", ");
+              const pkSql = `
+                ALTER TABLE ${tableName}
+                ADD CONSTRAINT ${primaryKey.name}
+                PRIMARY KEY (${pkColumns})
+              `;
+              await targetPool.query(pkSql);
+              console.log(`   ✅ PRIMARY KEY ${primaryKey.name} создан`);
+            }
+          } catch (error) {
+            const errorMsg = error.message || String(error);
+            if (!errorMsg.includes("already exists") && !errorMsg.includes("duplicate")) {
+              console.warn(`   ⚠️  Предупреждение при создании PRIMARY KEY:`, errorMsg);
+            }
+          }
+        }
+
         // Копируем данные
         const rowsCopied = await copyTableData(sourcePool, targetPool, tableName);
         migrationStats.totalRowsCopied += rowsCopied;
@@ -882,13 +1123,6 @@ export async function migrateDatabase() {
         if (indexes.length > 0) {
           console.log(`   🔗 Создаем индексы (${indexes.length})...`);
           await createIndexes(targetPool, tableName, indexes);
-        }
-
-        // Создаем foreign keys
-        const foreignKeys = await getForeignKeys(sourcePool, tableName);
-        if (foreignKeys.length > 0) {
-          console.log(`   🔗 Создаем foreign keys (${foreignKeys.length})...`);
-          await createForeignKeys(targetPool, tableName, foreignKeys);
         }
 
         // Создаем CHECK constraints
@@ -903,6 +1137,13 @@ export async function migrateDatabase() {
         if (uniqueConstraints.length > 0) {
           console.log(`   🔗 Создаем UNIQUE constraints (${uniqueConstraints.length})...`);
           await createUniqueConstraints(targetPool, tableName, uniqueConstraints);
+        }
+
+        // Создаем foreign keys (после создания всех таблиц и constraints)
+        const foreignKeys = await getForeignKeys(sourcePool, tableName);
+        if (foreignKeys.length > 0) {
+          console.log(`   🔗 Создаем foreign keys (${foreignKeys.length})...`);
+          await createForeignKeys(targetPool, tableName, foreignKeys);
         }
 
         console.log(`✅ Таблица ${tableName} успешно мигрирована\n`);
@@ -929,12 +1170,42 @@ export async function migrateDatabase() {
     }
   } catch (error) {
     console.error("\n❌ Критическая ошибка миграции:", error);
+    migrationInProgress = false;
+    await closePools();
     throw error;
   } finally {
-    await sourcePool.end();
-    await targetPool.end();
-    console.log("\n🔌 Подключения закрыты");
+    migrationInProgress = false;
+    await closePools();
   }
+}
+
+/**
+ * Безопасно закрывает пулы подключений
+ */
+async function closePools() {
+  if (poolsClosed) {
+    return;
+  }
+  
+  poolsClosed = true;
+  
+  try {
+    if (sourcePool && !sourcePool.ended) {
+      await sourcePool.end();
+    }
+  } catch (error) {
+    console.warn("⚠️  Ошибка при закрытии sourcePool:", error.message);
+  }
+  
+  try {
+    if (targetPool && !targetPool.ended) {
+      await targetPool.end();
+    }
+  } catch (error) {
+    console.warn("⚠️  Ошибка при закрытии targetPool:", error.message);
+  }
+  
+  console.log("\n🔌 Подключения закрыты");
 }
 
 // Запускаем миграцию только если скрипт запущен напрямую (не импортирован)
