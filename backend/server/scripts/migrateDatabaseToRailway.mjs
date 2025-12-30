@@ -171,12 +171,14 @@ async function getTableStructure(pool, tableName) {
 async function getTableIndexes(pool, tableName) {
   const result = await pool.query(`
     SELECT 
-      indexname,
-      indexdef
-    FROM pg_indexes
-    WHERE schemaname = 'public' 
-    AND tablename = $1
-    AND indexname NOT LIKE '%_pkey'
+      i.indexname,
+      i.indexdef
+    FROM pg_indexes i
+    JOIN pg_class c ON c.relname = i.tablename
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' 
+    AND i.tablename = $1
+    AND i.indexname NOT LIKE '%_pkey'
   `, [tableName]);
   
   return result.rows.map((row) => row.indexdef);
@@ -520,11 +522,61 @@ async function createIndexes(targetPool, tableName, indexes) {
 }
 
 /**
+ * Проверяет наличие PRIMARY KEY или UNIQUE constraint на колонке
+ */
+async function checkUniqueConstraint(targetPool, tableName, columnName) {
+  try {
+    // Проверяем PRIMARY KEY
+    const pkResult = await targetPool.query(`
+      SELECT COUNT(*) as count
+      FROM pg_index i
+      JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+      JOIN pg_class c ON c.oid = i.indrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public'
+      AND c.relname = $1
+      AND a.attname = $2
+      AND i.indisprimary
+    `, [tableName, columnName]);
+    
+    if (parseInt(pkResult.rows[0].count, 10) > 0) {
+      return true;
+    }
+    
+    // Проверяем UNIQUE constraint
+    const uniqueResult = await targetPool.query(`
+      SELECT COUNT(*) as count
+      FROM pg_index i
+      JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+      JOIN pg_class c ON c.oid = i.indrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public'
+      AND c.relname = $1
+      AND a.attname = $2
+      AND i.indisunique
+      AND NOT i.indisprimary
+    `, [tableName, columnName]);
+    
+    return parseInt(uniqueResult.rows[0].count, 10) > 0;
+  } catch (error) {
+    console.warn(`   ⚠️  Не удалось проверить constraint для ${tableName}.${columnName}:`, error.message);
+    return false;
+  }
+}
+
+/**
  * Создает foreign keys для таблицы
  */
 async function createForeignKeys(targetPool, tableName, foreignKeys) {
   for (const fk of foreignKeys) {
     try {
+      // Проверяем наличие PRIMARY KEY или UNIQUE constraint на целевой колонке
+      const hasUnique = await checkUniqueConstraint(targetPool, fk.foreignTable, fk.foreignColumn);
+      if (!hasUnique) {
+        console.warn(`   ⚠️  Пропускаем foreign key ${fk.name}: таблица ${fk.foreignTable} не имеет PRIMARY KEY или UNIQUE constraint на колонке ${fk.foreignColumn}`);
+        continue;
+      }
+      
       const fkSql = `
         ALTER TABLE ${tableName}
         ADD CONSTRAINT ${fk.name}
@@ -550,9 +602,14 @@ async function createForeignKeys(targetPool, tableName, foreignKeys) {
 async function createCheckConstraints(targetPool, tableName, checkConstraints) {
   for (const check of checkConstraints) {
     try {
+      // Экранируем имя constraint кавычками, если оно начинается с цифры или содержит специальные символы
+      const constraintName = /^[0-9]/.test(check.name) || check.name.includes('_') 
+        ? `"${check.name}"` 
+        : check.name;
+      
       const checkSql = `
         ALTER TABLE ${tableName}
-        ADD CONSTRAINT ${check.name}
+        ADD CONSTRAINT ${constraintName}
         CHECK (${check.clause})
       `;
       await targetPool.query(checkSql);
@@ -627,31 +684,44 @@ async function getFullTableDefinition(sourcePool, tableName) {
     // Используем более надежный способ получения определения таблицы
     const result = await sourcePool.query(`
       SELECT 
-        'CREATE TABLE ' || quote_ident(schemaname) || '.' || quote_ident(tablename) || ' (' || E'\\n' ||
+        'CREATE TABLE ' || quote_ident(n.nspname) || '.' || quote_ident(c.relname) || ' (' || E'\\n' ||
         string_agg(
-          '  ' || quote_ident(column_name) || ' ' ||
-          pg_catalog.format_type(atttypid, atttypmod) ||
-          CASE WHEN attnotnull THEN ' NOT NULL' ELSE '' END ||
-          CASE WHEN atthasdef THEN ' DEFAULT ' || pg_get_expr(adbin, adrelid) ELSE '' END,
+          '  ' || quote_ident(a.attname) || ' ' ||
+          -- Очищаем модификаторы типов для int8, int4, bigint, integer (удаляем (64), (32) и т.д.)
+          regexp_replace(
+            regexp_replace(
+              pg_catalog.format_type(a.atttypid, a.atttypmod),
+              '\\m(int8|bigint)\\(\\d+\\)',
+              '\\1',
+              'g'
+            ),
+            '\\m(int4|integer)\\(\\d+\\)',
+            '\\1',
+            'g'
+          ) ||
+          CASE WHEN a.attnotnull THEN ' NOT NULL' ELSE '' END ||
+          CASE WHEN a.atthasdef THEN ' DEFAULT ' || pg_get_expr(ad.adbin, ad.adrelid) ELSE '' END,
           ',' || E'\\n'
         ) || E'\\n' || ');' as create_statement
       FROM pg_attribute a
       JOIN pg_class c ON a.attrelid = c.oid
       JOIN pg_namespace n ON c.relnamespace = n.oid
       LEFT JOIN pg_attrdef ad ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum
-      JOIN information_schema.columns ic ON 
-        ic.table_schema = n.nspname AND 
-        ic.table_name = c.relname AND 
-        ic.column_name = a.attname
       WHERE n.nspname = 'public'
       AND c.relname = $1
       AND a.attnum > 0
       AND NOT a.attisdropped
-      GROUP BY schemaname, tablename
+      GROUP BY n.nspname, c.relname
     `, [tableName]);
 
     if (result.rows.length > 0 && result.rows[0].create_statement) {
-      return result.rows[0].create_statement;
+      let createStatement = result.rows[0].create_statement;
+      // Дополнительная очистка модификаторов типов
+      createStatement = createStatement.replace(/\bint8\(\d+\)/g, 'int8');
+      createStatement = createStatement.replace(/\bint4\(\d+\)/g, 'int4');
+      createStatement = createStatement.replace(/\bbigint\(\d+\)/g, 'bigint');
+      createStatement = createStatement.replace(/\binteger\(\d+\)/g, 'integer');
+      return createStatement;
     }
   } catch (error) {
     console.warn(`⚠️  Не удалось получить определение таблицы ${tableName} через pg_catalog:`, error.message);
@@ -681,17 +751,27 @@ async function getFullTableDefinition(sourcePool, tableName) {
   const columnDefs = columnsResult.rows.map((col) => {
     let typeDef = col.udt_name || col.data_type;
     
+    // Не добавляем модификаторы для int8, int4, bigint, integer
+    const integerTypes = ['int8', 'int4', 'bigint', 'integer'];
+    const isIntegerType = integerTypes.includes(typeDef.toLowerCase());
+    
     if (col.character_maximum_length) {
       typeDef += `(${col.character_maximum_length})`;
-    } else if (col.numeric_precision && col.numeric_scale) {
+    } else if (!isIntegerType && col.numeric_precision && col.numeric_scale) {
       typeDef += `(${col.numeric_precision},${col.numeric_scale})`;
-    } else if (col.numeric_precision) {
+    } else if (!isIntegerType && col.numeric_precision) {
       typeDef += `(${col.numeric_precision})`;
     }
     
     if (col.data_type === "ARRAY") {
       typeDef = col.udt_name.replace("_", "") + "[]";
     }
+    
+    // Очищаем модификаторы для integer типов, если они были добавлены
+    typeDef = typeDef.replace(/\bint8\(\d+\)/g, 'int8');
+    typeDef = typeDef.replace(/\bint4\(\d+\)/g, 'int4');
+    typeDef = typeDef.replace(/\bbigint\(\d+\)/g, 'bigint');
+    typeDef = typeDef.replace(/\binteger\(\d+\)/g, 'integer');
     
     let def = `  "${col.column_name}" ${typeDef}`;
     
