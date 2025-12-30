@@ -34,9 +34,35 @@ psql "$DATABASE_URL" -c "SELECT 1"
 
 ## Запуск миграции
 
-⚠️ **ВАЖНО:** Скрипт миграции НЕ запускается автоматически при деплое. Это одноразовая операция, которую нужно выполнить вручную.
+✅ **АВТОМАТИЧЕСКИЙ РЕЖИМ:** Скрипт автоматически запускается при старте приложения, если установлена переменная `SOURCE_DATABASE_URL`. 
 
-### Вариант 1: Запуск через Railway CLI (рекомендуется)
+Если переменная `SOURCE_DATABASE_URL` отсутствует - миграция не выполняется.
+
+**Как это работает:**
+- При запуске приложения проверяется наличие `SOURCE_DATABASE_URL`
+- Если переменная установлена и в целевой БД нет данных - запускается миграция
+- Если в целевой БД уже есть данные - миграция пропускается
+- После успешной миграции можно удалить `SOURCE_DATABASE_URL`
+
+### Автоматический запуск при деплое
+
+Просто установите переменную `SOURCE_DATABASE_URL` в Railway:
+
+```bash
+railway variables set SOURCE_DATABASE_URL="postgresql://user:password@vk-cloud-host:port/database" --service backend
+```
+
+При следующем деплое миграция запустится автоматически. После успешной миграции удалите переменную:
+
+```bash
+railway variables unset SOURCE_DATABASE_URL --service backend
+```
+
+---
+
+### Ручной запуск (если нужно запустить миграцию вручную)
+
+#### Вариант 1: Запуск через Railway CLI
 
 1. Установите Railway CLI (если еще не установлен):
    ```bash
@@ -66,7 +92,7 @@ psql "$DATABASE_URL" -c "SELECT 1"
    railway run --service backend node backend/server/scripts/migrateDatabaseToRailway.mjs
    ```
 
-### Вариант 2: Запуск локально
+#### Вариант 2: Запуск локально
 
 1. Создайте файл `backend/server/.env.local`:
    ```bash
@@ -85,7 +111,7 @@ psql "$DATABASE_URL" -c "SELECT 1"
    node backend/server/scripts/migrateDatabaseToRailway.mjs
    ```
 
-### Вариант 3: Запуск через Railway Console (веб-интерфейс)
+#### Вариант 3: Запуск через Railway Console (веб-интерфейс)
 
 1. Откройте ваш проект в Railway
 2. Перейдите в раздел вашего backend сервиса
