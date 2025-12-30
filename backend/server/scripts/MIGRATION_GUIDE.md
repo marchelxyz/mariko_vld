@@ -34,18 +34,67 @@ psql "$DATABASE_URL" -c "SELECT 1"
 
 ## Запуск миграции
 
-### Локальный запуск
+⚠️ **ВАЖНО:** Скрипт миграции НЕ запускается автоматически при деплое. Это одноразовая операция, которую нужно выполнить вручную.
 
-```bash
-cd backend/server
-node scripts/migrateDatabaseToRailway.mjs
-```
+### Вариант 1: Запуск через Railway CLI (рекомендуется)
 
-### Запуск из корня проекта
+1. Установите Railway CLI (если еще не установлен):
+   ```bash
+   npm i -g @railway/cli
+   ```
 
-```bash
-node backend/server/scripts/migrateDatabaseToRailway.mjs
-```
+2. Войдите в Railway:
+   ```bash
+   railway login
+   ```
+
+3. Подключитесь к вашему проекту:
+   ```bash
+   railway link
+   ```
+
+4. Установите переменные окружения в Railway:
+   ```bash
+   # Установите SOURCE_DATABASE_URL (VK Cloud)
+   railway variables set SOURCE_DATABASE_URL="postgresql://user:password@vk-cloud-host:port/database" --service backend
+   
+   # DATABASE_URL уже должен быть установлен Railway автоматически
+   ```
+
+5. Запустите скрипт миграции через Railway:
+   ```bash
+   railway run --service backend node backend/server/scripts/migrateDatabaseToRailway.mjs
+   ```
+
+### Вариант 2: Запуск локально
+
+1. Создайте файл `backend/server/.env.local`:
+   ```bash
+   SOURCE_DATABASE_URL=postgresql://user:password@vk-cloud-host:port/database
+   DATABASE_URL=postgresql://user:password@railway-host:port/database
+   ```
+
+2. Запустите скрипт:
+   ```bash
+   cd backend/server
+   node scripts/migrateDatabaseToRailway.mjs
+   ```
+
+   Или из корня проекта:
+   ```bash
+   node backend/server/scripts/migrateDatabaseToRailway.mjs
+   ```
+
+### Вариант 3: Запуск через Railway Console (веб-интерфейс)
+
+1. Откройте ваш проект в Railway
+2. Перейдите в раздел вашего backend сервиса
+3. Откройте вкладку "Deployments" или "Settings"
+4. Найдите раздел "Run Command" или используйте "Shell"
+5. Выполните команду:
+   ```bash
+   node backend/server/scripts/migrateDatabaseToRailway.mjs
+   ```
 
 ## Что мигрирует скрипт
 
@@ -93,6 +142,16 @@ node backend/server/scripts/migrateDatabaseToRailway.mjs
 - В конце выводится статистика успешно мигрированных таблиц
 
 ## После миграции
+
+### Удаление SOURCE_DATABASE_URL
+
+После успешной миграции можно удалить переменную `SOURCE_DATABASE_URL` из Railway, так как она больше не нужна:
+
+```bash
+railway variables unset SOURCE_DATABASE_URL --service backend
+```
+
+Или через веб-интерфейс Railway удалите переменную вручную.
 
 ### Проверка данных
 
