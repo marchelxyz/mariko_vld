@@ -448,6 +448,63 @@ export async function initializeDatabase() {
       console.warn("⚠️  Не удалось обновить constraint ролей админов:", error?.message || error);
     }
 
+    // Убеждаемся, что все таблицы имеют PRIMARY KEY constraints перед созданием foreign keys
+    console.log("🔑 Проверяем и создаем PRIMARY KEY constraints...");
+    const primaryKeyChecks = [
+      { table: "user_profiles", column: "id", type: "VARCHAR(255)" },
+      { table: CART_ORDERS_TABLE, column: "id", type: "UUID" },
+      { table: "cities", column: "id", type: "VARCHAR(255)" },
+      { table: "restaurants", column: "id", type: "VARCHAR(255)" },
+      { table: "menu_categories", column: "id", type: "VARCHAR(255)" },
+      { table: "menu_items", column: "id", type: "VARCHAR(255)" },
+    ];
+
+    for (const pk of primaryKeyChecks) {
+      try {
+        // Проверяем, есть ли PRIMARY KEY на этой колонке
+        const pkCheck = await query(`
+          SELECT constraint_name 
+          FROM information_schema.table_constraints tc
+          JOIN information_schema.key_column_usage kcu 
+            ON tc.constraint_name = kcu.constraint_name
+          WHERE tc.table_name = $1 
+            AND kcu.column_name = $2
+            AND tc.constraint_type = 'PRIMARY KEY'
+            AND tc.table_schema = 'public'
+        `, [pk.table, pk.column]);
+
+        if (pkCheck.rows.length === 0) {
+          // Проверяем, существует ли колонка
+          const columnCheck = await query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = $1 AND column_name = $2 AND table_schema = 'public'
+          `, [pk.table, pk.column]);
+
+          if (columnCheck.rows.length > 0) {
+            // Создаем PRIMARY KEY constraint
+            await query(`
+              ALTER TABLE ${pk.table} 
+              ADD CONSTRAINT ${pk.table}_pkey PRIMARY KEY (${pk.column})
+            `);
+            console.log(`✅ PRIMARY KEY создан для ${pk.table}.${pk.column}`);
+          } else {
+            console.warn(`⚠️  Колонка ${pk.table}.${pk.column} не найдена`);
+          }
+        } else {
+          console.log(`ℹ️  PRIMARY KEY уже существует для ${pk.table}.${pk.column}`);
+        }
+      } catch (error) {
+        const errorMsg = error.message || String(error);
+        // Игнорируем ошибки, если PRIMARY KEY уже существует
+        if (!errorMsg.includes("already exists") && 
+            !errorMsg.includes("duplicate") &&
+            !errorMsg.includes("violates unique constraint")) {
+          console.warn(`⚠️  Предупреждение при проверке PRIMARY KEY для ${pk.table}.${pk.column}:`, errorMsg);
+        }
+      }
+    }
+
     // Создаем foreign keys отдельно (после создания всех таблиц)
     console.log("🔗 Создаем foreign keys...");
     const foreignKeys = [
@@ -533,21 +590,45 @@ export async function initializeDatabase() {
         `, [fk.name]);
         
         if (checkResult.rows.length === 0) {
+          // Перед созданием foreign key проверяем наличие уникального ограничения на ссылаемой таблице
+          const referencedTableMatch = fk.sql.match(/REFERENCES\s+(\w+)\((\w+)\)/i);
+          if (referencedTableMatch) {
+            const [, refTable, refColumn] = referencedTableMatch;
+            const uniqueCheck = await query(`
+              SELECT constraint_name 
+              FROM information_schema.table_constraints tc
+              JOIN information_schema.key_column_usage kcu 
+                ON tc.constraint_name = kcu.constraint_name
+              WHERE tc.table_name = $1 
+                AND kcu.column_name = $2
+                AND tc.constraint_type IN ('PRIMARY KEY', 'UNIQUE')
+                AND tc.table_schema = 'public'
+            `, [refTable, refColumn]);
+
+            if (uniqueCheck.rows.length === 0) {
+              console.warn(`⚠️  Пропуск создания foreign key ${fk.name}: таблица ${refTable}.${refColumn} не имеет PRIMARY KEY или UNIQUE constraint`);
+              continue;
+            }
+          }
+
           await query(fk.sql);
           console.log(`✅ Foreign key ${fk.name} создан`);
         } else {
           console.log(`ℹ️  Foreign key ${fk.name} уже существует`);
         }
       } catch (error) {
+        const errorCode = error.code || "";
         const errorMsg = error.message || String(error);
-        if (!errorMsg.includes("already exists") && 
-            !errorMsg.includes("duplicate") && 
-            !errorMsg.includes("does not exist") &&
-            !errorMsg.includes("constraint") &&
-            !errorMsg.includes("already")) {
-          console.warn(`⚠️  Предупреждение при создании foreign key ${fk.name}:`, errorMsg);
+        
+        // Ошибка 42830 означает отсутствие уникального ограничения
+        if (errorCode === "42830" || errorMsg.includes("no unique constraint matching given keys")) {
+          console.warn(`⚠️  Пропуск создания foreign key ${fk.name}: отсутствует уникальное ограничение на ссылаемой таблице`);
+        } else if (errorMsg.includes("already exists") || 
+                   errorMsg.includes("duplicate") || 
+                   errorMsg.includes("constraint") && errorMsg.includes("already")) {
+          console.log(`ℹ️  Foreign key ${fk.name} пропущен (уже существует)`);
         } else {
-          console.log(`ℹ️  Foreign key ${fk.name} пропущен (уже существует или не требуется)`);
+          console.warn(`⚠️  Ошибка при создании foreign key ${fk.name}:`, errorMsg);
         }
       }
     }
