@@ -472,6 +472,12 @@ async function copyTableData(sourcePool, targetPool, tableName) {
       };
     }
 
+    // Получаем PRIMARY KEY для использования в ON CONFLICT
+    const primaryKey = await getPrimaryKey(sourcePool, tableName);
+    const conflictClause = primaryKey 
+      ? `ON CONFLICT (${primaryKey.columns.map((col) => `"${col}"`).join(", ")}) DO NOTHING`
+      : "";
+
     // Получаем имена колонок из первой записи
     const sampleResult = await sourcePool.query(`SELECT * FROM ${tableName} LIMIT 1`);
     if (sampleResult.rows.length === 0) {
@@ -511,7 +517,7 @@ async function copyTableData(sourcePool, targetPool, tableName) {
       } catch (orderError) {
         // Если ORDER BY не работает, пробуем без него
         console.warn(`   ⚠️  ORDER BY не работает для ${tableName}, используем альтернативный метод`);
-        return await copyTableDataAlternative(sourcePool, targetPool, tableName, columnTypes);
+        return await copyTableDataAlternative(sourcePool, targetPool, tableName, columnTypes, primaryKey);
       }
 
       if (batchResult.rows.length === 0) {
@@ -538,11 +544,9 @@ async function copyTableData(sourcePool, targetPool, tableName) {
         }
       }
 
-      // Выполняем INSERT батча
-      await targetPool.query(
-        `INSERT INTO ${tableName} (${columnNames}) VALUES ${placeholders} ON CONFLICT DO NOTHING`,
-        values
-      );
+      // Выполняем INSERT батча с правильным ON CONFLICT
+      const insertQuery = `INSERT INTO ${tableName} (${columnNames}) VALUES ${placeholders} ${conflictClause}`;
+      await targetPool.query(insertQuery, values);
 
       copied += batchResult.rows.length;
       offset += batchSize;
@@ -555,7 +559,7 @@ async function copyTableData(sourcePool, targetPool, tableName) {
   } catch (error) {
     console.error(`\n   ❌ Ошибка копирования данных таблицы ${tableName}:`, error.message);
     // Если батчинг не сработал, пробуем построчно (для таблиц без ORDER BY)
-    if (error.message.includes("ORDER BY") || error.message.includes("does not exist") || error.message.includes("json")) {
+    if (error.message.includes("ORDER BY") || error.message.includes("does not exist") || error.message.includes("json") || error.message.includes("conflict")) {
       console.log(`   🔄 Пробуем альтернативный метод копирования...`);
       const columnsInfoResult = await sourcePool.query(`
         SELECT column_name, data_type, udt_name
@@ -569,7 +573,8 @@ async function copyTableData(sourcePool, targetPool, tableName) {
           udtName: col.udt_name
         };
       }
-      return await copyTableDataAlternative(sourcePool, targetPool, tableName, columnTypes);
+      const primaryKey = await getPrimaryKey(sourcePool, tableName);
+      return await copyTableDataAlternative(sourcePool, targetPool, tableName, columnTypes, primaryKey);
     }
     throw error;
   }
@@ -578,7 +583,7 @@ async function copyTableData(sourcePool, targetPool, tableName) {
 /**
  * Альтернативный метод копирования данных (построчно)
  */
-async function copyTableDataAlternative(sourcePool, targetPool, tableName, columnTypes = {}) {
+async function copyTableDataAlternative(sourcePool, targetPool, tableName, columnTypes = {}, primaryKey = null) {
   try {
     const sourceResult = await sourcePool.query(`SELECT * FROM ${tableName}`);
     const rows = sourceResult.rows;
@@ -603,6 +608,15 @@ async function copyTableDataAlternative(sourcePool, targetPool, tableName, colum
       }
     }
 
+    // Если PRIMARY KEY не передан, получаем его
+    if (!primaryKey) {
+      primaryKey = await getPrimaryKey(sourcePool, tableName);
+    }
+
+    const conflictClause = primaryKey 
+      ? `ON CONFLICT (${primaryKey.columns.map((col) => `"${col}"`).join(", ")}) DO NOTHING`
+      : "";
+
     const columns = Object.keys(rows[0]);
     const columnNames = columns.map((col) => `"${col}"`).join(", ");
     const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
@@ -622,10 +636,8 @@ async function copyTableDataAlternative(sourcePool, targetPool, tableName, colum
           return value;
         });
         
-        await targetPool.query(
-          `INSERT INTO ${tableName} (${columnNames}) VALUES (${placeholders}) ON CONFLICT DO NOTHING`,
-          values
-        );
+        const insertQuery = `INSERT INTO ${tableName} (${columnNames}) VALUES (${placeholders}) ${conflictClause}`;
+        await targetPool.query(insertQuery, values);
         copied++;
         if (copied % 100 === 0) {
           process.stdout.write(`\r   📊 Скопировано записей: ${copied}/${rows.length}`);

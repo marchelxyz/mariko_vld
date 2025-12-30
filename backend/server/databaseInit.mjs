@@ -468,6 +468,7 @@ export async function initializeDatabase() {
           JOIN information_schema.key_column_usage kcu 
             ON tc.constraint_name = kcu.constraint_name
             AND tc.table_schema = kcu.table_schema
+            AND tc.table_name = kcu.table_name
           WHERE tc.table_name = $1 
             AND kcu.column_name = $2
             AND tc.constraint_type = 'PRIMARY KEY'
@@ -601,6 +602,7 @@ export async function initializeDatabase() {
               JOIN information_schema.key_column_usage kcu 
                 ON tc.constraint_name = kcu.constraint_name
                 AND tc.table_schema = kcu.table_schema
+                AND tc.table_name = kcu.table_name
               WHERE tc.table_name = $1 
                 AND kcu.column_name = $2
                 AND tc.constraint_type IN ('PRIMARY KEY', 'UNIQUE')
