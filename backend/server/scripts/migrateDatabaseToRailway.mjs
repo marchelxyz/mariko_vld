@@ -711,8 +711,9 @@ async function getFullTableDefinition(sourcePool, tableName) {
 
 /**
  * Основная функция миграции
+ * Экспортируется для программного использования
  */
-async function migrateDatabase() {
+export async function migrateDatabase() {
   console.log("🚀 Начинаем миграцию базы данных...");
   console.log("📊 Источник: VK Cloud PostgreSQL");
   console.log("📊 Целевая БД: Railway PostgreSQL\n");
@@ -726,7 +727,20 @@ async function migrateDatabase() {
     console.error("❌ Не удалось подключиться к одной из баз данных");
     await sourcePool.end();
     await targetPool.end();
-    process.exit(1);
+    const error = new Error("Не удалось подключиться к одной из баз данных");
+    
+    // Проверяем, запущен ли скрипт напрямую
+    const currentModuleUrl = import.meta.url;
+    const scriptPath = process.argv[1];
+    const isMainModule = scriptPath && (
+      currentModuleUrl.includes("migrateDatabaseToRailway.mjs") ||
+      scriptPath.includes("migrateDatabaseToRailway.mjs")
+    );
+    
+    if (isMainModule) {
+      process.exit(1);
+    }
+    throw error;
   }
 
   try {
@@ -843,8 +857,18 @@ async function migrateDatabase() {
   }
 }
 
-// Запускаем миграцию
-migrateDatabase().catch((error) => {
-  console.error("❌ Фатальная ошибка:", error);
-  process.exit(1);
-});
+// Запускаем миграцию только если скрипт запущен напрямую (не импортирован)
+// Проверяем через сравнение URL модуля с путем запуска
+const currentModuleUrl = import.meta.url;
+const scriptPath = process.argv[1];
+const isMainModule = scriptPath && (
+  currentModuleUrl.includes("migrateDatabaseToRailway.mjs") ||
+  scriptPath.includes("migrateDatabaseToRailway.mjs")
+);
+
+if (isMainModule) {
+  migrateDatabase().catch((error) => {
+    console.error("❌ Фатальная ошибка:", error);
+    process.exit(1);
+  });
+}
