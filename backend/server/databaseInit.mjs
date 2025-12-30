@@ -463,10 +463,11 @@ export async function initializeDatabase() {
       try {
         // Проверяем, есть ли PRIMARY KEY на этой колонке
         const pkCheck = await query(`
-          SELECT constraint_name 
+          SELECT tc.constraint_name 
           FROM information_schema.table_constraints tc
           JOIN information_schema.key_column_usage kcu 
             ON tc.constraint_name = kcu.constraint_name
+            AND tc.table_schema = kcu.table_schema
           WHERE tc.table_name = $1 
             AND kcu.column_name = $2
             AND tc.constraint_type = 'PRIMARY KEY'
@@ -595,10 +596,11 @@ export async function initializeDatabase() {
           if (referencedTableMatch) {
             const [, refTable, refColumn] = referencedTableMatch;
             const uniqueCheck = await query(`
-              SELECT constraint_name 
+              SELECT tc.constraint_name 
               FROM information_schema.table_constraints tc
               JOIN information_schema.key_column_usage kcu 
                 ON tc.constraint_name = kcu.constraint_name
+                AND tc.table_schema = kcu.table_schema
               WHERE tc.table_name = $1 
                 AND kcu.column_name = $2
                 AND tc.constraint_type IN ('PRIMARY KEY', 'UNIQUE')
