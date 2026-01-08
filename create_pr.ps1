@@ -1,5 +1,14 @@
 # Скрипт для создания Pull Request через GitHub API
-$token = "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"
+# Используйте переменную окружения GH_TOKEN или GitHub CLI (gh)
+# Для установки токена: $env:GH_TOKEN = "your_token_here"
+
+$token = $env:GH_TOKEN
+if (-not $token) {
+    Write-Host "Ошибка: GH_TOKEN не установлен. Используйте GitHub CLI (gh) или установите переменную окружения." -ForegroundColor Red
+    Write-Host "Пример: `$env:GH_TOKEN = 'your_token_here'" -ForegroundColor Yellow
+    exit 1
+}
+
 $headers = @{
     "Authorization" = "Bearer $token"
     "Accept" = "application/vnd.github.v3+json"
