@@ -206,14 +206,29 @@ const Menu = (): JSX.Element => {
     });
   }, []);
 
+  const { maxCartItemQuantity } = useCart();
+  
   const handleAddToCart = useCallback(
     (dish: MenuItem) => {
       if (!canUseCartFeatures) {
         return;
       }
+      const currentCount = getItemCount(dish.id);
+      if (currentCount >= maxCartItemQuantity) {
+        toast({
+          title: "Лимит достигнут",
+          description: `Можно добавить не более ${maxCartItemQuantity} одинаковых блюд.`,
+          variant: "destructive",
+        });
+        return;
+      }
       addCartItem(dish);
+      toast({
+        title: "Добавлено в корзину",
+        description: `${dish.name}${currentCount > 0 ? ` (${currentCount + 1} шт.)` : ""}`,
+      });
     },
-    [addCartItem, canUseCartFeatures],
+    [addCartItem, canUseCartFeatures, getItemCount, maxCartItemQuantity],
   );
 
   const handleRemoveFromCart = useCallback(
@@ -221,9 +236,21 @@ const Menu = (): JSX.Element => {
       if (!canUseCartFeatures) {
         return;
       }
+      const currentCount = getItemCount(dish.id);
       removeCartItem(dish.id);
+      if (currentCount > 1) {
+        toast({
+          title: "Количество уменьшено",
+          description: `${dish.name} (${currentCount - 1} шт.)`,
+        });
+      } else {
+        toast({
+          title: "Удалено из корзины",
+          description: `${dish.name}`,
+        });
+      }
     },
-    [canUseCartFeatures, removeCartItem],
+    [canUseCartFeatures, removeCartItem, getItemCount],
   );
 
   const activeCategoryId = useMemo(
@@ -464,6 +491,7 @@ const Menu = (): JSX.Element => {
                     onIncrease={handleAddToCart}
                     onDecrease={handleRemoveFromCart}
                     quantity={quantity}
+                    maxCartItemQuantity={maxCartItemQuantity}
                     showAddButton={canUseCartFeatures}
                   />
                 );
@@ -570,21 +598,95 @@ const Menu = (): JSX.Element => {
                 <p className="text-base leading-relaxed text-gray-800">{activeDish.description}</p>
               )}
 
-              <p className="text-sm text-gray-600">
-                Отложите блюда в корзину перед бронированием — так мы лучше учтем ваши вкусы.
-              </p>
-              <button
-                type="button"
-                className="w-full rounded-xl bg-mariko-primary px-4 py-3 text-center font-semibold text-white shadow-lg transition hover:brightness-110 active:scale-[0.99]"
-                onClick={() => {
-                  if (activeDish) {
-                    handleAddDesiredDish(activeDish);
-                  }
-                  setActiveDish(null);
-                }}
-              >
-                Заказать/отложить
-              </button>
+              {canUseCartFeatures ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-600">
+                    Добавьте блюдо в корзину для оформления заказа.
+                  </p>
+                  <div className="flex items-center gap-3">
+                    {getItemCount(activeDish.id) > 0 ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveFromCart(activeDish);
+                          }}
+                          className="flex-1 rounded-xl border-2 border-mariko-primary px-4 py-3 text-center font-semibold text-mariko-primary shadow-lg transition hover:bg-mariko-primary/10 active:scale-[0.99]"
+                        >
+                          Убрать из корзины
+                        </button>
+                        <div className="flex items-center gap-2 rounded-xl border-2 border-mariko-primary px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveFromCart(activeDish);
+                            }}
+                            className="text-mariko-primary font-bold text-lg"
+                            aria-label="Уменьшить количество"
+                          >
+                            −
+                          </button>
+                          <span className="min-w-[32px] text-center font-semibold text-lg">
+                            {getItemCount(activeDish.id)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const currentCount = getItemCount(activeDish.id);
+                              if (currentCount >= maxCartItemQuantity) {
+                                toast({
+                                  title: "Лимит достигнут",
+                                  description: `Можно добавить не более ${maxCartItemQuantity} одинаковых блюд.`,
+                                  variant: "destructive",
+                                });
+                                return;
+                              }
+                              handleAddToCart(activeDish);
+                            }}
+                            className="text-mariko-primary font-bold text-lg"
+                            aria-label="Увеличить количество"
+                            disabled={getItemCount(activeDish.id) >= maxCartItemQuantity}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="w-full rounded-xl bg-mariko-primary px-4 py-3 text-center font-semibold text-white shadow-lg transition hover:brightness-110 active:scale-[0.99]"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddToCart(activeDish);
+                        }}
+                      >
+                        Добавить в корзину
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-600">
+                    Отложите блюда в корзину перед бронированием — так мы лучше учтем ваши вкусы.
+                  </p>
+                  <button
+                    type="button"
+                    className="w-full rounded-xl bg-mariko-primary px-4 py-3 text-center font-semibold text-white shadow-lg transition hover:brightness-110 active:scale-[0.99]"
+                    onClick={() => {
+                      if (activeDish) {
+                        handleAddDesiredDish(activeDish);
+                      }
+                      setActiveDish(null);
+                    }}
+                  >
+                    Заказать/отложить
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

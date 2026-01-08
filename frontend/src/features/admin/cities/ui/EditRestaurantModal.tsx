@@ -25,6 +25,7 @@ type EditRestaurantModalProps = {
     socialNetworks: SocialNetwork[];
     remarkedRestaurantId?: number;
     reviewLink: string;
+    maxCartItemQuantity?: number;
   }) => Promise<void>;
 };
 
@@ -67,6 +68,7 @@ export function EditRestaurantModal({
   const [socialNetworks, setSocialNetworks] = useState<SocialNetwork[]>([]);
   const [remarkedRestaurantId, setRemarkedRestaurantId] = useState<string>('');
   const [reviewLink, setReviewLink] = useState('');
+  const [maxCartItemQuantity, setMaxCartItemQuantity] = useState<string>('10');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -80,6 +82,7 @@ export function EditRestaurantModal({
       setSocialNetworks(restaurant.socialNetworks || []);
       setRemarkedRestaurantId(restaurant.remarkedRestaurantId?.toString() || '');
       setReviewLink(restaurant.reviewLink || '');
+      setMaxCartItemQuantity((restaurant as any).maxCartItemQuantity?.toString() || '10');
     }
   }, [restaurant, isOpen]);
 
@@ -167,6 +170,14 @@ export function EditRestaurantModal({
           return parsed;
         })() : undefined,
         reviewLink: reviewLink.trim(),
+        maxCartItemQuantity: (() => {
+          const parsed = parseInt(maxCartItemQuantity.trim(), 10);
+          if (isNaN(parsed) || parsed < 1) {
+            alert('Максимальное количество блюд должно быть числом больше 0');
+            throw new Error('Invalid maxCartItemQuantity');
+          }
+          return parsed;
+        })(),
       });
       onClose();
     } catch (error) {
@@ -243,6 +254,20 @@ export function EditRestaurantModal({
             />
             <p className="text-white/60 text-xs mt-1">
               Ссылка на страницу отзывов ресторана. Используется в кнопке "Оставить отзыв"
+            </p>
+          </div>
+
+          <div>
+            <Label className="text-white">Максимальное количество одинаковых блюд в корзине</Label>
+            <Input
+              value={maxCartItemQuantity}
+              onChange={(e) => setMaxCartItemQuantity(e.target.value)}
+              placeholder="10"
+              type="number"
+              min="1"
+            />
+            <p className="text-white/60 text-xs mt-1">
+              Максимальное количество одинаковых блюд, которое можно добавить в корзину. По умолчанию: 10
             </p>
           </div>
 
