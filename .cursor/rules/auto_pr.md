@@ -60,13 +60,35 @@ gh pr create --base main --head feat/branch-name --title "feat: описание
 gh pr create --base main --head feat/branch-name --title "feat: описание" --web
 ```
 
-### Альтернатива: Использовать универсальный скрипт
+### ПРЕДПОЧТИТЕЛЬНЫЙ СПОСОБ: Использовать умный скрипт через Git Bash
 
-Если доступен скрипт `create_pr_universal.sh` или `auto_create_pr.sh`:
+**ВАЖНО:** Всегда используйте Git Bash скрипт для надежной работы с кириллицей.
+
+**Первый вариант (РЕКОМЕНДУЕТСЯ):** Использовать умный скрипт `auto_pr.sh`:
 
 ```bash
+# Вызов через Git Bash с параметрами
+bash auto_pr.sh feat/branch-name "feat: описание"
+
+# Или БЕЗ параметров - скрипт сам определит ветку и название PR из изменений
+bash auto_pr.sh
+```
+
+**Второй вариант:** Использовать универсальный скрипт `create_pr_universal.sh`:
+
+```bash
+# Вызов через Git Bash (рекомендуется)
+bash create_pr_universal.sh feat/branch-name "feat: описание"
+
+# Или если скрипт исполняемый:
 ./create_pr_universal.sh feat/branch-name "feat: описание"
 ```
+
+**Почему Git Bash:**
+- ✅ Надежно работает с кириллицей в путях
+- ✅ Не требует настройки PowerShell профиля
+- ✅ Работает одинаково на всех системах
+- ✅ Cursor может вызывать через `run_terminal_cmd` с `bash`
 
 ## Что делать, если что-то пошло не так
 
