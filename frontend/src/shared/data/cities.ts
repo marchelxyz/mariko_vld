@@ -23,6 +23,7 @@ export interface Restaurant {
   twoGisUrl?: string;
   socialNetworks?: SocialNetwork[];
   reviewLink?: string;
+  maxCartItemQuantity?: number;
 }
 
 export interface City {

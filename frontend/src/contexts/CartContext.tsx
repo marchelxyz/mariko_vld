@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { logger } from "@/lib/logger";
 import { getUser } from "@/lib/telegram";
 import type { MenuItem } from "@/shared/data/menuTypes";
+import { useCityContext } from "./CityContext";
 
 export type CartItem = {
   id: string;
@@ -16,6 +17,7 @@ type CartContextValue = {
   items: CartItem[];
   totalCount: number;
   totalPrice: number;
+  maxCartItemQuantity: number;
   addItem: (item: {
     id: string;
     name: string;
@@ -172,6 +174,10 @@ const saveCartToStorage = (items: CartItem[]) => {
 export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element => {
   const [items, setItems] = useState<CartItem[]>(() => loadCartFromStorage());
   const [isLoadingFromDb, setIsLoadingFromDb] = useState(true);
+  const { selectedRestaurant } = useCityContext();
+  
+  // Получаем максимальное количество блюд из настроек ресторана (по умолчанию 10)
+  const maxCartItemQuantity = selectedRestaurant?.maxCartItemQuantity ?? 10;
 
   // Загружаем корзину из БД при инициализации (если есть userId)
   useEffect(() => {
@@ -230,6 +236,15 @@ export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element
     setItems((prev) => {
       const existing = prev.find((entry) => entry.id === item.id);
       if (existing) {
+        // Проверяем лимит перед увеличением количества
+        if (existing.amount >= maxCartItemQuantity) {
+          logger.debug('cart', 'Достигнут лимит количества товара', { 
+            itemId: item.id, 
+            currentAmount: existing.amount,
+            maxAmount: maxCartItemQuantity 
+          });
+          return prev; // Не увеличиваем, если достигнут лимит
+        }
         logger.debug('cart', 'Увеличено количество товара в корзине', { itemId: item.id, newAmount: existing.amount + 1 });
         return prev.map((entry) =>
           entry.id === item.id ? { ...entry, amount: entry.amount + 1 } : entry,
@@ -248,7 +263,7 @@ export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element
         },
       ];
     });
-  }, []);
+  }, [maxCartItemQuantity]);
 
   const removeItem = useCallback((itemId: string) => {
     setItems((prev) => {
@@ -271,11 +286,15 @@ export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element
       if (!exists) {
         return prev;
       }
+      // Проверяем лимит перед увеличением количества
+      if (exists.amount >= maxCartItemQuantity) {
+        return prev; // Не увеличиваем, если достигнут лимит
+      }
       return prev.map((entry) =>
         entry.id === itemId ? { ...entry, amount: entry.amount + 1 } : entry,
       );
     });
-  }, []);
+  }, [maxCartItemQuantity]);
 
   const clearCart = useCallback(() => {
     logger.userAction('cart_clear', { itemCount: items.length });
@@ -315,13 +334,14 @@ export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element
       items,
       totalCount,
       totalPrice,
+      maxCartItemQuantity,
       addItem,
       increaseItem,
       removeItem,
       getItemCount,
       clearCart,
     }),
-    [items, totalCount, totalPrice, addItem, increaseItem, removeItem, getItemCount, clearCart],
+    [items, totalCount, totalPrice, maxCartItemQuantity, addItem, increaseItem, removeItem, getItemCount, clearCart],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

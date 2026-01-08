@@ -156,6 +156,7 @@ const SCHEMAS = {
       social_networks JSONB DEFAULT '[]'::jsonb,
       remarked_restaurant_id INTEGER,
       review_link TEXT,
+      max_cart_item_quantity INTEGER DEFAULT 10,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
@@ -653,6 +654,24 @@ export async function initializeDatabase() {
       }
     } catch (error) {
       console.warn("⚠️  Предупреждение при добавлении поля review_link:", error?.message || error);
+    }
+
+    // Миграция: добавляем поле max_cart_item_quantity в таблицу restaurants
+    try {
+      const columnExists = await query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'restaurants' AND column_name = 'max_cart_item_quantity'
+      `);
+      
+      if (columnExists.rows.length === 0) {
+        await query(`ALTER TABLE restaurants ADD COLUMN max_cart_item_quantity INTEGER DEFAULT 10`);
+        console.log("✅ Поле max_cart_item_quantity добавлено в таблицу restaurants");
+      } else {
+        console.log("ℹ️  Поле max_cart_item_quantity уже существует в таблице restaurants");
+      }
+    } catch (error) {
+      console.warn("⚠️  Предупреждение при добавлении поля max_cart_item_quantity:", error?.message || error);
     }
 
     // Миграция: добавляем поле onboarding_tour_shown в таблицу user_profiles

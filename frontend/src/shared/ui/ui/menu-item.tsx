@@ -11,6 +11,7 @@ interface MenuItemProps {
   onDecrease?: (item: MenuItem) => void;
   quantity?: number;
   showAddButton?: boolean;
+  maxCartItemQuantity?: number;
   variant?: 'default' | 'compact' | 'mobile'; // добавляем мобильный вариант
 }
 
@@ -22,6 +23,7 @@ function MenuItemComponentBase({
   onDecrease,
   quantity = 0,
   showAddButton = false,
+  maxCartItemQuantity = 10,
   variant = 'default',
 }: MenuItemProps): JSX.Element {
   // Временные иконки для блюд до загрузки фотографий
@@ -158,7 +160,12 @@ function MenuItemComponentBase({
                     event.stopPropagation();
                     (onIncrease ?? onAdd)?.(item);
                   }}
-                  className="p-1.5 rounded-full border border-mariko-primary text-mariko-primary hover:bg-mariko-primary/10 transition-colors"
+                  disabled={quantity >= maxCartItemQuantity}
+                  className={`p-1.5 rounded-full border transition-colors ${
+                    quantity >= maxCartItemQuantity
+                      ? 'border-gray-300 text-gray-400 cursor-not-allowed'
+                      : 'border-mariko-primary text-mariko-primary hover:bg-mariko-primary/10'
+                  }`}
                   aria-label="Увеличить количество"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -207,6 +214,7 @@ export const MenuItemComponent = memo(
     prev.item === next.item &&
     prev.quantity === next.quantity &&
     prev.showAddButton === next.showAddButton &&
+    prev.maxCartItemQuantity === next.maxCartItemQuantity &&
     prev.variant === next.variant &&
     prev.onAdd === next.onAdd &&
     prev.onIncrease === next.onIncrease &&
