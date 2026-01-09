@@ -491,8 +491,7 @@ const Menu = (): JSX.Element => {
                     onIncrease={handleAddToCart}
                     onDecrease={handleRemoveFromCart}
                     quantity={quantity}
-                    maxCartItemQuantity={maxCartItemQuantity}
-                    showAddButton={canUseCartFeatures}
+                    showAddButton={true}
                   />
                 );
               })}
