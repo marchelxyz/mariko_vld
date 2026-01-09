@@ -16,7 +16,7 @@ import {
 } from "@shared/ui";
 import { PromotionsCarousel, type PromotionSlide } from "./PromotionsCarousel";
 import { toast } from "@/hooks/use-toast";
-import { safeOpenLink, storage } from "@/lib/platform";
+import { safeOpenLink, storage } from "@/lib/telegram";
 import { fetchPromotions } from "@shared/api/promotionsApi";
 import { fetchRecommendedDishes } from "@shared/api/recommendedDishesApi";
 import { useBookingSlotsPrefetch } from "@shared/hooks";
@@ -495,7 +495,7 @@ const Index = () => {
                         imageUrl="/images/services/MENU-CARD.png"
                         aspectRatio="aspect-[4/3]"
                         imageClassName="object-left translate-x-[2px]"
-                        className="max-w-[230px] md:max-w-none md:h-[220px] md:w-[293px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:md:!h-[172px] [&>div:first-child]:md:!aspect-auto [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
+                        className="max-w-[230px] md:h-[220px] md:w-[293px] md:max-w-[293px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:md:!h-[172px] [&>div:first-child]:md:!aspect-auto [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
                         highlighted={cityChangedFlash}
                         onClick={() => navigate("/menu")}
                       />
@@ -525,26 +525,39 @@ const Index = () => {
                     <div className="text-center py-8 text-gray-500">Загрузка рекомендаций...</div>
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
-                      {recommendedDishes.map((item) => (
-                        <div key={item.id}>
-                          {/* Мобильный вариант для экранов < 768px */}
-                          <div className="block md:hidden">
-                            <MenuItemComponent
-                              item={item}
-                              variant="mobile"
-                              onClick={() => handleDishClick(item)}
-                            />
+                      {recommendedDishes.map((item) => {
+                        const quantity = getItemCount(item.id);
+                        return (
+                          <div key={item.id}>
+                            {/* Мобильный вариант для экранов < 768px */}
+                            <div className="block md:hidden">
+                              <MenuItemComponent
+                                item={item}
+                                variant="mobile"
+                                onClick={() => handleDishClick(item)}
+                                onAdd={handleAddToCart}
+                                onIncrease={handleAddToCart}
+                                onDecrease={handleRemoveFromCart}
+                                quantity={quantity}
+                                showAddButton={true}
+                              />
+                            </div>
+                            {/* Компактный вариант для экранов >= 768px */}
+                            <div className="hidden md:block">
+                              <MenuItemComponent
+                                item={item}
+                                variant="compact"
+                                onClick={() => handleDishClick(item)}
+                                onAdd={handleAddToCart}
+                                onIncrease={handleAddToCart}
+                                onDecrease={handleRemoveFromCart}
+                                quantity={quantity}
+                                showAddButton={true}
+                              />
+                            </div>
                           </div>
-                          {/* Компактный вариант для экранов >= 768px */}
-                          <div className="hidden md:block">
-                            <MenuItemComponent
-                              item={item}
-                              variant="compact"
-                              onClick={() => handleDishClick(item)}
-                            />
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
