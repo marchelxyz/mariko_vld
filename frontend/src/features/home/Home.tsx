@@ -525,26 +525,39 @@ const Index = () => {
                     <div className="text-center py-8 text-gray-500">Загрузка рекомендаций...</div>
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
-                      {recommendedDishes.map((item) => (
-                        <div key={item.id}>
-                          {/* Мобильный вариант для экранов < 768px */}
-                          <div className="block md:hidden">
-                            <MenuItemComponent
-                              item={item}
-                              variant="mobile"
-                              onClick={() => handleDishClick(item)}
-                            />
+                      {recommendedDishes.map((item) => {
+                        const quantity = getItemCount(item.id);
+                        return (
+                          <div key={item.id}>
+                            {/* Мобильный вариант для экранов < 768px */}
+                            <div className="block md:hidden">
+                              <MenuItemComponent
+                                item={item}
+                                variant="mobile"
+                                onClick={() => handleDishClick(item)}
+                                onAdd={handleAddToCart}
+                                onIncrease={handleAddToCart}
+                                onDecrease={handleRemoveFromCart}
+                                quantity={quantity}
+                                showAddButton={true}
+                              />
+                            </div>
+                            {/* Компактный вариант для экранов >= 768px */}
+                            <div className="hidden md:block">
+                              <MenuItemComponent
+                                item={item}
+                                variant="compact"
+                                onClick={() => handleDishClick(item)}
+                                onAdd={handleAddToCart}
+                                onIncrease={handleAddToCart}
+                                onDecrease={handleRemoveFromCart}
+                                quantity={quantity}
+                                showAddButton={true}
+                              />
+                            </div>
                           </div>
-                          {/* Компактный вариант для экранов >= 768px */}
-                          <div className="hidden md:block">
-                            <MenuItemComponent
-                              item={item}
-                              variant="compact"
-                              onClick={() => handleDishClick(item)}
-                            />
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
