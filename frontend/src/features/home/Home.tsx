@@ -1,7 +1,7 @@
 import { CalendarDays, ChevronDown, MapPin, Star as StarIcon, Truck, Briefcase } from "lucide-react";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useCityContext } from "@/contexts";
+import { useCart, useCityContext } from "@/contexts";
 import { BottomNavigation, Header } from "@shared/ui/widgets";
 import { EmbeddedPageConfig } from "@/shared/config/webviewPages";
 import {
@@ -19,8 +19,9 @@ import { toast } from "@/hooks/use-toast";
 import { safeOpenLink, storage } from "@/lib/platform";
 import { fetchPromotions } from "@shared/api/promotionsApi";
 import { fetchRecommendedDishes } from "@shared/api/recommendedDishesApi";
-import { useBookingSlotsPrefetch } from "@shared/hooks";
+import { useBookingSlotsPrefetch, useAdmin } from "@shared/hooks";
 import { FirstRunTour } from "@/features/onboarding";
+import { isMarikoDeliveryEnabledForCity } from "@/shared/config/marikoDelivery";
 
 const PROMOTIONS_CACHE_PREFIX = "mariko:promotions:v1:";
 
@@ -70,6 +71,10 @@ const Index = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { selectedRestaurant, selectedCity } = useCityContext();
+  const { addItem: addCartItem, removeItem: removeCartItem, getItemCount } = useCart();
+  const { isSuperAdmin, isAdmin } = useAdmin();
+  const canUseCartFeatures =
+    (isSuperAdmin() || isAdmin) && isMarikoDeliveryEnabledForCity(selectedCity?.id);
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
   const [dishModalImageFailed, setDishModalImageFailed] = useState(false);
   const [cityChangedFlash, setCityChangedFlash] = useState(false);
@@ -227,6 +232,26 @@ const Index = () => {
       setActiveDish(dish);
     }
   };
+
+  const handleAddToCart = useCallback(
+    (dish: MenuItem) => {
+      if (!canUseCartFeatures) {
+        return;
+      }
+      addCartItem(dish);
+    },
+    [addCartItem, canUseCartFeatures],
+  );
+
+  const handleRemoveFromCart = useCallback(
+    (dish: MenuItem) => {
+      if (!canUseCartFeatures) {
+        return;
+      }
+      removeCartItem(dish.id);
+    },
+    [canUseCartFeatures, removeCartItem],
+  );
 
   // Загружаем рекомендуемые блюда для города
   useEffect(() => {
@@ -525,26 +550,39 @@ const Index = () => {
                     <div className="text-center py-8 text-gray-500">Загрузка рекомендаций...</div>
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
-                      {recommendedDishes.map((item) => (
-                        <div key={item.id}>
-                          {/* Мобильный вариант для экранов < 768px */}
-                          <div className="block md:hidden">
-                            <MenuItemComponent
-                              item={item}
-                              variant="mobile"
-                              onClick={() => handleDishClick(item)}
-                            />
+                      {recommendedDishes.map((item) => {
+                        const quantity = getItemCount(item.id);
+                        return (
+                          <div key={item.id}>
+                            {/* Мобильный вариант для экранов < 768px */}
+                            <div className="block md:hidden">
+                              <MenuItemComponent
+                                item={item}
+                                variant="mobile"
+                                onClick={() => handleDishClick(item)}
+                                onAdd={handleAddToCart}
+                                onIncrease={handleAddToCart}
+                                onDecrease={handleRemoveFromCart}
+                                quantity={quantity}
+                                showAddButton={canUseCartFeatures}
+                              />
+                            </div>
+                            {/* Компактный вариант для экранов >= 768px */}
+                            <div className="hidden md:block">
+                              <MenuItemComponent
+                                item={item}
+                                variant="compact"
+                                onClick={() => handleDishClick(item)}
+                                onAdd={handleAddToCart}
+                                onIncrease={handleAddToCart}
+                                onDecrease={handleRemoveFromCart}
+                                quantity={quantity}
+                                showAddButton={canUseCartFeatures}
+                              />
+                            </div>
                           </div>
-                          {/* Компактный вариант для экранов >= 768px */}
-                          <div className="hidden md:block">
-                            <MenuItemComponent
-                              item={item}
-                              variant="compact"
-                              onClick={() => handleDishClick(item)}
-                            />
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
