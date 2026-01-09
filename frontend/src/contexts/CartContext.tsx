@@ -236,14 +236,10 @@ export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element
     setItems((prev) => {
       const existing = prev.find((entry) => entry.id === item.id);
       if (existing) {
-        // Проверяем лимит перед увеличением количества
-        if (existing.amount >= maxCartItemQuantity) {
-          logger.debug('cart', 'Достигнут лимит количества товара', { 
-            itemId: item.id, 
-            currentAmount: existing.amount,
-            maxAmount: maxCartItemQuantity 
-          });
-          return prev; // Не увеличиваем, если достигнут лимит
+        // Ограничение: максимум 10 одинаковых блюд
+        if (existing.amount >= 10) {
+          logger.debug('cart', 'Достигнут лимит количества товара', { itemId: item.id, currentAmount: existing.amount });
+          return prev;
         }
         logger.debug('cart', 'Увеличено количество товара в корзине', { itemId: item.id, newAmount: existing.amount + 1 });
         return prev.map((entry) =>
@@ -286,9 +282,10 @@ export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element
       if (!exists) {
         return prev;
       }
-      // Проверяем лимит перед увеличением количества
-      if (exists.amount >= maxCartItemQuantity) {
-        return prev; // Не увеличиваем, если достигнут лимит
+      // Ограничение: максимум 10 одинаковых блюд
+      if (exists.amount >= 10) {
+        logger.debug('cart', 'Достигнут лимит количества товара', { itemId, currentAmount: exists.amount });
+        return prev;
       }
       return prev.map((entry) =>
         entry.id === itemId ? { ...entry, amount: entry.amount + 1 } : entry,
