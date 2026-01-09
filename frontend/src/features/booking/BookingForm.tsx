@@ -36,7 +36,7 @@ import { toast } from "@/hooks/use-toast";
 import { CalendarIcon, Loader2, RefreshCw, ShoppingCart, Info } from "lucide-react";
 import { cn } from "@shared/utils";
 import { getCachedBookingSlots, cacheBookingSlots } from "@shared/utils/bookingSlotsCache";
-import { Alert, AlertDescription } from "@shared/ui/ui/alert";
+import { Alert, AlertDescription } from "@shared/ui/alert";
 
 type EventType = {
   id: string;
