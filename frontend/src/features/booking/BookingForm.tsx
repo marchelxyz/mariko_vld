@@ -33,9 +33,10 @@ import {
 } from "@shared/api/bookingApi";
 import { profileApi } from "@shared/api/profile";
 import { toast } from "@/hooks/use-toast";
-import { CalendarIcon, Loader2, RefreshCw, ShoppingCart } from "lucide-react";
+import { CalendarIcon, Loader2, RefreshCw, ShoppingCart, Info } from "lucide-react";
 import { cn } from "@shared/utils";
 import { getCachedBookingSlots, cacheBookingSlots } from "@shared/utils/bookingSlotsCache";
+import { Alert, AlertDescription } from "@shared/ui/alert";
 
 type EventType = {
   id: string;
@@ -1212,6 +1213,16 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           className="bg-white/10 border-white/20 text-white placeholder:text-white/50 min-h-[100px]"
         />
       </div>
+
+      {/* Уведомление о передаче меню в ресторан */}
+      {cartItems.length > 0 && (
+        <Alert className="bg-mariko-primary/20 border-mariko-primary/40 rounded-[16px] shadow-lg">
+          <Info className="h-5 w-5 text-mariko-primary flex-shrink-0" />
+          <AlertDescription className="text-white/95 pl-7">
+            <span className="font-semibold text-white font-el-messiri">Ваше собранное меню будет передано в ресторан</span> при подтверждении бронирования. Ресторан подготовит ваш заказ к указанному времени.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Согласие */}
       {!hasPreviousBooking && (
