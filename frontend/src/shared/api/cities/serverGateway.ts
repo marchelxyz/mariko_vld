@@ -222,6 +222,7 @@ export async function createRestaurantViaServer(
     socialNetworks?: Array<{ name: string; url: string }>;
     remarkedRestaurantId?: number;
     reviewLink: string;
+    maxCartItemQuantity?: number;
   }
 ): Promise<{ success: boolean; restaurantId?: string; errorMessage?: string }> {
   const headers: Record<string, string> = {
@@ -265,6 +266,7 @@ export async function updateRestaurantViaServer(
     socialNetworks?: Array<{ name: string; url: string }>;
     remarkedRestaurantId?: number;
     reviewLink?: string;
+    maxCartItemQuantity?: number;
   }
 ): Promise<{ success: boolean; errorMessage?: string }> {
   const headers: Record<string, string> = {

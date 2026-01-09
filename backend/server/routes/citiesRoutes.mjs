@@ -71,6 +71,7 @@ export function createCitiesRouter() {
               : undefined,
             remarkedRestaurantId: r.remarked_restaurant_id || undefined,
             reviewLink: r.review_link || undefined,
+            maxCartItemQuantity: r.max_cart_item_quantity ?? 10,
           })),
       })).filter((city) => city.restaurants.length > 0);
 
@@ -132,6 +133,7 @@ export function createCitiesRouter() {
               : undefined,
             remarkedRestaurantId: r.remarked_restaurant_id || undefined,
             reviewLink: r.review_link || undefined,
+            maxCartItemQuantity: r.max_cart_item_quantity ?? 10,
           })),
       }));
 
@@ -299,14 +301,18 @@ export function createCitiesRouter() {
         return res.status(400).json({ success: false, message: "Ресторан с таким ID уже существует" });
       }
 
+      const maxCartItemQuantity = typeof req.body.maxCartItemQuantity === "number" && req.body.maxCartItemQuantity > 0
+        ? req.body.maxCartItemQuantity
+        : 10;
+
       // Создаем ресторан
       await query(
         `INSERT INTO restaurants (
           id, city_id, name, address, is_active, phone_number, 
           delivery_aggregators, yandex_maps_url, two_gis_url, 
-          social_networks, remarked_restaurant_id, review_link, display_order, created_at, updated_at
+          social_networks, remarked_restaurant_id, review_link, max_cart_item_quantity, display_order, created_at, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())`,
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())`,
         [
           restaurantId,
           cityId.trim(),
@@ -320,6 +326,7 @@ export function createCitiesRouter() {
           socialNetworks ? JSON.stringify(socialNetworks) : null,
           remarkedRestaurantId || null,
           reviewLink.trim(),
+          maxCartItemQuantity,
           0,
         ]
       );
@@ -348,6 +355,7 @@ export function createCitiesRouter() {
       socialNetworks,
       remarkedRestaurantId,
       reviewLink,
+      maxCartItemQuantity,
     } = req.body ?? {};
 
     try {
@@ -397,6 +405,13 @@ export function createCitiesRouter() {
         }
         updateData.push(`review_link = $${paramIndex++}`);
         params.push(reviewLink.trim());
+      }
+      if (maxCartItemQuantity !== undefined) {
+        if (typeof maxCartItemQuantity !== "number" || maxCartItemQuantity < 1) {
+          return res.status(400).json({ success: false, message: "Некорректные параметры: maxCartItemQuantity должен быть числом больше 0" });
+        }
+        updateData.push(`max_cart_item_quantity = $${paramIndex++}`);
+        params.push(maxCartItemQuantity);
       }
 
       if (updateData.length === 0) {
