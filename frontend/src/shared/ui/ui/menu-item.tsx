@@ -178,7 +178,7 @@ function MenuItemComponentBase({
           </div>
         </div>
         
-        {/* Нижняя часть: цена и кнопка */}
+        {/* Нижняя часть: цена */}
         <div className="flex items-center justify-between mt-1 md:mt-2">
           <div className="flex items-baseline gap-1">
             <span className={`font-el-messiri font-bold text-gray-900 ${
@@ -189,51 +189,6 @@ function MenuItemComponentBase({
               {item.price}₽
             </span>
           </div>
-          {showAddButton && (
-            quantity > 0 ? (
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDecrease?.(item);
-                  }}
-                  className="p-1.5 rounded-full border border-mariko-primary text-mariko-primary hover:bg-mariko-primary/10 transition-colors"
-                  aria-label="Уменьшить количество"
-                >
-                  <Minus className="w-3.5 h-3.5" />
-                </button>
-                <span className="min-w-[24px] text-center font-semibold">{quantity}</span>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    (onIncrease ?? onAdd)?.(item);
-                  }}
-                  disabled={quantity >= maxCartItemQuantity}
-                  className={`p-1.5 rounded-full border transition-colors ${
-                    quantity >= maxCartItemQuantity
-                      ? 'border-gray-300 text-gray-400 cursor-not-allowed'
-                      : 'border-mariko-primary text-mariko-primary hover:bg-mariko-primary/10'
-                  }`}
-                  aria-label="Увеличить количество"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onAdd?.(item);
-                }}
-                className="inline-flex items-center justify-center rounded-full bg-mariko-primary text-white text-xs md:text-sm font-semibold px-3 py-1 hover:bg-mariko-primary/90 transition-colors"
-              >
-                В корзину
-              </button>
-            )
-          )}
         </div>
         
         {/* Дополнительные маркеры - всегда резервируем место для единообразия высоты карточек */}
