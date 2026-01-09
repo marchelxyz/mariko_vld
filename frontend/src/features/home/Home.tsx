@@ -1,7 +1,7 @@
 import { CalendarDays, ChevronDown, MapPin, Star as StarIcon, Truck, Briefcase } from "lucide-react";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useCityContext } from "@/contexts";
+import { useCityContext, useCart } from "@/contexts";
 import { BottomNavigation, Header } from "@shared/ui/widgets";
 import { EmbeddedPageConfig } from "@/shared/config/webviewPages";
 import {
@@ -19,7 +19,8 @@ import { toast } from "@/hooks/use-toast";
 import { safeOpenLink, storage } from "@/lib/telegram";
 import { fetchPromotions } from "@shared/api/promotionsApi";
 import { fetchRecommendedDishes } from "@shared/api/recommendedDishesApi";
-import { useBookingSlotsPrefetch } from "@shared/hooks";
+import { useBookingSlotsPrefetch, useAdmin } from "@shared/hooks";
+import { isMarikoDeliveryEnabledForCity } from "@/shared/config/marikoDelivery";
 import { FirstRunTour } from "@/features/onboarding";
 
 const PROMOTIONS_CACHE_PREFIX = "mariko:promotions:v1:";
@@ -70,6 +71,10 @@ const Index = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { selectedRestaurant, selectedCity } = useCityContext();
+  const { addItem, removeItem, getItemCount } = useCart();
+  const { isSuperAdmin, isAdmin } = useAdmin();
+  const canUseCartFeatures =
+    (isSuperAdmin() || isAdmin) && isMarikoDeliveryEnabledForCity(selectedCity?.id);
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
   const [dishModalImageFailed, setDishModalImageFailed] = useState(false);
   const [cityChangedFlash, setCityChangedFlash] = useState(false);
@@ -227,6 +232,32 @@ const Index = () => {
       setActiveDish(dish);
     }
   };
+
+  const handleAddToCart = useCallback(
+    (dish: MenuItem) => {
+      if (!canUseCartFeatures) {
+        return;
+      }
+      addItem({
+        id: dish.id,
+        name: dish.name,
+        price: dish.price,
+        weight: dish.weight,
+        imageUrl: dish.imageUrl,
+      });
+    },
+    [addItem, canUseCartFeatures],
+  );
+
+  const handleRemoveFromCart = useCallback(
+    (dishId: string) => {
+      if (!canUseCartFeatures) {
+        return;
+      }
+      removeItem(dishId);
+    },
+    [removeItem, canUseCartFeatures],
+  );
 
   // Загружаем рекомендуемые блюда для города
   useEffect(() => {
