@@ -11,6 +11,7 @@ interface MenuItemProps {
   onDecrease?: (item: MenuItem) => void;
   quantity?: number;
   showAddButton?: boolean;
+  maxCartItemQuantity?: number;
   variant?: 'default' | 'compact' | 'mobile'; // добавляем мобильный вариант
 }
 
@@ -22,6 +23,7 @@ function MenuItemComponentBase({
   onDecrease,
   quantity = 0,
   showAddButton = false,
+  maxCartItemQuantity = 10,
   variant = 'default',
 }: MenuItemProps): JSX.Element {
   // Временные иконки для блюд до загрузки фотографий
@@ -99,6 +101,56 @@ function MenuItemComponentBase({
             </Badge>
           )}
         </div>
+        
+        {/* Кнопка добавления в корзину на изображении */}
+        {showAddButton && (
+          <div className="absolute bottom-2 right-2">
+            {quantity > 0 ? (
+              <div className="flex items-center gap-1 bg-white/95 backdrop-blur-sm rounded-full px-2 py-1 shadow-md">
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDecrease?.(item);
+                  }}
+                  className="p-1 rounded-full hover:bg-mariko-primary/10 transition-colors"
+                  aria-label="Уменьшить количество"
+                >
+                  <Minus className="w-3 h-3 text-mariko-primary" />
+                </button>
+                <span className="min-w-[20px] text-center font-semibold text-sm text-gray-900">{quantity}</span>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    (onIncrease ?? onAdd)?.(item);
+                  }}
+                  disabled={quantity >= maxCartItemQuantity}
+                  className={`p-1 rounded-full transition-colors ${
+                    quantity >= maxCartItemQuantity
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:bg-mariko-primary/10'
+                  }`}
+                  aria-label="Увеличить количество"
+                >
+                  <Plus className={`w-3 h-3 ${quantity >= maxCartItemQuantity ? 'text-gray-400' : 'text-mariko-primary'}`} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onAdd?.(item);
+                }}
+                className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-mariko-primary text-white shadow-lg hover:bg-mariko-primary/90 transition-colors flex items-center justify-center"
+                aria-label="Добавить в корзину"
+              >
+                <Plus className="w-4 h-4 md:w-5 md:h-5" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
       
       {/* Информация о блюде */}
@@ -126,7 +178,7 @@ function MenuItemComponentBase({
           </div>
         </div>
         
-        {/* Нижняя часть: цена и кнопка */}
+        {/* Нижняя часть: цена */}
         <div className="flex items-center justify-between mt-1 md:mt-2">
           <div className="flex items-baseline gap-1">
             <span className={`font-el-messiri font-bold text-gray-900 ${
@@ -137,46 +189,6 @@ function MenuItemComponentBase({
               {item.price}₽
             </span>
           </div>
-          {showAddButton && (
-            quantity > 0 ? (
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDecrease?.(item);
-                  }}
-                  className="p-1.5 rounded-full border border-mariko-primary text-mariko-primary hover:bg-mariko-primary/10 transition-colors"
-                  aria-label="Уменьшить количество"
-                >
-                  <Minus className="w-3.5 h-3.5" />
-                </button>
-                <span className="min-w-[24px] text-center font-semibold">{quantity}</span>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    (onIncrease ?? onAdd)?.(item);
-                  }}
-                  className="p-1.5 rounded-full border border-mariko-primary text-mariko-primary hover:bg-mariko-primary/10 transition-colors"
-                  aria-label="Увеличить количество"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onAdd?.(item);
-                }}
-                className="inline-flex items-center justify-center rounded-full bg-mariko-primary text-white text-xs md:text-sm font-semibold px-3 py-1 hover:bg-mariko-primary/90 transition-colors"
-              >
-                В корзину
-              </button>
-            )
-          )}
         </div>
         
         {/* Дополнительные маркеры - всегда резервируем место для единообразия высоты карточек */}
@@ -207,6 +219,7 @@ export const MenuItemComponent = memo(
     prev.item === next.item &&
     prev.quantity === next.quantity &&
     prev.showAddButton === next.showAddButton &&
+    prev.maxCartItemQuantity === next.maxCartItemQuantity &&
     prev.variant === next.variant &&
     prev.onAdd === next.onAdd &&
     prev.onIncrease === next.onIncrease &&
