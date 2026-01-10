@@ -16,6 +16,7 @@ export interface Restaurant {
   address: string;
   city: string;
   isActive?: boolean;
+  isDeliveryEnabled?: boolean;
   remarkedRestaurantId?: number;
   phoneNumber?: string;
   deliveryAggregators?: DeliveryAggregator[];

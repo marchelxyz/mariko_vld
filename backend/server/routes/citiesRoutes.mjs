@@ -56,6 +56,7 @@ export function createCitiesRouter() {
             name: r.name,
             address: r.address,
             city: cityRow.name,
+            isDeliveryEnabled: r.is_delivery_enabled ?? false,
             phoneNumber: r.phone_number || undefined,
             deliveryAggregators: r.delivery_aggregators 
               ? (typeof r.delivery_aggregators === 'string' 
@@ -118,6 +119,7 @@ export function createCitiesRouter() {
             address: r.address,
             city: cityRow.name,
             isActive: r.is_active,
+            isDeliveryEnabled: r.is_delivery_enabled ?? false,
             phoneNumber: r.phone_number || undefined,
             deliveryAggregators: r.delivery_aggregators
               ? (typeof r.delivery_aggregators === 'string'
@@ -310,9 +312,9 @@ export function createCitiesRouter() {
         `INSERT INTO restaurants (
           id, city_id, name, address, is_active, phone_number, 
           delivery_aggregators, yandex_maps_url, two_gis_url, 
-          social_networks, remarked_restaurant_id, review_link, max_cart_item_quantity, display_order, created_at, updated_at
+          social_networks, remarked_restaurant_id,       review_link, max_cart_item_quantity, is_delivery_enabled, display_order, created_at, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())`,
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())`,
         [
           restaurantId,
           cityId.trim(),
@@ -327,6 +329,7 @@ export function createCitiesRouter() {
           remarkedRestaurantId || null,
           reviewLink.trim(),
           maxCartItemQuantity,
+          false,
           0,
         ]
       );
@@ -348,6 +351,7 @@ export function createCitiesRouter() {
       name,
       address,
       isActive,
+      isDeliveryEnabled,
       phoneNumber,
       deliveryAggregators,
       yandexMapsUrl,
@@ -374,6 +378,10 @@ export function createCitiesRouter() {
       if (isActive !== undefined) {
         updateData.push(`is_active = $${paramIndex++}`);
         params.push(isActive);
+      }
+      if (isDeliveryEnabled !== undefined) {
+        updateData.push(`is_delivery_enabled = $${paramIndex++}`);
+        params.push(isDeliveryEnabled);
       }
       if (phoneNumber !== undefined) {
         updateData.push(`phone_number = $${paramIndex++}`);
