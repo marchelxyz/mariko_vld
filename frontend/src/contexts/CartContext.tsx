@@ -16,6 +16,7 @@ type CartContextValue = {
   items: CartItem[];
   totalCount: number;
   totalPrice: number;
+  maxCartItemQuantity: number;
   addItem: (item: {
     id: string;
     name: string;
@@ -253,7 +254,7 @@ export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element
         },
       ];
     });
-  }, []);
+  }, [maxCartItemQuantity]);
 
   const removeItem = useCallback((itemId: string) => {
     setItems((prev) => {
@@ -285,7 +286,7 @@ export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element
         entry.id === itemId ? { ...entry, amount: entry.amount + 1 } : entry,
       );
     });
-  }, []);
+  }, [maxCartItemQuantity]);
 
   const clearCart = useCallback(() => {
     logger.userAction('cart_clear', { itemCount: items.length });
@@ -325,13 +326,14 @@ export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element
       items,
       totalCount,
       totalPrice,
+      maxCartItemQuantity,
       addItem,
       increaseItem,
       removeItem,
       getItemCount,
       clearCart,
     }),
-    [items, totalCount, totalPrice, addItem, increaseItem, removeItem, getItemCount, clearCart],
+    [items, totalCount, totalPrice, maxCartItemQuantity, addItem, increaseItem, removeItem, getItemCount, clearCart],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

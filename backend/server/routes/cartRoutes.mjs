@@ -1,6 +1,6 @@
 import { db, ensureDatabase } from "../postgresClient.mjs";
 import { CART_ORDERS_TABLE, MAX_ORDERS_LIMIT } from "../config.mjs";
-import { queryMany, queryOne } from "../postgresClient.mjs";
+import { queryMany, queryOne, query } from "../postgresClient.mjs";
 import {
   upsertUserProfileRecord,
   fetchUserProfile,

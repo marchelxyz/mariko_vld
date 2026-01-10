@@ -1,6 +1,6 @@
 import { Save, X, Plus, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { Button, Input, Label } from "@shared/ui";
+import { Button, Input, Label, Switch } from "@shared/ui";
 import type { Restaurant, DeliveryAggregator, SocialNetwork } from "@shared/data";
 
 /**
@@ -25,6 +25,8 @@ type EditRestaurantModalProps = {
     socialNetworks: SocialNetwork[];
     remarkedRestaurantId?: number;
     reviewLink: string;
+    maxCartItemQuantity?: number;
+    isDeliveryEnabled?: boolean;
   }) => Promise<void>;
 };
 
@@ -67,6 +69,8 @@ export function EditRestaurantModal({
   const [socialNetworks, setSocialNetworks] = useState<SocialNetwork[]>([]);
   const [remarkedRestaurantId, setRemarkedRestaurantId] = useState<string>('');
   const [reviewLink, setReviewLink] = useState('');
+  const [maxCartItemQuantity, setMaxCartItemQuantity] = useState<string>('10');
+  const [isDeliveryEnabled, setIsDeliveryEnabled] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -80,6 +84,8 @@ export function EditRestaurantModal({
       setSocialNetworks(restaurant.socialNetworks || []);
       setRemarkedRestaurantId(restaurant.remarkedRestaurantId?.toString() || '');
       setReviewLink(restaurant.reviewLink || '');
+      setMaxCartItemQuantity((restaurant as any).maxCartItemQuantity?.toString() || '10');
+      setIsDeliveryEnabled(restaurant.isDeliveryEnabled ?? false);
     }
   }, [restaurant, isOpen]);
 
@@ -167,6 +173,15 @@ export function EditRestaurantModal({
           return parsed;
         })() : undefined,
         reviewLink: reviewLink.trim(),
+        maxCartItemQuantity: (() => {
+          const parsed = parseInt(maxCartItemQuantity.trim(), 10);
+          if (isNaN(parsed) || parsed < 1) {
+            alert('Максимальное количество блюд должно быть числом больше 0');
+            throw new Error('Invalid maxCartItemQuantity');
+          }
+          return parsed;
+        })(),
+        isDeliveryEnabled,
       });
       onClose();
     } catch (error) {
@@ -208,6 +223,17 @@ export function EditRestaurantModal({
             />
           </div>
 
+          <div className="flex items-center space-x-2 py-2">
+            <Switch
+              id="delivery-enabled"
+              checked={isDeliveryEnabled}
+              onCheckedChange={setIsDeliveryEnabled}
+            />
+            <Label htmlFor="delivery-enabled" className="text-white cursor-pointer">
+              Доставка включена
+            </Label>
+          </div>
+
           <div>
             <Label className="text-white">Номер телефона</Label>
             <Input
@@ -243,6 +269,20 @@ export function EditRestaurantModal({
             />
             <p className="text-white/60 text-xs mt-1">
               Ссылка на страницу отзывов ресторана. Используется в кнопке "Оставить отзыв"
+            </p>
+          </div>
+
+          <div>
+            <Label className="text-white">Максимальное количество одинаковых блюд в корзине</Label>
+            <Input
+              value={maxCartItemQuantity}
+              onChange={(e) => setMaxCartItemQuantity(e.target.value)}
+              placeholder="10"
+              type="number"
+              min="1"
+            />
+            <p className="text-white/60 text-xs mt-1">
+              Максимальное количество одинаковых блюд, которое можно добавить в корзину. По умолчанию: 10
             </p>
           </div>
 

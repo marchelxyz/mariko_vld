@@ -80,6 +80,7 @@ export const INTEGRATION_CACHE_TTL_MS = Number.parseInt(
 ) ||
   5 * 60 * 1000;
 export const DATABASE_URL = process.env.DATABASE_URL;
+export const SOURCE_DATABASE_URL = process.env.SOURCE_DATABASE_URL;
 export const CART_SERVER_LOG_LEVEL = process.env.CART_SERVER_LOG_LEVEL ?? "info";
 export const GEOCODER_PROVIDER =
   (process.env.GEOCODER_PROVIDER || "photon").trim().toLowerCase();
