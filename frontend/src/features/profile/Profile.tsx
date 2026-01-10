@@ -66,7 +66,7 @@ const Profile = () => {
               onClick={() => navigate("/edit-profile")}
             />
             <ActionButton
-              icon={<Settings className="w-6 h-6 md:w-12 md:h-12 text-white" />}
+              icon={<img src="/images/action button/Vector.png" alt="Settings" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
               title="Настройки"
               onClick={() => navigate("/settings")}
             />
