@@ -168,6 +168,9 @@ const saveCartToStorage = (items: CartItem[]) => {
 export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element => {
   const [items, setItems] = useState<CartItem[]>(() => loadCartFromStorage());
   const [isLoadingFromDb, setIsLoadingFromDb] = useState(true);
+  
+  // Максимальное количество одинаковых блюд в корзине
+  const maxCartItemQuantity = 10;
 
   // Загружаем корзину из БД при инициализации (если есть userId)
   useEffect(() => {
@@ -226,8 +229,8 @@ export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element
     setItems((prev) => {
       const existing = prev.find((entry) => entry.id === item.id);
       if (existing) {
-        // Ограничение: максимум 10 одинаковых блюд
-        if (existing.amount >= 10) {
+        // Ограничение: максимум maxCartItemQuantity одинаковых блюд
+        if (existing.amount >= maxCartItemQuantity) {
           logger.debug('cart', 'Достигнут лимит количества товара', { itemId: item.id, currentAmount: existing.amount });
           return prev;
         }
@@ -272,8 +275,8 @@ export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element
       if (!exists) {
         return prev;
       }
-      // Ограничение: максимум 10 одинаковых блюд
-      if (exists.amount >= 10) {
+      // Ограничение: максимум maxCartItemQuantity одинаковых блюд
+      if (exists.amount >= maxCartItemQuantity) {
         logger.debug('cart', 'Достигнут лимит количества товара', { itemId, currentAmount: exists.amount });
         return prev;
       }
