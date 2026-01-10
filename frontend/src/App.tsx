@@ -15,6 +15,7 @@ import Index from "./pages/home";
 // Keep the home page in the main chunk; lazy-load the rest for better code splitting
 const Profile = lazy(() => import("./pages/profile"));
 const EditProfile = lazy(() => import("./pages/editProfile"));
+const Settings = lazy(() => import("./pages/settings"));
 
 const Restaurants = lazy(() => import("./pages/restaurants"));
 const Delivery = lazy(() => import("./pages/delivery"));
@@ -90,6 +91,7 @@ function AppContent() {
                       <Route path="/" element={<Index />} />
                       <Route path="/profile" element={<Profile />} />
                       <Route path="/edit-profile" element={<EditProfile />} />
+                      <Route path="/settings" element={<Settings />} />
 
                       <Route path="/restaurants/:id" element={<Restaurants />} />
                       <Route path="/restaurants" element={<Restaurants />} />
