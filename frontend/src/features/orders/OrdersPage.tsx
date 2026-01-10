@@ -3,351 +3,140 @@ import { AlertCircle, ChevronDown, ChevronUp, Loader2, RefreshCw } from "lucide-
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
-import { fetchMyOrders, type CartOrderRecord, type OrderStatus } from "@/shared/api/cart";
+import { getBookings, type BookingListItem } from "@/shared/api/bookingApi";
 import { cn } from "@shared/utils";
 import { getUser } from "@/lib/platform";
 
-const KNOWN_STATUS_SET = new Set<OrderStatus>([
-  "processing",
-  "kitchen",
-  "packed",
-  "delivery",
-  "completed",
-  "cancelled",
-  "failed",
-  "draft",
-]);
-
-const STATUS_ALIASES: Record<string, OrderStatus> = {
-  draft: "processing",
-  pending: "processing",
-  pending_iiko: "processing",
-  created: "processing",
-  sent: "delivery",
-  shipping: "delivery",
-  delivered: "completed",
-  done: "completed",
-};
-
-const ACTIVE_STATUSES = new Set<OrderStatus>(["processing", "kitchen", "packed", "delivery", "draft"]);
-const FINISHED_STATUSES = new Set<OrderStatus>(["completed", "cancelled", "failed"]);
-const STATUS_FLOW: OrderStatus[] = ["processing", "kitchen", "packed", "delivery", "completed"];
-
-const STATUS_PRESET: Record<OrderStatus, { label: string; hint: string; badge: string; text: string }> = {
-  processing: {
-    label: "Обработка",
-    hint: "Менеджер проверяет заказ и подтверждает наличие",
-    badge: "bg-amber-100 text-amber-900",
-    text: "text-amber-900",
-  },
-  kitchen: {
-    label: "Готовится",
-    hint: "Команда на кухне уже приступила к блюдам",
-    badge: "bg-amber-200 text-amber-900",
-    text: "text-amber-900",
-  },
-  packed: {
-    label: "Собран",
-    hint: "Заказ упакован и передаётся курьеру",
-    badge: "bg-orange-100 text-orange-900",
-    text: "text-orange-900",
-  },
-  delivery: {
-    label: "В пути",
-    hint: "Курьер едет к вам",
-    badge: "bg-blue-100 text-blue-900",
-    text: "text-blue-900",
-  },
-  completed: {
-    label: "Завершён",
-    hint: "Заказ доставлен. Приятного аппетита!",
-    badge: "bg-emerald-100 text-emerald-900",
-    text: "text-emerald-900",
-  },
-  cancelled: {
-    label: "Отменён",
-    hint: "Заказ отменён менеджером или пользователем",
-    badge: "bg-red-100 text-red-900",
-    text: "text-red-900",
-  },
-  failed: {
-    label: "Ошибка",
-    hint: "Что-то пошло не так. Свяжемся для уточнения",
-    badge: "bg-red-100 text-red-900",
-    text: "text-red-900",
-  },
-  draft: {
-    label: "Черновик",
-    hint: "Заказ ещё не обработан",
-    badge: "bg-stone-100 text-stone-900",
-    text: "text-stone-900",
-  },
-};
-
-const formatDateTime = (value: string): string => {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-  return parsed.toLocaleString("ru-RU", {
-    day: "2-digit",
-    month: "long",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
-const toNumber = (value: number | string | null | undefined): number => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
-const normalizeStatus = (rawStatus: string | null | undefined): OrderStatus => {
-  if (!rawStatus) {
-    return "processing";
-  }
-  const lowered = rawStatus.trim().toLowerCase();
-  if (KNOWN_STATUS_SET.has(lowered as OrderStatus)) {
-    return lowered as OrderStatus;
-  }
-  return STATUS_ALIASES[lowered] ?? "processing";
-};
-
-const OrderCard = ({
-  order,
+const BookingCard = ({
+  booking,
   expanded,
   onToggle,
 }: {
-  order: CartOrderRecord;
+  booking: BookingListItem;
   expanded: boolean;
   onToggle: () => void;
 }) => {
-  const normalizedStatus = normalizeStatus(order.status);
-  const statusPreset = STATUS_PRESET[normalizedStatus] ?? STATUS_PRESET.processing;
-  const paymentStatus = ((order as { payment_status?: string }).payment_status || "").toLowerCase();
-  const paymentBadge =
-    paymentStatus === "paid" || paymentStatus === "succeeded"
-      ? { label: "Оплачен", className: "bg-emerald-100 text-emerald-900" }
-      : { label: "Не оплачен", className: "bg-red-100 text-red-900" };
-  const orderCode = order.external_id || order.id.slice(0, 8).toUpperCase();
-  const totalItems = Array.isArray(order.items)
-    ? order.items.reduce((sum, item) => sum + Number(item.amount ?? 0), 0)
-    : 0;
-  const subtotal = toNumber(order.subtotal);
-  const deliveryFee = toNumber(order.delivery_fee);
-  const totalPrice = toNumber(order.total ?? order.subtotal ?? 0);
+  const formatDateTime = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString("ru-RU", {
+        day: "numeric",
+        month: "long",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return dateString;
+    }
+  };
 
-  const progressIndex = (() => {
-    const index = STATUS_FLOW.indexOf(normalizedStatus);
-    if (index >= 0) {
-      return index;
-    }
-    if (normalizedStatus === "cancelled" || normalizedStatus === "failed") {
-      return 1;
-    }
-    return 0;
-  })();
+  const statusColor = {
+    confirmed: "bg-green-100 text-green-900",
+    pending: "bg-yellow-100 text-yellow-900",
+    cancelled: "bg-red-100 text-red-900",
+  }[booking.status] || "bg-gray-100 text-gray-900";
+
+  const statusText = {
+    confirmed: "Подтверждена",
+    pending: "Ожидает",
+    cancelled: "Отменена",
+  }[booking.status] || "Неизвестно";
 
   return (
     <div className="bg-white rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.08)] px-4 py-5 md:px-6 md:py-6 text-left">
       <div className="flex items-start gap-3 md:gap-4">
         <div className="flex-1 space-y-1">
-          <p className="text-mariko-dark/60 text-sm">Заказ № {orderCode}</p>
-          <p className="text-mariko-dark font-semibold text-lg">{formatDateTime(order.created_at)}</p>
+          <p className="text-mariko-dark/60 text-sm">Бронь #{booking.id.slice(0, 8).toUpperCase()}</p>
+          <p className="text-mariko-dark font-semibold text-lg">{formatDateTime(booking.date)}</p>
           <p className="text-mariko-dark/70 text-sm">
-            {totalItems} позиций · {totalPrice}₽
+            {booking.guestsCount} гостей · {booking.restaurantName}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <span
-            className={cn(
-              "text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap",
-              statusPreset.badge,
-            )}
-          >
-            {statusPreset.label}
+          <span className={cn("text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap", statusColor)}>
+            {statusText}
           </span>
-          {paymentBadge && (
-            <span
-              className={cn(
-                "text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap",
-                paymentBadge.className,
-              )}
-            >
-              {paymentBadge.label}
-            </span>
-          )}
         </div>
       </div>
 
-      <div className="mt-4 flex items-center gap-2">
-        {STATUS_FLOW.map((step, index) => (
-          <div key={step} className="flex items-center gap-2">
-            <span
-              className={cn(
-                "w-2 h-2 rounded-full",
-                index <= progressIndex ? "bg-mariko-primary" : "bg-mariko-field",
-              )}
-            />
-            {index < STATUS_FLOW.length - 1 && (
-              <span className="w-6 h-[2px] bg-mariko-field/60" aria-hidden />
+      {booking.cartItems && booking.cartItems.length > 0 && (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={onToggle}
+            className="flex items-center gap-2 text-mariko-primary font-semibold text-sm hover:text-mariko-primary/80 transition-colors"
+          >
+            {expanded ? (
+              <>
+                <ChevronUp className="w-4 h-4" />
+                Скрыть состав заказа
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-4 h-4" />
+                Показать состав заказа ({booking.cartItems.length} позиций)
+              </>
             )}
-          </div>
-        ))}
-      </div>
-      <p className={cn("mt-2 text-sm", statusPreset.text)}>{statusPreset.hint}</p>
+          </button>
 
-      <button
-        type="button"
-        className="w-full mt-4 flex items-center justify-between rounded-2xl border border-mariko-field px-4 py-3 text-mariko-dark/80 text-sm font-semibold hover:bg-mariko-field/20 transition-colors"
-        onClick={onToggle}
-      >
-        <span>{expanded ? "Скрыть детали" : "Показать детали заказа"}</span>
-        {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-      </button>
-
-      {expanded && (
-        <div className="mt-4 space-y-3">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-mariko-dark/50 mb-1">Состав</p>
-            <div className="space-y-2">
-              {Array.isArray(order.items) && order.items.length > 0 ? (
-                order.items.map((item) => (
-                  <div key={`${order.id}-${item.id}`} className="flex justify-between text-sm">
-                    <span className="text-mariko-dark/80">
-                      {item.name} × {item.amount}
-                    </span>
-                    <span className="font-semibold text-mariko-dark">
-                      {(Number(item.price ?? 0) * Number(item.amount ?? 0)).toFixed(0)}₽
-                    </span>
+          {expanded && (
+            <div className="mt-3 space-y-2">
+              {booking.cartItems.map((item, index) => (
+                <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+                  <div>
+                    <p className="font-medium text-mariko-dark">{item.name}</p>
+                    <p className="text-sm text-mariko-dark/60">Количество: {item.amount}</p>
                   </div>
-                ))
-              ) : (
-                <p className="text-sm text-mariko-dark/60">Нет данных по позициям</p>
-              )}
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-mariko-dark/80">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-mariko-dark/50 mb-1">Способ</p>
-              <p className="font-semibold">
-                {order.order_type === "pickup" ? "Самовывоз" : "Доставка"}
-              </p>
-            </div>
-            {order.delivery_address && (
-              <div>
-                <p className="text-xs uppercase tracking-wide text-mariko-dark/50 mb-1">Адрес</p>
-                <p className="font-semibold">{order.delivery_address}</p>
-              </div>
-            )}
-          </div>
-          {order.comment && (
-            <div>
-              <p className="text-xs uppercase tracking-wide text-mariko-dark/50 mb-1">Комментарий</p>
-              <p className="text-mariko-dark/80">{order.comment}</p>
+                  <p className="font-semibold text-mariko-dark">{item.price * item.amount}₽</p>
+                </div>
+              ))}
             </div>
           )}
-          <div className="border-t border-mariko-field pt-3 text-sm space-y-1">
-            <div className="flex justify-between">
-              <span className="text-mariko-dark/70">Блюда</span>
-              <span className="font-semibold">{subtotal}₽</span>
-            </div>
-            {order.order_type === "delivery" && (
-              <div className="flex justify-between">
-                <span className="text-mariko-dark/70">Доставка</span>
-                <span className="font-semibold">{deliveryFee}₽</span>
-              </div>
-            )}
-            <div className="flex justify-between text-base font-semibold">
-              <span className="text-mariko-dark">Итого</span>
-              <span>{totalPrice}₽</span>
-            </div>
-          </div>
         </div>
       )}
     </div>
   );
 };
 
-const OrdersPage = () => {
+export default function OrdersPage() {
   const navigate = useNavigate();
-  const telegramUser = getUser();
-  const telegramUserId = telegramUser?.id?.toString() || "demo_user";
-  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+
+  const user = getUser();
+  const userId = user?.id?.toString();
 
   const {
-    data = [],
+    data: bookingsData,
     isLoading,
-    isFetching,
     error,
     refetch,
   } = useQuery({
-    queryKey: ["cart-orders", telegramUserId],
-    queryFn: ({ signal }) => fetchMyOrders({ telegramId: telegramUserId, limit: 40, signal }),
-    enabled: Boolean(telegramUserId),
-    staleTime: 10 * 1000,
-    refetchInterval: 5000,
-    refetchIntervalInBackground: true,
+    queryKey: ["bookings", userId],
+    queryFn: async () => {
+      if (!userId) return { success: false, bookings: [] };
+      return getBookings({ limit: 10 });
+    },
+    enabled: !!userId,
   });
 
-  const sortedOrders = useMemo(
-    () =>
-      [...data].sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-      ),
-    [data],
-  );
+  const bookings = bookingsData?.bookings || [];
 
-  const activeOrders = useMemo(
-    () =>
-      sortedOrders.filter((order) => {
-        const status = normalizeStatus(order.status);
-        if (ACTIVE_STATUSES.has(status)) {
-          return true;
-        }
-        if (!FINISHED_STATUSES.has(status)) {
-          return true;
-        }
-        return false;
-      }),
-    [sortedOrders],
-  );
-
-  const historyOrders = useMemo(
-    () =>
-      sortedOrders.filter((order) => {
-        const status = normalizeStatus(order.status);
-        return FINISHED_STATUSES.has(status);
-      }),
-    [sortedOrders],
-  );
-
-  const renderOrders = (orders: CartOrderRecord[]) => {
-    if (!orders.length) {
-      return (
-        <div className="text-center text-mariko-dark/70 bg-white/60 rounded-3xl border border-dashed border-mariko-field p-6">
-          <p className="font-semibold">Заказов пока нет</p>
-          <p className="text-sm mt-1">Соберите корзину и оформите доставку, чтобы увидеть историю.</p>
-          <button
-            type="button"
-            className="mt-4 rounded-full bg-mariko-primary text-white px-6 py-2 font-semibold"
-            onClick={() => navigate("/menu")}
-          >
-            Перейти к меню
-          </button>
-        </div>
-      );
-    }
-
-    return orders.map((order) => (
-      <OrderCard
-        key={order.id}
-        order={order}
-        expanded={expandedOrderId === order.id}
-        onToggle={() => setExpandedOrderId((prev) => (prev === order.id ? null : order.id))}
-      />
-    ));
+  const toggleCard = (id: string) => {
+    setExpandedCards((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
   };
+
+  // Если нет бронирований, не показываем страницу
+  if (!isLoading && bookings.length === 0) {
+    return null;
+  }
 
   return (
     <div className="app-screen overflow-hidden bg-transparent">
@@ -358,21 +147,21 @@ const OrdersPage = () => {
         <div className="app-shell app-shell-wide w-full max-w-4xl pb-6 md:pb-8">
           <PageHeader
             title="Мои заказы"
-            subtitle="Следите за статусом доставки"
+            subtitle="История ваших бронирований"
             variant="white"
             onBackClick={() => navigate("/menu")}
           />
 
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-white/80">
-              Обновляйте список, чтобы увидеть свежий статус заказа.
+              Последние бронирования столиков
             </p>
             <button
               type="button"
               onClick={() => refetch()}
               className="inline-flex items-center gap-2 rounded-full border border-white/30 text-white px-4 py-2 text-sm font-semibold hover:bg-white/10 transition-colors"
             >
-              <RefreshCw className={cn("w-4 h-4", isFetching && "animate-spin")} />
+              <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
               Обновить
             </button>
           </div>
@@ -381,7 +170,7 @@ const OrdersPage = () => {
             <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 text-red-800 flex items-start gap-2 mb-4">
               <AlertCircle className="w-5 h-5 mt-0.5" />
               <div className="flex-1">
-                <p className="font-semibold">Не получилось загрузить заказы</p>
+                <p className="font-semibold">Не получилось загрузить бронирования</p>
                 <p className="text-sm">Проверьте интернет или попробуйте позже.</p>
                 <button
                   type="button"
@@ -396,35 +185,23 @@ const OrdersPage = () => {
 
           {isLoading ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-10 h-10 text-white animate-spin" />
+              <Loader2 className="w-8 h-8 animate-spin text-mariko-primary" />
             </div>
           ) : (
-            <div className="space-y-8">
-              <section>
-                <h2 className="font-el-messiri text-white text-2xl font-bold mb-3">Активные</h2>
-                <div className="space-y-4">{renderOrders(activeOrders)}</div>
-              </section>
-              <section>
-                <h2 className="font-el-messiri text-white text-2xl font-bold mb-3">
-                  История заказов
-                </h2>
-                <div className="space-y-4">
-                  {historyOrders.length === 0 ? (
-                    <p className="text-white/70 text-sm">
-                      Завершённые заказы появятся здесь автоматически.
-                    </p>
-                  ) : (
-                    renderOrders(historyOrders)
-                  )}
-                </div>
-              </section>
+            <div className="space-y-4">
+              {bookings.map((booking) => (
+                <BookingCard
+                  key={booking.id}
+                  booking={booking}
+                  expanded={expandedCards.has(booking.id)}
+                  onToggle={() => toggleCard(booking.id)}
+                />
+              ))}
             </div>
           )}
         </div>
-        <BottomNavigation currentPage="profile" />
       </div>
+      <BottomNavigation />
     </div>
   );
-};
-
-export default OrdersPage;
+}
