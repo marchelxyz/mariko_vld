@@ -259,6 +259,7 @@ export async function updateRestaurantViaServer(
     name?: string;
     address?: string;
     isActive?: boolean;
+    isDeliveryEnabled?: boolean;
     phoneNumber?: string;
     deliveryAggregators?: Array<{ name: string; url: string }>;
     yandexMapsUrl?: string;
