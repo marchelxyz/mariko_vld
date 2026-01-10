@@ -1,18 +1,36 @@
 import { useNavigate } from "react-router-dom";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { ProfileAvatar, useProfile } from "@entities/user";
-import { ActionButton } from "@shared/ui";
 import { Settings } from "lucide-react";
+
+/**
+ * Компонент отображения поля профиля в режиме просмотра.
+ */
+function ProfileField({ label, value, loading }: { label: string; value: string; loading?: boolean }) {
+  return (
+    <div className="bg-mariko-field rounded-[16px] px-5 md:px-7 py-3 md:py-4">
+      <p className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-1">
+        {label}
+      </p>
+      {loading ? (
+        <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" />
+      ) : (
+        <p className="text-mariko-dark font-el-messiri text-base md:text-lg">
+          {value || "—"}
+        </p>
+      )}
+    </div>
+  );
+}
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { profile } = useProfile();
+  const { profile, loading } = useProfile();
   const normalizedName = (profile.name || "").trim();
   const hasCustomName = normalizedName.length > 0 && normalizedName !== "Пользователь";
   const greetingText = hasCustomName
     ? `Сердечно встречаем тебя, ${normalizedName}!`
     : "Сердечно встречаем тебя, генацвале!";
-  const deliveryAddress = (profile.lastAddressText || "").trim();
 
   return (
     <div className="app-screen overflow-hidden bg-transparent">
@@ -29,9 +47,9 @@ const Profile = () => {
             <PageHeader title="Профиль" />
           </div>
           
-          {/* Profile Header */}
+          {/* Profile Header с кнопкой настроек */}
           <div className="mt-6 md:mt-8">
-            <div className="bg-mariko-secondary rounded-[16px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6">
+            <div className="bg-mariko-secondary rounded-[16px] px-6 md:px-8 py-6 md:py-8 flex items-center gap-4 md:gap-6 relative">
               <ProfileAvatar 
                 photo={profile.photo}
                 size="medium"
@@ -40,31 +58,27 @@ const Profile = () => {
                 <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold tracking-tight">
                   {greetingText}
                 </h2>
-                <p className="text-white/80 font-el-messiri text-lg mt-1">
-                  {profile.name}
-                </p>
               </div>
+              {/* Кнопка настроек в правом верхнем углу */}
+              <button
+                onClick={() => navigate("/settings")}
+                className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                aria-label="Настройки"
+              >
+                <Settings className="w-5 h-5 text-white" />
+              </button>
             </div>
           </div>
 
-          {/* Profile Action Buttons */}
+          {/* Поля профиля */}
           <div
-            className="relative z-20 mt-6 md:mt-8 space-y-3 md:space-y-6"
+            className="relative z-20 mt-6 md:mt-8 space-y-3 md:space-y-4"
             style={{ paddingBottom: "calc(var(--app-bottom-inset) + 160px)" }}
           >
-            <div className="bg-mariko-field rounded-[16px] px-5 md:px-7 py-3 md:py-4">
-              <p className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-1">
-                Адрес доставки
-              </p>
-              <p className="text-mariko-dark font-el-messiri text-base md:text-lg">
-                {deliveryAddress || "Не указан"}
-              </p>
-            </div>
-            <ActionButton
-              icon={<img src="/images/action button/Vector.png" alt="Settings" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
-              title="Настройки"
-              onClick={() => navigate("/settings")}
-            />
+            <ProfileField label="ФИО" value={profile.name} loading={loading} />
+            <ProfileField label="Дата рождения" value={profile.birthDate} loading={loading} />
+            <ProfileField label="Пол" value={profile.gender} loading={loading} />
+            <ProfileField label="Телефон" value={profile.phone} loading={loading} />
           </div>
         </div>
 
