@@ -195,6 +195,8 @@ export function registerCartRoutes(app) {
     }
     const body = req.body ?? {};
     const headerUserId = getUserIdFromHeaders(req);
+    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerVkId = getVerifiedVkIdFromHeaders(req);
     const resolvedId = normaliseNullableString(body.id) ?? headerUserId;
     if (!resolvedId) {
       return res
@@ -204,7 +206,10 @@ export function registerCartRoutes(app) {
     try {
       const row = await upsertUserProfileRecord({
         id: resolvedId,
-        telegramId: body.telegramId ?? headerTelegramId ?? resolvedId,
+        telegramId: body.telegramId ?? headerTelegramId ?? (headerTelegramId ? resolvedId : undefined),
+        vkId: body.vkId !== undefined 
+          ? (typeof body.vkId === "number" ? body.vkId : Number(body.vkId))
+          : (headerVkId ? Number(headerVkId) : undefined),
         name: body.name,
         phone: body.phone,
         primaryAddressId: body.primaryAddressId,
