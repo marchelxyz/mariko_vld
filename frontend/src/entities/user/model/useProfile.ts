@@ -342,6 +342,7 @@ export const useProfile = () => {
     error,
     updateProfile,
     reload: loadProfile,
+    refetch: loadProfile,
     isInitialized,
   };
 };
