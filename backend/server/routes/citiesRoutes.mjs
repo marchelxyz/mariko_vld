@@ -56,7 +56,7 @@ export function createCitiesRouter() {
             name: r.name,
             address: r.address,
             city: cityRow.name,
-            isDeliveryEnabled: r.is_delivery_enabled ?? false,
+            isDeliveryEnabled: r.is_delivery_enabled ?? true,
             phoneNumber: r.phone_number || undefined,
             deliveryAggregators: r.delivery_aggregators 
               ? (typeof r.delivery_aggregators === 'string' 
@@ -119,7 +119,7 @@ export function createCitiesRouter() {
             address: r.address,
             city: cityRow.name,
             isActive: r.is_active,
-            isDeliveryEnabled: r.is_delivery_enabled ?? false,
+            isDeliveryEnabled: r.is_delivery_enabled ?? true,
             phoneNumber: r.phone_number || undefined,
             deliveryAggregators: r.delivery_aggregators
               ? (typeof r.delivery_aggregators === 'string'
@@ -329,7 +329,7 @@ export function createCitiesRouter() {
           remarkedRestaurantId || null,
           reviewLink.trim(),
           maxCartItemQuantity,
-          false,
+          true,
           0,
         ]
       );

@@ -148,7 +148,7 @@ const SCHEMAS = {
       name VARCHAR(255) NOT NULL,
       address VARCHAR(500) NOT NULL,
       is_active BOOLEAN DEFAULT true,
-      is_delivery_enabled BOOLEAN DEFAULT false,
+      is_delivery_enabled BOOLEAN DEFAULT true,
       display_order INTEGER DEFAULT 0,
       phone_number VARCHAR(20),
       delivery_aggregators JSONB DEFAULT '[]'::jsonb,
@@ -720,7 +720,7 @@ export async function initializeDatabase() {
       `);
       
       if (columnExists.rows.length === 0) {
-        await query(`ALTER TABLE restaurants ADD COLUMN is_delivery_enabled BOOLEAN DEFAULT false`);
+        await query(`ALTER TABLE restaurants ADD COLUMN is_delivery_enabled BOOLEAN DEFAULT true`);
         console.log("✅ Поле is_delivery_enabled добавлено в таблицу restaurants");
       } else {
         console.log("ℹ️  Поле is_delivery_enabled уже существует в таблице restaurants");
