@@ -1,16 +1,18 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Settings, RotateCcw, MessageSquare, ChevronLeft } from "lucide-react";
+import { RotateCcw, MessageSquare } from "lucide-react";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { Button } from "@shared/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { useProfile } from "@/entities/user";
+import { useOnboardingContext } from "@/contexts/OnboardingContext";
 import { profileApi } from "@/shared/api/profile";
 import { cn } from "@shared/utils";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { profile, refetch: refetchProfile } = useProfile();
+  const { setOnboardingTourShown } = useOnboardingContext();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleBackClick = () => {
@@ -20,19 +22,13 @@ export default function SettingsPage() {
   const handleRestartTraining = async () => {
     setIsProcessing(true);
     try {
-      // Сбрасываем флаг прохождения обучения
-      await profileApi.updateUserProfile(profile.id, {
-        hasCompletedOnboarding: false,
-        onboardingCompletedAt: null,
-      });
+      // Сбрасываем флаг прохождения обучения через OnboardingContext
+      await setOnboardingTourShown(false);
       
       toast({
         title: "Обучение сброшено",
         description: "Теперь вы пройдете обучение заново при следующем входе в приложение",
       });
-      
-      // Обновляем профиль
-      await refetchProfile();
     } catch (error) {
       toast({
         title: "Ошибка",
@@ -50,7 +46,7 @@ export default function SettingsPage() {
       // Отзываем согласие на обработку данных
       await profileApi.updateUserProfile(profile.id, {
         personalDataConsentGiven: false,
-        personalDataConsentDate: null,
+        personalDataConsentDate: undefined,
       });
       
       toast({
