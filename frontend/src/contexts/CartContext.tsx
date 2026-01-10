@@ -130,9 +130,8 @@ const loadCartFromStorage = (): CartItem[] => {
     return [];
   }
   try {
-    const raw =
-      window.sessionStorage?.getItem(CART_STORAGE_KEY) ??
-      window.localStorage?.getItem(CART_STORAGE_KEY);
+    // Используем localStorage для постоянного хранения корзины между сессиями
+    const raw = window.localStorage?.getItem(CART_STORAGE_KEY);
     if (!raw) {
       return [];
     }
@@ -160,12 +159,8 @@ const saveCartToStorage = (items: CartItem[]) => {
   }
   try {
     const payload = JSON.stringify(items);
-    // sessionStorage предпочтительнее, но если недоступно — fallback в localStorage
-    try {
-      window.sessionStorage?.setItem(CART_STORAGE_KEY, payload);
-    } catch {
-      window.localStorage?.setItem(CART_STORAGE_KEY, payload);
-    }
+    // Используем localStorage для постоянного хранения корзины между сессиями
+    window.localStorage?.setItem(CART_STORAGE_KEY, payload);
   } catch (error) {
     logger.warn('cart', 'Не удалось сохранить корзину в хранилище', undefined, error instanceof Error ? error : new Error(String(error)));
   }
