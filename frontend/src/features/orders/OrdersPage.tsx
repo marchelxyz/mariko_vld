@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { getBookings, type BookingListItem } from "@/shared/api/bookingApi";
 import { cn } from "@shared/utils";
-import { getUser } from "@/lib/platform";
+import { getUser } from "@/lib/telegram";
 
 const BookingCard = ({
   booking,
