@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -33,7 +34,7 @@ import {
 } from "@shared/api/bookingApi";
 import { profileApi } from "@shared/api/profile";
 import { toast } from "@/hooks/use-toast";
-import { CalendarIcon, Loader2, RefreshCw, ShoppingCart, Info } from "lucide-react";
+import { CalendarIcon, Loader2, RefreshCw, ShoppingCart, Info, Pencil } from "lucide-react";
 import { cn } from "@shared/utils";
 import { getCachedBookingSlots, cacheBookingSlots } from "@shared/utils/bookingSlotsCache";
 import { Alert, AlertDescription } from "@shared/ui/alert";
@@ -134,6 +135,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
   const { selectedRestaurant } = useCityContext();
   const { profile } = useProfile();
   const { items: cartItems } = useCart();
+  const navigate = useNavigate();
 
   // Используем useMemo для today, чтобы избежать пересоздания при каждом рендере
   const today = useMemo(() => {
@@ -1271,11 +1273,22 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       {/* Отображение корзины после кнопки бронирования */}
       {cartItems.length > 0 && (
         <div className="rounded-[24px] border border-white/15 bg-white/10 p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <ShoppingCart className="h-5 w-5 text-white/80" />
-            <h3 className="text-white font-el-messiri text-lg font-semibold">
-              Мой заказ
-            </h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5 text-white/80" />
+              <h3 className="text-white font-el-messiri text-lg font-semibold">
+                Мой заказ
+              </h3>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/")}
+              className="h-8 px-2 text-white/70 hover:text-white hover:bg-white/10"
+            >
+              <Pencil className="h-4 w-4 mr-1" />
+              <span className="text-xs">Изменить</span>
+            </Button>
           </div>
           <div className="space-y-2">
             {cartItems.map((item) => (

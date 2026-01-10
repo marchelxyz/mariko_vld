@@ -1,6 +1,6 @@
 import { Save, X, Plus, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { Button, Input, Label } from "@shared/ui";
+import { Button, Input, Label, Switch } from "@shared/ui";
 import type { Restaurant, DeliveryAggregator, SocialNetwork } from "@shared/data";
 
 /**
@@ -26,6 +26,7 @@ type EditRestaurantModalProps = {
     remarkedRestaurantId?: number;
     reviewLink: string;
     maxCartItemQuantity?: number;
+    isDeliveryEnabled?: boolean;
   }) => Promise<void>;
 };
 
@@ -69,6 +70,7 @@ export function EditRestaurantModal({
   const [remarkedRestaurantId, setRemarkedRestaurantId] = useState<string>('');
   const [reviewLink, setReviewLink] = useState('');
   const [maxCartItemQuantity, setMaxCartItemQuantity] = useState<string>('10');
+  const [isDeliveryEnabled, setIsDeliveryEnabled] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -83,6 +85,7 @@ export function EditRestaurantModal({
       setRemarkedRestaurantId(restaurant.remarkedRestaurantId?.toString() || '');
       setReviewLink(restaurant.reviewLink || '');
       setMaxCartItemQuantity((restaurant as any).maxCartItemQuantity?.toString() || '10');
+      setIsDeliveryEnabled(restaurant.isDeliveryEnabled ?? false);
     }
   }, [restaurant, isOpen]);
 
@@ -178,6 +181,7 @@ export function EditRestaurantModal({
           }
           return parsed;
         })(),
+        isDeliveryEnabled,
       });
       onClose();
     } catch (error) {
@@ -217,6 +221,17 @@ export function EditRestaurantModal({
               onChange={(e) => setAddress(e.target.value)}
               placeholder="Введите адрес ресторана"
             />
+          </div>
+
+          <div className="flex items-center space-x-2 py-2">
+            <Switch
+              id="delivery-enabled"
+              checked={isDeliveryEnabled}
+              onCheckedChange={setIsDeliveryEnabled}
+            />
+            <Label htmlFor="delivery-enabled" className="text-white cursor-pointer">
+              Доставка включена
+            </Label>
           </div>
 
           <div>

@@ -148,6 +148,7 @@ const SCHEMAS = {
       name VARCHAR(255) NOT NULL,
       address VARCHAR(500) NOT NULL,
       is_active BOOLEAN DEFAULT true,
+      is_delivery_enabled BOOLEAN DEFAULT false,
       display_order INTEGER DEFAULT 0,
       phone_number VARCHAR(20),
       delivery_aggregators JSONB DEFAULT '[]'::jsonb,
@@ -708,6 +709,24 @@ export async function initializeDatabase() {
       }
     } catch (error) {
       console.warn("⚠️  Предупреждение при добавлении поля calories:", error?.message || error);
+    }
+
+    // Миграция: добавляем поле is_delivery_enabled в таблицу restaurants
+    try {
+      const columnExists = await query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'restaurants' AND column_name = 'is_delivery_enabled'
+      `);
+      
+      if (columnExists.rows.length === 0) {
+        await query(`ALTER TABLE restaurants ADD COLUMN is_delivery_enabled BOOLEAN DEFAULT false`);
+        console.log("✅ Поле is_delivery_enabled добавлено в таблицу restaurants");
+      } else {
+        console.log("ℹ️  Поле is_delivery_enabled уже существует в таблице restaurants");
+      }
+    } catch (error) {
+      console.warn("⚠️  Предупреждение при добавлении поля is_delivery_enabled:", error?.message || error);
     }
 
     // Создаем индексы

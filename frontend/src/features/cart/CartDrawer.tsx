@@ -856,14 +856,29 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
               <span className="text-mariko-dark/70">Итого</span>
               <span className="font-el-messiri text-2xl font-bold">{totalPrice}₽</span>
             </div>
-            <button
-              type="button"
-              disabled={items.length === 0}
-              className="w-full rounded-full border border-mariko-primary bg-gradient-to-r from-mariko-primary to-mariko-primary/90 text-white py-3 font-el-messiri text-lg font-semibold shadow-[0_6px_20px_rgba(145,30,30,0.35)] transition-all disabled:border-mariko-primary/40 disabled:bg-mariko-primary/20 disabled:text-white/70 disabled:shadow-none disabled:cursor-not-allowed"
-              onClick={() => setIsCheckoutMode(true)}
-            >
-              Перейти к оформлению
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={items.length === 0}
+                className="w-full rounded-full border border-mariko-primary bg-white text-mariko-primary py-3 font-el-messiri text-base font-semibold shadow-sm transition-all hover:bg-mariko-field/10 disabled:border-mariko-primary/40 disabled:text-mariko-primary/40 disabled:cursor-not-allowed"
+                onClick={() => {
+                  onClose();
+                  navigate("/booking");
+                }}
+              >
+                Перейти к брони
+              </button>
+              {selectedRestaurant?.isDeliveryEnabled !== false && (
+                <button
+                  type="button"
+                  disabled={items.length === 0}
+                  className="w-full rounded-full border border-mariko-primary bg-gradient-to-r from-mariko-primary to-mariko-primary/90 text-white py-3 font-el-messiri text-base font-semibold shadow-[0_6px_20px_rgba(145,30,30,0.35)] transition-all disabled:border-mariko-primary/40 disabled:bg-mariko-primary/20 disabled:text-white/70 disabled:shadow-none disabled:cursor-not-allowed"
+                  onClick={() => setIsCheckoutMode(true)}
+                >
+                  Заказать доставку
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
