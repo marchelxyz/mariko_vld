@@ -61,12 +61,7 @@ const Profile = () => {
               </p>
             </div>
             <ActionButton
-              icon={<img src="/images/action button/Male User.png" alt="Profile" className="w-6 h-6 md:w-12 md:h-12 object-contain" />}
-              title="Редактирование профиля"
-              onClick={() => navigate("/edit-profile")}
-            />
-            <ActionButton
-              icon={<Settings className="w-6 h-6 md:w-12 md:h-12 text-mariko-primary" />}
+              icon={<Settings className="w-6 h-6 md:w-12 md:h-12 text-white" />}
               title="Настройки"
               onClick={() => navigate("/settings")}
             />
