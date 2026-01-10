@@ -268,6 +268,7 @@ export function CitiesManagement(): JSX.Element {
     socialNetworks: Array<{ name: string; url: string }>;
     remarkedRestaurantId?: number;
     reviewLink: string;
+    maxCartItemQuantity?: number;
   }) => {
     if (!restaurantToEdit) return;
 
@@ -281,6 +282,7 @@ export function CitiesManagement(): JSX.Element {
       socialNetworks: updates.socialNetworks.length > 0 ? updates.socialNetworks : undefined,
       remarkedRestaurantId: updates.remarkedRestaurantId,
       reviewLink: updates.reviewLink.trim(),
+      maxCartItemQuantity: updates.maxCartItemQuantity,
     });
 
     if (result) {

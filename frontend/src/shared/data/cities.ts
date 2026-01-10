@@ -16,6 +16,7 @@ export interface Restaurant {
   address: string;
   city: string;
   isActive?: boolean;
+  isDeliveryEnabled?: boolean;
   remarkedRestaurantId?: number;
   phoneNumber?: string;
   deliveryAggregators?: DeliveryAggregator[];
@@ -23,6 +24,7 @@ export interface Restaurant {
   twoGisUrl?: string;
   socialNetworks?: SocialNetwork[];
   reviewLink?: string;
+  maxCartItemQuantity?: number;
 }
 
 export interface City {

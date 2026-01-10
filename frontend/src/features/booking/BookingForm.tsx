@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -33,9 +34,10 @@ import {
 } from "@shared/api/bookingApi";
 import { profileApi } from "@shared/api/profile";
 import { toast } from "@/hooks/use-toast";
-import { CalendarIcon, Loader2, RefreshCw } from "lucide-react";
+import { CalendarIcon, Loader2, RefreshCw, ShoppingCart, Info, Pencil } from "lucide-react";
 import { cn } from "@shared/utils";
 import { getCachedBookingSlots, cacheBookingSlots } from "@shared/utils/bookingSlotsCache";
+import { Alert, AlertDescription } from "@shared/ui/alert";
 
 type EventType = {
   id: string;
@@ -883,6 +885,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       const fullComment = [
         cartComment,
         selectedEvent?.comment,
+        cartComment,
         comment.trim(),
       ]
         .filter((item) => Boolean(item))
@@ -1002,6 +1005,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     guestsCount,
     selectedEvent,
     comment,
+    cartItems,
     profile,
     today,
     tokenError,
@@ -1214,6 +1218,16 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         />
       </div>
 
+      {/* Уведомление о передаче меню в ресторан */}
+      {cartItems.length > 0 && (
+        <Alert className="bg-mariko-primary/20 border-mariko-primary/40 rounded-[16px] shadow-lg">
+          <Info className="h-5 w-5 text-mariko-primary flex-shrink-0" />
+          <AlertDescription className="text-white/95 pl-7">
+            <span className="font-semibold text-white font-el-messiri">Ваше собранное меню будет передано в ресторан</span> при подтверждении бронирования. Ресторан подготовит ваш заказ к указанному времени.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Согласие */}
       {!hasPreviousBooking && (
         <div className="flex items-start gap-3">
@@ -1298,6 +1312,61 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           "Забронировать столик"
         )}
       </Button>
+
+      {/* Отображение корзины после кнопки бронирования */}
+      {cartItems.length > 0 && (
+        <div className="rounded-[24px] border border-white/15 bg-white/10 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5 text-white/80" />
+              <h3 className="text-white font-el-messiri text-lg font-semibold">
+                Мой заказ
+              </h3>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/")}
+              className="h-8 px-2 text-white/70 hover:text-white hover:bg-white/10"
+            >
+              <Pencil className="h-4 w-4 mr-1" />
+              <span className="text-xs">Изменить</span>
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {cartItems.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between text-white/90"
+              >
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{item.name}</p>
+                  {item.weight && (
+                    <p className="text-xs text-white/60">{item.weight}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-white/70">
+                    {item.amount > 1 && `×${item.amount} `}
+                    {item.price.toLocaleString("ru-RU")} ₽
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="pt-2 border-t border-white/10">
+            <div className="flex items-center justify-between text-white">
+              <span className="text-sm font-medium">Итого:</span>
+              <span className="font-semibold">
+                {cartItems
+                  .reduce((sum, item) => sum + item.price * item.amount, 0)
+                  .toLocaleString("ru-RU")}{" "}
+                ₽
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
