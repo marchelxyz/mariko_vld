@@ -10,7 +10,7 @@ import { cn } from "@shared/utils";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
-  const { profile, refetch: refetchProfile } = useProfile();
+  const { profile, reload: refetchProfile } = useProfile();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleBackClick = () => {
