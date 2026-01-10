@@ -57,7 +57,7 @@ function MenuItemComponentBase({
   
   return (
     <div
-      className={`bg-white rounded-[16px] overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer ${
+      className={`bg-white rounded-[16px] overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer flex flex-col ${
         isCompact || isMobile ? 'h-full' : ''
       }`}
       onClick={() => onClick?.(item)}
@@ -67,7 +67,7 @@ function MenuItemComponentBase({
         isMobile ? 'aspect-[4/3]' : 
         isCompact ? 'aspect-[4/3]' : 
         'aspect-[4/3]'
-      } bg-gray-100 flex items-center justify-center relative`}>
+      } bg-gray-100 flex items-center justify-center relative shrink-0`}>
         {item.imageUrl ? (
           <img
             src={item.imageUrl}
@@ -101,98 +101,33 @@ function MenuItemComponentBase({
             </Badge>
           )}
         </div>
-        
-        {/* Кнопка добавления в корзину на изображении */}
-        {showAddButton && (
-          <div className="absolute bottom-2 right-2">
-            {quantity > 0 ? (
-              <div className="flex items-center gap-1 bg-white/95 backdrop-blur-sm rounded-full px-2 py-1 shadow-md">
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDecrease?.(item);
-                  }}
-                  className="p-1 rounded-full hover:bg-mariko-primary/10 transition-colors"
-                  aria-label="Уменьшить количество"
-                >
-                  <Minus className="w-3 h-3 text-mariko-primary" />
-                </button>
-                <span className="min-w-[20px] text-center font-semibold text-sm text-gray-900">{quantity}</span>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    (onIncrease ?? onAdd)?.(item);
-                  }}
-                  disabled={quantity >= maxCartItemQuantity}
-                  className={`p-1 rounded-full transition-colors ${
-                    quantity >= maxCartItemQuantity
-                      ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:bg-mariko-primary/10'
-                  }`}
-                  aria-label="Увеличить количество"
-                >
-                  <Plus className={`w-3 h-3 ${quantity >= maxCartItemQuantity ? 'text-gray-400' : 'text-mariko-primary'}`} />
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onAdd?.(item);
-                }}
-                className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-mariko-primary text-white shadow-lg hover:bg-mariko-primary/90 transition-colors flex items-center justify-center"
-                aria-label="Добавить в корзину"
-              >
-                <Plus className="w-4 h-4 md:w-5 md:h-5" />
-              </button>
-            )}
-          </div>
-        )}
       </div>
       
       {/* Информация о блюде */}
-      <div className={`${
+      <div className={`flex flex-col flex-1 ${
         isMobile ? 'p-1.5 md:p-2' : 
         isCompact ? 'p-2 md:p-3' : 
         'p-2 md:p-3'
       }`}>
-        <div className="flex items-start justify-between mb-1 md:mb-2">
-          <div className="flex-1 min-w-0">
-            <h3 className={`font-el-messiri font-semibold text-gray-900 line-clamp-2 leading-tight ${
-              isMobile ? 'text-[10px] md:text-xs' :
-              isCompact ? 'text-[11px] md:text-sm' : 
-              'text-xs md:text-sm'
-            } min-h-[2.5em]`}>
-              {item.name}
-            </h3>
-            <p className={`text-gray-500 mt-0.5 min-h-[1.2em] ${
-              isMobile ? 'text-[8px] md:text-[9px]' :
-              isCompact ? 'text-[9px] md:text-xs' : 
-              'text-[10px] md:text-xs'
-            }`}>
-              {metaText}
-            </p>
-          </div>
+        <div className="flex-1 min-w-0">
+          <h3 className={`font-el-messiri font-semibold text-gray-900 line-clamp-2 leading-tight ${
+            isMobile ? 'text-[10px] md:text-xs' :
+            isCompact ? 'text-[11px] md:text-sm' : 
+            'text-xs md:text-sm'
+          } min-h-[2.5em]`}>
+            {item.name}
+          </h3>
+          <p className={`text-gray-500 mt-0.5 min-h-[1.2em] ${
+            isMobile ? 'text-[8px] md:text-[9px]' :
+            isCompact ? 'text-[9px] md:text-xs' : 
+            'text-[10px] md:text-xs'
+          }`}>
+            {metaText}
+          </p>
         </div>
         
-        {/* Нижняя часть: цена */}
-        <div className="flex items-center justify-between mt-1 md:mt-2">
-          <div className="flex items-baseline gap-1">
-            <span className={`font-el-messiri font-bold text-gray-900 ${
-              isMobile ? 'text-xs md:text-sm' :
-              isCompact ? 'text-sm md:text-base' : 
-              'text-sm md:text-lg'
-            }`}>
-              {item.price}₽
-            </span>
-          </div>
-        </div>
-        
-        {/* Дополнительные маркеры - всегда резервируем место для единообразия высоты карточек */}
-        <div className="flex items-center gap-1 mt-1 min-h-[16px] md:min-h-[18px]">
+        {/* Дополнительные маркеры - переместили выше цены */}
+        <div className="flex items-center gap-1 mt-1 mb-2 min-h-[16px] md:min-h-[18px]">
           {item.isVegetarian && (
             <span className={`text-green-600 ${
               isMobile ? 'text-[8px] md:text-[9px]' :
@@ -206,6 +141,61 @@ function MenuItemComponentBase({
               isCompact ? 'text-[10px] md:text-xs' : 
               'text-[10px] md:text-xs'
             }`}>🌶️</span>
+          )}
+        </div>
+
+        {/* Нижняя часть: цена и кнопка */}
+        <div className="flex items-center justify-between mt-auto">
+          <div className="flex items-baseline gap-1">
+            <span className={`font-el-messiri font-bold text-gray-900 ${
+              isMobile ? 'text-xs md:text-sm' :
+              isCompact ? 'text-sm md:text-base' : 
+              'text-sm md:text-lg'
+            }`}>
+              {item.price}₽
+            </span>
+          </div>
+          
+          {showAddButton && (
+            <div onClick={(e) => e.stopPropagation()}>
+              {quantity > 0 ? (
+                <div className="flex items-center gap-1 bg-gray-100 rounded-full px-1.5 py-0.5 md:px-2 md:py-1">
+                  <button
+                    type="button"
+                    onClick={() => onDecrease?.(item)}
+                    className="p-1 rounded-full hover:bg-gray-200 transition-colors text-mariko-primary"
+                    aria-label="Уменьшить количество"
+                  >
+                    <Minus className="w-3 h-3 md:w-4 md:h-4" />
+                  </button>
+                  <span className="min-w-[16px] md:min-w-[20px] text-center font-semibold text-xs md:text-sm text-gray-900">
+                    {quantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => (onIncrease ?? onAdd)?.(item)}
+                    disabled={quantity >= maxCartItemQuantity}
+                    className={`p-1 rounded-full transition-colors text-mariko-primary ${
+                      quantity >= maxCartItemQuantity
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:bg-gray-200'
+                    }`}
+                    aria-label="Увеличить количество"
+                  >
+                    <Plus className="w-3 h-3 md:w-4 md:h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onAdd?.(item)}
+                  className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-mariko-primary text-white shadow-sm hover:bg-mariko-primary/90 transition-colors flex items-center justify-center"
+                  aria-label="Добавить в корзину"
+                >
+                  <Plus className="w-4 h-4 md:w-5 md:h-5" />
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
