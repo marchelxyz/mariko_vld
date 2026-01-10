@@ -1277,12 +1277,17 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           <h4 className="text-white font-el-messiri text-base font-semibold mb-3">
             Ваш заказ
           </h4>
+          {/* Отладочная информация */}
+          <div className="text-white/70 text-xs mb-2">
+            Отладка: товаров в корзине: {cartItems.length}, общая сумма: {cartTotalPrice}₽
+          </div>
           <div className="space-y-2">
             {cartItems.map((item) => (
               <div key={item.id} className="flex justify-between items-center py-2 border-b border-white/10 last:border-0">
                 <div>
                   <p className="text-white font-medium">{item.name}</p>
                   <p className="text-white/70 text-sm">Количество: {item.quantity}</p>
+                  <p className="text-white/50 text-xs">Цена за единицу: {item.price}₽</p>
                 </div>
                 <p className="text-white font-semibold">{item.price * item.quantity}₽</p>
               </div>
@@ -1292,6 +1297,14 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
               <span className="text-white font-el-messiri text-lg font-bold">{cartTotalPrice}₽</span>
             </div>
           </div>
+        </div>
+      )}
+      {/* Отладка: показать когда корзина пуста */}
+      {cartItems.length === 0 && (
+        <div className="rounded-[16px] border border-yellow-500/50 bg-yellow-500/10 p-4">
+          <p className="text-yellow-300 text-sm">
+            Отладка: корзина пуста. Добавьте товары из меню, чтобы увидеть их здесь.
+          </p>
         </div>
       )}
     </div>
