@@ -1218,6 +1218,33 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         />
       </div>
 
+      {/* Согласие на обработку персональных данных */}
+      {!hasPreviousBooking && (
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="consent"
+            checked={consentGiven}
+            onCheckedChange={(checked) => setConsentGiven(checked === true)}
+            className="mt-1"
+          />
+          <Label
+            htmlFor="consent"
+            className="text-white/90 text-sm cursor-pointer leading-relaxed"
+          >
+            Даю согласие на{" "}
+            <a
+              href="https://vhachapuri.ru/policy"
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-white transition-colors"
+            >
+              обработку персональных данных
+            </a>{" "}
+            *
+          </Label>
+        </div>
+      )}
+
       {/* Кнопка отправки */}
       <Button
         onClick={handleSubmit}
@@ -1244,30 +1271,27 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         </Alert>
       )}
 
-      {/* Согласие на обработку персональных данных */}
-      {!hasPreviousBooking && (
-        <div className="flex items-start gap-3">
-          <Checkbox
-            id="consent"
-            checked={consentGiven}
-            onCheckedChange={(checked) => setConsentGiven(checked === true)}
-            className="mt-1"
-          />
-          <Label
-            htmlFor="consent"
-            className="text-white/90 text-sm cursor-pointer leading-relaxed"
-          >
-            Даю согласие на{" "}
-            <a
-              href="https://vhachapuri.ru/policy"
-              target="_blank"
-              rel="noreferrer"
-              className="underline hover:text-white transition-colors"
-            >
-              обработку персональных данных
-            </a>{" "}
-            *
-          </Label>
+      {/* Отображение корзины */}
+      {cartItems.length > 0 && (
+        <div className="rounded-[16px] border border-white/20 bg-white/5 p-4">
+          <h4 className="text-white font-el-messiri text-base font-semibold mb-3">
+            Ваш заказ
+          </h4>
+          <div className="space-y-2">
+            {cartItems.map((item) => (
+              <div key={item.id} className="flex justify-between items-center py-2 border-b border-white/10 last:border-0">
+                <div>
+                  <p className="text-white font-medium">{item.name}</p>
+                  <p className="text-white/70 text-sm">Количество: {item.quantity}</p>
+                </div>
+                <p className="text-white font-semibold">{item.price * item.quantity}₽</p>
+              </div>
+            ))}
+            <div className="flex justify-between items-center pt-2 mt-2 border-t border-white/20">
+              <span className="text-white font-semibold">Итого:</span>
+              <span className="text-white font-el-messiri text-lg font-bold">{cartTotalPrice}₽</span>
+            </div>
+          </div>
         </div>
       )}
     </div>
