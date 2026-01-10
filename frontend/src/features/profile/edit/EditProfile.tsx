@@ -1,5 +1,6 @@
-import { Pencil } from "lucide-react";
+import { Settings } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks";
 import { BottomNavigation, Header } from "@shared/ui/widgets";
 import { ProfileAvatar, useProfile } from "@entities/user";
@@ -26,6 +27,7 @@ type TelegramLocationManager = {
 };
 
 const EditProfile = () => {
+  const navigate = useNavigate();
   const { profile, updateProfile } = useProfile();
   const { toast: showToast } = useToast();
   // Хук для форматирования телефона - как в анкете вакансии
@@ -309,16 +311,14 @@ const EditProfile = () => {
                 {greetingText}
               </h2>
             </div>
-            {/* Edit icon in top right corner */}
-            {!isEditing && (
-              <button
-                onClick={startEditAll}
-                className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                aria-label="Редактировать профиль"
-              >
-                <Pencil className="w-5 h-5 text-white" />
-              </button>
-            )}
+            {/* Кнопка настроек вместо карандаша */}
+            <button
+              onClick={() => navigate("/settings")}
+              className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              aria-label="Настройки"
+            >
+              <Settings className="w-5 h-5 text-white" />
+            </button>
           </div>
         </div>
       </div>
