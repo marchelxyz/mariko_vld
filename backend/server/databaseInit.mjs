@@ -1,4 +1,4 @@
-import { db, query } from "./postgresClient.mjs";
+import { db, query, checkConnection } from "./postgresClient.mjs";
 import { CART_ORDERS_TABLE } from "./config.mjs";
 
 /**
@@ -149,6 +149,7 @@ const SCHEMAS = {
       name VARCHAR(255) NOT NULL,
       address VARCHAR(500) NOT NULL,
       is_active BOOLEAN DEFAULT true,
+      is_delivery_enabled BOOLEAN DEFAULT true,
       display_order INTEGER DEFAULT 0,
       phone_number VARCHAR(20),
       delivery_aggregators JSONB DEFAULT '[]'::jsonb,
@@ -157,6 +158,7 @@ const SCHEMAS = {
       social_networks JSONB DEFAULT '[]'::jsonb,
       remarked_restaurant_id INTEGER,
       review_link TEXT,
+      max_cart_item_quantity INTEGER DEFAULT 10,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
@@ -320,29 +322,79 @@ export async function initializeDatabase() {
     console.log("🔄 Начинаем инициализацию базы данных...");
     console.log(`📊 DATABASE_URL установлен: ${process.env.DATABASE_URL ? "да" : "нет"}`);
     
-    // Проверяем подключение к БД и наличие расширения для UUID
-    try {
-      await query("SELECT 1 as test");
-      console.log("✅ Подключение к БД успешно");
-      
-      // Проверяем наличие расширения pgcrypto для gen_random_uuid()
+    // Проверяем подключение к БД с несколькими попытками
+    let connectionEstablished = false;
+    const maxConnectionAttempts = 3;
+    
+    for (let attempt = 1; attempt <= maxConnectionAttempts; attempt++) {
       try {
-        await query("CREATE EXTENSION IF NOT EXISTS pgcrypto");
-        console.log("✅ Расширение pgcrypto доступно");
-      } catch (extError) {
-        console.warn("⚠️  Не удалось создать расширение pgcrypto:", extError.message);
-        console.warn("⚠️  UUID будут генерироваться на стороне приложения");
+        console.log(`🔄 Попытка подключения к БД (${attempt}/${maxConnectionAttempts})...`);
+        connectionEstablished = await checkConnection();
+        
+        if (connectionEstablished) {
+          console.log("✅ Подключение к БД успешно");
+          break;
+        }
+      } catch (error) {
+        const isLastAttempt = attempt === maxConnectionAttempts;
+        const errorInfo = {
+          code: error.code || "UNKNOWN",
+          message: error.message,
+          address: error.address,
+          port: error.port,
+        };
+        
+        if (isLastAttempt) {
+          console.error("❌ Ошибка подключения к БД после всех попыток:");
+          console.error("Код ошибки:", errorInfo.code);
+          console.error("Сообщение:", errorInfo.message);
+          if (errorInfo.address) {
+            console.error("Адрес:", `${errorInfo.address}:${errorInfo.port || 5432}`);
+          }
+          console.error("Полная ошибка:", error);
+          
+          // Предоставляем рекомендации по устранению проблемы
+          if (errorInfo.code === "ETIMEDOUT") {
+            console.error("\n💡 Рекомендации:");
+            console.error("1. Проверьте доступность базы данных по адресу:", errorInfo.address);
+            console.error("2. Убедитесь, что порт", errorInfo.port || 5432, "открыт в файрволе");
+            console.error("3. Проверьте правильность DATABASE_URL в переменных окружения");
+            console.error("4. Убедитесь, что база данных запущена и принимает подключения");
+          } else if (errorInfo.code === "ECONNREFUSED") {
+            console.error("\n💡 Рекомендации:");
+            console.error("1. База данных не принимает подключения на порту", errorInfo.port || 5432);
+            console.error("2. Проверьте, запущена ли база данных");
+            console.error("3. Проверьте настройки PostgreSQL (listen_addresses в postgresql.conf)");
+          }
+          
+          throw error;
+        } else {
+          const waitTime = attempt * 2000; // 2, 4, 6 секунд
+          console.warn(`⚠️  Попытка ${attempt} не удалась. Повтор через ${waitTime}мс...`);
+          console.warn("Ошибка:", errorInfo.message);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        }
       }
-    } catch (error) {
-      console.error("❌ Ошибка подключения к БД:", error.message);
-      console.error("Полная ошибка:", error);
-      throw error;
+    }
+    
+    if (!connectionEstablished) {
+      throw new Error("Не удалось установить подключение к БД после всех попыток");
+    }
+    
+    // Проверяем наличие расширения pgcrypto для gen_random_uuid()
+    try {
+      await query("CREATE EXTENSION IF NOT EXISTS pgcrypto", [], 2);
+      console.log("✅ Расширение pgcrypto доступно");
+    } catch (extError) {
+      console.warn("⚠️  Не удалось создать расширение pgcrypto:", extError.message);
+      console.warn("⚠️  UUID будут генерироваться на стороне приложения");
     }
 
     // Определяем порядок создания таблиц (важно для foreign keys)
     const tableOrder = [
       "user_profiles",      // Сначала создаем user_profiles
       "user_addresses",     // Потом user_addresses (зависит от user_profiles)
+      "user_carts",         // user_carts зависит от user_profiles
       "cart_orders",        // cart_orders независима
       "admin_users",        // admin_users независима
       "restaurant_payments", // restaurant_payments независима
@@ -367,12 +419,20 @@ export async function initializeDatabase() {
         }
         
         console.log(`📝 Создаем таблицу: ${tableName}...`);
-        await query(schema);
+        // Используем 2 попытки для создания таблиц (retry при временных ошибках подключения)
+        await query(schema, [], 2);
         console.log(`✅ Таблица ${tableName} создана/проверена`);
       } catch (error) {
         console.error(`❌ Ошибка создания таблицы ${tableName}:`, error.message);
+        console.error(`Код ошибки:`, error.code);
         console.error(`Полная ошибка:`, error);
         console.error(`SQL запрос:`, SCHEMAS[tableName]?.substring(0, 200) + "...");
+        
+        // Если это ошибка подключения, выбрасываем её дальше
+        if (error.code === "ETIMEDOUT" || error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
+          throw error;
+        }
+        // Для других ошибок (например, синтаксических) также выбрасываем
         throw error;
       }
     }
@@ -396,6 +456,65 @@ export async function initializeDatabase() {
       );
     } catch (error) {
       console.warn("⚠️  Не удалось обновить constraint ролей админов:", error?.message || error);
+    }
+
+    // Убеждаемся, что все таблицы имеют PRIMARY KEY constraints перед созданием foreign keys
+    console.log("🔑 Проверяем и создаем PRIMARY KEY constraints...");
+    const primaryKeyChecks = [
+      { table: "user_profiles", column: "id", type: "VARCHAR(255)" },
+      { table: CART_ORDERS_TABLE, column: "id", type: "UUID" },
+      { table: "cities", column: "id", type: "VARCHAR(255)" },
+      { table: "restaurants", column: "id", type: "VARCHAR(255)" },
+      { table: "menu_categories", column: "id", type: "VARCHAR(255)" },
+      { table: "menu_items", column: "id", type: "VARCHAR(255)" },
+    ];
+
+    for (const pk of primaryKeyChecks) {
+      try {
+        // Проверяем, есть ли PRIMARY KEY на этой колонке
+        const pkCheck = await query(`
+          SELECT tc.constraint_name 
+          FROM information_schema.table_constraints tc
+          JOIN information_schema.key_column_usage kcu 
+            ON tc.constraint_name = kcu.constraint_name
+            AND tc.table_schema = kcu.table_schema
+            AND tc.table_name = kcu.table_name
+          WHERE tc.table_name = $1 
+            AND kcu.column_name = $2
+            AND tc.constraint_type = 'PRIMARY KEY'
+            AND tc.table_schema = 'public'
+        `, [pk.table, pk.column]);
+
+        if (pkCheck.rows.length === 0) {
+          // Проверяем, существует ли колонка
+          const columnCheck = await query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = $1 AND column_name = $2 AND table_schema = 'public'
+          `, [pk.table, pk.column]);
+
+          if (columnCheck.rows.length > 0) {
+            // Создаем PRIMARY KEY constraint
+            await query(`
+              ALTER TABLE ${pk.table} 
+              ADD CONSTRAINT ${pk.table}_pkey PRIMARY KEY (${pk.column})
+            `);
+            console.log(`✅ PRIMARY KEY создан для ${pk.table}.${pk.column}`);
+          } else {
+            console.warn(`⚠️  Колонка ${pk.table}.${pk.column} не найдена`);
+          }
+        } else {
+          console.log(`ℹ️  PRIMARY KEY уже существует для ${pk.table}.${pk.column}`);
+        }
+      } catch (error) {
+        const errorMsg = error.message || String(error);
+        // Игнорируем ошибки, если PRIMARY KEY уже существует
+        if (!errorMsg.includes("already exists") && 
+            !errorMsg.includes("duplicate") &&
+            !errorMsg.includes("violates unique constraint")) {
+          console.warn(`⚠️  Предупреждение при проверке PRIMARY KEY для ${pk.table}.${pk.column}:`, errorMsg);
+        }
+      }
     }
 
     // Создаем foreign keys отдельно (после создания всех таблиц)
@@ -464,6 +583,13 @@ export async function initializeDatabase() {
               ADD CONSTRAINT fk_city_recommended_dishes_menu_item 
               FOREIGN KEY (menu_item_id) REFERENCES menu_items(id) ON DELETE CASCADE`,
       },
+      {
+        name: "fk_user_carts_user",
+        table: "user_carts",
+        sql: `ALTER TABLE user_carts 
+              ADD CONSTRAINT fk_user_carts_user 
+              FOREIGN KEY (user_id) REFERENCES user_profiles(id) ON DELETE CASCADE`,
+      },
     ];
 
     for (const fk of foreignKeys) {
@@ -476,21 +602,47 @@ export async function initializeDatabase() {
         `, [fk.name]);
         
         if (checkResult.rows.length === 0) {
+          // Перед созданием foreign key проверяем наличие уникального ограничения на ссылаемой таблице
+          const referencedTableMatch = fk.sql.match(/REFERENCES\s+(\w+)\((\w+)\)/i);
+          if (referencedTableMatch) {
+            const [, refTable, refColumn] = referencedTableMatch;
+            const uniqueCheck = await query(`
+              SELECT tc.constraint_name 
+              FROM information_schema.table_constraints tc
+              JOIN information_schema.key_column_usage kcu 
+                ON tc.constraint_name = kcu.constraint_name
+                AND tc.table_schema = kcu.table_schema
+                AND tc.table_name = kcu.table_name
+              WHERE tc.table_name = $1 
+                AND kcu.column_name = $2
+                AND tc.constraint_type IN ('PRIMARY KEY', 'UNIQUE')
+                AND tc.table_schema = 'public'
+            `, [refTable, refColumn]);
+
+            if (uniqueCheck.rows.length === 0) {
+              console.warn(`⚠️  Пропуск создания foreign key ${fk.name}: таблица ${refTable}.${refColumn} не имеет PRIMARY KEY или UNIQUE constraint`);
+              continue;
+            }
+          }
+
           await query(fk.sql);
           console.log(`✅ Foreign key ${fk.name} создан`);
         } else {
           console.log(`ℹ️  Foreign key ${fk.name} уже существует`);
         }
       } catch (error) {
+        const errorCode = error.code || "";
         const errorMsg = error.message || String(error);
-        if (!errorMsg.includes("already exists") && 
-            !errorMsg.includes("duplicate") && 
-            !errorMsg.includes("does not exist") &&
-            !errorMsg.includes("constraint") &&
-            !errorMsg.includes("already")) {
-          console.warn(`⚠️  Предупреждение при создании foreign key ${fk.name}:`, errorMsg);
+        
+        // Ошибка 42830 означает отсутствие уникального ограничения
+        if (errorCode === "42830" || errorMsg.includes("no unique constraint matching given keys")) {
+          console.warn(`⚠️  Пропуск создания foreign key ${fk.name}: отсутствует уникальное ограничение на ссылаемой таблице`);
+        } else if (errorMsg.includes("already exists") || 
+                   errorMsg.includes("duplicate") || 
+                   errorMsg.includes("constraint") && errorMsg.includes("already")) {
+          console.log(`ℹ️  Foreign key ${fk.name} пропущен (уже существует)`);
         } else {
-          console.log(`ℹ️  Foreign key ${fk.name} пропущен (уже существует или не требуется)`);
+          console.warn(`⚠️  Ошибка при создании foreign key ${fk.name}:`, errorMsg);
         }
       }
     }
@@ -511,6 +663,24 @@ export async function initializeDatabase() {
       }
     } catch (error) {
       console.warn("⚠️  Предупреждение при добавлении поля review_link:", error?.message || error);
+    }
+
+    // Миграция: добавляем поле max_cart_item_quantity в таблицу restaurants
+    try {
+      const columnExists = await query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'restaurants' AND column_name = 'max_cart_item_quantity'
+      `);
+      
+      if (columnExists.rows.length === 0) {
+        await query(`ALTER TABLE restaurants ADD COLUMN max_cart_item_quantity INTEGER DEFAULT 10`);
+        console.log("✅ Поле max_cart_item_quantity добавлено в таблицу restaurants");
+      } else {
+        console.log("ℹ️  Поле max_cart_item_quantity уже существует в таблице restaurants");
+      }
+    } catch (error) {
+      console.warn("⚠️  Предупреждение при добавлении поля max_cart_item_quantity:", error?.message || error);
     }
 
     // Миграция: добавляем поле onboarding_tour_shown в таблицу user_profiles
@@ -601,6 +771,7 @@ export async function checkDatabaseTables() {
     const requiredTables = [
       "user_profiles",
       "user_addresses",
+      "user_carts",
       CART_ORDERS_TABLE,
       "admin_users",
       "restaurant_payments",
