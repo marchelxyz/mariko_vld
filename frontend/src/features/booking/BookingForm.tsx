@@ -1283,7 +1283,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/menu")}
               className="h-8 px-2 text-white/70 hover:text-white hover:bg-white/10"
             >
               <Pencil className="h-4 w-4 mr-1" />

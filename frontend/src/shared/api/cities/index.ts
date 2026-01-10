@@ -47,6 +47,7 @@ class CitiesApi {
     name?: string; 
     address?: string; 
     isActive?: boolean; 
+    isDeliveryEnabled?: boolean;
     remarkedRestaurantId?: number;
     phoneNumber?: string;
     deliveryAggregators?: Array<{ name: string; url: string }>;

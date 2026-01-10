@@ -269,6 +269,7 @@ export function CitiesManagement(): JSX.Element {
     remarkedRestaurantId?: number;
     reviewLink: string;
     maxCartItemQuantity?: number;
+    isDeliveryEnabled?: boolean;
   }) => {
     if (!restaurantToEdit) return;
 
@@ -283,6 +284,7 @@ export function CitiesManagement(): JSX.Element {
       remarkedRestaurantId: updates.remarkedRestaurantId,
       reviewLink: updates.reviewLink.trim(),
       maxCartItemQuantity: updates.maxCartItemQuantity,
+      isDeliveryEnabled: updates.isDeliveryEnabled,
     });
 
     if (result) {
