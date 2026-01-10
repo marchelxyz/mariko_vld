@@ -1243,6 +1243,33 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           </AlertDescription>
         </Alert>
       )}
+
+      {/* Согласие на обработку персональных данных */}
+      {!hasPreviousBooking && (
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="consent"
+            checked={consentGiven}
+            onCheckedChange={(checked) => setConsentGiven(checked === true)}
+            className="mt-1"
+          />
+          <Label
+            htmlFor="consent"
+            className="text-white/90 text-sm cursor-pointer leading-relaxed"
+          >
+            Даю согласие на{" "}
+            <a
+              href="https://vhachapuri.ru/policy"
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-white transition-colors"
+            >
+              обработку персональных данных
+            </a>{" "}
+            *
+          </Label>
+        </div>
+      )}
     </div>
   );
 }
