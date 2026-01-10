@@ -570,7 +570,7 @@ const Index = () => {
                                 onIncrease={handleAddToCart}
                                 onDecrease={handleRemoveFromCart}
                                 quantity={quantity}
-                                showAddButton={true}
+                                showAddButton={false}
                               />
                             </div>
                             {/* Компактный вариант для экранов >= 768px */}
@@ -583,7 +583,7 @@ const Index = () => {
                                 onIncrease={handleAddToCart}
                                 onDecrease={handleRemoveFromCart}
                                 quantity={quantity}
-                                showAddButton={true}
+                                showAddButton={false}
                               />
                             </div>
                           </div>

@@ -1218,85 +1218,6 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         />
       </div>
 
-      {/* Уведомление о передаче меню в ресторан */}
-      {cartItems.length > 0 && (
-        <Alert className="bg-mariko-primary/20 border-mariko-primary/40 rounded-[16px] shadow-lg">
-          <Info className="h-5 w-5 text-mariko-primary flex-shrink-0" />
-          <AlertDescription className="text-white/95 pl-7">
-            <span className="font-semibold text-white font-el-messiri">Ваше собранное меню будет передано в ресторан</span> при подтверждении бронирования. Ресторан подготовит ваш заказ к указанному времени.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Согласие */}
-      {!hasPreviousBooking && (
-        <div className="flex items-start gap-3">
-          <Checkbox
-            id="consent"
-            checked={consentGiven}
-            onCheckedChange={(checked) => setConsentGiven(checked === true)}
-            className="mt-1"
-            disabled={checkingPreviousBooking}
-          />
-          <Label
-            htmlFor="consent"
-            className="text-white/90 text-sm cursor-pointer leading-relaxed"
-          >
-            Даю согласие на{" "}
-            <a
-              href="https://vhachapuri.ru/policy"
-              target="_blank"
-              rel="noreferrer"
-              className="underline hover:text-white transition-colors"
-            >
-              обработку персональных данных
-            </a>{" "}
-            *
-          </Label>
-        </div>
-      )}
-
-      {/* Отображение корзины */}
-      {cartItems.length > 0 && (
-        <div className="rounded-[24px] border border-white/20 bg-white/10 p-4 space-y-3">
-          <h3 className="text-white font-el-messiri text-base font-semibold">
-            Ваш заказ
-          </h3>
-          <div className="space-y-2">
-            {cartItems.map((item) => {
-              const itemTotal = item.amount * item.price;
-              return (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between text-sm"
-                >
-                  <div className="flex-1 text-white/90">
-                    <span className="font-medium">{item.name}</span>
-                    {item.weight && (
-                      <span className="text-white/60 ml-2">({item.weight})</span>
-                    )}
-                  </div>
-                  <div className="text-white font-medium ml-4">
-                    {item.amount} × {item.price} ₽ = {itemTotal} ₽
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="pt-2 border-t border-white/20 flex items-center justify-between">
-            <span className="text-white font-el-messiri text-base font-semibold">
-              Итого
-            </span>
-            <span className="text-white font-semibold text-lg">
-              {cartTotalPrice} ₽
-            </span>
-          </div>
-          <p className="text-white/70 text-xs pt-1">
-            Заказ будет добавлен в комментарий к бронированию
-          </p>
-        </div>
-      )}
-
       {/* Кнопка отправки */}
       <Button
         onClick={handleSubmit}
@@ -1313,59 +1234,14 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         )}
       </Button>
 
-      {/* Отображение корзины после кнопки бронирования */}
+      {/* Уведомление о передаче меню в ресторан */}
       {cartItems.length > 0 && (
-        <div className="rounded-[24px] border border-white/15 bg-white/10 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ShoppingCart className="h-5 w-5 text-white/80" />
-              <h3 className="text-white font-el-messiri text-lg font-semibold">
-                Мой заказ
-              </h3>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/menu")}
-              className="h-8 px-2 text-white/70 hover:text-white hover:bg-white/10"
-            >
-              <Pencil className="h-4 w-4 mr-1" />
-              <span className="text-xs">Изменить</span>
-            </Button>
-          </div>
-          <div className="space-y-2">
-            {cartItems.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between text-white/90"
-              >
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{item.name}</p>
-                  {item.weight && (
-                    <p className="text-xs text-white/60">{item.weight}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-white/70">
-                    {item.amount > 1 && `×${item.amount} `}
-                    {item.price.toLocaleString("ru-RU")} ₽
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="pt-2 border-t border-white/10">
-            <div className="flex items-center justify-between text-white">
-              <span className="text-sm font-medium">Итого:</span>
-              <span className="font-semibold">
-                {cartItems
-                  .reduce((sum, item) => sum + item.price * item.amount, 0)
-                  .toLocaleString("ru-RU")}{" "}
-                ₽
-              </span>
-            </div>
-          </div>
-        </div>
+        <Alert className="bg-mariko-primary/20 border-mariko-primary/40 rounded-[16px] shadow-lg">
+          <Info className="h-5 w-5 text-mariko-primary flex-shrink-0" />
+          <AlertDescription className="text-white/95 pl-7">
+            <span className="font-semibold text-white font-el-messiri">Ваше собранное меню будет передано в ресторан</span> при подтверждении брони столика. Ресторан подготовит ваш заказ к указанному времени.
+          </AlertDescription>
+        </Alert>
       )}
     </div>
   );

@@ -53,7 +53,11 @@ function MenuItemComponentBase({
   // Определяем классы в зависимости от варианта
   const isCompact = variant === 'compact';
   const isMobile = variant === 'mobile';
-  const metaText = [item.weight, item.calories].filter(Boolean).join(' / ');
+  
+  // Формируем текст с приставками
+  const weightText = item.weight ? `${item.weight} гр` : '';
+  const caloriesText = item.calories ? `${item.calories} ккал` : '';
+  const metaText = [weightText, caloriesText].filter(Boolean).join(' / ');
   
   return (
     <div
