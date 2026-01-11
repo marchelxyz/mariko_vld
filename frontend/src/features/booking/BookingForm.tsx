@@ -713,7 +713,6 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
 
     if (profile.personalDataConsentGiven) {
       setConsentGiven(true);
-      setHasPreviousBooking(true);
     }
   }, [profile.phone, profile.name, profile.personalDataConsentGiven]);
 
