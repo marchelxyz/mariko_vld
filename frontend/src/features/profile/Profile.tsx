@@ -289,7 +289,7 @@ const Profile = () => {
         <div className="app-shell app-shell-wide w-full">
           {/* Page Header */}
           <div className="mt-0 md:mt-1">
-            <PageHeader title="Профиль" />
+            <PageHeader title="Профиль" variant="white" />
           </div>
           
           {/* Profile Header */}

@@ -71,6 +71,33 @@ export default function SettingsPage() {
     }
   };
 
+  const handleGiveConsent = async () => {
+    setIsProcessing(true);
+    try {
+      // Даем согласие на обработку данных
+      await profileApi.updateUserProfile(profile.id, {
+        personalDataConsentGiven: true,
+        personalDataConsentDate: new Date().toISOString(),
+      });
+      
+      toast({
+        title: "Согласие дано",
+        description: "Ваше согласие на обработку персональных данных сохранено",
+      });
+      
+      // Обновляем профиль
+      await refetchProfile();
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось дать согласие. Попробуйте позже.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="app-screen overflow-hidden bg-transparent">
       <div className="bg-transparent pb-5 md:pb-6">
@@ -106,11 +133,11 @@ export default function SettingsPage() {
                   <Button
                     variant={profile?.personalDataConsentGiven ? "destructive" : "outline"}
                     size="sm"
-                    onClick={handleRevokeConsent}
+                    onClick={profile?.personalDataConsentGiven ? handleRevokeConsent : handleGiveConsent}
                     disabled={isProcessing}
                     className={cn(
-                      "border-white/20 text-white hover:bg-white/10",
-                      profile?.personalDataConsentGiven && "bg-red-500/20 border-red-500/50 hover:bg-red-500/30"
+                      "border-white/20 text-white hover:bg-white/10 hover:text-white",
+                      profile?.personalDataConsentGiven && "bg-red-500/20 border-red-500/50 hover:bg-red-500/30 hover:text-white"
                     )}
                   >
                     {profile?.personalDataConsentGiven ? "Отозвать" : "Дать согласие"}
@@ -138,7 +165,7 @@ export default function SettingsPage() {
                     size="sm"
                     onClick={handleRestartTraining}
                     disabled={isProcessing}
-                    className="border-white/20 text-white hover:bg-white/10 flex items-center gap-2"
+                    className="border-white/20 text-white hover:bg-white/10 hover:text-white flex items-center gap-2"
                   >
                     <RotateCcw className="w-4 h-4" />
                     Сбросить
@@ -165,7 +192,7 @@ export default function SettingsPage() {
                     variant="outline"
                     size="sm"
                     disabled
-                    className="border-white/20 text-white/50 cursor-not-allowed flex items-center gap-2"
+                    className="border-white/20 text-white/50 cursor-not-allowed flex items-center gap-2 hover:text-white/50"
                   >
                     <MessageSquare className="w-4 h-4" />
                     В разработке
