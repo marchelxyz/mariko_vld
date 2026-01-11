@@ -1219,7 +1219,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       </div>
 
       {/* Согласие на обработку персональных данных */}
-      {!hasPreviousBooking && (
+      {!hasPreviousBooking && !profile?.personalDataConsentGiven && (
         <div className="flex items-start gap-3">
           <Checkbox
             id="consent"
