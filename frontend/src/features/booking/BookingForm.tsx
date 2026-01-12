@@ -1265,7 +1265,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         <Alert className="bg-mariko-primary/20 border-mariko-primary/40 rounded-[16px] shadow-lg">
           <Info className="h-5 w-5 text-mariko-primary flex-shrink-0" />
           <AlertDescription className="text-white/95 pl-7">
-            <span className="font-semibold text-white font-el-messiri">Ваше собранное меню будет передано в ресторан</span> при подтверждении брони столика. Ресторан подготовит ваш заказ к указанному времени.
+            <span className="font-semibold text-white font-el-messiri">Ваше собранное меню будет передано в ресторан</span> при подтверждении брони столика.
           </AlertDescription>
         </Alert>
       )}
