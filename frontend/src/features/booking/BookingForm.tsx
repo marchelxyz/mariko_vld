@@ -1285,10 +1285,10 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
               <div key={item.id} className="flex justify-between items-center py-2 border-b border-white/10 last:border-0">
                 <div>
                   <p className="text-white font-medium">{item.name}</p>
-                  <p className="text-white/70 text-sm">Количество: {item.quantity}</p>
+                  <p className="text-white/70 text-sm">Количество: {item.amount}</p>
                   <p className="text-white/50 text-xs">Цена за единицу: {item.price}₽</p>
                 </div>
-                <p className="text-white font-semibold">{item.price * item.quantity}₽</p>
+                <p className="text-white font-semibold">{item.price * item.amount}₽</p>
               </div>
             ))}
             <div className="flex justify-between items-center pt-2 mt-2 border-t border-white/20">
