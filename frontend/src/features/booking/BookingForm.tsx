@@ -884,7 +884,6 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       const fullComment = [
         cartComment,
         selectedEvent?.comment,
-        cartComment,
         comment.trim(),
       ]
         .filter((item) => Boolean(item))
