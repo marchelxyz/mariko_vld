@@ -57,6 +57,9 @@ export enum Permission {
   // Управление доставкой
   MANAGE_DELIVERIES = 'manage_deliveries',
   VIEW_DELIVERIES = 'view_deliveries',
+
+  // Управление бронированиями
+  MANAGE_BOOKINGS = 'manage_bookings',
 }
 
 /**
