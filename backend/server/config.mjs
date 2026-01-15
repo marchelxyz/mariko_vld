@@ -88,3 +88,7 @@ export const YANDEX_STORAGE_BUCKET_NAME = process.env.YANDEX_STORAGE_BUCKET_NAME
 export const YANDEX_STORAGE_REGION = process.env.YANDEX_STORAGE_REGION ?? 'ru-central1';
 export const YANDEX_STORAGE_ENDPOINT = process.env.YANDEX_STORAGE_ENDPOINT ?? 'https://storage.yandexcloud.net';
 export const YANDEX_STORAGE_PUBLIC_URL = process.env.YANDEX_STORAGE_PUBLIC_URL ?? null;
+
+// SMS provider (sms.ru)
+export const SMS_RU_API_ID = process.env.SMS_RU_API_ID ?? null;
+export const SMS_RU_SENDER = process.env.SMS_RU_SENDER ?? null;
