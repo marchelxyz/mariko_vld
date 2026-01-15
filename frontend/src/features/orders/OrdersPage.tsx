@@ -18,38 +18,50 @@ const BookingCard = ({
   expanded: boolean;
   onToggle: () => void;
 }) => {
-  const formatDateTime = (dateString: string) => {
+  const formatDateTime = (dateValue: Date, fallback: string) => {
     try {
-      const date = new Date(dateString);
-      return date.toLocaleString("ru-RU", {
+      if (Number.isNaN(dateValue.getTime())) {
+        return fallback;
+      }
+      return dateValue.toLocaleString("ru-RU", {
         day: "numeric",
         month: "long",
         hour: "2-digit",
         minute: "2-digit",
       });
     } catch {
-      return dateString;
+      return fallback;
     }
   };
 
   const statusColor = {
     confirmed: "bg-green-100 text-green-900",
     pending: "bg-yellow-100 text-yellow-900",
+    created: "bg-yellow-100 text-yellow-900",
     cancelled: "bg-red-100 text-red-900",
+    canceled: "bg-red-100 text-red-900",
   }[booking.status] || "bg-gray-100 text-gray-900";
 
   const statusText = {
     confirmed: "Подтверждена",
     pending: "Ожидает",
+    created: "Ожидает подтверждения",
     cancelled: "Отменена",
-  }[booking.status] || "Неизвестно";
+    canceled: "Отменена",
+  }[booking.status] || "Статус уточняется";
+
+  const resolvedDateTime = resolveBookingDateTime(booking);
+  const fallbackDate = booking.bookingDate || booking.createdAt || "Дата не указана";
+  const cartItems = resolveBookingCartItems(booking);
 
   return (
     <div className="bg-white rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.08)] px-4 py-5 md:px-6 md:py-6 text-left">
       <div className="flex items-start gap-3 md:gap-4">
         <div className="flex-1 space-y-1">
           <p className="text-mariko-dark/60 text-sm">Бронь #{booking.id.slice(0, 8).toUpperCase()}</p>
-          <p className="text-mariko-dark font-semibold text-lg">{formatDateTime(booking.date)}</p>
+          <p className="text-mariko-dark font-semibold text-lg">
+            {formatDateTime(resolvedDateTime, fallbackDate)}
+          </p>
           <p className="text-mariko-dark/70 text-sm">
             {booking.guestsCount} гостей · {booking.restaurantName}
           </p>
@@ -61,7 +73,7 @@ const BookingCard = ({
         </div>
       </div>
 
-      {booking.cartItems && booking.cartItems.length > 0 && (
+      {cartItems.length > 0 && (
         <div className="mt-4">
           <button
             type="button"
@@ -71,19 +83,19 @@ const BookingCard = ({
             {expanded ? (
               <>
                 <ChevronUp className="w-4 h-4" />
-                Скрыть состав заказа
+                Скрыть состав меню
               </>
             ) : (
               <>
                 <ChevronDown className="w-4 h-4" />
-                Показать состав заказа ({booking.cartItems.length} позиций)
+                Показать состав меню ({cartItems.length} позиций)
               </>
             )}
           </button>
 
           {expanded && (
             <div className="mt-3 space-y-2">
-              {booking.cartItems.map((item, index) => (
+              {cartItems.map((item, index) => (
                 <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
                   <div>
                     <p className="font-medium text-mariko-dark">{item.name}</p>
@@ -98,6 +110,64 @@ const BookingCard = ({
       )}
     </div>
   );
+};
+
+type BookingCartItem = {
+  name: string;
+  amount: number;
+  price: number;
+};
+
+const resolveBookingDateTime = (booking: BookingListItem): Date => {
+  if (booking.bookingDate && booking.bookingTime) {
+    return new Date(`${booking.bookingDate}T${booking.bookingTime}`);
+  }
+  if (booking.bookingDate) {
+    return new Date(booking.bookingDate);
+  }
+  if (booking.createdAt) {
+    return new Date(booking.createdAt);
+  }
+  return new Date("Invalid Date");
+};
+
+const resolveBookingCartItems = (booking: BookingListItem): BookingCartItem[] => {
+  const withItems = booking as BookingListItem & { cartItems?: BookingCartItem[] };
+  if (withItems.cartItems && withItems.cartItems.length > 0) {
+    return withItems.cartItems;
+  }
+  if (!booking.comment) {
+    return [];
+  }
+  return parseCartItemsFromComment(booking.comment);
+};
+
+const parseCartItemsFromComment = (comment: string): BookingCartItem[] => {
+  const lines = comment.split("\n").map((line) => line.trim());
+  const startIndex = lines.findIndex((line) => line.toLowerCase().startsWith("заказ:"));
+  if (startIndex === -1) {
+    return [];
+  }
+  const items: BookingCartItem[] = [];
+  for (let i = startIndex + 1; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (!line || line.toLowerCase().startsWith("итого")) {
+      break;
+    }
+    const match = line.match(/^(.*?)\s*×\s*(\d+)\s*=\s*(\d+)\s*₽/);
+    if (!match) {
+      continue;
+    }
+    const name = match[1]?.trim() || "Позиция";
+    const amount = Number(match[2]);
+    const total = Number(match[3]);
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(total)) {
+      continue;
+    }
+    const unitPrice = Math.max(Math.round(total / amount), 0);
+    items.push({ name, amount, price: unitPrice });
+  }
+  return items;
 };
 
 export default function OrdersPage() {
@@ -156,7 +226,7 @@ export default function OrdersPage() {
       <div className="app-content bg-transparent relative overflow-hidden pt-0 md:pt-2 app-bottom-space">
         <div className="app-shell app-shell-wide w-full max-w-4xl pb-6 md:pb-8">
           <PageHeader
-            title="Мои заказы"
+            title="Мои брони"
             subtitle="История ваших бронирований"
             variant="white"
             onBackClick={() => navigate("/menu")}
