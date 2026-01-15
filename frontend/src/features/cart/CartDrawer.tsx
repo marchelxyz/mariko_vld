@@ -838,8 +838,8 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
               </button>
             </div>
             <p className="text-xs text-mariko-dark/60">
-              Форма отправляет данные на сервер. После подключения iiko здесь будет реальное оформление
-              заказа.
+              Заказ из меню будет передан в ресторан после подтверждения. После подключения iiko здесь
+              будет реальное оформление заказа.
             </p>
             {lastSubmitStatus !== "idle" && (
               <p

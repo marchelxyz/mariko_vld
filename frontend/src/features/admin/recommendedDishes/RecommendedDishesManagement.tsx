@@ -164,7 +164,7 @@ function RecommendedDishesManagementContent(): JSX.Element {
         } else {
           toast({
             title: "Сохранено",
-            description: `Выбрано ${selectedDishIds.length} блюд для раздела "Рекомендуем попробовать".`,
+            description: `Выбрано ${selectedDishIds.length} блюд для раздела "Гости выбирают".`,
           });
         }
       })
@@ -231,7 +231,7 @@ function RecommendedDishesManagementContent(): JSX.Element {
       {/* Информация */}
       <div className="bg-white/5 rounded-lg p-4 border border-white/10">
         <p className="text-white/80 text-sm">
-          Выберите до 6 блюд из меню ресторанов города. Они будут показываться в разделе "Рекомендуем попробовать" на главной странице.
+          Выберите до 6 блюд из меню ресторанов города. Они будут показываться в разделе "Гости выбирают" на главной странице.
         </p>
         <p className="text-white/60 text-xs mt-2">
           Выбрано: {selectedDishIds.length} из 6 (рекомендуется)

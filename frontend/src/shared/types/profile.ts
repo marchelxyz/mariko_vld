@@ -23,5 +23,7 @@ export interface UserProfile {
   updatedAt?: string;
   lastLogin?: string;
   personalDataConsentGiven?: boolean;
-  personalDataConsentDate?: string;
+  personalDataConsentDate?: string | null;
+  personalDataPolicyConsentGiven?: boolean;
+  personalDataPolicyConsentDate?: string | null;
 }
