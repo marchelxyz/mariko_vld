@@ -76,15 +76,15 @@ if (typeof window !== "undefined") {
         alert(message);
       }
     } catch (_) {
-      logger.error('global', new Error(event?.message ?? "Unknown runtime error"));
-      alert(event?.message ?? "Unknown runtime error");
+      logger.error('global', new Error(event?.message ?? "Неизвестная ошибка приложения"));
+      alert(event?.message ?? "Неизвестная ошибка приложения");
     }
   });
 
   window.addEventListener("unhandledrejection", (event: PromiseRejectionEvent) => {
     try {
       const reason = event?.reason;
-      const message = `Unhandled rejection: ${reason?.message || String(reason)}`;
+      const message = `Необработанная ошибка: ${reason?.message || String(reason)}`;
       // Убеждаемся, что передаем Error объект
       const error = reason instanceof Error 
         ? reason 
@@ -106,8 +106,8 @@ if (typeof window !== "undefined") {
         alert(message);
       }
     } catch (_) {
-      logger.error('global', new Error('Unhandled rejection'));
-      alert(`Unhandled rejection`);
+      logger.error('global', new Error('Необработанная ошибка'));
+      alert("Необработанная ошибка");
     }
   });
 }
@@ -126,16 +126,16 @@ try {
     const instance = getTg();
     try {
       if (instance && typeof instance.showAlert === 'function') {
-        instance.showAlert(`Render error: ${message}`);
+        instance.showAlert(`Ошибка рендеринга: ${message}`);
       } else {
-        alert(`Render error: ${message}`);
+        alert(`Ошибка рендеринга: ${message}`);
       }
     } catch (alertError) {
       console.warn('showAlert failed, using fallback', alertError);
-      alert(`Render error: ${message}`);
+      alert(`Ошибка рендеринга: ${message}`);
     }
   } catch (_) {
     const message = err instanceof Error ? err.message : String(err);
-    alert(`Render error: ${message}`);
+    alert(`Ошибка рендеринга: ${message}`);
   }
 }

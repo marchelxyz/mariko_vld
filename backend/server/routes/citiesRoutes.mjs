@@ -294,8 +294,8 @@ export function createCitiesRouter() {
         return res.status(400).json({ success: false, message: "Город не найден" });
       }
 
-      // Генерируем ID ресторана из названия города и адреса
-      const restaurantId = `${cityId.trim()}-${name.trim().toLowerCase().replace(/[^a-zа-яё0-9\s]/g, '').replace(/\s+/g, '-').replace(/^-+|-+$/g, '')}`;
+      // Генерируем ID ресторана из названия города и ресторана (только латиница)
+      const restaurantId = buildRestaurantId(cityId.trim(), name.trim());
 
       // Проверяем, существует ли ресторан с таким ID
       const existingRestaurant = await queryOne(`SELECT id FROM restaurants WHERE id = $1`, [restaurantId]);
@@ -442,4 +442,45 @@ export function createCitiesRouter() {
   });
 
   return router;
+}
+
+/**
+ * Собирает ID ресторана из ID города и названия ресторана, приводя к латинице.
+ */
+function buildRestaurantId(cityId, name) {
+  const citySlug = toLatinSlug(cityId);
+  const nameSlug = toLatinSlug(name);
+  if (citySlug && nameSlug) {
+    return `${citySlug}-${nameSlug}`;
+  }
+  return citySlug || nameSlug || "restaurant";
+}
+
+/**
+ * Транслитерирует строку и формирует slug на латинице.
+ */
+function toLatinSlug(value) {
+  if (!value) return "";
+  const translitMap = {
+    а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z", и: "i",
+    й: "y", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r", с: "s", т: "t",
+    у: "u", ф: "f", х: "h", ц: "ts", ч: "ch", ш: "sh", щ: "sch", ъ: "", ы: "y", ь: "",
+    э: "e", ю: "yu", я: "ya",
+  };
+  const normalized = value.trim().toLowerCase();
+  let result = "";
+  for (const char of normalized) {
+    if (translitMap[char] !== undefined) {
+      result += translitMap[char];
+      continue;
+    }
+    if (/[a-z0-9]/.test(char)) {
+      result += char;
+      continue;
+    }
+    if (char === " " || char === "-" || char === "_") {
+      result += "-";
+    }
+  }
+  return result.replace(/-+/g, "-").replace(/^-+|-+$/g, "");
 }

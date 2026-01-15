@@ -2,7 +2,7 @@ import { queryOne, queryMany, db } from "../postgresClient.mjs";
 import { normaliseNullableString, normalisePhone, normaliseTelegramId } from "../utils.mjs";
 
 export const PROFILE_SELECT_FIELDS =
-  "id,name,phone,birth_date,gender,photo,telegram_id,notifications_enabled,onboarding_tour_shown,favorite_city_id,favorite_city_name,favorite_restaurant_id,favorite_restaurant_name,favorite_restaurant_address,primary_address_id,last_address_text,last_address_lat,last_address_lon,last_address_updated_at,created_at,updated_at";
+  "id,name,phone,birth_date,gender,photo,telegram_id,notifications_enabled,onboarding_tour_shown,personal_data_consent_given,personal_data_consent_date,personal_data_policy_consent_given,personal_data_policy_consent_date,favorite_city_id,favorite_city_name,favorite_restaurant_id,favorite_restaurant_name,favorite_restaurant_address,primary_address_id,last_address_text,last_address_lat,last_address_lon,last_address_updated_at,created_at,updated_at";
 
 export const mapProfileRowToClient = (row, fallbackId = "") => ({
   id: row?.id ?? fallbackId,
@@ -25,6 +25,16 @@ export const mapProfileRowToClient = (row, fallbackId = "") => ({
     typeof row?.notifications_enabled === "boolean" ? row.notifications_enabled : true,
   onboardingTourShown:
     typeof row?.onboarding_tour_shown === "boolean" ? row.onboarding_tour_shown : false,
+  personalDataConsentGiven:
+    typeof row?.personal_data_consent_given === "boolean"
+      ? row.personal_data_consent_given
+      : false,
+  personalDataConsentDate: row?.personal_data_consent_date ?? null,
+  personalDataPolicyConsentGiven:
+    typeof row?.personal_data_policy_consent_given === "boolean"
+      ? row.personal_data_policy_consent_given
+      : false,
+  personalDataPolicyConsentDate: row?.personal_data_policy_consent_date ?? null,
   telegramId:
     typeof row?.telegram_id === "number"
       ? row.telegram_id
@@ -68,6 +78,18 @@ export const buildProfileUpsertPayload = (input) => {
   }
   if (input.onboardingTourShown !== undefined) {
     payload.onboarding_tour_shown = Boolean(input.onboardingTourShown);
+  }
+  if (input.personalDataConsentGiven !== undefined) {
+    payload.personal_data_consent_given = Boolean(input.personalDataConsentGiven);
+  }
+  if (input.personalDataConsentDate !== undefined) {
+    payload.personal_data_consent_date = normaliseNullableString(input.personalDataConsentDate);
+  }
+  if (input.personalDataPolicyConsentGiven !== undefined) {
+    payload.personal_data_policy_consent_given = Boolean(input.personalDataPolicyConsentGiven);
+  }
+  if (input.personalDataPolicyConsentDate !== undefined) {
+    payload.personal_data_policy_consent_date = normaliseNullableString(input.personalDataPolicyConsentDate);
   }
   if (input.primaryAddressId !== undefined) {
     payload.primary_address_id = normaliseNullableString(input.primaryAddressId);

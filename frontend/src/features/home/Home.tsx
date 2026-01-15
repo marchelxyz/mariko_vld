@@ -546,7 +546,7 @@ const Index = () => {
                     <div className="absolute -right-10 bottom-[-60px] h-36 w-36 rounded-full bg-white/15 blur-[55px]" />
                   </div>
                   <span className="relative font-el-messiri text-base md:text-lg font-semibold text-white">
-                    Рекомендуем попробовать
+                    Гости выбирают
                   </span>
                   <ChevronDown className="relative w-5 h-5 md:w-6 md:h-6 text-white" />
                 </div>
@@ -565,6 +565,8 @@ const Index = () => {
                               <MenuItemComponent
                                 item={item}
                                 variant="mobile"
+                                showMeta={false}
+                                showPrice={false}
                                 onClick={() => handleDishClick(item)}
                                 onAdd={handleAddToCart}
                                 onIncrease={handleAddToCart}
@@ -578,6 +580,8 @@ const Index = () => {
                               <MenuItemComponent
                                 item={item}
                                 variant="compact"
+                                showMeta={false}
+                                showPrice={false}
                                 onClick={() => handleDishClick(item)}
                                 onAdd={handleAddToCart}
                                 onIncrease={handleAddToCart}

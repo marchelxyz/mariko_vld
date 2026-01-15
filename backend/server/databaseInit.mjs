@@ -16,6 +16,10 @@ const SCHEMAS = {
       photo TEXT,
       notifications_enabled BOOLEAN DEFAULT true,
       onboarding_tour_shown BOOLEAN DEFAULT false,
+      personal_data_consent_given BOOLEAN DEFAULT false,
+      personal_data_consent_date TIMESTAMP,
+      personal_data_policy_consent_given BOOLEAN DEFAULT false,
+      personal_data_policy_consent_date TIMESTAMP,
       favorite_city_id VARCHAR(255),
       favorite_city_name VARCHAR(255),
       favorite_restaurant_id VARCHAR(255),
@@ -691,6 +695,48 @@ export async function initializeDatabase() {
       }
     } catch (error) {
       console.warn("⚠️  Предупреждение при добавлении поля onboarding_tour_shown:", error?.message || error);
+    }
+
+    // Миграция: добавляем поля согласий на обработку персональных данных
+    try {
+      const consentColumns = await query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'user_profiles'
+          AND column_name IN (
+            'personal_data_consent_given',
+            'personal_data_consent_date',
+            'personal_data_policy_consent_given',
+            'personal_data_policy_consent_date'
+          )
+      `);
+      const existingColumns = new Set(consentColumns.rows.map((row) => row.column_name));
+      if (!existingColumns.has('personal_data_consent_given')) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN personal_data_consent_given BOOLEAN DEFAULT false`);
+        console.log("✅ Поле personal_data_consent_given добавлено в таблицу user_profiles");
+      }
+      if (!existingColumns.has('personal_data_consent_date')) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN personal_data_consent_date TIMESTAMP`);
+        console.log("✅ Поле personal_data_consent_date добавлено в таблицу user_profiles");
+      }
+      if (!existingColumns.has('personal_data_policy_consent_given')) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN personal_data_policy_consent_given BOOLEAN DEFAULT false`);
+        console.log("✅ Поле personal_data_policy_consent_given добавлено в таблицу user_profiles");
+      }
+      if (!existingColumns.has('personal_data_policy_consent_date')) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN personal_data_policy_consent_date TIMESTAMP`);
+        console.log("✅ Поле personal_data_policy_consent_date добавлено в таблицу user_profiles");
+      }
+      if (
+        existingColumns.has('personal_data_consent_given') &&
+        existingColumns.has('personal_data_consent_date') &&
+        existingColumns.has('personal_data_policy_consent_given') &&
+        existingColumns.has('personal_data_policy_consent_date')
+      ) {
+        console.log("ℹ️  Поля согласий уже существуют в таблице user_profiles");
+      }
+    } catch (error) {
+      console.warn("⚠️  Предупреждение при добавлении полей согласий:", error?.message || error);
     }
 
     // Миграция: добавляем поле calories в таблицу menu_items
