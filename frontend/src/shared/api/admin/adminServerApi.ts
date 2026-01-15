@@ -132,7 +132,7 @@ export type AdminBookingsResponse = {
 
 export type UpdateBookingStatusResponse = {
   success: boolean;
-  sms?: {
+  notification?: {
     success: boolean;
     error?: string;
   } | null;
@@ -483,7 +483,7 @@ export const adminServerApi = {
 
   async updateBookingStatus(
     bookingId: string,
-    payload: { status: string; sendSms?: boolean },
+    payload: { status: string; sendNotification?: boolean },
   ): Promise<UpdateBookingStatusResponse> {
     const response = await fetch(
       `${ADMIN_API_BASE}/bookings/${encodeURIComponent(bookingId)}/status`,
