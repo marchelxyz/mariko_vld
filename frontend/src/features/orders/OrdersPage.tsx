@@ -38,6 +38,7 @@ const BookingCard = ({
     confirmed: "bg-green-100 text-green-900",
     pending: "bg-yellow-100 text-yellow-900",
     created: "bg-yellow-100 text-yellow-900",
+    closed: "bg-gray-100 text-gray-900",
     cancelled: "bg-red-100 text-red-900",
     canceled: "bg-red-100 text-red-900",
   }[booking.status] || "bg-gray-100 text-gray-900";
@@ -45,13 +46,14 @@ const BookingCard = ({
   const statusText = {
     confirmed: "Подтверждена",
     pending: "Ожидает",
-    created: "Ожидает подтверждения",
+    created: "Новая",
+    closed: "Закрыта",
     cancelled: "Отменена",
     canceled: "Отменена",
   }[booking.status] || "Статус уточняется";
 
   const resolvedDateTime = resolveBookingDateTime(booking);
-  const fallbackDate = booking.bookingDate || booking.createdAt || "Дата не указана";
+  const fallbackDate = buildBookingFallbackDate(booking);
   const cartItems = resolveBookingCartItems(booking);
 
   return (
@@ -119,16 +121,44 @@ type BookingCartItem = {
 };
 
 const resolveBookingDateTime = (booking: BookingListItem): Date => {
-  if (booking.bookingDate && booking.bookingTime) {
-    return new Date(`${booking.bookingDate}T${booking.bookingTime}`);
+  const normalizedDate = normalizeBookingDate(booking.bookingDate);
+  const normalizedTime = normalizeBookingTime(booking.bookingTime);
+  if (normalizedDate && normalizedTime) {
+    return new Date(`${normalizedDate}T${normalizedTime}`);
   }
-  if (booking.bookingDate) {
-    return new Date(booking.bookingDate);
+  if (normalizedDate) {
+    return new Date(normalizedDate);
   }
   if (booking.createdAt) {
     return new Date(booking.createdAt);
   }
   return new Date("Invalid Date");
+};
+
+const normalizeBookingDate = (value?: string): string => {
+  if (!value) return "";
+  return value.includes("T") ? value.split("T")[0] : value;
+};
+
+const normalizeBookingTime = (value?: string): string => {
+  if (!value) return "";
+  const time = value.includes("T") ? value.split("T")[1] || value : value;
+  return time.replace("Z", "").slice(0, 5);
+};
+
+const buildBookingFallbackDate = (booking: BookingListItem): string => {
+  const date = normalizeBookingDate(booking.bookingDate);
+  const time = normalizeBookingTime(booking.bookingTime);
+  if (date && time) {
+    return `${date} ${time}`;
+  }
+  if (date) {
+    return date;
+  }
+  if (booking.createdAt) {
+    return booking.createdAt;
+  }
+  return "Дата не указана";
 };
 
 const resolveBookingCartItems = (booking: BookingListItem): BookingCartItem[] => {

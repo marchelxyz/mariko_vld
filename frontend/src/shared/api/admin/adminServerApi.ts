@@ -103,6 +103,41 @@ export type AdminOrdersResponse = {
   orders: CartOrderRecord[];
 };
 
+export type AdminBooking = {
+  id: string;
+  restaurantId: string;
+  restaurantName: string | null;
+  restaurantAddress: string | null;
+  reviewLink: string | null;
+  remarkedRestaurantId: number | null;
+  remarkedReserveId: number | null;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string | null;
+  bookingDate: string;
+  bookingTime: string;
+  guestsCount: number;
+  comment: string | null;
+  eventTags: unknown;
+  source: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminBookingsResponse = {
+  success: boolean;
+  bookings: AdminBooking[];
+};
+
+export type UpdateBookingStatusResponse = {
+  success: boolean;
+  sms?: {
+    success: boolean;
+    error?: string;
+  } | null;
+};
+
 export type GuestStatus = "verified" | "full_profile" | "restaurant_only" | "unverified";
 
 export type Guest = {
@@ -170,6 +205,12 @@ type UpdateRolePayload = {
 };
 
 type FetchOrdersParams = {
+  restaurantId?: string;
+  status?: string[];
+  limit?: number;
+};
+
+type FetchBookingsParams = {
   restaurantId?: string;
   status?: string[];
   limit?: number;
@@ -417,5 +458,41 @@ export const adminServerApi = {
     );
     const data = await handleResponse<GuestBookingsResponse>(response);
     return data.bookings ?? [];
+  },
+
+  async getBookings(params: FetchBookingsParams = {}): Promise<AdminBooking[]> {
+    const search = new URLSearchParams();
+    if (params.restaurantId) {
+      search.set("restaurantId", params.restaurantId);
+    }
+    if (params.status && params.status.length > 0) {
+      search.set("status", params.status.join(","));
+    }
+    if (params.limit) {
+      search.set("limit", String(params.limit));
+    }
+    const response = await fetch(
+      `${ADMIN_API_BASE}/bookings${search.toString() ? `?${search.toString()}` : ""}`,
+      {
+        headers: buildHeaders(),
+      },
+    );
+    const data = await handleResponse<AdminBookingsResponse>(response);
+    return data.bookings ?? [];
+  },
+
+  async updateBookingStatus(
+    bookingId: string,
+    payload: { status: string; sendSms?: boolean },
+  ): Promise<UpdateBookingStatusResponse> {
+    const response = await fetch(
+      `${ADMIN_API_BASE}/bookings/${encodeURIComponent(bookingId)}/status`,
+      {
+        method: "PATCH",
+        headers: buildHeaders(),
+        body: JSON.stringify(payload),
+      },
+    );
+    return handleResponse<UpdateBookingStatusResponse>(response);
   },
 };
