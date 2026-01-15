@@ -24,7 +24,7 @@ type RestaurantOption = {
 /**
  * Управление бронированиями в админ-панели.
  */
-export function BookingsManagement(): JSX.Element {
+export default function BookingsManagement(): JSX.Element {
   const { isSuperAdmin, allowedRestaurants, hasPermission, userRole } = useAdmin();
   const canManageBookings = hasPermission(Permission.MANAGE_BOOKINGS);
   const [restaurantOptions, setRestaurantOptions] = useState<RestaurantOption[]>([]);
