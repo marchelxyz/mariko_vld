@@ -33,7 +33,7 @@ export default function BookingsManagement(): JSX.Element {
   const [pendingChange, setPendingChange] = useState<{ booking: AdminBooking; status: string } | null>(
     null,
   );
-  const [sendSms, setSendSms] = useState(true);
+  const [sendNotification, setSendNotification] = useState(true);
 
   useEffect(() => {
     const loadRestaurants = async () => {
@@ -74,7 +74,7 @@ export default function BookingsManagement(): JSX.Element {
 
   const handleStatusChangeRequest = (booking: AdminBooking, status: string) => {
     setPendingChange({ booking, status });
-    setSendSms(true);
+    setSendNotification(true);
   };
 
   const confirmStatusChange = async () => {
@@ -82,10 +82,10 @@ export default function BookingsManagement(): JSX.Element {
     try {
       const result = await adminServerApi.updateBookingStatus(pendingChange.booking.id, {
         status: pendingChange.status,
-        sendSms,
+        sendNotification,
       });
-      if (sendSms && result.sms && !result.sms.success) {
-        alert(result.sms.error || "Не удалось отправить SMS");
+      if (sendNotification && result.notification && !result.notification.success) {
+        alert(result.notification.error || "Не удалось отправить сообщение");
       }
       await refetch();
     } catch (error) {
@@ -188,10 +188,10 @@ export default function BookingsManagement(): JSX.Element {
               </div>
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm text-white">Отправить SMS</p>
-                  <p className="text-xs text-white/60">Будет отправлено гостю</p>
+                  <p className="text-sm text-white">Отправить в Telegram</p>
+                  <p className="text-xs text-white/60">Сообщение уйдет гостю</p>
                 </div>
-                <Switch checked={sendSms} onCheckedChange={setSendSms} />
+                <Switch checked={sendNotification} onCheckedChange={setSendNotification} />
               </div>
             </div>
           )}
