@@ -386,6 +386,7 @@ const Index = () => {
                 <QuickActionButton
                   icon={<Truck className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
                   title="Заказать доставку"
+                  onboardingId="delivery"
                   highlighted={cityChangedFlash}
                   onClick={() => navigate("/delivery")}
                 />
@@ -393,6 +394,7 @@ const Index = () => {
                 <QuickActionButton
                   icon={<StarIcon className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary fill-none" strokeWidth={2} />}
                   title="Оставить отзыв"
+                  onboardingId="review"
                   highlighted={cityChangedFlash}
                   onClick={handleReviewClick}
                 />
@@ -400,6 +402,7 @@ const Index = () => {
                 <QuickActionButton
                   icon={<MapPin className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
                   title="Как нас найти?"
+                  onboardingId="about"
                   highlighted={cityChangedFlash}
                   onClick={() => navigate("/about")}
                 />
@@ -444,7 +447,7 @@ const Index = () => {
               {/* Мобильная версия: карусель отдельно, меню и вакансии отдельно */}
               <div className="flex flex-col md:hidden items-center max-w-4xl w-full mx-auto">
                 {/* Promotions */}
-                <div className="flex justify-center mb-6 w-full">
+                <div className="flex justify-center mb-6 w-full" data-onboarding="promotions">
                   <div className="w-full max-w-[420px] mx-auto">
                     <PromotionsCarousel
                       promotions={promotions}
@@ -458,15 +461,17 @@ const Index = () => {
                 <div className="flex justify-center w-full overflow-x-hidden">
                   <div className="w-full max-w-[440px] mx-auto">
                     <div className="grid grid-cols-2 gap-3 w-full">
-                      <ServiceCard
-                        title="Меню"
-                        imageUrl="/images/services/MENU-CARD.png"
-                        aspectRatio="aspect-[4/3]"
-                        imageClassName="object-center translate-x-0 md:object-left md:translate-x-[2px]"
-                        className="max-w-[200px] w-full"
-                        highlighted={cityChangedFlash}
-                        onClick={() => navigate("/menu")}
-                      />
+                      <div data-onboarding="menu">
+                        <ServiceCard
+                          title="Меню"
+                          imageUrl="/images/services/MENU-CARD.png"
+                          aspectRatio="aspect-[4/3]"
+                          imageClassName="object-center translate-x-0 md:object-left md:translate-x-[2px]"
+                          className="max-w-[200px] w-full"
+                          highlighted={cityChangedFlash}
+                          onClick={() => navigate("/menu")}
+                        />
+                      </div>
                       <ServiceCard
                         title="Вакансии"
                         imageUrl="/images/services/JOBCARD.png"
@@ -507,7 +512,7 @@ const Index = () => {
                      marginRight: 'max(var(--app-rail-offset, 0px), clamp(18px, 5vw, 36px))'
                    }}>
                 {/* Promotions */}
-                <div className="flex justify-center w-auto">
+                <div className="flex justify-center w-auto" data-onboarding="promotions">
                   <div className="w-full max-w-[520px]">
                     <PromotionsCarousel
                       promotions={promotions}
@@ -521,15 +526,17 @@ const Index = () => {
                 <div className="flex justify-center w-auto overflow-x-hidden">
                   <div className="w-full max-w-[480px] lg:max-w-[480px]">
                     <div className="grid grid-cols-1 gap-3 lg:gap-4 w-full">
-                      <ServiceCard
-                        title="Меню"
-                        imageUrl="/images/services/MENU-CARD.png"
-                        aspectRatio="aspect-[4/3]"
-                        imageClassName="object-left translate-x-[2px]"
-                        className="max-w-[230px] md:h-[220px] md:w-[293px] md:max-w-[293px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:md:!h-[172px] [&>div:first-child]:md:!aspect-auto [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
-                        highlighted={cityChangedFlash}
-                        onClick={() => navigate("/menu")}
-                      />
+                      <div data-onboarding="menu">
+                        <ServiceCard
+                          title="Меню"
+                          imageUrl="/images/services/MENU-CARD.png"
+                          aspectRatio="aspect-[4/3]"
+                          imageClassName="object-left translate-x-[2px]"
+                          className="max-w-[230px] md:h-[220px] md:w-[293px] md:max-w-[293px] lg:max-w-none lg:h-[220px] lg:w-[293px] w-full [&>div:first-child]:md:!h-[172px] [&>div:first-child]:md:!aspect-auto [&>div:first-child]:lg:!h-[172px] [&>div:first-child]:lg:!aspect-auto"
+                          highlighted={cityChangedFlash}
+                          onClick={() => navigate("/menu")}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
