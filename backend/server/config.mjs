@@ -111,6 +111,9 @@ export const YANDEX_STORAGE_PUBLIC_URL = process.env.YANDEX_STORAGE_PUBLIC_URL ?
 export const SMS_RU_API_ID = process.env.SMS_RU_API_ID ?? null;
 export const SMS_RU_SENDER = process.env.SMS_RU_SENDER ?? null;
 
+// Telegram bot token for notifications
+export const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? process.env.BOT_TOKEN ?? null;
+
 // VK Mini App keys
 export const VK_SECRET_KEY = process.env.VK_SECRET_KEY ?? null;
 export const VK_SERVICE_KEY = process.env.VK_SERVICE_KEY ?? null;
