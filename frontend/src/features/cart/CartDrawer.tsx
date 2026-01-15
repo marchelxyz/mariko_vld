@@ -1,4 +1,4 @@
-import { Minus, Plus, Trash2, X } from "lucide-react";
+import { Minus, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart, useCityContext } from "@/contexts";
@@ -616,11 +616,11 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
             </button>
             <button
               type="button"
-              className="p-2 rounded-full hover:bg-mariko-field/40 transition-colors"
+              className="rounded-full border border-mariko-field px-4 py-2 text-sm font-semibold text-mariko-primary hover:bg-mariko-field/30 transition-colors"
               onClick={resetAndClose}
-              aria-label="Закрыть корзину"
+              aria-label="Назад к меню"
             >
-              <X className="w-6 h-6" />
+              Назад
             </button>
           </div>
         </div>

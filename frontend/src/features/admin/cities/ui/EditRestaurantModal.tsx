@@ -9,6 +9,7 @@ import type { Restaurant, DeliveryAggregator, SocialNetwork } from "@shared/data
 const PREDEFINED_AGGREGATORS = [
   { name: 'Яндекс Еда', icon: '/images/action button/Vector.png' },
   { name: 'Delivery Club', icon: '/images/action button/Logo.png' },
+  { name: 'Доставка Марико', icon: '/images/delivery/mariko_delivery.png' },
 ] as const;
 
 type EditRestaurantModalProps = {
