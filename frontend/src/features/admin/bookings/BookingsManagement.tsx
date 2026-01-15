@@ -33,7 +33,7 @@ export default function BookingsManagement(): JSX.Element {
   const [pendingChange, setPendingChange] = useState<{ booking: AdminBooking; status: string } | null>(
     null,
   );
-  const [sendSms, setSendSms] = useState(true);
+  const [sendNotification, setSendNotification] = useState(true);
 
   useEffect(() => {
     const loadRestaurants = async () => {
@@ -74,7 +74,7 @@ export default function BookingsManagement(): JSX.Element {
 
   const handleStatusChangeRequest = (booking: AdminBooking, status: string) => {
     setPendingChange({ booking, status });
-    setSendSms(true);
+    setSendNotification(true);
   };
 
   const confirmStatusChange = async () => {
@@ -82,10 +82,10 @@ export default function BookingsManagement(): JSX.Element {
     try {
       const result = await adminServerApi.updateBookingStatus(pendingChange.booking.id, {
         status: pendingChange.status,
-        sendSms,
+        sendNotification,
       });
-      if (sendSms && result.sms && !result.sms.success) {
-        alert(result.sms.error || "Не удалось отправить SMS");
+      if (sendNotification && result.notification && !result.notification.success) {
+        alert(result.notification.error || "Не удалось отправить сообщение");
       }
       await refetch();
     } catch (error) {
@@ -107,7 +107,7 @@ export default function BookingsManagement(): JSX.Element {
           <h2 className="text-2xl md:text-3xl font-el-messiri text-white font-bold">
             Управление бронированиями
           </h2>
-          <p className="text-white/70 mt-1">Изменяйте статусы и отправляйте SMS гостям</p>
+          <p className="text-white/70 mt-1">Изменяйте статусы и отправляйте сообщения гостям</p>
         </div>
         <Button
           variant="outline"
@@ -171,10 +171,10 @@ export default function BookingsManagement(): JSX.Element {
       )}
 
       <AlertDialog open={Boolean(pendingChange)} onOpenChange={(open) => !open && setPendingChange(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="text-mariko-dark">
           <AlertDialogHeader>
-            <AlertDialogTitle>Изменить статус бронирования?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-mariko-dark">Изменить статус бронирования?</AlertDialogTitle>
+            <AlertDialogDescription className="text-mariko-dark/70">
               {pendingChange
                 ? `Вы уверены, что хотите установить статус «${BOOKING_STATUS_LABELS[pendingChange.status] || pendingChange.status}»?`
                 : ""}
@@ -183,15 +183,15 @@ export default function BookingsManagement(): JSX.Element {
 
           {pendingChange && (
             <div className="space-y-4">
-              <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-sm text-white/80 whitespace-pre-line">
+              <div className="rounded-xl bg-white/80 border border-mariko-field p-3 text-sm text-mariko-dark/80 whitespace-pre-line">
                 {buildSmsPreview(pendingChange.booking, pendingChange.status)}
               </div>
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm text-white">Отправить SMS</p>
-                  <p className="text-xs text-white/60">Будет отправлено гостю</p>
+                  <p className="text-sm text-mariko-dark">Отправить в Telegram</p>
+                  <p className="text-xs text-mariko-dark/60">Сообщение уйдет гостю</p>
                 </div>
-                <Switch checked={sendSms} onCheckedChange={setSendSms} />
+                <Switch checked={sendNotification} onCheckedChange={setSendNotification} />
               </div>
             </div>
           )}
