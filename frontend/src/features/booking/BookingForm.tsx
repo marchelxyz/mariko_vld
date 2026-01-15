@@ -162,6 +162,14 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
   const [consentGiven, setConsentGiven] = useState<boolean>(false);
   const [policyConsentGiven, setPolicyConsentGiven] = useState<boolean>(false);
 
+  const phonePlaceholder = useMemo(() => {
+    const profilePhone = profile.phone?.trim();
+    if (profilePhone && profilePhone !== "+7 (000) 000-00-00") {
+      return "+7 (999) 999-99-99";
+    }
+    return "+7 (930) 807-93-74";
+  }, [profile.phone]);
+
   const [availableSlots, setAvailableSlots] = useState<Slot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -1193,7 +1201,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           type="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          placeholder="+7 (999) 999-99-99"
+          placeholder={phonePlaceholder}
           className="bg-white/10 border-white/20 text-white placeholder:text-white/50 h-12"
         />
       </div>
