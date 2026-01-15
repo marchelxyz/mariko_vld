@@ -19,7 +19,7 @@ import {
 } from "../services/adminService.mjs";
 import { listUserProfiles, fetchUserProfile } from "../services/profileService.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
-import { sendSms } from "../services/smsService.mjs";
+import { sendTelegramMessage } from "../services/telegramService.mjs";
 
 const BOOKING_STATUS_VALUES = new Set(["created", "confirmed", "closed", "cancelled"]);
 
@@ -42,12 +42,11 @@ const formatBookingTime = (value) => {
   return timeString.replace("Z", "").slice(0, 5);
 };
 
-const buildBookingSmsMessage = (booking, status) => {
+const buildBookingTelegramMessage = (booking, status) => {
   const name = booking.customer_name || "Гость";
   const date = formatBookingDate(booking.booking_date);
   const time = formatBookingTime(booking.booking_time);
   const address = booking.restaurant_address || "адрес не указан";
-  const reviewLink = booking.review_link || "";
 
   switch (status) {
     case "created":
@@ -62,8 +61,8 @@ const buildBookingSmsMessage = (booking, status) => {
         "",
         `Будем ждать вас в гости в грузинском доме Марико ${date} в ${time} по адресу ${address}!`,
       ].join("\n");
-    case "closed": {
-      const lines = [
+    case "closed":
+      return [
         `Гармаджоба, ${name}!`,
         "Спасибо, что посетили ресторан «Хачапури Марико»!",
         "",
@@ -71,12 +70,7 @@ const buildBookingSmsMessage = (booking, status) => {
         "Вы можете оставить отзыв по кнопке ниже 👇🏻",
         "",
         "Будем рады видеть вас в «Хачапури Марико» ❤️",
-      ];
-      if (reviewLink) {
-        lines.push(`Оставить отзыв: ${reviewLink}`);
-      }
-      return lines.join("\n");
-    }
+      ].join("\n");
     case "cancelled":
       return [
         `${name}, мы очень ждали вас сегодня в доме Марико 🥹`,
@@ -86,6 +80,26 @@ const buildBookingSmsMessage = (booking, status) => {
     default:
       return "";
   }
+};
+
+const normalizePhoneDigits = (raw) => {
+  if (!raw) return "";
+  return String(raw).replace(/\D/g, "");
+};
+
+const resolveTelegramIdByPhone = async (phone) => {
+  const digits = normalizePhoneDigits(phone);
+  if (!digits) return null;
+  const row = await queryOne(
+    `SELECT telegram_id FROM user_profiles
+     WHERE regexp_replace(phone, '\\\\D', '', 'g') = $1
+     LIMIT 1`,
+    [digits],
+  );
+  if (!row?.telegram_id) {
+    return null;
+  }
+  return String(row.telegram_id);
 };
 
 export function createAdminRouter() {
@@ -509,7 +523,7 @@ export function createAdminRouter() {
       return;
     }
     const bookingId = req.params.bookingId;
-    const { status, sendSms: sendSmsRequested = true } = req.body ?? {};
+    const { status, sendNotification = true } = req.body ?? {};
     if (!status || !BOOKING_STATUS_VALUES.has(status)) {
       return res.status(400).json({ success: false, message: "Некорректный статус бронирования" });
     }
@@ -548,13 +562,31 @@ export function createAdminRouter() {
       return res.status(500).json({ success: false, message: "Не удалось обновить статус брони" });
     }
 
-    let smsResult = null;
-    if (sendSmsRequested) {
-      const message = buildBookingSmsMessage(booking, status);
-      smsResult = await sendSms({ phone: booking.customer_phone, message });
+    let notificationResult = null;
+    if (sendNotification) {
+      const message = buildBookingTelegramMessage(booking, status);
+      const telegramId = await resolveTelegramIdByPhone(booking.customer_phone);
+      const replyMarkup =
+        status === "closed" && booking.review_link
+          ? {
+              inline_keyboard: [
+                [
+                  {
+                    text: "Оставить отзыв",
+                    url: booking.review_link,
+                  },
+                ],
+              ],
+            }
+          : undefined;
+      notificationResult = await sendTelegramMessage({
+        telegramId,
+        text: message,
+        replyMarkup,
+      });
     }
 
-    return res.json({ success: true, sms: smsResult });
+    return res.json({ success: true, notification: notificationResult });
   });
 
   // Toggle restaurant active status
