@@ -217,6 +217,7 @@ type BookingCardProps = {
 function BookingCard({ booking, onRequestStatusChange }: BookingCardProps) {
   const statusLabel = BOOKING_STATUS_LABELS[booking.status] || booking.status;
   const formattedDate = formatBookingDateTime(booking);
+  const platformLabel = getPlatformLabel(booking.platform);
 
   return (
     <div className="bg-white/10 border border-white/10 rounded-2xl p-5">
@@ -231,7 +232,14 @@ function BookingCard({ booking, onRequestStatusChange }: BookingCardProps) {
           </p>
           <p className="text-white/60 text-sm">{booking.customerPhone}</p>
         </div>
-        <Badge className="bg-white/20 text-white border-white/30">{statusLabel}</Badge>
+        <div className="flex flex-col items-end gap-2">
+          <Badge className="bg-white/20 text-white border-white/30">{statusLabel}</Badge>
+          {platformLabel && (
+            <Badge className="bg-white/10 text-white/80 border-white/20">
+              {platformLabel}
+            </Badge>
+          )}
+        </div>
       </div>
 
       {booking.comment && (
@@ -268,6 +276,19 @@ function mapCitiesToRestaurantOptions(cities: City[]): RestaurantOption[] {
       cityName: city.name,
     })),
   );
+}
+
+/**
+ * Возвращает подпись платформы для бейджа.
+ */
+function getPlatformLabel(platform?: AdminBooking["platform"]): string | null {
+  if (platform === "telegram") {
+    return "Телеграм";
+  }
+  if (platform === "vk") {
+    return "Вконтакте";
+  }
+  return null;
 }
 
 /**
