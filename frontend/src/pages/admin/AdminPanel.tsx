@@ -46,11 +46,7 @@ const GuestDatabaseManagementLazy = lazy(() =>
     default: module.GuestDatabaseManagement,
   })),
 );
-const BookingsManagementLazy = lazy(() =>
-  import("@features/admin").then((module) => ({
-    default: module.BookingsManagement,
-  })),
-);
+const BookingsManagementLazy = lazy(() => import("@features/admin/bookings/BookingsManagement"));
 
 type AdminSection =
   | 'cities'

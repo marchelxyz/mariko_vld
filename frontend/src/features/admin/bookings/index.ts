@@ -1,1 +1,1 @@
-export { BookingsManagement } from "./BookingsManagement";
+export { default as BookingsManagement } from "./BookingsManagement";
