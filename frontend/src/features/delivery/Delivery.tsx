@@ -22,6 +22,10 @@ const Delivery = () => {
   function getAggregatorIcon(aggregatorName: string): string {
     const nameLower = aggregatorName.toLowerCase();
     
+    if (nameLower.includes("марико")) {
+      return "/images/delivery/mariko_delivery.png";
+    }
+
     if (nameLower.includes("яндекс") || nameLower.includes("yandex")) {
       return "/images/action button/Vector.png";
     }
@@ -52,8 +56,8 @@ const Delivery = () => {
       options.push({
         icon: (
           <img
-            src="/images/action button/Car.png"
-            alt="Delivery"
+            src="/images/delivery/mariko_delivery.png"
+            alt="Доставка Марико"
             className="w-6 h-6 md:w-12 md:h-12 object-contain"
           />
         ),
