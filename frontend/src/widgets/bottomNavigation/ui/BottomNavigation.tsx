@@ -110,9 +110,7 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
                       ? "nav-franchise"
                       : key === "profile"
                         ? "nav-profile"
-                        : key === "admin"
-                          ? "nav-admin"
-                          : undefined
+                        : undefined
                 }
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors text-white/80 hover:text-white hover:bg-white/10",
@@ -155,9 +153,7 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
                     ? "nav-franchise"
                     : key === "profile"
                       ? "nav-profile"
-                      : key === "admin"
-                        ? "nav-admin"
-                        : undefined
+                      : undefined
               }
               className={cn(
                 "flex-1 flex flex-col items-center gap-1 rounded-xl px-2 py-2 transition-colors",
