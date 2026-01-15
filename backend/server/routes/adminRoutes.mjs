@@ -458,9 +458,14 @@ export function createAdminRouter() {
           b.updated_at,
           r.name as restaurant_name,
           r.address as restaurant_address,
-          r.review_link
+          r.review_link,
+          up.telegram_id as customer_telegram_id,
+          up.vk_id as customer_vk_id
         FROM bookings b
         LEFT JOIN restaurants r ON b.restaurant_id = r.id
+        LEFT JOIN user_profiles up
+          ON right(regexp_replace(up.phone, '\\\\D', '', 'g'), 10) =
+             right(regexp_replace(b.customer_phone, '\\\\D', '', 'g'), 10)
         WHERE 1=1
       `;
       const params = [];
@@ -509,6 +514,7 @@ export function createAdminRouter() {
           eventTags: row.event_tags,
           source: row.source,
           status: row.status,
+          platform: row.customer_telegram_id ? "telegram" : row.customer_vk_id ? "vk" : null,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
         })),

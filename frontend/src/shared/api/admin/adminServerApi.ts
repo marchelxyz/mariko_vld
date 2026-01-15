@@ -105,6 +105,7 @@ export type AdminBooking = {
   eventTags: unknown;
   source: string;
   status: string;
+  platform?: "telegram" | "vk" | null;
   createdAt: string;
   updatedAt: string;
 };
