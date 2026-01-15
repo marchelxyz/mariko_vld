@@ -98,6 +98,15 @@ const STEPS: TourStep[] = [
     highlightRadius: 16,
     highlightPadding: 10,
   },
+  {
+    id: "admin",
+    selector: '[data-onboarding="nav-admin"]',
+    title: "Админ-панель",
+    description: "Управляйте контентом и бронями, если у вас есть доступ.",
+    preferredPlacement: "top",
+    highlightRadius: 16,
+    highlightPadding: 10,
+  },
 ];
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
