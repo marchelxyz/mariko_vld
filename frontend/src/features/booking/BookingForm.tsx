@@ -160,6 +160,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
   const [selectedEvent, setSelectedEvent] = useState<EventType | null>(null);
   const [comment, setComment] = useState<string>("");
   const [consentGiven, setConsentGiven] = useState<boolean>(false);
+  const [policyConsentGiven, setPolicyConsentGiven] = useState<boolean>(false);
 
   const [availableSlots, setAvailableSlots] = useState<Slot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
@@ -714,7 +715,30 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     if (profile.personalDataConsentGiven) {
       setConsentGiven(true);
     }
-  }, [profile.phone, profile.name, profile.personalDataConsentGiven]);
+    if (profile.personalDataPolicyConsentGiven) {
+      setPolicyConsentGiven(true);
+    }
+  }, [profile.phone, profile.name, profile.personalDataConsentGiven, profile.personalDataPolicyConsentGiven]);
+
+  useEffect(() => {
+    if (!consentGiven || profile.personalDataConsentGiven || !profile.id) {
+      return;
+    }
+    void profileApi.updateUserProfile(profile.id, {
+      personalDataConsentGiven: true,
+      personalDataConsentDate: new Date().toISOString(),
+    });
+  }, [consentGiven, profile.id, profile.personalDataConsentGiven]);
+
+  useEffect(() => {
+    if (!policyConsentGiven || profile.personalDataPolicyConsentGiven || !profile.id) {
+      return;
+    }
+    void profileApi.updateUserProfile(profile.id, {
+      personalDataPolicyConsentGiven: true,
+      personalDataPolicyConsentDate: new Date().toISOString(),
+    });
+  }, [policyConsentGiven, profile.id, profile.personalDataPolicyConsentGiven]);
 
   // Проверка предыдущих броней
   useEffect(() => {
@@ -842,10 +866,21 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       return;
     }
 
-    if (!hasPreviousBooking && !consentGiven) {
+    const needsPersonalConsent = !profile.personalDataConsentGiven;
+    const needsPolicyConsent = !profile.personalDataPolicyConsentGiven;
+
+    if (needsPersonalConsent && !consentGiven) {
       toast({
         title: "Ошибка",
         description: "Необходимо дать согласие на обработку персональных данных",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (needsPolicyConsent && !policyConsentGiven) {
+      toast({
+        title: "Ошибка",
+        description: "Необходимо согласиться с политикой обработки персональных данных",
         variant: "destructive",
       });
       return;
@@ -943,6 +978,11 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           profileUpdates.personalDataConsentDate = new Date().toISOString();
           shouldUpdateProfile = true;
         }
+        if (policyConsentGiven && !profile.personalDataPolicyConsentGiven) {
+          profileUpdates.personalDataPolicyConsentGiven = true;
+          profileUpdates.personalDataPolicyConsentDate = new Date().toISOString();
+          shouldUpdateProfile = true;
+        }
 
         if (shouldUpdateProfile) {
           try {
@@ -960,6 +1000,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         setComment("");
         if (!hasPreviousBooking) {
           setConsentGiven(false);
+          setPolicyConsentGiven(false);
         }
         setHasPreviousBooking(true);
 
@@ -996,6 +1037,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     name,
     phone,
     consentGiven,
+    policyConsentGiven,
     hasPreviousBooking,
     token,
     isValidRestaurantId,
@@ -1216,30 +1258,51 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         />
       </div>
 
-      {/* Согласие на обработку персональных данных */}
-      {!hasPreviousBooking && !profile?.personalDataConsentGiven && (
-        <div className="flex items-start gap-3">
-          <Checkbox
-            id="consent"
-            checked={consentGiven}
-            onCheckedChange={(checked) => setConsentGiven(checked === true)}
-            className="mt-1"
-          />
-          <Label
-            htmlFor="consent"
-            className="text-white/90 text-sm cursor-pointer leading-relaxed"
-          >
-            Даю согласие на{" "}
-            <a
-              href="https://vhachapuri.ru/policy"
-              target="_blank"
-              rel="noreferrer"
-              className="underline hover:text-white transition-colors"
-            >
-              обработку персональных данных
-            </a>{" "}
-            *
-          </Label>
+      {/* Согласия */}
+      {(!profile?.personalDataConsentGiven || !profile?.personalDataPolicyConsentGiven) && (
+        <div className="space-y-3">
+          {!profile?.personalDataConsentGiven && (
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="consent"
+                checked={consentGiven}
+                onCheckedChange={(checked) => setConsentGiven(checked === true)}
+                className="mt-1"
+              />
+              <Label
+                htmlFor="consent"
+                className="text-white/90 text-sm cursor-pointer leading-relaxed"
+              >
+                Даю согласие на{" "}
+                <a
+                  href="https://vhachapuri.ru/policy"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:text-white transition-colors"
+                >
+                  обработку персональных данных
+                </a>{" "}
+                *
+              </Label>
+            </div>
+          )}
+          {!profile?.personalDataPolicyConsentGiven && (
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="policy-consent"
+                checked={policyConsentGiven}
+                onCheckedChange={(checked) => setPolicyConsentGiven(checked === true)}
+                className="mt-1"
+              />
+              <Label
+                htmlFor="policy-consent"
+                className="text-white/90 text-sm cursor-pointer leading-relaxed"
+              >
+                Соглашаюсь с{" "}
+                <span className="underline">политикой обработки персональных данных</span> *
+              </Label>
+            </div>
+          )}
         </div>
       )}
 
