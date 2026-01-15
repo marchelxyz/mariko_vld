@@ -2,7 +2,7 @@
  * Главная страница админ-панели
  */
 
-import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck, Megaphone, Sparkles, Grid3x3, Users } from 'lucide-react';
+import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck, Megaphone, Sparkles, Grid3x3, Users, ClipboardList } from 'lucide-react';
 import { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNavigation, Header } from "@shared/ui/widgets";
@@ -46,8 +46,22 @@ const GuestDatabaseManagementLazy = lazy(() =>
     default: module.GuestDatabaseManagement,
   })),
 );
+const BookingsManagementLazy = lazy(() =>
+  import("@features/admin").then((module) => ({
+    default: module.BookingsManagement,
+  })),
+);
 
-type AdminSection = 'cities' | 'menu' | 'roles' | 'deliveries' | 'promotions' | 'recommended-dishes' | 'guests' | null;
+type AdminSection =
+  | 'cities'
+  | 'menu'
+  | 'roles'
+  | 'deliveries'
+  | 'promotions'
+  | 'recommended-dishes'
+  | 'guests'
+  | 'bookings'
+  | null;
 
 const SectionLoader = () => (
   <div className="min-h-[40vh] flex items-center justify-center">
@@ -87,6 +101,13 @@ export default function AdminPanel(): JSX.Element {
           title: "Управление доставками",
           description: "Следите за заказами, меняйте статусы и детали доставки",
           permission: Permission.MANAGE_DELIVERIES,
+        },
+        {
+          key: 'bookings' as AdminSection,
+          icon: <ClipboardList className="w-8 h-8" />,
+          title: "Управление бронированиями",
+          description: "Изменяйте статусы броней и отправляйте SMS гостям",
+          permission: Permission.MANAGE_BOOKINGS,
         },
         {
           key: 'promotions' as AdminSection,
@@ -278,6 +299,11 @@ export default function AdminPanel(): JSX.Element {
             {activeSection === 'guests' && (
               <Suspense fallback={<SectionLoader />}>
                 <GuestDatabaseManagementLazy />
+              </Suspense>
+            )}
+            {activeSection === 'bookings' && (
+              <Suspense fallback={<SectionLoader />}>
+                <BookingsManagementLazy />
               </Suspense>
             )}
           </div>

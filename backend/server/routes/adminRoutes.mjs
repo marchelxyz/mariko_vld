@@ -19,6 +19,74 @@ import {
 } from "../services/adminService.mjs";
 import { listUserProfiles, fetchUserProfile } from "../services/profileService.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
+import { sendSms } from "../services/smsService.mjs";
+
+const BOOKING_STATUS_VALUES = new Set(["created", "confirmed", "closed", "cancelled"]);
+
+const formatBookingDate = (value) => {
+  if (!value) return "Дата не указана";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+  return date.toLocaleDateString("ru-RU");
+};
+
+const formatBookingTime = (value) => {
+  if (!value) return "время не указано";
+  const timeString = String(value);
+  if (timeString.includes("T")) {
+    const parts = timeString.split("T");
+    return (parts[1] || parts[0]).replace("Z", "").slice(0, 5);
+  }
+  return timeString.replace("Z", "").slice(0, 5);
+};
+
+const buildBookingSmsMessage = (booking, status) => {
+  const name = booking.customer_name || "Гость";
+  const date = formatBookingDate(booking.booking_date);
+  const time = formatBookingTime(booking.booking_time);
+  const address = booking.restaurant_address || "адрес не указан";
+  const reviewLink = booking.review_link || "";
+
+  switch (status) {
+    case "created":
+      return [
+        "Гармаджоба, Генацвале!",
+        "Марико получила сообщение о брони столика!",
+        "В ближайшее время с вами свяжется её помощница для подтверждения бронирования❤️",
+      ].join("\n");
+    case "confirmed":
+      return [
+        `${name}, бронь столика подтверждена ❤️`,
+        "",
+        `Будем ждать вас в гости в грузинском доме Марико ${date} в ${time} по адресу ${address}!`,
+      ].join("\n");
+    case "closed": {
+      const lines = [
+        `Гармаджоба, ${name}!`,
+        "Спасибо, что посетили ресторан «Хачапури Марико»!",
+        "",
+        "Нам очень важно ваше мнение и будем благодарны за честный отзыв 🫶🏻",
+        "Вы можете оставить отзыв по кнопке ниже 👇🏻",
+        "",
+        "Будем рады видеть вас в «Хачапури Марико» ❤️",
+      ];
+      if (reviewLink) {
+        lines.push(`Оставить отзыв: ${reviewLink}`);
+      }
+      return lines.join("\n");
+    }
+    case "cancelled":
+      return [
+        `${name}, мы очень ждали вас сегодня в доме Марико 🥹`,
+        "Надеемся, что у вас всё в порядке.",
+        "Будем счастливы встретить вас в другой день ❤️",
+      ].join("\n");
+    default:
+      return "";
+  }
+};
 
 export function createAdminRouter() {
   const router = express.Router();
@@ -319,6 +387,174 @@ export function createAdminRouter() {
       return res.status(500).json({ success: false, message: "Не удалось обновить статус" });
     }
     return res.json({ success: true });
+  });
+
+  router.get("/bookings", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const admin = await authoriseAnyAdmin(req, res, ADMIN_PERMISSION.MANAGE_BOOKINGS);
+    if (!admin) {
+      return res.json({ success: true, bookings: [] });
+    }
+    const limitRaw = Number.parseInt(req.query?.limit ?? "", 10);
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 200) : 100;
+    const statusFilterRaw = typeof req.query?.status === "string" ? req.query.status : null;
+    const statusFilters = statusFilterRaw
+      ? statusFilterRaw
+          .split(",")
+          .map((status) => status.trim())
+          .filter((status) => BOOKING_STATUS_VALUES.has(status))
+      : null;
+    const restaurantFilter =
+      typeof req.query?.restaurantId === "string" ? req.query.restaurantId.trim() : null;
+
+    if (
+      restaurantFilter &&
+      admin.role !== "super_admin" &&
+      admin.role !== "admin" &&
+      !admin.allowedRestaurants.includes(restaurantFilter)
+    ) {
+      return res.json({ success: true, bookings: [] });
+    }
+
+    try {
+      let queryText = `
+        SELECT 
+          b.id,
+          b.restaurant_id,
+          b.remarked_restaurant_id,
+          b.remarked_reserve_id,
+          b.customer_name,
+          b.customer_phone,
+          b.customer_email,
+          b.booking_date,
+          b.booking_time,
+          b.guests_count,
+          b.comment,
+          b.event_tags,
+          b.source,
+          b.status,
+          b.created_at,
+          b.updated_at,
+          r.name as restaurant_name,
+          r.address as restaurant_address,
+          r.review_link
+        FROM bookings b
+        LEFT JOIN restaurants r ON b.restaurant_id = r.id
+        WHERE 1=1
+      `;
+      const params = [];
+      let paramIndex = 1;
+
+      if (statusFilters && statusFilters.length > 0) {
+        queryText += ` AND b.status = ANY($${paramIndex++})`;
+        params.push(statusFilters);
+      }
+
+      if (restaurantFilter) {
+        queryText += ` AND b.restaurant_id = $${paramIndex++}`;
+        params.push(restaurantFilter);
+      }
+
+      if (admin.role !== "super_admin" && admin.role !== "admin") {
+        if (!admin.allowedRestaurants || admin.allowedRestaurants.length === 0) {
+          return res.json({ success: true, bookings: [] });
+        }
+        queryText += ` AND b.restaurant_id = ANY($${paramIndex++})`;
+        params.push(admin.allowedRestaurants);
+      }
+
+      queryText += ` ORDER BY b.created_at DESC LIMIT $${paramIndex++}`;
+      params.push(limit);
+
+      const results = await queryMany(queryText, params);
+
+      return res.json({
+        success: true,
+        bookings: results.map((row) => ({
+          id: row.id,
+          restaurantId: row.restaurant_id,
+          restaurantName: row.restaurant_name ?? null,
+          restaurantAddress: row.restaurant_address ?? null,
+          reviewLink: row.review_link ?? null,
+          remarkedRestaurantId: row.remarked_restaurant_id,
+          remarkedReserveId: row.remarked_reserve_id,
+          customerName: row.customer_name,
+          customerPhone: row.customer_phone,
+          customerEmail: row.customer_email,
+          bookingDate: row.booking_date,
+          bookingTime: row.booking_time,
+          guestsCount: row.guests_count,
+          comment: row.comment,
+          eventTags: row.event_tags,
+          source: row.source,
+          status: row.status,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        })),
+      });
+    } catch (error) {
+      console.error("Ошибка получения бронирований (admin):", error);
+      return res.status(500).json({ success: false, message: "Не удалось получить список бронирований" });
+    }
+  });
+
+  router.patch("/bookings/:bookingId/status", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_BOOKINGS);
+    if (!admin) {
+      return;
+    }
+    const bookingId = req.params.bookingId;
+    const { status, sendSms: sendSmsRequested = true } = req.body ?? {};
+    if (!status || !BOOKING_STATUS_VALUES.has(status)) {
+      return res.status(400).json({ success: false, message: "Некорректный статус бронирования" });
+    }
+    const booking = await queryOne(
+      `SELECT 
+        b.id,
+        b.restaurant_id,
+        b.customer_name,
+        b.customer_phone,
+        b.booking_date,
+        b.booking_time,
+        r.address as restaurant_address,
+        r.review_link
+      FROM bookings b
+      LEFT JOIN restaurants r ON b.restaurant_id = r.id
+      WHERE b.id = $1
+      LIMIT 1`,
+      [bookingId],
+    );
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Бронирование не найдено" });
+    }
+    if (admin.role !== "super_admin" && admin.role !== "admin") {
+      if (!admin.allowedRestaurants.includes(booking.restaurant_id)) {
+        return res.status(403).json({ success: false, message: "Нет доступа к ресторану брони" });
+      }
+    }
+
+    try {
+      await query(`UPDATE bookings SET status = $1, updated_at = NOW() WHERE id = $2`, [
+        status,
+        bookingId,
+      ]);
+    } catch (error) {
+      console.error("Ошибка обновления статуса брони:", error);
+      return res.status(500).json({ success: false, message: "Не удалось обновить статус брони" });
+    }
+
+    let smsResult = null;
+    if (sendSmsRequested) {
+      const message = buildBookingSmsMessage(booking, status);
+      smsResult = await sendSms({ phone: booking.customer_phone, message });
+    }
+
+    return res.json({ success: true, sms: smsResult });
   });
 
   // Toggle restaurant active status
