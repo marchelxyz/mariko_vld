@@ -462,7 +462,7 @@ const Index = () => {
                         title="Меню"
                         imageUrl="/images/services/MENU-CARD.png"
                         aspectRatio="aspect-[4/3]"
-                        imageClassName="object-left translate-x-[2px]"
+                        imageClassName="object-center translate-x-0 md:object-left md:translate-x-[2px]"
                         className="max-w-[200px] w-full"
                         highlighted={cityChangedFlash}
                         onClick={() => navigate("/menu")}
