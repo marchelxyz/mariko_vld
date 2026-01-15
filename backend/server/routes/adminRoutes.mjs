@@ -90,11 +90,16 @@ const normalizePhoneDigits = (raw) => {
 const resolveTelegramIdByPhone = async (phone) => {
   const digits = normalizePhoneDigits(phone);
   if (!digits) return null;
+  const last10 = digits.length > 10 ? digits.slice(-10) : digits;
+  const candidates = Array.from(
+    new Set([digits, last10 ? `7${last10}` : "", last10 ? `8${last10}` : ""].filter(Boolean)),
+  );
   const row = await queryOne(
     `SELECT telegram_id FROM user_profiles
-     WHERE regexp_replace(phone, '\\\\D', '', 'g') = $1
+     WHERE regexp_replace(phone, '\\\\D', '', 'g') = ANY($1)
+        OR right(regexp_replace(phone, '\\\\D', '', 'g'), 10) = $2
      LIMIT 1`,
-    [digits],
+    [candidates, last10],
   );
   if (!row?.telegram_id) {
     return null;
