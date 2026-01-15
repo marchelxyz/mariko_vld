@@ -98,7 +98,7 @@ export default function AdminPanel(): JSX.Element {
         {
           key: 'recommended-dishes' as AdminSection,
           icon: <Sparkles className="w-8 h-8" />,
-          title: "Рекомендуем попробовать",
+          title: "Гости выбирают",
           description: "Выберите блюда для раздела рекомендаций на главной",
           permission: Permission.MANAGE_PROMOTIONS,
         },

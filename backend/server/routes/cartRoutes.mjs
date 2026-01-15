@@ -141,6 +141,14 @@ export function registerCartRoutes(app) {
         gender: body.gender,
         photo: body.photo,
         notificationsEnabled: body.notificationsEnabled,
+        personalDataConsentGiven:
+          body.personalDataConsentGiven ?? body.personal_data_consent_given ?? undefined,
+        personalDataConsentDate:
+          body.personalDataConsentDate ?? body.personal_data_consent_date ?? undefined,
+        personalDataPolicyConsentGiven:
+          body.personalDataPolicyConsentGiven ?? body.personal_data_policy_consent_given ?? undefined,
+        personalDataPolicyConsentDate:
+          body.personalDataPolicyConsentDate ?? body.personal_data_policy_consent_date ?? undefined,
         favoriteCityId: body.favoriteCityId ?? body.favorite_city_id,
         favoriteCityName: body.favoriteCityName ?? body.favorite_city_name,
         favoriteRestaurantId: body.favoriteRestaurantId ?? body.favorite_restaurant_id,
@@ -221,6 +229,14 @@ export function registerCartRoutes(app) {
         gender: body.gender,
         photo: body.photo,
         notificationsEnabled: body.notificationsEnabled,
+        personalDataConsentGiven:
+          body.personalDataConsentGiven ?? body.personal_data_consent_given ?? undefined,
+        personalDataConsentDate:
+          body.personalDataConsentDate ?? body.personal_data_consent_date ?? undefined,
+        personalDataPolicyConsentGiven:
+          body.personalDataPolicyConsentGiven ?? body.personal_data_policy_consent_given ?? undefined,
+        personalDataPolicyConsentDate:
+          body.personalDataPolicyConsentDate ?? body.personal_data_policy_consent_date ?? undefined,
         favoriteCityId: body.favoriteCityId ?? body.favorite_city_id,
         favoriteCityName: body.favoriteCityName ?? body.favorite_city_name,
         favoriteRestaurantId: body.favoriteRestaurantId ?? body.favorite_restaurant_id,
