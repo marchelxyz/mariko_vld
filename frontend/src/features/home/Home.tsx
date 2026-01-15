@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronDown, MapPin, Star as StarIcon, Truck, Briefcase } from "lucide-react";
+import { CalendarDays, MapPin, Star as StarIcon, Truck, Briefcase } from "lucide-react";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useCityContext, useCart } from "@/contexts";
@@ -548,7 +548,6 @@ const Index = () => {
                   <span className="relative font-el-messiri text-base md:text-lg font-semibold text-white">
                     Гости выбирают
                   </span>
-                  <ChevronDown className="relative w-5 h-5 md:w-6 md:h-6 text-white" />
                 </div>
 
                 <div className="px-3 md:px-6 mb-16 md:mb-20">
