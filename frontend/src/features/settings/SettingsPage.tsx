@@ -7,10 +7,12 @@ import { toast } from "@/hooks/use-toast";
 import { useProfile } from "@/entities/user";
 import { profileApi } from "@/shared/api/profile";
 import { cn } from "@shared/utils";
+import { useOnboardingContext } from "@/contexts/OnboardingContext";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { profile, reload: refetchProfile } = useProfile();
+  const { setOnboardingTourShown } = useOnboardingContext();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleBackClick = () => {
@@ -21,10 +23,7 @@ export default function SettingsPage() {
     setIsProcessing(true);
     try {
       // Сбрасываем флаг прохождения обучения
-      await profileApi.updateUserProfile(profile.id, {
-        hasCompletedOnboarding: false,
-        onboardingCompletedAt: null,
-      });
+      await setOnboardingTourShown(false);
       
       toast({
         title: "Обучение сброшено",
@@ -37,6 +36,59 @@ export default function SettingsPage() {
       toast({
         title: "Ошибка",
         description: "Не удалось сбросить обучение. Попробуйте позже.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  /**
+   * Отозвать согласие с политикой обработки персональных данных.
+   */
+  const handleRevokePolicyConsent = async () => {
+    setIsProcessing(true);
+    try {
+      await profileApi.updateUserProfile(profile.id, {
+        personalDataPolicyConsentGiven: false,
+        personalDataPolicyConsentDate: null,
+      });
+      toast({
+        title: "Согласие отозвано",
+        description:
+          "При следующем бронировании вам нужно будет снова согласиться с политикой обработки персональных данных",
+      });
+      await refetchProfile();
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось отозвать согласие. Попробуйте позже.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  /**
+   * Дать согласие с политикой обработки персональных данных.
+   */
+  const handleGivePolicyConsent = async () => {
+    setIsProcessing(true);
+    try {
+      await profileApi.updateUserProfile(profile.id, {
+        personalDataPolicyConsentGiven: true,
+        personalDataPolicyConsentDate: new Date().toISOString(),
+      });
+      toast({
+        title: "Согласие дано",
+        description: "Согласие с политикой обработки персональных данных сохранено",
+      });
+      await refetchProfile();
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось дать согласие. Попробуйте позже.",
         variant: "destructive",
       });
     } finally {
@@ -124,8 +176,10 @@ export default function SettingsPage() {
                   <div>
                     <p className="text-white font-medium">Согласие на обработку данных</p>
                     <p className="text-white/70 text-sm">
-                      {profile?.personalDataConsentGiven 
-                        ? "Дано - " + new Date(profile.personalDataConsentDate).toLocaleDateString('ru-RU')
+                      {profile?.personalDataConsentGiven
+                        ? profile.personalDataConsentDate
+                          ? "Дано - " + new Date(profile.personalDataConsentDate).toLocaleDateString('ru-RU')
+                          : "Дано"
                         : "Не дано"
                       }
                     </p>
@@ -141,6 +195,36 @@ export default function SettingsPage() {
                     )}
                   >
                     {profile?.personalDataConsentGiven ? "Отозвать" : "Дать согласие"}
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-medium">Политика обработки персональных данных</p>
+                    <p className="text-white/70 text-sm">
+                      {profile?.personalDataPolicyConsentGiven
+                        ? profile.personalDataPolicyConsentDate
+                          ? "Дано - " + new Date(profile.personalDataPolicyConsentDate).toLocaleDateString('ru-RU')
+                          : "Дано"
+                        : "Не дано"
+                      }
+                    </p>
+                  </div>
+                  <Button
+                    variant={profile?.personalDataPolicyConsentGiven ? "destructive" : "outline"}
+                    size="sm"
+                    onClick={
+                      profile?.personalDataPolicyConsentGiven
+                        ? handleRevokePolicyConsent
+                        : handleGivePolicyConsent
+                    }
+                    disabled={isProcessing}
+                    className={cn(
+                      "border-white/20 !text-black hover:bg-white/10 hover:!text-black",
+                      profile?.personalDataPolicyConsentGiven &&
+                        "bg-red-500/20 border-red-500/50 hover:bg-red-500/30 hover:!text-black",
+                    )}
+                  >
+                    {profile?.personalDataPolicyConsentGiven ? "Отозвать" : "Дать согласие"}
                   </Button>
                 </div>
               </div>

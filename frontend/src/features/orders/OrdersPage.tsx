@@ -6,6 +6,8 @@ import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { getBookings, type BookingListItem } from "@/shared/api/bookingApi";
 import { cn } from "@shared/utils";
 import { getUser } from "@/lib/telegram";
+import { useProfile } from "@entities/user";
+import { getCleanPhoneNumber } from "@shared/hooks/usePhoneInput";
 
 const BookingCard = ({
   booking,
@@ -104,6 +106,14 @@ export default function OrdersPage() {
 
   const user = getUser();
   const userId = user?.id?.toString();
+  const { profile, isInitialized } = useProfile();
+  const userPhone = useMemo(() => {
+    if (!isInitialized || profile.id === "default") {
+      return "";
+    }
+    const rawPhone = profile.phone?.trim() ?? "";
+    return rawPhone ? getCleanPhoneNumber(rawPhone) : "";
+  }, [isInitialized, profile.id, profile.phone]);
 
   const {
     data: bookingsData,
@@ -111,12 +121,12 @@ export default function OrdersPage() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ["bookings", userId],
+    queryKey: ["bookings", userId, userPhone],
     queryFn: async () => {
-      if (!userId) return { success: false, bookings: [] };
-      return getBookings({ limit: 10 });
+      if (!userId || !userPhone) return { success: false, bookings: [] };
+      return getBookings({ phone: userPhone, limit: 10 });
     },
-    enabled: !!userId,
+    enabled: Boolean(userId && userPhone),
   });
 
   const bookings = bookingsData?.bookings || [];
