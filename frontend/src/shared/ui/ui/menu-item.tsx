@@ -3,7 +3,7 @@ import { memo } from "react";
 import { type MenuItem } from "@shared/data";
 import { Badge } from "./badge";
 
-interface MenuItemProps {
+type MenuItemProps = {
   item: MenuItem;
   onClick?: (item: MenuItem) => void;
   onAdd?: (item: MenuItem) => void;
@@ -13,7 +13,9 @@ interface MenuItemProps {
   showAddButton?: boolean;
   maxCartItemQuantity?: number;
   variant?: 'default' | 'compact' | 'mobile'; // добавляем мобильный вариант
-}
+  showMeta?: boolean;
+  showPrice?: boolean;
+};
 
 function MenuItemComponentBase({
   item,
@@ -25,6 +27,8 @@ function MenuItemComponentBase({
   showAddButton = false,
   maxCartItemQuantity = 10,
   variant = 'default',
+  showMeta = true,
+  showPrice = true,
 }: MenuItemProps): JSX.Element {
   // Временные иконки для блюд до загрузки фотографий
   const getDefaultIcon = (itemName: string): string => {
@@ -58,6 +62,21 @@ function MenuItemComponentBase({
   const weightText = item.weight ? `${item.weight} гр` : '';
   const caloriesText = item.calories ? `${item.calories} ккал` : '';
   const metaText = [weightText, caloriesText].filter(Boolean).join(' / ');
+  const shouldShowMeta = showMeta && Boolean(metaText);
+  const imageBadges = [
+    item.isVegetarian
+      ? { label: "Без мяса", className: "bg-emerald-500/90 text-white" }
+      : null,
+    item.isNew
+      ? { label: "Новинка", className: "bg-mariko-secondary/90 text-white" }
+      : null,
+    item.isSpicy
+      ? { label: "Острое", className: "bg-red-600/90 text-white" }
+      : null,
+    item.isRecommended
+      ? { label: "Рекомендуем", className: "bg-mariko-primary/90 text-white" }
+      : null,
+  ].filter(Boolean) as Array<{ label: string; className: string }>;
   
   return (
     <div
@@ -88,23 +107,20 @@ function MenuItemComponentBase({
           </div>
         )}
         
-        {/* Бейджи в углу */}
-        <div className="absolute top-1 md:top-2 right-1 md:right-2 flex flex-col gap-1">
-          {item.isNew && (
-            <Badge className={`bg-mariko-secondary text-white px-1 py-0.5 ${
-              isMobile ? 'text-[7px] md:text-[8px]' : 'text-[8px] md:text-[10px]'
-            }`}>
-              ✨
-            </Badge>
-          )}
-          {item.isRecommended && (
-            <Badge className={`bg-mariko-primary text-white px-1 py-0.5 ${
-              isMobile ? 'text-[7px] md:text-[8px]' : 'text-[8px] md:text-[10px]'
-            }`}>
-              👑
-            </Badge>
-          )}
-        </div>
+        {imageBadges.length > 0 && (
+          <div className="absolute top-2 left-2 flex flex-wrap gap-1 max-w-[80%]">
+            {imageBadges.map((badge) => (
+              <Badge
+                key={badge.label}
+                className={`${badge.className} px-2 py-0.5 uppercase tracking-wide ${
+                  isMobile ? "text-[7px] md:text-[8px]" : "text-[8px] md:text-[10px]"
+                }`}
+              >
+                {badge.label}
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
       
       {/* Информация о блюде */}
@@ -121,87 +137,76 @@ function MenuItemComponentBase({
           } min-h-[2.5em]`}>
             {item.name}
           </h3>
-          <p className={`text-gray-500 mt-0.5 min-h-[1.2em] ${
-            isMobile ? 'text-[8px] md:text-[9px]' :
-            isCompact ? 'text-[9px] md:text-xs' : 
-            'text-[10px] md:text-xs'
-          }`}>
-            {metaText}
-          </p>
-        </div>
-        
-        {/* Дополнительные маркеры - переместили выше цены */}
-        <div className="flex items-center gap-1 mt-1 mb-2 min-h-[16px] md:min-h-[18px]">
-          {item.isVegetarian && (
-            <span className={`text-green-600 ${
+          {shouldShowMeta && (
+            <p className={`text-gray-500 mt-0.5 min-h-[1.2em] ${
               isMobile ? 'text-[8px] md:text-[9px]' :
-              isCompact ? 'text-[10px] md:text-xs' : 
+              isCompact ? 'text-[9px] md:text-xs' : 
               'text-[10px] md:text-xs'
-            }`}>🌱</span>
-          )}
-          {item.isSpicy && (
-            <span className={`text-red-600 ${
-              isMobile ? 'text-[8px] md:text-[9px]' :
-              isCompact ? 'text-[10px] md:text-xs' : 
-              'text-[10px] md:text-xs'
-            }`}>🌶️</span>
+            }`}>
+              {metaText}
+            </p>
           )}
         </div>
 
         {/* Нижняя часть: цена и кнопка */}
-        <div className="flex items-center justify-between mt-auto">
-          <div className="flex items-baseline gap-1">
-            <span className={`font-el-messiri font-bold text-gray-900 ${
-              isMobile ? 'text-xs md:text-sm' :
-              isCompact ? 'text-sm md:text-base' : 
-              'text-sm md:text-lg'
-            }`}>
-              {item.price}₽
-            </span>
+        {(showPrice || showAddButton) && (
+          <div className="flex items-center justify-between mt-auto">
+            {showPrice ? (
+              <div className="flex items-baseline gap-1">
+                <span className={`font-el-messiri font-bold text-gray-900 ${
+                  isMobile ? 'text-xs md:text-sm' :
+                  isCompact ? 'text-sm md:text-base' : 
+                  'text-sm md:text-lg'
+                }`}>
+                  {item.price}₽
+                </span>
+              </div>
+            ) : (
+              <span />
+            )}
+            {showAddButton && (
+              <div onClick={(e) => e.stopPropagation()}>
+                {quantity > 0 ? (
+                  <div className="flex items-center gap-1 bg-gray-100 rounded-full px-1.5 py-0.5 md:px-2 md:py-1">
+                    <button
+                      type="button"
+                      onClick={() => onDecrease?.(item)}
+                      className="p-1 rounded-full hover:bg-gray-200 transition-colors text-mariko-primary"
+                      aria-label="Уменьшить количество"
+                    >
+                      <Minus className="w-3 h-3 md:w-4 md:h-4" />
+                    </button>
+                    <span className="min-w-[16px] md:min-w-[20px] text-center font-semibold text-xs md:text-sm text-gray-900">
+                      {quantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => (onIncrease ?? onAdd)?.(item)}
+                      disabled={quantity >= maxCartItemQuantity}
+                      className={`p-1 rounded-full transition-colors text-mariko-primary ${
+                        quantity >= maxCartItemQuantity
+                          ? 'opacity-50 cursor-not-allowed'
+                          : 'hover:bg-gray-200'
+                      }`}
+                      aria-label="Увеличить количество"
+                    >
+                      <Plus className="w-3 h-3 md:w-4 md:h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onAdd?.(item)}
+                    className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-mariko-primary text-white shadow-sm hover:bg-mariko-primary/90 transition-colors flex items-center justify-center"
+                    aria-label="Добавить в корзину"
+                  >
+                    <Plus className="w-4 h-4 md:w-5 md:h-5" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
-          
-          {showAddButton && (
-            <div onClick={(e) => e.stopPropagation()}>
-              {quantity > 0 ? (
-                <div className="flex items-center gap-1 bg-gray-100 rounded-full px-1.5 py-0.5 md:px-2 md:py-1">
-                  <button
-                    type="button"
-                    onClick={() => onDecrease?.(item)}
-                    className="p-1 rounded-full hover:bg-gray-200 transition-colors text-mariko-primary"
-                    aria-label="Уменьшить количество"
-                  >
-                    <Minus className="w-3 h-3 md:w-4 md:h-4" />
-                  </button>
-                  <span className="min-w-[16px] md:min-w-[20px] text-center font-semibold text-xs md:text-sm text-gray-900">
-                    {quantity}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => (onIncrease ?? onAdd)?.(item)}
-                    disabled={quantity >= maxCartItemQuantity}
-                    className={`p-1 rounded-full transition-colors text-mariko-primary ${
-                      quantity >= maxCartItemQuantity
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:bg-gray-200'
-                    }`}
-                    aria-label="Увеличить количество"
-                  >
-                    <Plus className="w-3 h-3 md:w-4 md:h-4" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => onAdd?.(item)}
-                  className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-mariko-primary text-white shadow-sm hover:bg-mariko-primary/90 transition-colors flex items-center justify-center"
-                  aria-label="Добавить в корзину"
-                >
-                  <Plus className="w-4 h-4 md:w-5 md:h-5" />
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
@@ -215,6 +220,8 @@ export const MenuItemComponent = memo(
     prev.showAddButton === next.showAddButton &&
     prev.maxCartItemQuantity === next.maxCartItemQuantity &&
     prev.variant === next.variant &&
+    prev.showMeta === next.showMeta &&
+    prev.showPrice === next.showPrice &&
     prev.onAdd === next.onAdd &&
     prev.onIncrease === next.onIncrease &&
     prev.onDecrease === next.onDecrease &&

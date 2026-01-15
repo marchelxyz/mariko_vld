@@ -23,6 +23,7 @@ export const PromotionsCarousel = ({
 }: PromotionsCarouselProps) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [openedPromotion, setOpenedPromotion] = useState<PromotionSlide | null>(null);
+  const [openedPromotionIndex, setOpenedPromotionIndex] = useState<number | null>(null);
   const [modalImageFailed, setModalImageFailed] = useState(false);
   const startXRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
@@ -44,6 +45,17 @@ export const PromotionsCarousel = ({
     setModalImageFailed(false);
   }, [openedPromotion]);
 
+  useEffect(() => {
+    if (openedPromotionIndex === null) return;
+    if (!slideCount) {
+      closePromotion();
+      return;
+    }
+    if (openedPromotionIndex >= slideCount) {
+      openPromotionAtIndex(0);
+    }
+  }, [openedPromotionIndex, slideCount]);
+
   // Автовоспроизведение с небольшими паузами при наведении/свайпе
   useEffect(() => {
     if (slideCount <= 1) return;
@@ -62,6 +74,24 @@ export const PromotionsCarousel = ({
     if (!slideCount) return;
     const nextIndex = (index + slideCount) % slideCount;
     setActiveIndex(nextIndex);
+  };
+
+  const openPromotionAtIndex = (index: number) => {
+    if (!slideCount) return;
+    const nextIndex = (index + slideCount) % slideCount;
+    setOpenedPromotion(promotions[nextIndex] ?? null);
+    setOpenedPromotionIndex(nextIndex);
+    setActiveIndex(nextIndex);
+  };
+
+  const closePromotion = () => {
+    setOpenedPromotion(null);
+    setOpenedPromotionIndex(null);
+  };
+
+  const goToOpenedPromotion = (direction: number) => {
+    if (openedPromotionIndex === null) return;
+    openPromotionAtIndex(openedPromotionIndex + direction);
   };
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
@@ -144,7 +174,7 @@ export const PromotionsCarousel = ({
                 : undefined,
           }}
         >
-          {promotions.map((promotion) => (
+          {promotions.map((promotion, index) => (
             <div
               key={promotion.id}
               className="flex-shrink-0 h-full"
@@ -152,7 +182,7 @@ export const PromotionsCarousel = ({
             >
               <PromotionSlideCard
                 promotion={promotion}
-                onClick={() => setOpenedPromotion(promotion)}
+                onClick={() => openPromotionAtIndex(index)}
               />
             </div>
           ))}
@@ -206,7 +236,7 @@ export const PromotionsCarousel = ({
       {openedPromotion && (
         <div
           className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm"
-          onClick={() => setOpenedPromotion(null)}
+          onClick={closePromotion}
         >
           <div
             className="relative w-full max-w-[520px] overflow-hidden rounded-2xl bg-white shadow-2xl"
@@ -234,10 +264,36 @@ export const PromotionsCarousel = ({
               <button
                 type="button"
                 className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-1 text-sm text-white backdrop-blur"
-                onClick={() => setOpenedPromotion(null)}
+                onClick={closePromotion}
               >
                 Закрыть
               </button>
+              {slideCount > 1 && (
+                <>
+                  <button
+                    type="button"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/25 bg-black/40 p-2 text-white transition hover:scale-105 hover:border-white/40 hover:bg-black/50"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      goToOpenedPromotion(-1);
+                    }}
+                    aria-label="Предыдущая акция"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/25 bg-black/40 p-2 text-white transition hover:scale-105 hover:border-white/40 hover:bg-black/50"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      goToOpenedPromotion(1);
+                    }}
+                    aria-label="Следующая акция"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </>
+              )}
             </div>
 
             <div className="space-y-4 px-5 pb-5 pt-4">

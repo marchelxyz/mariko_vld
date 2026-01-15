@@ -46,7 +46,7 @@ export default function SettingsPage() {
       // Отзываем согласие на обработку данных
       await profileApi.updateUserProfile(profile.id, {
         personalDataConsentGiven: false,
-        personalDataConsentDate: undefined,
+        personalDataConsentDate: null,
       });
       
       toast({
@@ -94,6 +94,53 @@ export default function SettingsPage() {
     }
   };
 
+  const handleRevokePolicyConsent = async () => {
+    setIsProcessing(true);
+    try {
+      await profileApi.updateUserProfile(profile.id, {
+        personalDataPolicyConsentGiven: false,
+        personalDataPolicyConsentDate: null,
+      });
+      toast({
+        title: "Согласие отозвано",
+        description:
+          "При следующем бронировании вам нужно будет снова согласиться с политикой обработки персональных данных",
+      });
+      await refetchProfile();
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось отозвать согласие. Попробуйте позже.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleGivePolicyConsent = async () => {
+    setIsProcessing(true);
+    try {
+      await profileApi.updateUserProfile(profile.id, {
+        personalDataPolicyConsentGiven: true,
+        personalDataPolicyConsentDate: new Date().toISOString(),
+      });
+      toast({
+        title: "Согласие дано",
+        description: "Согласие с политикой обработки персональных данных сохранено",
+      });
+      await refetchProfile();
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось дать согласие. Попробуйте позже.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="app-screen overflow-hidden bg-transparent">
       <div className="bg-transparent pb-5 md:pb-6">
@@ -120,8 +167,10 @@ export default function SettingsPage() {
                   <div>
                     <p className="text-white font-medium">Согласие на обработку данных</p>
                     <p className="text-white/70 text-sm">
-                      {profile?.personalDataConsentGiven 
-                        ? "Дано - " + new Date(profile.personalDataConsentDate).toLocaleDateString('ru-RU')
+                      {profile?.personalDataConsentGiven
+                        ? profile.personalDataConsentDate
+                          ? "Дано - " + new Date(profile.personalDataConsentDate).toLocaleDateString('ru-RU')
+                          : "Дано"
                         : "Не дано"
                       }
                     </p>
@@ -137,6 +186,36 @@ export default function SettingsPage() {
                     )}
                   >
                     {profile?.personalDataConsentGiven ? "Отозвать" : "Дать согласие"}
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-medium">Политика обработки персональных данных</p>
+                    <p className="text-white/70 text-sm">
+                      {profile?.personalDataPolicyConsentGiven
+                        ? profile.personalDataPolicyConsentDate
+                          ? "Дано - " + new Date(profile.personalDataPolicyConsentDate).toLocaleDateString('ru-RU')
+                          : "Дано"
+                        : "Не дано"
+                      }
+                    </p>
+                  </div>
+                  <Button
+                    variant={profile?.personalDataPolicyConsentGiven ? "destructive" : "outline"}
+                    size="sm"
+                    onClick={
+                      profile?.personalDataPolicyConsentGiven
+                        ? handleRevokePolicyConsent
+                        : handleGivePolicyConsent
+                    }
+                    disabled={isProcessing}
+                    className={cn(
+                      "border-white/20 !text-black hover:bg-white/10 hover:!text-black",
+                      profile?.personalDataPolicyConsentGiven &&
+                        "bg-red-500/20 border-red-500/50 hover:bg-red-500/30 hover:!text-black",
+                    )}
+                  >
+                    {profile?.personalDataPolicyConsentGiven ? "Отозвать" : "Дать согласие"}
                   </Button>
                 </div>
               </div>
