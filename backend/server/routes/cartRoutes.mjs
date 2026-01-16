@@ -7,6 +7,7 @@ import {
   buildDefaultProfile,
   mapProfileRowToClient,
 } from "../services/profileService.mjs";
+import { getAppSettings } from "../services/appSettingsService.mjs";
 import { fetchRestaurantIntegrationConfig, enqueueIikoOrder } from "../services/integrationService.mjs";
 import { normaliseNullableString } from "../utils.mjs";
 import { addressService } from "../services/addressService.mjs";
@@ -69,6 +70,19 @@ export function registerCartRoutes(app) {
 
   app.get("/api/cart/health", (req, res) => {
     res.json(healthPayload());
+  });
+
+  app.get("/api/cart/settings", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    try {
+      const settings = await getAppSettings();
+      return res.json({ success: true, settings });
+    } catch (error) {
+      console.error("Ошибка получения настроек приложения:", error);
+      return res.status(500).json({ success: false, message: "Не удалось получить настройки" });
+    }
   });
 
   app.post("/api/cart/recalculate", (req, res) => {

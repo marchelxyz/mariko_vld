@@ -1,6 +1,7 @@
 import { getCartApiBaseUrl } from "@shared/api/cart";
 import type { CartOrderRecord } from "@shared/api/cart";
 import type { Permission, UserRole } from "@shared/types";
+import type { AppSettings } from "@shared/api/settings";
 import { getUser, getPlatform } from "@/lib/platform";
 import { getUserId as getVkUserId } from "@/lib/vkCore";
 import { logger } from "@/lib/logger";
@@ -130,6 +131,11 @@ export type AdminBookingsResponse = {
   bookings: AdminBooking[];
 };
 
+type AdminSettingsResponse = {
+  success: boolean;
+  settings: AppSettings;
+};
+
 export type UpdateBookingStatusResponse = {
   success: boolean;
   notification?: {
@@ -154,11 +160,19 @@ export type Guest = {
   cityName: string | null;
   status: GuestStatus;
   isVerified: boolean;
+  isBanned: boolean;
+  bannedAt: string | null;
+  bannedReason: string | null;
   createdAt: string | null;
   updatedAt: string | null;
   telegramId: string | null;
   vkId: string | null;
   platform: "telegram" | "vk" | null;
+};
+
+type UpdateGuestBanResponse = {
+  success: boolean;
+  user: Pick<Guest, "id" | "isBanned" | "bannedAt" | "bannedReason">;
 };
 
 export type GuestBooking = {
@@ -460,6 +474,19 @@ export const adminServerApi = {
     return data.bookings ?? [];
   },
 
+  async updateGuestBan(
+    guestId: string,
+    payload: { isBanned: boolean; reason?: string },
+  ): Promise<Pick<Guest, "id" | "isBanned" | "bannedAt" | "bannedReason">> {
+    const response = await fetch(`${ADMIN_API_BASE}/users/${encodeURIComponent(guestId)}/ban`, {
+      method: "PATCH",
+      headers: buildHeaders(undefined, undefined),
+      body: JSON.stringify(payload),
+    });
+    const data = await handleResponse<UpdateGuestBanResponse>(response);
+    return data.user;
+  },
+
   async getBookings(params: FetchBookingsParams = {}): Promise<AdminBooking[]> {
     const search = new URLSearchParams();
     if (params.restaurantId) {
@@ -494,5 +521,23 @@ export const adminServerApi = {
       },
     );
     return handleResponse<UpdateBookingStatusResponse>(response);
+  },
+
+  async getSettings(): Promise<AppSettings> {
+    const response = await fetch(`${ADMIN_API_BASE}/settings`, {
+      headers: buildHeaders(undefined, undefined),
+    });
+    const data = await handleResponse<AdminSettingsResponse>(response);
+    return data.settings;
+  },
+
+  async updateSettings(payload: Partial<AppSettings>): Promise<AppSettings> {
+    const response = await fetch(`${ADMIN_API_BASE}/settings`, {
+      method: "PATCH",
+      headers: buildHeaders(undefined, undefined),
+      body: JSON.stringify(payload),
+    });
+    const data = await handleResponse<AdminSettingsResponse>(response);
+    return data.settings;
   },
 };

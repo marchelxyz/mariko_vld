@@ -249,6 +249,7 @@ function escapeHtml(text: string): string {
  */
 export function GuestDatabaseManagement(): JSX.Element {
   const { userId, allowedRestaurants, isSuperAdmin, userRole, hasPermission, isLoading: isAdminLoading } = useAdmin();
+  const canManageUsers = hasPermission(Permission.MANAGE_USERS);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -259,6 +260,7 @@ export function GuestDatabaseManagement(): JSX.Element {
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const [guestBookings, setGuestBookings] = useState<GuestBooking[]>([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState(false);
+  const [banUpdatingId, setBanUpdatingId] = useState<string | null>(null);
 
   // Загрузка городов
   useEffect(() => {
@@ -387,6 +389,36 @@ export function GuestDatabaseManagement(): JSX.Element {
     }
   }, [loadGuestBookings]);
 
+  const handleToggleBan = useCallback(async (guest: Guest) => {
+    if (!canManageUsers || banUpdatingId) {
+      return;
+    }
+    const nextStatus = !guest.isBanned;
+    const confirmed = window.confirm(
+      nextStatus
+        ? `Заблокировать пользователя ${guest.name}?`
+        : `Разблокировать пользователя ${guest.name}?`,
+    );
+    if (!confirmed) {
+      return;
+    }
+    setBanUpdatingId(guest.id);
+    try {
+      const updated = await adminServerApi.updateGuestBan(guest.id, { isBanned: nextStatus });
+      setGuests((prev) =>
+        prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)),
+      );
+      setSelectedGuest((prev) =>
+        prev && prev.id === updated.id ? { ...prev, ...updated } : prev,
+      );
+    } catch (error) {
+      logger.error('guests', error instanceof Error ? error : new Error('Ошибка блокировки'));
+      alert('❌ Не удалось изменить статус блокировки');
+    } finally {
+      setBanUpdatingId(null);
+    }
+  }, [banUpdatingId, canManageUsers]);
+
   if (!hasPermission(Permission.VIEW_USERS)) {
     return null;
   }
@@ -509,6 +541,9 @@ export function GuestDatabaseManagement(): JSX.Element {
                   <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Город</th>
                   <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Ресторан</th>
                   <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Дата регистрации</th>
+                  {canManageUsers && (
+                    <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Блокировка</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -530,6 +565,11 @@ export function GuestDatabaseManagement(): JSX.Element {
                         <span className="text-xs text-white/70 hidden sm:inline">
                           {getStatusText(guest.status)}
                         </span>
+                        {guest.isBanned && (
+                          <span className="text-xs text-red-300 bg-red-500/10 border border-red-500/30 px-2 py-0.5 rounded-full">
+                            Заблокирован
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="p-3 md:p-4">
@@ -569,6 +609,22 @@ export function GuestDatabaseManagement(): JSX.Element {
                     <td className="p-3 md:p-4 text-white/60 text-sm">
                       {guest.createdAt ? new Date(guest.createdAt).toLocaleDateString('ru-RU') : '-'}
                     </td>
+                    {canManageUsers && (
+                      <td className="p-3 md:p-4">
+                        <Button
+                          variant={guest.isBanned ? "outline" : "destructive"}
+                          size="sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleToggleBan(guest);
+                          }}
+                          disabled={banUpdatingId === guest.id}
+                          className={guest.isBanned ? "border-white/20 text-white hover:bg-white/10" : ""}
+                        >
+                          {guest.isBanned ? "Разблокировать" : "Заблокировать"}
+                        </Button>
+                      </td>
+                    )}
                   </tr>
                   );
                 })}
