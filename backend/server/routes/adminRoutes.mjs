@@ -944,6 +944,7 @@ export function createAdminRouter() {
           up.created_at,
           up.updated_at,
           up.telegram_id,
+          up.vk_id,
           r.city_id,
           c.name as city_name
         FROM user_profiles up
@@ -1040,6 +1041,17 @@ export function createAdminRouter() {
           status = "restaurant_only";
         }
 
+        const hasTelegram = Boolean(profile.telegram_id);
+        const hasVk = Boolean(profile.vk_id);
+        let platform = null;
+        if (hasTelegram && hasVk) {
+          platform = "multi";
+        } else if (hasTelegram) {
+          platform = "telegram";
+        } else if (hasVk) {
+          platform = "vk";
+        }
+
         return {
           id: profile.id,
           name: profile.name || "Не указано",
@@ -1060,6 +1072,8 @@ export function createAdminRouter() {
           createdAt: profile.created_at,
           updatedAt: profile.updated_at,
           telegramId: profile.telegram_id ? String(profile.telegram_id) : null,
+          vkId: profile.vk_id ? String(profile.vk_id) : null,
+          platform,
         };
       });
 

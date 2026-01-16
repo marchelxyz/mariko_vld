@@ -151,6 +151,8 @@ export type Guest = {
   createdAt: string | null;
   updatedAt: string | null;
   telegramId: string | null;
+  vkId: string | null;
+  platform?: "telegram" | "vk" | "multi" | null;
 };
 
 type UpdateGuestBanResponse = {
