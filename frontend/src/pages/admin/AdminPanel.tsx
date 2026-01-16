@@ -2,7 +2,7 @@
  * Главная страница админ-панели
  */
 
-import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck, Megaphone, Sparkles, Grid3x3, Users, ClipboardList } from 'lucide-react';
+import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck, Megaphone, Sparkles, Grid3x3, Users, ClipboardList, Settings } from 'lucide-react';
 import { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNavigation, Header } from "@shared/ui/widgets";
@@ -46,6 +46,11 @@ const GuestDatabaseManagementLazy = lazy(() =>
     default: module.GuestDatabaseManagement,
   })),
 );
+const AppSettingsManagementLazy = lazy(() =>
+  import("@features/admin").then((module) => ({
+    default: module.AppSettingsManagement,
+  })),
+);
 const BookingsManagementLazy = lazy(() => import("@features/admin/bookings/BookingsManagement"));
 
 type AdminSection =
@@ -57,6 +62,7 @@ type AdminSection =
   | 'recommended-dishes'
   | 'guests'
   | 'bookings'
+  | 'settings'
   | null;
 
 const SectionLoader = () => (
@@ -124,6 +130,13 @@ export default function AdminPanel(): JSX.Element {
           icon: <Shield className="w-8 h-8" />,
           title: "Управление ролями",
           description: "Выдавайте админ-права сотрудникам ресторана",
+          permission: Permission.MANAGE_ROLES,
+        },
+        {
+          key: 'settings' as AdminSection,
+          icon: <Settings className="w-8 h-8" />,
+          title: "Настройки приложения",
+          description: "Контакты поддержки и ссылки на документы",
           permission: Permission.MANAGE_ROLES,
         },
         {
@@ -297,6 +310,11 @@ export default function AdminPanel(): JSX.Element {
                 <GuestDatabaseManagementLazy />
               </Suspense>
             )}
+          {activeSection === 'settings' && (
+            <Suspense fallback={<SectionLoader />}>
+              <AppSettingsManagementLazy />
+            </Suspense>
+          )}
             {activeSection === 'bookings' && (
               <Suspense fallback={<SectionLoader />}>
                 <BookingsManagementLazy />

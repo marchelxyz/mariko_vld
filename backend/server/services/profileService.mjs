@@ -2,7 +2,7 @@ import { queryOne, queryMany, db } from "../postgresClient.mjs";
 import { normaliseNullableString, normalisePhone, normaliseTelegramId } from "../utils.mjs";
 
 export const PROFILE_SELECT_FIELDS =
-  "id,name,phone,birth_date,gender,photo,telegram_id,vk_id,notifications_enabled,onboarding_tour_shown,personal_data_consent_given,personal_data_consent_date,personal_data_policy_consent_given,personal_data_policy_consent_date,favorite_city_id,favorite_city_name,favorite_restaurant_id,favorite_restaurant_name,favorite_restaurant_address,primary_address_id,last_address_text,last_address_lat,last_address_lon,last_address_updated_at,created_at,updated_at";
+  "id,name,phone,birth_date,gender,photo,telegram_id,vk_id,notifications_enabled,onboarding_tour_shown,personal_data_consent_given,personal_data_consent_date,personal_data_policy_consent_given,personal_data_policy_consent_date,is_banned,banned_at,banned_reason,favorite_city_id,favorite_city_name,favorite_restaurant_id,favorite_restaurant_name,favorite_restaurant_address,primary_address_id,last_address_text,last_address_lat,last_address_lon,last_address_updated_at,created_at,updated_at";
 
 export const mapProfileRowToClient = (row, fallbackId = "") => ({
   id: row?.id ?? fallbackId,
@@ -35,6 +35,9 @@ export const mapProfileRowToClient = (row, fallbackId = "") => ({
       ? row.personal_data_policy_consent_given
       : false,
   personalDataPolicyConsentDate: row?.personal_data_policy_consent_date ?? null,
+  isBanned: typeof row?.is_banned === "boolean" ? row.is_banned : false,
+  bannedAt: row?.banned_at ?? null,
+  bannedReason: row?.banned_reason ?? null,
   telegramId:
     typeof row?.telegram_id === "number"
       ? row.telegram_id

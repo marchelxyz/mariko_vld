@@ -21,6 +21,7 @@ import {
 import { listUserProfiles, fetchUserProfile } from "../services/profileService.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
 import { sendTelegramMessage } from "../services/telegramService.mjs";
+import { getAppSettings, updateAppSettings } from "../services/appSettingsService.mjs";
 
 const BOOKING_STATUS_VALUES = new Set(["created", "confirmed", "closed", "cancelled"]);
 
@@ -181,6 +182,66 @@ export function createAdminRouter() {
     });
   });
 
+  router.get("/settings", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const admin = await authoriseAdmin(req, res);
+    if (!admin) {
+      return;
+    }
+    try {
+      const settings = await getAppSettings();
+      return res.json({ success: true, settings });
+    } catch (error) {
+      console.error("Ошибка получения настроек приложения:", error);
+      return res.status(500).json({ success: false, message: "Не удалось получить настройки" });
+    }
+  });
+
+  router.patch("/settings", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const admin = await authoriseAdmin(req, res);
+    if (!admin) {
+      return;
+    }
+    const { supportEmail, personalDataConsentUrl, personalDataPolicyUrl } = req.body ?? {};
+    const canEditSupport = admin.role === "super_admin";
+    const canEditPolicies = admin.role === "super_admin" || admin.role === "admin";
+
+    if (supportEmail !== undefined && !canEditSupport) {
+      return res.status(403).json({ success: false, message: "Недостаточно прав для изменения почты" });
+    }
+    if ((personalDataConsentUrl !== undefined || personalDataPolicyUrl !== undefined) && !canEditPolicies) {
+      return res.status(403).json({ success: false, message: "Недостаточно прав для изменения ссылок" });
+    }
+
+    const updates = {};
+    if (supportEmail !== undefined) {
+      updates.supportEmail = supportEmail;
+    }
+    if (personalDataConsentUrl !== undefined) {
+      updates.personalDataConsentUrl = personalDataConsentUrl;
+    }
+    if (personalDataPolicyUrl !== undefined) {
+      updates.personalDataPolicyUrl = personalDataPolicyUrl;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ success: false, message: "Нет изменений для сохранения" });
+    }
+
+    try {
+      const settings = await updateAppSettings(updates);
+      return res.json({ success: true, settings });
+    } catch (error) {
+      console.error("Ошибка обновления настроек приложения:", error);
+      return res.status(500).json({ success: false, message: "Не удалось сохранить настройки" });
+    }
+  });
+
   router.patch("/users/:userId", async (req, res) => {
     if (!ensureDatabase(res)) {
       return;
@@ -282,6 +343,47 @@ export function createAdminRouter() {
     } catch (error) {
       console.error("Ошибка сохранения роли:", error);
       return res.status(500).json({ success: false, message: "Не удалось сохранить роль" });
+    }
+  });
+
+  router.patch("/users/:userId/ban", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_USERS);
+    if (!admin) {
+      return;
+    }
+    const userIdentifier = req.params.userId;
+    const { isBanned, reason } = req.body ?? {};
+    if (typeof isBanned !== "boolean") {
+      return res.status(400).json({ success: false, message: "Некорректный статус блокировки" });
+    }
+    const profile = await fetchUserProfile(userIdentifier);
+    if (!profile?.id) {
+      return res.status(404).json({ success: false, message: "Пользователь не найден" });
+    }
+    const bannedAt = isBanned ? new Date().toISOString() : null;
+    const bannedReason = isBanned && typeof reason === "string" ? reason.trim() : null;
+    try {
+      await queryOne(
+        `UPDATE user_profiles
+         SET is_banned = $1, banned_at = $2, banned_reason = $3, updated_at = NOW()
+         WHERE id = $4`,
+        [isBanned, bannedAt, bannedReason, profile.id],
+      );
+      return res.json({
+        success: true,
+        user: {
+          id: profile.id,
+          isBanned,
+          bannedAt,
+          bannedReason,
+        },
+      });
+    } catch (error) {
+      console.error("Ошибка обновления блокировки:", error);
+      return res.status(500).json({ success: false, message: "Не удалось обновить блокировку" });
     }
   });
 
@@ -802,6 +904,9 @@ export function createAdminRouter() {
           up.favorite_city_name,
           up.favorite_restaurant_id,
           up.favorite_restaurant_name,
+          up.is_banned,
+          up.banned_at,
+          up.banned_reason,
           up.created_at,
           up.updated_at,
           up.telegram_id,
@@ -924,6 +1029,9 @@ export function createAdminRouter() {
           cityName: profile.city_name || profile.favorite_city_name || null,
           status,
           isVerified: hasBooking,
+          isBanned: Boolean(profile.is_banned),
+          bannedAt: profile.banned_at || null,
+          bannedReason: profile.banned_reason || null,
           createdAt: profile.created_at,
           updatedAt: profile.updated_at,
           telegramId: profile.telegram_id ? String(profile.telegram_id) : null,
