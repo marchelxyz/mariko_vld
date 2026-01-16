@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { getBookings, type BookingListItem } from "@/shared/api/bookingApi";
 import { cn } from "@shared/utils";
-import { getUser } from "@/lib/telegram";
+import { getUser } from "@/lib/platform";
 import { useProfile } from "@entities/user";
 import { getCleanPhoneNumber } from "@shared/hooks/usePhoneInput";
 
@@ -60,7 +60,9 @@ const BookingCard = ({
     <div className="bg-white rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.08)] px-4 py-5 md:px-6 md:py-6 text-left">
       <div className="flex items-start gap-3 md:gap-4">
         <div className="flex-1 space-y-1">
-          <p className="text-mariko-dark/60 text-sm">Бронь #{booking.id.slice(0, 8).toUpperCase()}</p>
+          <p className="text-mariko-dark/60 text-sm">
+            Бронь #{String(booking.id ?? "").slice(0, 8).toUpperCase() || "—"}
+          </p>
           <p className="text-mariko-dark font-semibold text-lg">
             {formatDateTime(resolvedDateTime, fallbackDate)}
           </p>
