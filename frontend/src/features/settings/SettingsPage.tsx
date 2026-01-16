@@ -17,7 +17,7 @@ export default function SettingsPage() {
   const { settings } = useAppSettings();
   const { setOnboardingTourShown } = useOnboardingContext();
   const [isProcessing, setIsProcessing] = useState(false);
-  const supportEmail = settings.supportEmail?.trim();
+  const supportTelegramUrl = settings.supportTelegramUrl?.trim();
   const supportSubject = "Поддержка Марико";
   const supportPayload = useMemo(() => {
     if (typeof window === "undefined") {
@@ -31,6 +31,7 @@ export default function SettingsPage() {
     const screen = `${window.screen.width}x${window.screen.height}`;
     const appPlatform = resolveAppPlatformName();
     return [
+      `Тема: ${supportSubject}`,
       `ФИО: ${name}`,
       `Телефон: ${phone}`,
       `Платформа приложения: ${appPlatform}`,
@@ -39,30 +40,27 @@ export default function SettingsPage() {
       `Экран: ${screen}`,
       `User-Agent: ${userAgent}`,
     ].join("\n");
-  }, [profile?.name, profile?.phone]);
-  const supportMailto = supportEmail
-    ? `mailto:${encodeURIComponent(supportEmail)}?subject=${encodeURIComponent(supportSubject)}&body=${encodeURIComponent(supportPayload)}`
+  }, [profile?.name, profile?.phone, supportSubject]);
+  const supportLink = supportTelegramUrl
+    ? buildTelegramSupportLink(supportTelegramUrl, supportPayload)
     : "";
   const isTelegramWebApp = typeof window !== "undefined" && Boolean(window.Telegram?.WebApp);
 
   const handleSupportClick = () => {
-    if (!supportEmail) {
+    if (!supportTelegramUrl || !supportLink) {
       return;
-    }
-    if (!supportMailto) {
-      return;
-    }
-    if (isTelegramWebApp) {
-      const opened = safeOpenLink(supportMailto);
-      if (opened) {
-        return;
-      }
     }
     if (typeof window !== "undefined") {
-      window.location.href = supportMailto;
+      if (isTelegramWebApp) {
+        const opened = safeOpenLink(supportLink);
+        if (opened) {
+          return;
+        }
+      }
+      window.location.href = supportLink;
       return;
     }
-    safeOpenLink(supportMailto);
+    safeOpenLink(supportLink);
   };
 
   const handleBackClick = () => {
@@ -316,12 +314,12 @@ export default function SettingsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    disabled={!supportEmail}
+                    disabled={!supportTelegramUrl}
                     onClick={handleSupportClick}
                     className="border-white/20 !text-black flex items-center gap-2 hover:!text-black"
                   >
                     <MessageSquare className="w-4 h-4" />
-                    {supportEmail ? "Написать" : "Почта не указана"}
+                    {supportTelegramUrl ? "Написать" : "Ссылка не указана"}
                   </Button>
                 </div>
               </div>
@@ -364,4 +362,29 @@ function isVkEnvironment(): boolean {
   }
   const href = window.location.href.toLowerCase();
   return href.includes("vk.com") || href.includes("vk.ru");
+}
+
+/**
+ * Собирает ссылку на поддержку в Telegram с текстом обращения.
+ */
+function buildTelegramSupportLink(baseUrl: string, message: string): string {
+  const trimmed = baseUrl.trim();
+  if (!trimmed) {
+    return "";
+  }
+  try {
+    const url = new URL(trimmed);
+    if (url.hostname.endsWith("t.me")) {
+      url.searchParams.set("text", message);
+      return url.toString();
+    }
+    if (url.protocol === "tg:") {
+      url.searchParams.set("text", message);
+      return url.toString();
+    }
+  } catch {
+    // fallback ниже
+  }
+  const separator = trimmed.includes("?") ? "&" : "?";
+  return `${trimmed}${separator}text=${encodeURIComponent(message)}`;
 }
