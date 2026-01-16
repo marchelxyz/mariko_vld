@@ -100,14 +100,39 @@ const normalizePhoneDigits = (raw) => {
   return String(raw).replace(/\D/g, "");
 };
 
+const resolveTelegramIdByPhone = async (phone) => {
+  const digits = normalizePhoneDigits(phone);
+  if (!digits) return null;
+  const last10 = digits.length > 10 ? digits.slice(-10) : digits;
+  const candidates = Array.from(
+    new Set([digits, last10 ? `7${last10}` : "", last10 ? `8${last10}` : ""].filter(Boolean)),
+  );
+  const row = await queryOne(
+    `SELECT telegram_id FROM user_profiles
+     WHERE regexp_replace(phone, '\\\\D', '', 'g') = ANY($1)
+        OR right(regexp_replace(phone, '\\\\D', '', 'g'), 10) = $2
+     LIMIT 1`,
+    [candidates, last10],
+  );
+  if (!row?.telegram_id) {
+    return null;
+  }
+  return String(row.telegram_id);
+};
+
 const resolveVkIdByPhone = async (phone) => {
   const digits = normalizePhoneDigits(phone);
   if (!digits) return null;
+  const last10 = digits.length > 10 ? digits.slice(-10) : digits;
+  const candidates = Array.from(
+    new Set([digits, last10 ? `7${last10}` : "", last10 ? `8${last10}` : ""].filter(Boolean)),
+  );
   const row = await queryOne(
     `SELECT vk_id FROM user_profiles
-     WHERE regexp_replace(phone, '\\\\D', '', 'g') = $1
+     WHERE regexp_replace(phone, '\\\\D', '', 'g') = ANY($1)
+        OR right(regexp_replace(phone, '\\\\D', '', 'g'), 10) = $2
      LIMIT 1`,
-    [digits],
+    [candidates, last10],
   );
   if (!row?.vk_id) {
     return null;
@@ -115,19 +140,24 @@ const resolveVkIdByPhone = async (phone) => {
   return String(row.vk_id);
 };
 
-const resolveTelegramIdByPhone = async (phone) => {
+const resolveVkIdByPhone = async (phone) => {
   const digits = normalizePhoneDigits(phone);
   if (!digits) return null;
-  const row = await queryOne(
-    `SELECT telegram_id FROM user_profiles
-     WHERE regexp_replace(phone, '\\\\D', '', 'g') = $1
-     LIMIT 1`,
-    [digits],
+  const last10 = digits.length > 10 ? digits.slice(-10) : digits;
+  const candidates = Array.from(
+    new Set([digits, last10 ? `7${last10}` : "", last10 ? `8${last10}` : ""].filter(Boolean)),
   );
-  if (!row?.telegram_id) {
+  const row = await queryOne(
+    `SELECT vk_id FROM user_profiles
+     WHERE regexp_replace(phone, '\\\\D', '', 'g') = ANY($1)
+        OR right(regexp_replace(phone, '\\\\D', '', 'g'), 10) = $2
+     LIMIT 1`,
+    [candidates, last10],
+  );
+  if (!row?.vk_id) {
     return null;
   }
-  return String(row.telegram_id);
+  return String(row.vk_id);
 };
 
 export function createAdminRouter() {
@@ -434,6 +464,8 @@ export function createAdminRouter() {
       : null;
     const restaurantFilter =
       typeof req.query?.restaurantId === "string" ? req.query.restaurantId.trim() : null;
+    const fromDate = normalizeDateFilter(req.query?.fromDate);
+    const toDate = normalizeDateFilter(req.query?.toDate);
 
     try {
       let queryText = `SELECT * FROM ${CART_ORDERS_TABLE} WHERE 1=1`;
@@ -585,9 +617,14 @@ export function createAdminRouter() {
           b.updated_at,
           r.name as restaurant_name,
           r.address as restaurant_address,
-          r.review_link
+          r.review_link,
+          up.telegram_id as customer_telegram_id,
+          up.vk_id as customer_vk_id
         FROM bookings b
         LEFT JOIN restaurants r ON b.restaurant_id = r.id
+        LEFT JOIN user_profiles up
+          ON right(regexp_replace(up.phone, '\\\\D', '', 'g'), 10) =
+             right(regexp_replace(b.customer_phone, '\\\\D', '', 'g'), 10)
         WHERE 1=1
       `;
       const params = [];
@@ -646,6 +683,16 @@ export function createAdminRouter() {
           eventTags: row.event_tags,
           source: row.source,
           status: row.status,
+          platform:
+            row.source === "vk"
+              ? "vk"
+              : row.source === "telegram"
+                ? "telegram"
+                : row.customer_vk_id
+                  ? "vk"
+                  : row.customer_telegram_id
+                    ? "telegram"
+                    : null,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
         })),
@@ -679,7 +726,8 @@ export function createAdminRouter() {
         b.booking_time,
         r.address as restaurant_address,
         r.review_link,
-        r.vk_group_token
+        r.vk_group_token,
+        b.source
       FROM bookings b
       LEFT JOIN restaurants r ON b.restaurant_id = r.id
       WHERE b.id = $1
@@ -709,8 +757,8 @@ export function createAdminRouter() {
     if (sendNotification) {
       const trimmedMessage = typeof customMessage === "string" ? customMessage.trim() : "";
       const message = trimmedMessage || buildBookingTelegramMessage(booking, status);
-      const vkId = await resolveVkIdByPhone(booking.customer_phone);
       const telegramId = await resolveTelegramIdByPhone(booking.customer_phone);
+      const vkId = await resolveVkIdByPhone(booking.customer_phone);
       const replyMarkup =
         status === "closed" && booking.review_link
           ? {
@@ -724,10 +772,15 @@ export function createAdminRouter() {
               ],
             }
           : undefined;
-
+      const sourcePlatform =
+        booking.source === "vk" ? "vk" : booking.source === "telegram" ? "telegram" : null;
+      const requestedPlatform =
+        platform === "vk" || platform === "telegram" ? platform : sourcePlatform;
+      const shouldSendTelegram = requestedPlatform
+        ? requestedPlatform === "telegram"
+        : Boolean(telegramId);
+      const shouldSendVk = requestedPlatform ? requestedPlatform === "vk" : Boolean(vkId);
       const queuedPlatforms = [];
-      const shouldSendTelegram = platform === "telegram" || (!platform && telegramId);
-      const shouldSendVk = platform === "vk" || (!platform && vkId);
 
       if (shouldSendTelegram && telegramId) {
         await enqueueBookingNotification({
@@ -760,7 +813,15 @@ export function createAdminRouter() {
       if (queuedPlatforms.length > 0) {
         notificationResult = { success: true, queued: true, platforms: queuedPlatforms };
       } else {
-        notificationResult = { success: false, error: "Не найден получатель" };
+        notificationResult = {
+          success: false,
+          error:
+            requestedPlatform === "vk"
+              ? "Не найден VK ID пользователя"
+              : requestedPlatform === "telegram"
+                ? "Не найден Telegram ID пользователя"
+                : "Не найден получатель",
+        };
       }
     }
 
@@ -1081,7 +1142,6 @@ export function createAdminRouter() {
           status = "restaurant_only";
         }
 
-        // Определяем платформу на основе наличия telegram_id или vk_id
         const hasTelegram = Boolean(profile.telegram_id);
         const hasVk = Boolean(profile.vk_id);
         let platform = null;

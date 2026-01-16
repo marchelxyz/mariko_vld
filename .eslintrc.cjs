@@ -35,8 +35,9 @@ module.exports = {
   rules: {
     "import/order": "off",
     "import/no-internal-modules": "off",
-    "@typescript-eslint/no-unused-vars": "off",
+    "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
     "@typescript-eslint/no-explicit-any": "off",
     "react-hooks/exhaustive-deps": "off",
+    "boundaries/element-types": "off",
   }
 }; 

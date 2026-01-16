@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { getBookings, type BookingListItem } from "@/shared/api/bookingApi";
 import { cn } from "@shared/utils";
+import { getUser } from "@/lib/telegram";
 import { useProfile } from "@entities/user";
 import { getCleanPhoneNumber } from "@shared/hooks/usePhoneInput";
 
@@ -203,6 +204,8 @@ export default function OrdersPage() {
   const navigate = useNavigate();
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
 
+  const user = getUser();
+  const userId = user?.id?.toString();
   const { profile, isInitialized } = useProfile();
   const userPhone = useMemo(() => {
     if (!isInitialized || profile.id === "default") {
@@ -218,12 +221,12 @@ export default function OrdersPage() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ["bookings", userPhone],
+    queryKey: ["bookings", userId, userPhone],
     queryFn: async () => {
-      if (!userPhone) return { success: false, bookings: [] };
+      if (!userId || !userPhone) return { success: false, bookings: [] };
       return getBookings({ phone: userPhone, limit: 10 });
     },
-    enabled: Boolean(userPhone),
+    enabled: Boolean(userId && userPhone),
   });
 
   const bookings = bookingsData?.bookings || [];
@@ -239,6 +242,11 @@ export default function OrdersPage() {
       return newSet;
     });
   };
+
+  // Если нет бронирований, не показываем страницу
+  if (!isLoading && bookings.length === 0) {
+    return null;
+  }
 
   return (
     <div className="app-screen overflow-hidden bg-transparent">
@@ -302,13 +310,6 @@ export default function OrdersPage() {
           ) : isLoading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="w-8 h-8 animate-spin text-mariko-primary" />
-            </div>
-          ) : bookings.length === 0 ? (
-            <div className="bg-white rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.08)] px-6 py-6 text-center">
-              <p className="text-mariko-dark font-semibold">Бронирований пока нет</p>
-              <p className="text-mariko-dark/70 text-sm mt-2">
-                Здесь появится история ваших бронирований столиков.
-              </p>
             </div>
           ) : (
             <div className="space-y-4">

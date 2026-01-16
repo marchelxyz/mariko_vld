@@ -724,7 +724,6 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
 
     if (profile.personalDataConsentGiven) {
       setConsentGiven(true);
-      setHasPreviousBooking(true);
     }
     if (profile.personalDataPolicyConsentGiven) {
       setPolicyConsentGiven(true);
@@ -946,7 +945,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         time: selectedTime,
         guestsCount: guestsCount,
         comment: fullComment || undefined,
-        source: "mobile_app",
+        source: "vk",
         duration: duration,
       };
 
@@ -1379,7 +1378,6 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           </div>
         </div>
       )}
-      
       {/* Отладка: показать когда корзина пуста */}
       {cartItems.length === 0 && (
         <div className="rounded-[16px] border border-yellow-500/50 bg-yellow-500/10 p-4">

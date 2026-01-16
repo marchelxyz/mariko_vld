@@ -1,7 +1,7 @@
 import { Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAppSettings, useToast } from "@/hooks";
+import { useToast } from "@/hooks";
 import { BottomNavigation, Header } from "@shared/ui/widgets";
 import { ProfileAvatar, useProfile } from "@entities/user";
 import { getCleanPhoneNumber, usePhoneInput } from "@shared/hooks";
