@@ -203,6 +203,13 @@ export const fetchUserProfile = async (identifier) => {
       if (fallback) {
         return fallback;
       }
+      const vkFallback = await queryOne(
+        `SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles WHERE vk_id = $1 LIMIT 1`,
+        [numeric],
+      );
+      if (vkFallback) {
+        return vkFallback;
+      }
     }
     return null;
   } catch (error) {
