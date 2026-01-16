@@ -551,20 +551,20 @@ export function GuestDatabaseManagement(): JSX.Element {
       ) : (
         <div className="bg-mariko-secondary rounded-2xl md:rounded-[24px] overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[980px]">
               <thead>
                 <tr className="border-b border-white/10">
-                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Статус</th>
+                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold whitespace-nowrap">Статус</th>
                   <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Платформа</th>
-                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Имя</th>
-                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Фамилия</th>
-                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Телефон</th>
-                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">День рождения</th>
-                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Город</th>
-                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Ресторан</th>
-                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Дата регистрации</th>
+                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold whitespace-nowrap">Имя</th>
+                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold whitespace-nowrap">Фамилия</th>
+                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold whitespace-nowrap">Телефон</th>
+                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold whitespace-nowrap">День рождения</th>
+                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold whitespace-nowrap">Город</th>
+                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold whitespace-nowrap">Ресторан</th>
+                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold whitespace-nowrap">Дата регистрации</th>
                   {canManageUsers && (
-                    <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Блокировка</th>
+                    <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold whitespace-nowrap">Блокировка</th>
                   )}
                 </tr>
               </thead>
