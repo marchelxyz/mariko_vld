@@ -218,20 +218,20 @@ export function createAdminRouter() {
     if (!admin) {
       return;
     }
-    const { supportEmail, personalDataConsentUrl, personalDataPolicyUrl } = req.body ?? {};
+    const { supportTelegramUrl, personalDataConsentUrl, personalDataPolicyUrl } = req.body ?? {};
     const canEditSupport = admin.role === "super_admin";
     const canEditPolicies = admin.role === "super_admin" || admin.role === "admin";
 
-    if (supportEmail !== undefined && !canEditSupport) {
-      return res.status(403).json({ success: false, message: "Недостаточно прав для изменения почты" });
+    if (supportTelegramUrl !== undefined && !canEditSupport) {
+      return res.status(403).json({ success: false, message: "Недостаточно прав для изменения ссылки" });
     }
     if ((personalDataConsentUrl !== undefined || personalDataPolicyUrl !== undefined) && !canEditPolicies) {
       return res.status(403).json({ success: false, message: "Недостаточно прав для изменения ссылок" });
     }
 
     const updates = {};
-    if (supportEmail !== undefined) {
-      updates.supportEmail = supportEmail;
+    if (supportTelegramUrl !== undefined) {
+      updates.supportTelegramUrl = supportTelegramUrl;
     }
     if (personalDataConsentUrl !== undefined) {
       updates.personalDataConsentUrl = personalDataConsentUrl;
