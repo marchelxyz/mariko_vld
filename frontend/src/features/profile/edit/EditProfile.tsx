@@ -39,6 +39,13 @@ type ProfileUpdateInput = {
   addressCoords: { lat: number; lon: number } | null;
 };
 
+type PersonalDataInput = {
+  nameValue: string;
+  birthDateValue: string;
+  genderValue: string;
+  phoneValue: string;
+};
+
 const GEO_SUGGEST_URL = "/api/cart/geocode/suggest";
 const MIN_ADDRESS_LENGTH = 3;
 type TelegramLocationManager = {
@@ -112,7 +119,13 @@ const EditProfile = () => {
       addressLine,
       addressCoords,
     });
-    const needsConsent = hasPersonalDataChanges(updateData);
+    const hasPersonalInput = hasPersonalDataInput({
+      nameValue,
+      birthDateValue,
+      genderValue,
+      phoneValue: phoneInput.value || "",
+    });
+    const needsConsent = hasPersonalDataChanges(updateData) || hasPersonalInput;
     const consentMissing =
       !profile.personalDataConsentGiven || !profile.personalDataPolicyConsentGiven;
     if (needsConsent && consentMissing) {
@@ -607,6 +620,19 @@ function hasPersonalDataChanges(updateData: Partial<UserProfile>): boolean {
     updateData.birthDate !== undefined ||
     updateData.gender !== undefined ||
     updateData.phone !== undefined
+  );
+}
+
+/**
+ * Проверяет, заполнены ли пользователем персональные данные в форме.
+ */
+function hasPersonalDataInput(input: PersonalDataInput): boolean {
+  const cleanedPhone = getCleanPhoneNumber(input.phoneValue || "");
+  return Boolean(
+    input.nameValue.trim() ||
+      input.birthDateValue.trim() ||
+      input.genderValue.trim() ||
+      cleanedPhone,
   );
 }
 
