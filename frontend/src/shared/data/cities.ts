@@ -18,6 +18,7 @@ export interface Restaurant {
   isActive?: boolean;
   isDeliveryEnabled?: boolean;
   remarkedRestaurantId?: number;
+  vkGroupToken?: string;
   phoneNumber?: string;
   deliveryAggregators?: DeliveryAggregator[];
   yandexMapsUrl?: string;

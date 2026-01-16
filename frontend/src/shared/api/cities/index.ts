@@ -38,6 +38,7 @@ class CitiesApi {
     socialNetworks?: Array<{ name: string; url: string }>;
     remarkedRestaurantId?: number;
     reviewLink: string;
+    vkGroupToken?: string;
     maxCartItemQuantity?: number;
   }): Promise<{ success: boolean; restaurantId?: string; errorMessage?: string }> {
     return await createRestaurantViaServer(restaurant);
@@ -55,6 +56,7 @@ class CitiesApi {
     twoGisUrl?: string;
     socialNetworks?: Array<{ name: string; url: string }>;
     reviewLink?: string;
+    vkGroupToken?: string;
     maxCartItemQuantity?: number;
   }): Promise<boolean> {
     // Обновляем статус через admin API если нужно
