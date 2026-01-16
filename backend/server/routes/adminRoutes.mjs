@@ -18,11 +18,7 @@ import {
   ADMIN_PERMISSION,
   canAssignRole,
 } from "../services/adminService.mjs";
-import {
-  listUserProfiles,
-  fetchUserProfile,
-  fetchUserProfileByPhoneAndName,
-} from "../services/profileService.mjs";
+import { listUserProfiles, fetchUserProfile } from "../services/profileService.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
 import { enqueueBookingNotification } from "../services/bookingNotificationService.mjs";
 import { getAppSettings, updateAppSettings } from "../services/appSettingsService.mjs";
@@ -123,12 +119,6 @@ const resolveTelegramIdByPhone = async (phone, name) => {
   if (row?.telegram_id) {
     return String(row.telegram_id);
   }
-  if (name) {
-    const profile = await fetchUserProfileByPhoneAndName(phone, name);
-    if (profile?.telegram_id) {
-      return String(profile.telegram_id);
-    }
-  }
   return null;
 };
 
@@ -148,12 +138,6 @@ const resolveVkIdByPhone = async (phone, name) => {
   );
   if (row?.vk_id) {
     return String(row.vk_id);
-  }
-  if (name) {
-    const profile = await fetchUserProfileByPhoneAndName(phone, name);
-    if (profile?.vk_id) {
-      return String(profile.vk_id);
-    }
   }
   return null;
 };
