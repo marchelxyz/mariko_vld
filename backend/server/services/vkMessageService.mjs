@@ -24,7 +24,7 @@ const resolveVkToken = (tokenOverride) => {
 /**
  * Отправляет сообщение пользователю через VK API от имени сообщества.
  */
-export const sendVKMessage = async ({ vkUserId, text, tokenOverride }) => {
+export const sendVKMessage = async ({ vkUserId, text, tokenOverride, keyboard }) => {
   const token = resolveVkToken(tokenOverride);
   if (!token) {
     logger.warn("vk", "VK_GROUP_TOKEN не настроен, отправка пропущена");
@@ -44,6 +44,9 @@ export const sendVKMessage = async ({ vkUserId, text, tokenOverride }) => {
     url.searchParams.append("user_id", String(vkUserId));
     url.searchParams.append("random_id", String(Date.now()));
     url.searchParams.append("message", text);
+    if (keyboard) {
+      url.searchParams.append("keyboard", JSON.stringify(keyboard));
+    }
 
     const response = await fetch(url.toString(), { method: "POST" });
     const data = await response.json().catch(() => ({}));
