@@ -400,7 +400,7 @@ const Profile = () => {
           }
         }}
       >
-        <DialogContent className="max-w-lg bg-mariko-secondary border-white/10">
+        <DialogContent className="max-w-lg bg-mariko-secondary border-white/10 rounded-[24px]">
           <DialogHeader>
             <DialogTitle className="text-white font-el-messiri text-xl md:text-2xl">
               Согласие на обработку данных
@@ -462,7 +462,7 @@ const Profile = () => {
                   setPendingField(null);
                   setPendingValue("");
                 }}
-                className="border-white/20 text-white hover:bg-white/10"
+                className="border-white/30 bg-transparent text-white hover:bg-white/10"
               >
                 Отмена
               </Button>
