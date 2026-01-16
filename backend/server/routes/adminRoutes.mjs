@@ -119,6 +119,26 @@ const resolveTelegramIdByPhone = async (phone) => {
   return String(row.telegram_id);
 };
 
+const resolveVkIdByPhone = async (phone) => {
+  const digits = normalizePhoneDigits(phone);
+  if (!digits) return null;
+  const last10 = digits.length > 10 ? digits.slice(-10) : digits;
+  const candidates = Array.from(
+    new Set([digits, last10 ? `7${last10}` : "", last10 ? `8${last10}` : ""].filter(Boolean)),
+  );
+  const row = await queryOne(
+    `SELECT vk_id FROM user_profiles
+     WHERE regexp_replace(phone, '\\\\D', '', 'g') = ANY($1)
+        OR right(regexp_replace(phone, '\\\\D', '', 'g'), 10) = $2
+     LIMIT 1`,
+    [candidates, last10],
+  );
+  if (!row?.vk_id) {
+    return null;
+  }
+  return String(row.vk_id);
+};
+
 export function createAdminRouter() {
   const router = express.Router();
 
@@ -641,7 +661,16 @@ export function createAdminRouter() {
           eventTags: row.event_tags,
           source: row.source,
           status: row.status,
-          platform: row.customer_telegram_id ? "telegram" : row.customer_vk_id ? "vk" : null,
+          platform:
+            row.source === "vk"
+              ? "vk"
+              : row.source === "telegram"
+                ? "telegram"
+                : row.customer_vk_id
+                  ? "vk"
+                  : row.customer_telegram_id
+                    ? "telegram"
+                    : null,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
         })),
@@ -661,7 +690,7 @@ export function createAdminRouter() {
       return;
     }
     const bookingId = req.params.bookingId;
-    const { status, sendNotification = true, customMessage } = req.body ?? {};
+    const { status, sendNotification = true, customMessage, platform } = req.body ?? {};
     if (!status || !BOOKING_STATUS_VALUES.has(status)) {
       return res.status(400).json({ success: false, message: "Некорректный статус бронирования" });
     }
@@ -674,7 +703,9 @@ export function createAdminRouter() {
         b.booking_date,
         b.booking_time,
         r.address as restaurant_address,
-        r.review_link
+        r.review_link,
+        r.vk_group_token,
+        b.source
       FROM bookings b
       LEFT JOIN restaurants r ON b.restaurant_id = r.id
       WHERE b.id = $1
@@ -705,6 +736,7 @@ export function createAdminRouter() {
       const trimmedMessage = typeof customMessage === "string" ? customMessage.trim() : "";
       const message = trimmedMessage || buildBookingTelegramMessage(booking, status);
       const telegramId = await resolveTelegramIdByPhone(booking.customer_phone);
+      const vkId = await resolveVkIdByPhone(booking.customer_phone);
       const replyMarkup =
         status === "closed" && booking.review_link
           ? {
@@ -718,7 +750,18 @@ export function createAdminRouter() {
               ],
             }
           : undefined;
-      if (telegramId) {
+
+      const sourcePlatform =
+        booking.source === "vk" ? "vk" : booking.source === "telegram" ? "telegram" : null;
+      const requestedPlatform =
+        platform === "vk" || platform === "telegram" ? platform : sourcePlatform;
+      const shouldSendTelegram = requestedPlatform
+        ? requestedPlatform === "telegram"
+        : Boolean(telegramId);
+      const shouldSendVk = requestedPlatform ? requestedPlatform === "vk" : Boolean(vkId);
+      const queuedPlatforms = [];
+
+      if (shouldSendTelegram && telegramId) {
         await enqueueBookingNotification({
           bookingId,
           restaurantId: booking.restaurant_id,
@@ -727,9 +770,37 @@ export function createAdminRouter() {
           message,
           payload: replyMarkup ? { replyMarkup } : {},
         });
-        notificationResult = { queued: true };
+        queuedPlatforms.push("telegram");
+      }
+
+      if (shouldSendVk && vkId) {
+        const vkMessage =
+          status === "closed" && booking.review_link
+            ? `${message}\n\nОставить отзыв: ${booking.review_link}`
+            : message;
+        await enqueueBookingNotification({
+          bookingId,
+          restaurantId: booking.restaurant_id,
+          platform: "vk",
+          recipientId: String(vkId),
+          message: vkMessage,
+          payload: { vkGroupToken: booking.vk_group_token || null },
+        });
+        queuedPlatforms.push("vk");
+      }
+
+      if (queuedPlatforms.length > 0) {
+        notificationResult = { success: true, queued: true, platforms: queuedPlatforms };
       } else {
-        notificationResult = { queued: false, reason: "telegram_id_not_found" };
+        notificationResult = {
+          success: false,
+          error:
+            requestedPlatform === "vk"
+              ? "Не найден VK ID пользователя"
+              : requestedPlatform === "telegram"
+                ? "Не найден Telegram ID пользователя"
+                : "Не найден получатель",
+        };
       }
     }
 
