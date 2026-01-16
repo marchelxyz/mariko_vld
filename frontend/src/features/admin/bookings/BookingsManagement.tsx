@@ -87,6 +87,7 @@ export default function BookingsManagement(): JSX.Element {
       const result = await adminServerApi.updateBookingStatus(pendingChange.booking.id, {
         status: pendingChange.status,
         sendNotification,
+        platform: pendingChange.booking.platform ?? null,
       });
       if (sendNotification && result.notification && !result.notification.success) {
         alert(result.notification.error || "Не удалось отправить сообщение");
