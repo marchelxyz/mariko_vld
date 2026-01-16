@@ -9,6 +9,7 @@ import { useAppSettings } from "@/hooks";
 import { useOnboardingContext } from "@/contexts/OnboardingContext";
 import { profileApi } from "@/shared/api/profile";
 import { cn } from "@shared/utils";
+import { safeOpenLink } from "@/lib/telegramCore";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -17,6 +18,7 @@ export default function SettingsPage() {
   const { setOnboardingTourShown } = useOnboardingContext();
   const [isProcessing, setIsProcessing] = useState(false);
   const supportEmail = settings.supportEmail?.trim();
+  const supportSubject = "Поддержка Марико";
   const supportPayload = useMemo(() => {
     if (typeof window === "undefined") {
       return "";
@@ -36,9 +38,28 @@ export default function SettingsPage() {
       `User-Agent: ${userAgent}`,
     ].join("\n");
   }, [profile?.name, profile?.phone]);
-  const supportLink = supportEmail
-    ? `mailto:${encodeURIComponent(supportEmail)}?subject=${encodeURIComponent("Поддержка Марико")}&body=${encodeURIComponent(supportPayload)}`
+  const supportMailto = supportEmail
+    ? `mailto:${encodeURIComponent(supportEmail)}?subject=${encodeURIComponent(supportSubject)}&body=${encodeURIComponent(supportPayload)}`
     : "";
+  const supportWebLink = supportEmail
+    ? `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(supportEmail)}&su=${encodeURIComponent(supportSubject)}&body=${encodeURIComponent(supportPayload)}`
+    : "";
+  const isTelegramWebApp = typeof window !== "undefined" && Boolean(window.Telegram?.WebApp);
+
+  const handleSupportClick = () => {
+    if (!supportEmail) {
+      return;
+    }
+    if (isTelegramWebApp && supportMailto) {
+      const opened = safeOpenLink(supportMailto);
+      if (opened) {
+        return;
+      }
+    }
+    if (typeof window !== "undefined" && supportWebLink) {
+      window.open(supportWebLink, "_blank", "noopener");
+    }
+  };
 
   const handleBackClick = () => {
     navigate("/profile");
@@ -291,21 +312,12 @@ export default function SettingsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    asChild
-                    disabled={!supportLink}
+                    disabled={!supportEmail}
+                    onClick={handleSupportClick}
                     className="border-white/20 !text-black flex items-center gap-2 hover:!text-black"
                   >
-                    {supportLink ? (
-                      <a href={supportLink}>
-                        <MessageSquare className="w-4 h-4" />
-                        Написать
-                      </a>
-                    ) : (
-                      <span className="inline-flex items-center gap-2 opacity-60">
-                        <MessageSquare className="w-4 h-4" />
-                        Почта не указана
-                      </span>
-                    )}
+                    <MessageSquare className="w-4 h-4" />
+                    {supportEmail ? "Написать" : "Почта не указана"}
                   </Button>
                 </div>
               </div>
