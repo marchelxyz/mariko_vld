@@ -228,6 +228,8 @@ type FetchBookingsParams = {
   restaurantId?: string;
   status?: string[];
   limit?: number;
+  fromDate?: string;
+  toDate?: string;
 };
 
 // Получаем первый Telegram ID из списка как fallback
@@ -497,6 +499,12 @@ export const adminServerApi = {
     }
     if (params.limit) {
       search.set("limit", String(params.limit));
+    }
+    if (params.fromDate) {
+      search.set("fromDate", params.fromDate);
+    }
+    if (params.toDate) {
+      search.set("toDate", params.toDate);
     }
     const response = await fetch(
       `${ADMIN_API_BASE}/bookings${search.toString() ? `?${search.toString()}` : ""}`,
