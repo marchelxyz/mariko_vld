@@ -20,7 +20,7 @@ import {
 } from "../services/adminService.mjs";
 import { listUserProfiles, fetchUserProfile } from "../services/profileService.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
-import { sendTelegramMessage } from "../services/telegramService.mjs";
+import { sendVKMessage } from "../services/vkMessageService.mjs";
 import { getAppSettings, updateAppSettings } from "../services/appSettingsService.mjs";
 
 const BOOKING_STATUS_VALUES = new Set(["created", "confirmed", "closed", "cancelled"]);
@@ -100,19 +100,19 @@ const normalizePhoneDigits = (raw) => {
   return String(raw).replace(/\D/g, "");
 };
 
-const resolveTelegramIdByPhone = async (phone) => {
+const resolveVkIdByPhone = async (phone) => {
   const digits = normalizePhoneDigits(phone);
   if (!digits) return null;
   const row = await queryOne(
-    `SELECT telegram_id FROM user_profiles
+    `SELECT vk_id FROM user_profiles
      WHERE regexp_replace(phone, '\\\\D', '', 'g') = $1
      LIMIT 1`,
     [digits],
   );
-  if (!row?.telegram_id) {
+  if (!row?.vk_id) {
     return null;
   }
-  return String(row.telegram_id);
+  return String(row.vk_id);
 };
 
 export function createAdminRouter() {
@@ -663,7 +663,8 @@ export function createAdminRouter() {
         b.booking_date,
         b.booking_time,
         r.address as restaurant_address,
-        r.review_link
+        r.review_link,
+        r.vk_group_token
       FROM bookings b
       LEFT JOIN restaurants r ON b.restaurant_id = r.id
       WHERE b.id = $1
@@ -692,24 +693,15 @@ export function createAdminRouter() {
     let notificationResult = null;
     if (sendNotification) {
       const message = buildBookingTelegramMessage(booking, status);
-      const telegramId = await resolveTelegramIdByPhone(booking.customer_phone);
-      const replyMarkup =
+      const vkId = await resolveVkIdByPhone(booking.customer_phone);
+      const vkMessage =
         status === "closed" && booking.review_link
-          ? {
-              inline_keyboard: [
-                [
-                  {
-                    text: "Оставить отзыв",
-                    url: booking.review_link,
-                  },
-                ],
-              ],
-            }
-          : undefined;
-      notificationResult = await sendTelegramMessage({
-        telegramId,
-        text: message,
-        replyMarkup,
+          ? `${message}\n\nОставить отзыв: ${booking.review_link}`
+          : message;
+      notificationResult = await sendVKMessage({
+        vkUserId: vkId,
+        text: vkMessage,
+        tokenOverride: booking.vk_group_token || null,
       });
     }
 
