@@ -6,11 +6,12 @@ import { Button, Input } from "@shared/ui";
 import { useAdmin } from "@shared/hooks";
 import { UserRole } from "@shared/types";
 
-const isEmailLike = (value: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value);
+const isTelegramLinkLike = (value: string) =>
+  /^https?:\/\/t\.me\/|^tg:\/\//i.test(value);
 
 export default function AppSettingsManagement(): JSX.Element {
   const { userRole } = useAdmin();
-  const canEditSupportEmail = userRole === UserRole.SUPER_ADMIN;
+  const canEditSupportLink = userRole === UserRole.SUPER_ADMIN;
   const canEditPolicyLinks = userRole === UserRole.SUPER_ADMIN || userRole === UserRole.ADMIN;
 
   const { data, isLoading, refetch } = useQuery({
@@ -32,7 +33,7 @@ export default function AppSettingsManagement(): JSX.Element {
       return false;
     }
     return (
-      data.supportEmail !== formValues.supportEmail ||
+      data.supportTelegramUrl !== formValues.supportTelegramUrl ||
       data.personalDataConsentUrl !== formValues.personalDataConsentUrl ||
       data.personalDataPolicyUrl !== formValues.personalDataPolicyUrl
     );
@@ -43,8 +44,8 @@ export default function AppSettingsManagement(): JSX.Element {
       return;
     }
     const updates: Partial<AppSettings> = {};
-    if (canEditSupportEmail && data.supportEmail !== formValues.supportEmail) {
-      updates.supportEmail = formValues.supportEmail.trim();
+    if (canEditSupportLink && data.supportTelegramUrl !== formValues.supportTelegramUrl) {
+      updates.supportTelegramUrl = formValues.supportTelegramUrl.trim();
     }
     if (canEditPolicyLinks && data.personalDataConsentUrl !== formValues.personalDataConsentUrl) {
       updates.personalDataConsentUrl = formValues.personalDataConsentUrl.trim();
@@ -87,21 +88,21 @@ export default function AppSettingsManagement(): JSX.Element {
 
       <div className="bg-white/10 border border-white/15 rounded-2xl p-5 space-y-4">
         <div className="space-y-2">
-          <p className="text-white/80 text-sm">Почта поддержки</p>
+          <p className="text-white/80 text-sm">Поддержка (Telegram ссылка)</p>
           <Input
-            value={formValues.supportEmail}
+            value={formValues.supportTelegramUrl}
             onChange={(event) =>
-              setFormValues((prev) => ({ ...prev, supportEmail: event.target.value }))
+              setFormValues((prev) => ({ ...prev, supportTelegramUrl: event.target.value }))
             }
-            disabled={!canEditSupportEmail}
-            placeholder="support@example.com"
+            disabled={!canEditSupportLink}
+            placeholder="https://t.me/username"
             className="bg-white/10 border-white/20 text-white"
           />
-          {!canEditSupportEmail && (
+          {!canEditSupportLink && (
             <p className="text-xs text-white/50">Редактировать может только супер-админ</p>
           )}
-          {formValues.supportEmail && !isEmailLike(formValues.supportEmail) && (
-            <p className="text-xs text-red-300">Похоже на некорректный email</p>
+          {formValues.supportTelegramUrl && !isTelegramLinkLike(formValues.supportTelegramUrl) && (
+            <p className="text-xs text-red-300">Похоже на некорректную ссылку Telegram</p>
           )}
         </div>
 
