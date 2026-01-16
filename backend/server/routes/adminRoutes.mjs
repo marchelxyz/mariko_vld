@@ -19,7 +19,7 @@ import {
 } from "../services/adminService.mjs";
 import { listUserProfiles, fetchUserProfile } from "../services/profileService.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
-import { sendTelegramMessage } from "../services/telegramService.mjs";
+import { enqueueBookingNotification } from "../services/bookingNotificationService.mjs";
 import { getAppSettings, updateAppSettings } from "../services/appSettingsService.mjs";
 
 const BOOKING_STATUS_VALUES = new Set(["created", "confirmed", "closed", "cancelled"]);
@@ -718,11 +718,19 @@ export function createAdminRouter() {
               ],
             }
           : undefined;
-      notificationResult = await sendTelegramMessage({
-        telegramId,
-        text: message,
-        replyMarkup,
-      });
+      if (telegramId) {
+        await enqueueBookingNotification({
+          bookingId,
+          restaurantId: booking.restaurant_id,
+          platform: "telegram",
+          recipientId: String(telegramId),
+          message,
+          payload: replyMarkup ? { replyMarkup } : {},
+        });
+        notificationResult = { queued: true };
+      } else {
+        notificationResult = { queued: false, reason: "telegram_id_not_found" };
+      }
     }
 
     return res.json({ success: true, notification: notificationResult });
