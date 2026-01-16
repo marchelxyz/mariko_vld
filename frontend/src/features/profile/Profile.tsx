@@ -5,6 +5,16 @@ import { ProfileAvatar, useProfile } from "@entities/user";
 import { Settings, Check, X, Pencil } from "lucide-react";
 import { useToast } from "@/hooks";
 import { getCleanPhoneNumber, usePhoneInput } from "@shared/hooks";
+import {
+  Button,
+  Checkbox,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  Label,
+} from "@shared/ui";
 import type { UserProfile } from "@shared/types";
 
 type EditableFieldType = "name" | "birthDate" | "gender" | "phone" | null;
