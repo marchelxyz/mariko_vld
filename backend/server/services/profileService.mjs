@@ -218,6 +218,16 @@ export const fetchUserProfile = async (identifier) => {
       }
     }
 
+    if (asString) {
+      const idMatch = await queryOne(
+        `SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles WHERE id = $1 LIMIT 1`,
+        [asString],
+      );
+      if (idMatch) {
+        return idMatch;
+      }
+    }
+
     const numeric = Number(asString);
     if (Number.isFinite(numeric)) {
       // Сначала ищем по telegram_id
