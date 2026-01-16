@@ -4,7 +4,6 @@ import { queryMany, queryOne, query } from "../postgresClient.mjs";
 import {
   upsertUserProfileRecord,
   fetchUserProfile,
-  fetchUserProfileByPhoneAndName,
   buildDefaultProfile,
   mapProfileRowToClient,
 } from "../services/profileService.mjs";
@@ -96,11 +95,7 @@ export function registerCartRoutes(app) {
     }
 
     try {
-      const mergedProfile = await fetchUserProfileByPhoneAndName(
-        body.phone ?? body.customerPhone,
-        body.name,
-      );
-      const effectiveId = mergedProfile?.id ?? resolvedId;
+      const effectiveId = resolvedId;
       const row = await upsertUserProfileRecord({
         id: effectiveId,
         telegramId: body.telegramId ?? headerTelegramId ?? body.id,
@@ -183,8 +178,7 @@ export function registerCartRoutes(app) {
         .json({ success: false, message: "Передайте ID пользователя для обновления" });
     }
     try {
-      const mergedProfile = await fetchUserProfileByPhoneAndName(body.phone, body.name);
-      const effectiveId = mergedProfile?.id ?? resolvedId;
+      const effectiveId = resolvedId;
       const row = await upsertUserProfileRecord({
         id: effectiveId,
         telegramId: body.telegramId ?? headerTelegramId ?? resolvedId,
