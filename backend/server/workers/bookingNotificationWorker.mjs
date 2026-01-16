@@ -52,6 +52,7 @@ const handleVkNotification = async (notification) => {
     vkUserId: notification.recipient_id,
     text: notification.message,
     tokenOverride: payload.vkGroupToken || null,
+    keyboard: payload.vkKeyboard || null,
   });
   if (!result?.success) {
     throw new Error(result?.error || "VK send failed");
