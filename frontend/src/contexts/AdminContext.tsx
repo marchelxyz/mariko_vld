@@ -79,6 +79,7 @@ const derivePermissions = (role: UserRole): Permission[] => {
         Permission.MANAGE_MENU,
         Permission.MANAGE_PROMOTIONS,
         Permission.MANAGE_DELIVERIES,
+        Permission.MANAGE_USERS,
         Permission.VIEW_CITIES,
         Permission.VIEW_RESTAURANTS,
         Permission.VIEW_USERS,

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Badge, Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch } from "@shared/ui";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch, Textarea } from "@shared/ui";
 import { adminServerApi, type AdminBooking } from "@shared/api/admin";
 import { getAllCitiesAsync, type City } from "@shared/data";
 import { useAdmin } from "@shared/hooks";
@@ -30,10 +30,13 @@ export default function BookingsManagement(): JSX.Element {
   const [restaurantOptions, setRestaurantOptions] = useState<RestaurantOption[]>([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
   const [pendingChange, setPendingChange] = useState<{ booking: AdminBooking; status: string } | null>(
     null,
   );
   const [sendNotification, setSendNotification] = useState(true);
+  const [customMessage, setCustomMessage] = useState("");
 
   useEffect(() => {
     const loadRestaurants = async () => {
@@ -62,12 +65,14 @@ export default function BookingsManagement(): JSX.Element {
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ["admin-bookings", currentRestaurantFilter, currentStatusFilter],
+    queryKey: ["admin-bookings", currentRestaurantFilter, currentStatusFilter, fromDate, toDate],
     queryFn: () =>
       adminServerApi.getBookings({
         restaurantId: currentRestaurantFilter,
         status: currentStatusFilter,
         limit: 100,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
       }),
     enabled: canManageBookings,
   });
@@ -75,14 +80,17 @@ export default function BookingsManagement(): JSX.Element {
   const handleStatusChangeRequest = (booking: AdminBooking, status: string) => {
     setPendingChange({ booking, status });
     setSendNotification(true);
+    setCustomMessage(buildSmsPreview(booking, status));
   };
 
   const confirmStatusChange = async () => {
     if (!pendingChange) return;
     try {
+      const trimmedMessage = customMessage.trim();
       const result = await adminServerApi.updateBookingStatus(pendingChange.booking.id, {
         status: pendingChange.status,
         sendNotification,
+        customMessage: trimmedMessage ? trimmedMessage : undefined,
       });
       if (sendNotification && result.notification && !result.notification.success) {
         alert(result.notification.error || "Не удалось отправить сообщение");
@@ -119,7 +127,7 @@ export default function BookingsManagement(): JSX.Element {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">
           <p className="text-sm text-white/70">Ресторан</p>
           <Select value={selectedRestaurant} onValueChange={setSelectedRestaurant}>
@@ -154,6 +162,26 @@ export default function BookingsManagement(): JSX.Element {
           </Select>
         </div>
       </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <p className="text-sm text-white/70">Дата с</p>
+              <Input
+                type="date"
+                value={fromDate}
+                onChange={(event) => setFromDate(event.target.value)}
+                className="bg-white/10 border-white/20 text-white"
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-white/70">Дата по</p>
+              <Input
+                type="date"
+                value={toDate}
+                onChange={(event) => setToDate(event.target.value)}
+                className="bg-white/10 border-white/20 text-white"
+              />
+            </div>
+          </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-10 text-white/70">Загрузка...</div>
@@ -183,8 +211,13 @@ export default function BookingsManagement(): JSX.Element {
 
           {pendingChange && (
             <div className="space-y-4">
-              <div className="rounded-xl bg-white/80 border border-mariko-field p-3 text-sm text-mariko-dark/80 whitespace-pre-line">
-                {buildSmsPreview(pendingChange.booking, pendingChange.status)}
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-mariko-dark">Текст сообщения</p>
+                <Textarea
+                  value={customMessage}
+                  onChange={(event) => setCustomMessage(event.target.value)}
+                  className="bg-white text-mariko-dark border-mariko-field min-h-[120px]"
+                />
               </div>
               <div className="flex items-center justify-between gap-3">
                 <div>

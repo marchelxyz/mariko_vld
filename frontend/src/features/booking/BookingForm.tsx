@@ -21,6 +21,7 @@ import {
   PopoverTrigger,
 } from "@shared/ui/popover";
 import { useProfile } from "@entities/user";
+import { useAppSettings } from "@/hooks";
 import { useCityContext, useCart } from "@/contexts";
 import {
   getRemarkedReservesByPhone,
@@ -136,6 +137,7 @@ function formatCartForComment(items: Array<{ name: string; amount: number; price
 export function BookingForm({ onSuccess }: BookingFormProps) {
   const { selectedRestaurant } = useCityContext();
   const { profile } = useProfile();
+  const { settings } = useAppSettings();
   const { items: cartItems, totalPrice: cartTotalPrice } = useCart();
 
   // Используем useMemo для today, чтобы избежать пересоздания при каждом рендере
@@ -1283,7 +1285,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
               >
                 Даю согласие на{" "}
                 <a
-                  href="https://vhachapuri.ru/policy"
+                  href={settings.personalDataConsentUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="underline hover:text-white transition-colors"
@@ -1307,7 +1309,15 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
                 className="text-white/90 text-sm cursor-pointer leading-relaxed"
               >
                 Соглашаюсь с{" "}
-                <span className="underline">политикой обработки персональных данных</span> *
+                <a
+                  href={settings.personalDataPolicyUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:text-white transition-colors"
+                >
+                  политикой обработки персональных данных
+                </a>{" "}
+                *
               </Label>
             </div>
           )}

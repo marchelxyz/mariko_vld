@@ -25,4 +25,7 @@ export interface UserProfile {
   personalDataConsentDate?: string | null;
   personalDataPolicyConsentGiven?: boolean;
   personalDataPolicyConsentDate?: string | null;
+  isBanned?: boolean;
+  bannedAt?: string | null;
+  bannedReason?: string | null;
 }
