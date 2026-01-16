@@ -57,6 +57,7 @@ export function createCitiesRouter() {
             address: r.address,
             city: cityRow.name,
             isDeliveryEnabled: r.is_delivery_enabled ?? true,
+            vkGroupToken: r.vk_group_token || undefined,
             phoneNumber: r.phone_number || undefined,
             deliveryAggregators: r.delivery_aggregators 
               ? (typeof r.delivery_aggregators === 'string' 
@@ -120,6 +121,7 @@ export function createCitiesRouter() {
             city: cityRow.name,
             isActive: r.is_active,
             isDeliveryEnabled: r.is_delivery_enabled ?? true,
+            vkGroupToken: r.vk_group_token || undefined,
             phoneNumber: r.phone_number || undefined,
             deliveryAggregators: r.delivery_aggregators
               ? (typeof r.delivery_aggregators === 'string'
