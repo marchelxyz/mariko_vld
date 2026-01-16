@@ -5,6 +5,7 @@ import RandomBackgroundPattern from "@/components/RandomBackgroundPattern";
 import { DebugGrid } from "@/components/DebugGrid";
 import { AdminProvider, CartProvider, RestaurantProvider, DebugGridProvider, OnboardingProvider } from "@/contexts";
 import { useEnsureUserProfileSync } from "@/hooks";
+import { useProfile } from "@/entities/user";
 import { logger } from "@/lib/logger";
 import { isActive, onActivated, onDeactivated, requestFullscreenMode } from "@/lib/telegram";
 import { Toaster as SonnerToaster } from "@shared/ui/sonner";
@@ -30,6 +31,7 @@ const WebViewPage = lazy(() => import("./pages/webview"));
 const Franchise = lazy(() => import("./pages/franchise"));
 const NotFound = lazy(() => import("./pages/notFound"));
 const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
+const BlockedPage = lazy(() => import("./pages/blocked"));
 
 // Create a query client
 const queryClient = new QueryClient({
@@ -44,6 +46,7 @@ const queryClient = new QueryClient({
 
 function AppContent() {
   useEnsureUserProfileSync();
+  const { profile, isInitialized } = useProfile();
 
   useEffect(() => {
     logger.componentLifecycle('App', 'mount');
@@ -70,6 +73,20 @@ function AppContent() {
       unsubscribeDeactivate();
     };
   }, []);
+
+  if (isInitialized && profile.isBanned) {
+    return (
+      <Suspense
+        fallback={
+          <div className="flex min-h-[60vh] items-center justify-center text-white/70">
+            Загрузка…
+          </div>
+        }
+      >
+        <BlockedPage />
+      </Suspense>
+    );
+  }
 
   return (
     <>
