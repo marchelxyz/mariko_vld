@@ -405,6 +405,7 @@ export async function initializeDatabase() {
       "user_carts",         // user_carts зависит от user_profiles
       "cart_orders",        // cart_orders независима
       "admin_users",        // admin_users независима
+      "app_settings",       // app_settings независима
       "restaurant_payments", // restaurant_payments независима
       "payments",           // payments зависит от cart_orders
       "cities",             // cities независима
