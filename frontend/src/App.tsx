@@ -75,20 +75,6 @@ function AppContent() {
     };
   }, []);
 
-  if (isInitialized && profile.isBanned) {
-    return (
-      <Suspense
-        fallback={
-          <div className="flex min-h-[60vh] items-center justify-center text-white/70">
-            Загрузка…
-          </div>
-        }
-      >
-        <BlockedPage />
-      </Suspense>
-    );
-  }
-
   return (
     <>
       <AdminProvider>
