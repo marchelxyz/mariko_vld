@@ -10,6 +10,7 @@ import { profileApi } from "@/shared/api/profile";
 import { cn } from "@shared/utils";
 import { useOnboardingContext } from "@/contexts/OnboardingContext";
 import { safeOpenLink } from "@/lib/telegramCore";
+import { isInVk } from "@/lib/vkCore";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -29,9 +30,11 @@ export default function SettingsPage() {
     const platform = window.navigator.platform;
     const language = window.navigator.language;
     const screen = `${window.screen.width}x${window.screen.height}`;
+    const appPlatform = resolveAppPlatformName();
     return [
       `ФИО: ${name}`,
       `Телефон: ${phone}`,
+      `Платформа приложения: ${appPlatform}`,
       `Платформа: ${platform}`,
       `Язык: ${language}`,
       `Экран: ${screen}`,
@@ -337,4 +340,17 @@ export default function SettingsPage() {
       <BottomNavigation currentPage="profile" />
     </div>
   );
+}
+
+/**
+ * Определяет название платформы приложения для поддержки.
+ */
+function resolveAppPlatformName(): string {
+  if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+    return "Telegram";
+  }
+  if (isInVk()) {
+    return "VKontakte";
+  }
+  return "Web";
 }
