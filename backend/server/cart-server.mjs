@@ -21,6 +21,7 @@ import { createRecommendedDishesRouter, createAdminRecommendedDishesRouter } fro
 import { createMenuRouter, createAdminMenuRouter } from "./routes/menuRoutes.mjs";
 import { createStorageRouter } from "./routes/storageRoutes.mjs";
 import { logger } from "./utils/logger.mjs";
+import { startBookingNotificationWorker } from "./workers/bookingNotificationWorker.mjs";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -193,6 +194,12 @@ app.use("/api/admin/menu", adminMenuRouter);
 const storageRouter = createStorageRouter();
 app.use("/api/storage", storageRouter);
 app.use("/api/admin/storage", storageRouter);
+
+if (db) {
+  startBookingNotificationWorker();
+} else {
+  logger.warn("app", "База данных недоступна, воркер уведомлений не запущен");
+}
 
 if (frontendStaticRoot) {
   logger.info("Отдаём статику фронтенда из директории", { frontendStaticRoot });

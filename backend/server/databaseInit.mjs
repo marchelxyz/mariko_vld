@@ -201,6 +201,25 @@ const SCHEMAS = {
     );
   `,
 
+  booking_notifications: `
+    CREATE TABLE IF NOT EXISTS booking_notifications (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      booking_id UUID NOT NULL,
+      restaurant_id VARCHAR(255),
+      platform VARCHAR(20) NOT NULL,
+      recipient_id VARCHAR(255),
+      message TEXT NOT NULL,
+      payload JSONB DEFAULT '{}'::jsonb,
+      status VARCHAR(20) NOT NULL DEFAULT 'pending',
+      attempts INTEGER NOT NULL DEFAULT 0,
+      last_error TEXT,
+      scheduled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      sent_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `,
+
   promotions: `
     CREATE TABLE IF NOT EXISTS promotions (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -316,6 +335,9 @@ const INDEXES = [
     `CREATE INDEX IF NOT EXISTS idx_city_recommended_dishes_display_order ON city_recommended_dishes(display_order);`,
     `CREATE INDEX IF NOT EXISTS idx_user_carts_user_id ON user_carts(user_id);`,
     `CREATE INDEX IF NOT EXISTS idx_user_carts_updated_at ON user_carts(updated_at DESC);`,
+    `CREATE INDEX IF NOT EXISTS idx_booking_notifications_status ON booking_notifications(status);`,
+    `CREATE INDEX IF NOT EXISTS idx_booking_notifications_scheduled ON booking_notifications(scheduled_at);`,
+    `CREATE INDEX IF NOT EXISTS idx_booking_notifications_platform ON booking_notifications(platform);`,
 ];
 
 /**
@@ -412,6 +434,7 @@ export async function initializeDatabase() {
       "cities",             // cities независима
       "restaurants",        // restaurants зависит от cities
       "bookings",           // bookings зависит от restaurants
+      "booking_notifications",
       "promotions",         // promotions зависит от cities
       "menu_categories",    // menu_categories зависит от restaurants
       "menu_items",         // menu_items зависит от menu_categories
