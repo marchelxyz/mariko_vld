@@ -52,14 +52,18 @@ export default function SettingsPage() {
     if (!supportEmail) {
       return;
     }
-    if (isTelegramWebApp && supportMailto) {
-      const opened = safeOpenLink(supportMailto);
+    if (isTelegramWebApp && supportWebLink) {
+      const opened = safeOpenLink(supportWebLink);
       if (opened) {
         return;
       }
     }
     if (typeof window !== "undefined" && supportWebLink) {
       window.open(supportWebLink, "_blank", "noopener");
+      return;
+    }
+    if (supportMailto) {
+      safeOpenLink(supportMailto);
     }
   };
 
