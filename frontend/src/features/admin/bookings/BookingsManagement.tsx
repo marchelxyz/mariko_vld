@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Badge, Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch } from "@shared/ui";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch } from "@shared/ui";
 import { adminServerApi, type AdminBooking } from "@shared/api/admin";
 import { getAllCitiesAsync, type City } from "@shared/data";
 import { useAdmin } from "@shared/hooks";
@@ -30,6 +30,8 @@ export default function BookingsManagement(): JSX.Element {
   const [restaurantOptions, setRestaurantOptions] = useState<RestaurantOption[]>([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
   const [pendingChange, setPendingChange] = useState<{ booking: AdminBooking; status: string } | null>(
     null,
   );
@@ -62,12 +64,14 @@ export default function BookingsManagement(): JSX.Element {
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ["admin-bookings", currentRestaurantFilter, currentStatusFilter],
+    queryKey: ["admin-bookings", currentRestaurantFilter, currentStatusFilter, fromDate, toDate],
     queryFn: () =>
       adminServerApi.getBookings({
         restaurantId: currentRestaurantFilter,
         status: currentStatusFilter,
         limit: 100,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
       }),
     enabled: canManageBookings,
   });
@@ -111,7 +115,7 @@ export default function BookingsManagement(): JSX.Element {
         </div>
         <Button
           variant="outline"
-          className="border-white/30 text-white hover:bg-white/10"
+          className="border-white/30 text-white bg-transparent hover:bg-white/10"
           onClick={() => refetch()}
           disabled={isFetching}
         >
@@ -152,6 +156,26 @@ export default function BookingsManagement(): JSX.Element {
               ))}
             </SelectContent>
           </Select>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-1">
+          <p className="text-sm text-white/70">Дата с</p>
+          <Input
+            type="date"
+            value={fromDate}
+            onChange={(event) => setFromDate(event.target.value)}
+            className="bg-white/10 border-white/20 text-white"
+          />
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm text-white/70">Дата по</p>
+          <Input
+            type="date"
+            value={toDate}
+            onChange={(event) => setToDate(event.target.value)}
+            className="bg-white/10 border-white/20 text-white"
+          />
         </div>
       </div>
 
