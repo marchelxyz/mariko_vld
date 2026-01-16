@@ -115,6 +115,21 @@ const resolveVkIdByPhone = async (phone) => {
   return String(row.vk_id);
 };
 
+const resolveTelegramIdByPhone = async (phone) => {
+  const digits = normalizePhoneDigits(phone);
+  if (!digits) return null;
+  const row = await queryOne(
+    `SELECT telegram_id FROM user_profiles
+     WHERE regexp_replace(phone, '\\\\D', '', 'g') = $1
+     LIMIT 1`,
+    [digits],
+  );
+  if (!row?.telegram_id) {
+    return null;
+  }
+  return String(row.telegram_id);
+};
+
 export function createAdminRouter() {
   const router = express.Router();
 
@@ -650,7 +665,7 @@ export function createAdminRouter() {
       return;
     }
     const bookingId = req.params.bookingId;
-    const { status, sendNotification = true } = req.body ?? {};
+    const { status, sendNotification = true, customMessage, platform } = req.body ?? {};
     if (!status || !BOOKING_STATUS_VALUES.has(status)) {
       return res.status(400).json({ success: false, message: "Некорректный статус бронирования" });
     }
@@ -692,9 +707,41 @@ export function createAdminRouter() {
 
     let notificationResult = null;
     if (sendNotification) {
-      const message = buildBookingTelegramMessage(booking, status);
+      const trimmedMessage = typeof customMessage === "string" ? customMessage.trim() : "";
+      const message = trimmedMessage || buildBookingTelegramMessage(booking, status);
       const vkId = await resolveVkIdByPhone(booking.customer_phone);
-      if (vkId) {
+      const telegramId = await resolveTelegramIdByPhone(booking.customer_phone);
+      const replyMarkup =
+        status === "closed" && booking.review_link
+          ? {
+              inline_keyboard: [
+                [
+                  {
+                    text: "Оставить отзыв",
+                    url: booking.review_link,
+                  },
+                ],
+              ],
+            }
+          : undefined;
+
+      const queuedPlatforms = [];
+      const shouldSendTelegram = platform === "telegram" || (!platform && telegramId);
+      const shouldSendVk = platform === "vk" || (!platform && vkId);
+
+      if (shouldSendTelegram && telegramId) {
+        await enqueueBookingNotification({
+          bookingId,
+          restaurantId: booking.restaurant_id,
+          platform: "telegram",
+          recipientId: String(telegramId),
+          message,
+          payload: replyMarkup ? { replyMarkup } : {},
+        });
+        queuedPlatforms.push("telegram");
+      }
+
+      if (shouldSendVk && vkId) {
         const vkMessage =
           status === "closed" && booking.review_link
             ? `${message}\n\nОставить отзыв: ${booking.review_link}`
@@ -705,13 +752,15 @@ export function createAdminRouter() {
           platform: "vk",
           recipientId: String(vkId),
           message: vkMessage,
-          payload: {
-            vkGroupToken: booking.vk_group_token || null,
-          },
+          payload: { vkGroupToken: booking.vk_group_token || null },
         });
-        notificationResult = { queued: true };
+        queuedPlatforms.push("vk");
+      }
+
+      if (queuedPlatforms.length > 0) {
+        notificationResult = { success: true, queued: true, platforms: queuedPlatforms };
       } else {
-        notificationResult = { queued: false, reason: "vk_id_not_found" };
+        notificationResult = { success: false, error: "Не найден получатель" };
       }
     }
 
