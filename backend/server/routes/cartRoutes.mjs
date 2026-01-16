@@ -12,6 +12,8 @@ import { getAppSettings } from "../services/appSettingsService.mjs";
 import { fetchRestaurantIntegrationConfig, enqueueIikoOrder } from "../services/integrationService.mjs";
 import { normaliseNullableString } from "../utils.mjs";
 import { addressService } from "../services/addressService.mjs";
+import { verifyVKInitData, getVKUserIdFromInitData } from "../utils/vkAuth.mjs";
+import { sendVKMessage } from "../services/vkMessageService.mjs";
 
 const healthPayload = () => ({ status: "ok", database: Boolean(db) });
 
@@ -20,6 +22,58 @@ const getTelegramIdFromHeaders = (req) => {
   return typeof raw === "string" ? raw.trim() : null;
 };
 
+const getVkIdFromHeaders = (req) => {
+  const raw = req.get("x-vk-id");
+  return typeof raw === "string" ? raw.trim() : null;
+};
+
+/**
+ * Получает и проверяет VK ID из заголовков с проверкой подписи initData.
+ * 
+ * @param {Object} req - Express request object
+ * @returns {string|null} - Проверенный VK ID или null
+ */
+const getVerifiedVkIdFromHeaders = (req) => {
+  // Сначала пробуем получить из заголовка X-VK-Id (для обратной совместимости)
+  const headerVkId = getVkIdFromHeaders(req);
+  
+  // Проверяем initData для безопасности
+  const rawInitData = req.get("x-vk-init-data");
+  if (rawInitData) {
+    const verifiedInitData = verifyVKInitData(rawInitData);
+    if (verifiedInitData) {
+      const vkUserId = getVKUserIdFromInitData(verifiedInitData);
+      if (vkUserId) {
+        // Если проверка прошла успешно, используем ID из initData
+        return vkUserId;
+      }
+    }
+    // Если проверка не прошла, но есть initData, логируем предупреждение
+    console.warn("[cartRoutes] Проверка подписи VK initData не прошла");
+  }
+  
+  // Fallback на заголовок X-VK-Id (для обратной совместимости)
+  return headerVkId;
+};
+
+// Универсальная функция для получения ID пользователя из заголовков (Telegram или VK)
+const getUserIdFromHeaders = (req) => {
+  return getTelegramIdFromHeaders(req) || getVerifiedVkIdFromHeaders(req);
+};
+
+const buildVkWelcomeMessage = (name) => {
+  const safeName = name?.trim() || "генацвале";
+  return [
+    `🇬🇪 Гамарджоба, ${safeName}! Добро пожаловать в «Хачапури Марико».`,
+    "",
+    "• 📍 Найти ресторан в вашем городе",
+    "• 📋 Забронировать столик",
+    "• 🎁 Узнать об акциях",
+    "• ⭐ Оставить отзыв",
+    "",
+    "Будем рады видеть вас в гостях ❤️",
+  ].join("\n");
+};
 export function registerCartRoutes(app) {
   app.get("/health", (req, res) => {
     res.json(healthPayload());
@@ -85,11 +139,14 @@ export function registerCartRoutes(app) {
     }
 
     const body = req.body ?? {};
+    const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerVkId = getVerifiedVkIdFromHeaders(req);
     const resolvedId =
       (typeof body.id === "string" && body.id.trim()) ||
-      headerTelegramId ||
-      (typeof body.telegramId === "string" && body.telegramId.trim());
+      headerUserId ||
+      (typeof body.telegramId === "string" && body.telegramId.trim()) ||
+      (typeof body.vkId === "string" && body.vkId.trim());
 
     if (!resolvedId) {
       return res.status(400).json({ success: false, message: "Не удалось определить пользователя" });
@@ -101,9 +158,20 @@ export function registerCartRoutes(app) {
         body.name,
       );
       const effectiveId = mergedProfile?.id ?? resolvedId;
+      const existingProfile = await fetchUserProfile(effectiveId);
+      const resolvedVkId =
+        body.vkId !== undefined
+          ? typeof body.vkId === "number"
+            ? body.vkId
+            : Number(body.vkId)
+          : headerVkId
+            ? Number(headerVkId)
+            : undefined;
+      const hasVkId = Boolean(mergedProfile?.vk_id || existingProfile?.vk_id);
       const row = await upsertUserProfileRecord({
         id: effectiveId,
-        telegramId: body.telegramId ?? headerTelegramId ?? body.id,
+        telegramId: body.telegramId ?? headerTelegramId ?? (headerTelegramId ? resolvedId : undefined),
+        vkId: resolvedVkId,
         name: body.name,
         phone: body.phone ?? body.customerPhone,
         primaryAddressId: body.primaryAddressId,
@@ -130,6 +198,12 @@ export function registerCartRoutes(app) {
         favoriteRestaurantAddress:
           body.favoriteRestaurantAddress ?? body.favorite_restaurant_address,
       });
+      if (resolvedVkId && !hasVkId) {
+        await sendVKMessage({
+          vkUserId: resolvedVkId,
+          text: buildVkWelcomeMessage(body.name),
+        });
+      }
       return res.json({ success: true, profile: mapProfileRowToClient(row, effectiveId) });
     } catch (error) {
       console.error("Ошибка синхронизации профиля:", error);
@@ -143,15 +217,16 @@ export function registerCartRoutes(app) {
     if (!ensureDatabase(res)) {
       return;
     }
+    const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getTelegramIdFromHeaders(req);
     const requestedId =
       normaliseNullableString(req.query?.id) ??
       normaliseNullableString(req.query?.userId) ??
-      headerTelegramId;
+      headerUserId;
     if (!requestedId) {
       return res
         .status(400)
-        .json({ success: false, message: "Передайте Telegram ID или userId пользователя" });
+        .json({ success: false, message: "Передайте Telegram ID, VK ID или userId пользователя" });
     }
     try {
       const row = await fetchUserProfile(requestedId);
@@ -175,8 +250,10 @@ export function registerCartRoutes(app) {
       return;
     }
     const body = req.body ?? {};
+    const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getTelegramIdFromHeaders(req);
-    const resolvedId = normaliseNullableString(body.id) ?? headerTelegramId;
+    const headerVkId = getVerifiedVkIdFromHeaders(req);
+    const resolvedId = normaliseNullableString(body.id) ?? headerUserId;
     if (!resolvedId) {
       return res
         .status(400)
@@ -185,9 +262,18 @@ export function registerCartRoutes(app) {
     try {
       const mergedProfile = await fetchUserProfileByPhoneAndName(body.phone, body.name);
       const effectiveId = mergedProfile?.id ?? resolvedId;
+      const resolvedVkId =
+        body.vkId !== undefined
+          ? typeof body.vkId === "number"
+            ? body.vkId
+            : Number(body.vkId)
+          : headerVkId
+            ? Number(headerVkId)
+            : undefined;
       const row = await upsertUserProfileRecord({
         id: effectiveId,
-        telegramId: body.telegramId ?? headerTelegramId ?? resolvedId,
+        telegramId: body.telegramId ?? headerTelegramId ?? (headerTelegramId ? resolvedId : undefined),
+        vkId: resolvedVkId,
         name: body.name,
         phone: body.phone,
         primaryAddressId: body.primaryAddressId,
@@ -227,15 +313,16 @@ export function registerCartRoutes(app) {
     if (!ensureDatabase(res)) {
       return;
     }
+    const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getTelegramIdFromHeaders(req);
     const requestedId =
       normaliseNullableString(req.query?.id) ??
       normaliseNullableString(req.query?.userId) ??
-      headerTelegramId;
+      headerUserId;
     if (!requestedId) {
       return res
         .status(400)
-        .json({ success: false, message: "Передайте Telegram ID или userId пользователя" });
+        .json({ success: false, message: "Передайте VK ID, Telegram ID или userId пользователя" });
     }
     try {
       const row = await fetchUserProfile(requestedId);
