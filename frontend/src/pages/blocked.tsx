@@ -5,7 +5,6 @@ import { Header } from "@shared/ui/widgets";
 import { useAppSettings } from "@/hooks";
 import { useProfile } from "@/entities/user";
 import { safeOpenLink } from "@/lib/telegramCore";
-import { isInVk } from "@/lib/vkCore";
 
 const BlockedPage = () => {
   const { settings } = useAppSettings();
@@ -94,8 +93,27 @@ function resolveAppPlatformName(): string {
   if (typeof window !== "undefined" && window.Telegram?.WebApp) {
     return "Telegram";
   }
-  if (isInVk()) {
+  if (isVkEnvironment()) {
     return "VKontakte";
   }
   return "Web";
+}
+
+/**
+ * Простая проверка, что приложение запущено в VK.
+ */
+function isVkEnvironment(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const hasVkBridge = Boolean((window as Window & { vkBridge?: unknown }).vkBridge);
+  if (hasVkBridge) {
+    return true;
+  }
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has("vk_app_id") || urlParams.has("vk_user_id")) {
+    return true;
+  }
+  const href = window.location.href.toLowerCase();
+  return href.includes("vk.com") || href.includes("vk.ru");
 }
