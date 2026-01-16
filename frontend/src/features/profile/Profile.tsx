@@ -3,9 +3,19 @@ import { useNavigate } from "react-router-dom";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { ProfileAvatar, useProfile } from "@entities/user";
 import { Settings, Check, X, Pencil } from "lucide-react";
-import { useToast } from "@/hooks";
+import { useAppSettings, useToast } from "@/hooks";
 import { getCleanPhoneNumber, usePhoneInput } from "@shared/hooks";
 import type { UserProfile } from "@shared/types";
+import {
+  Checkbox,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  Label,
+  Button,
+} from "@shared/ui";
 
 type FieldKey = "name" | "birthDate" | "gender" | "phone";
 
@@ -189,8 +199,14 @@ function EditableProfileField({
 const Profile = () => {
   const navigate = useNavigate();
   const { profile, loading, updateProfile } = useProfile();
+  const { settings } = useAppSettings();
   const { toast: showToast } = useToast();
   const [editingField, setEditingField] = useState<FieldKey | null>(null);
+  const [isConsentDialogOpen, setIsConsentDialogOpen] = useState(false);
+  const [consentChecked, setConsentChecked] = useState(false);
+  const [policyChecked, setPolicyChecked] = useState(false);
+  const [pendingField, setPendingField] = useState<FieldKey | null>(null);
+  const [pendingValue, setPendingValue] = useState<string>("");
 
   const normalizedName = (profile.name || "").trim();
   const hasCustomName = normalizedName.length > 0 && normalizedName !== "Пользователь";
@@ -209,10 +225,49 @@ const Profile = () => {
       return;
     }
 
+    const needsConsent = isPersonalDataField(fieldKey);
+    const consentMissing =
+      !profile.personalDataConsentGiven || !profile.personalDataPolicyConsentGiven;
+    if (needsConsent && consentMissing) {
+      openConsentDialog(fieldKey, value);
+      return;
+    }
+    await executeProfileUpdate({ [fieldKey]: value });
+  };
+
+  const openConsentDialog = (fieldKey: FieldKey, value: string) => {
+    setPendingField(fieldKey);
+    setPendingValue(value);
+    setConsentChecked(false);
+    setPolicyChecked(false);
+    setIsConsentDialogOpen(true);
+  };
+
+  const handleConfirmConsentSave = async () => {
+    if (!pendingField) {
+      return;
+    }
+    if (!consentChecked || !policyChecked) {
+      showToast({
+        title: "Нужны согласия",
+        description: "Чтобы сохранить данные, отметьте оба согласия.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const updateData = {
+      [pendingField]: pendingValue,
+      ...buildConsentUpdatePayload(),
+    } as Partial<UserProfile>;
+    await executeProfileUpdate(updateData);
+    setIsConsentDialogOpen(false);
+    setPendingField(null);
+    setPendingValue("");
+  };
+
+  const executeProfileUpdate = async (updateData: Partial<UserProfile>) => {
     try {
-      const updateData: Partial<UserProfile> = { [fieldKey]: value };
       const success = await updateProfile(updateData);
-      
       if (success) {
         showToast({ title: "Сохранено", description: "Данные успешно обновлены" });
         setEditingField(null);
@@ -220,10 +275,10 @@ const Profile = () => {
         throw new Error("Не удалось сохранить");
       }
     } catch {
-      showToast({ 
-        title: "Ошибка", 
-        description: "Не удалось сохранить изменения", 
-        variant: "destructive" 
+      showToast({
+        title: "Ошибка",
+        description: "Не удалось сохранить изменения",
+        variant: "destructive",
       });
     }
   };
@@ -334,8 +389,115 @@ const Profile = () => {
         {/* НАВИГАЦИЯ: позиционирована поверх белого фона */}
         <BottomNavigation currentPage="profile" />
       </div>
+
+      <Dialog
+        open={isConsentDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsConsentDialogOpen(false);
+            setPendingField(null);
+            setPendingValue("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg bg-mariko-secondary border-white/10">
+          <DialogHeader>
+            <DialogTitle className="text-white font-el-messiri text-xl md:text-2xl">
+              Согласие на обработку данных
+            </DialogTitle>
+            <DialogDescription className="text-white/70 mt-2">
+              Чтобы сохранить персональные данные, необходимо подтвердить оба согласия.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="profile-inline-consent"
+                checked={consentChecked}
+                onCheckedChange={(checked) => setConsentChecked(checked === true)}
+                className="mt-1"
+              />
+              <Label
+                htmlFor="profile-inline-consent"
+                className="text-white/90 text-sm cursor-pointer leading-relaxed"
+              >
+                Даю согласие на{" "}
+                <a
+                  href={settings.personalDataConsentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:text-white transition-colors"
+                >
+                  обработку персональных данных
+                </a>
+              </Label>
+            </div>
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="profile-inline-policy-consent"
+                checked={policyChecked}
+                onCheckedChange={(checked) => setPolicyChecked(checked === true)}
+                className="mt-1"
+              />
+              <Label
+                htmlFor="profile-inline-policy-consent"
+                className="text-white/90 text-sm cursor-pointer leading-relaxed"
+              >
+                Соглашаюсь с{" "}
+                <a
+                  href={settings.personalDataPolicyUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:text-white transition-colors"
+                >
+                  политикой обработки персональных данных
+                </a>
+              </Label>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsConsentDialogOpen(false);
+                  setPendingField(null);
+                  setPendingValue("");
+                }}
+                className="border-white/20 text-white hover:bg-white/10"
+              >
+                Отмена
+              </Button>
+              <Button
+                onClick={handleConfirmConsentSave}
+                disabled={!consentChecked || !policyChecked}
+              >
+                Сохранить
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
+/**
+ * Проверяет, относится ли поле к персональным данным.
+ */
+function isPersonalDataField(fieldKey: FieldKey): boolean {
+  return fieldKey === "name" || fieldKey === "birthDate" || fieldKey === "gender" || fieldKey === "phone";
+}
+
+/**
+ * Возвращает флаги согласий с датами подтверждения.
+ */
+function buildConsentUpdatePayload(): Partial<UserProfile> {
+  const now = new Date().toISOString();
+  return {
+    personalDataConsentGiven: true,
+    personalDataConsentDate: now,
+    personalDataPolicyConsentGiven: true,
+    personalDataPolicyConsentDate: now,
+  };
+}
 
 export default Profile;
