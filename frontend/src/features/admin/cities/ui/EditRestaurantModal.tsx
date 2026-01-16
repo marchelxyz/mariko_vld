@@ -26,6 +26,7 @@ type EditRestaurantModalProps = {
     socialNetworks: SocialNetwork[];
     remarkedRestaurantId?: number;
     reviewLink: string;
+    vkGroupToken?: string;
     maxCartItemQuantity?: number;
     isDeliveryEnabled?: boolean;
   }) => Promise<void>;
@@ -70,6 +71,7 @@ export function EditRestaurantModal({
   const [socialNetworks, setSocialNetworks] = useState<SocialNetwork[]>([]);
   const [remarkedRestaurantId, setRemarkedRestaurantId] = useState<string>('');
   const [reviewLink, setReviewLink] = useState('');
+  const [vkGroupToken, setVkGroupToken] = useState('');
   const [maxCartItemQuantity, setMaxCartItemQuantity] = useState<string>('10');
   const [isDeliveryEnabled, setIsDeliveryEnabled] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -85,6 +87,7 @@ export function EditRestaurantModal({
       setSocialNetworks(restaurant.socialNetworks || []);
       setRemarkedRestaurantId(restaurant.remarkedRestaurantId?.toString() || '');
       setReviewLink(restaurant.reviewLink || '');
+      setVkGroupToken(restaurant.vkGroupToken || '');
       setMaxCartItemQuantity((restaurant as any).maxCartItemQuantity?.toString() || '10');
       setIsDeliveryEnabled(restaurant.isDeliveryEnabled ?? false);
     }
@@ -174,6 +177,7 @@ export function EditRestaurantModal({
           return parsed;
         })() : undefined,
         reviewLink: reviewLink.trim(),
+        vkGroupToken: vkGroupToken.trim() || undefined,
         maxCartItemQuantity: (() => {
           const parsed = parseInt(maxCartItemQuantity.trim(), 10);
           if (isNaN(parsed) || parsed < 1) {
@@ -270,6 +274,19 @@ export function EditRestaurantModal({
             />
             <p className="text-white/60 text-xs mt-1">
               Ссылка на страницу отзывов ресторана. Используется в кнопке "Оставить отзыв"
+            </p>
+          </div>
+
+          <div>
+            <Label className="text-white">VK GROUP TOKEN (опционально)</Label>
+            <Input
+              value={vkGroupToken}
+              onChange={(e) => setVkGroupToken(e.target.value)}
+              placeholder="vk1.a...."
+              type="password"
+            />
+            <p className="text-white/60 text-xs mt-1">
+              Токен сообщества ВК для уведомлений по этому ресторану
             </p>
           </div>
 
