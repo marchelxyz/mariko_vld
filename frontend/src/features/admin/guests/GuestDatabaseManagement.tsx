@@ -82,6 +82,58 @@ function getStatusText(status: Guest['status']): string {
 }
 
 /**
+ * Получить подпись платформы гостя.
+ */
+function getPlatformLabel(platform?: Guest["platform"] | null): string {
+  switch (platform) {
+    case "multi":
+      return "Telegram + VK";
+    case "telegram":
+      return "Telegram";
+    case "vk":
+      return "VK";
+    default:
+      return "";
+  }
+}
+
+/**
+ * Получить бейджи платформы.
+ */
+function renderPlatformBadges(platform?: Guest["platform"] | null): JSX.Element | null {
+  if (!platform) {
+    return null;
+  }
+  if (platform === "multi") {
+    return (
+      <div className="flex flex-wrap items-center gap-1">
+        <span className="text-xs text-blue-200 bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 rounded-full">
+          Telegram
+        </span>
+        <span className="text-xs text-blue-200 bg-blue-600/10 border border-blue-600/30 px-2 py-0.5 rounded-full">
+          VK
+        </span>
+        <span className="text-xs text-white/80 bg-white/10 border border-white/20 px-2 py-0.5 rounded-full">
+          Мульти
+        </span>
+      </div>
+    );
+  }
+  if (platform === "telegram") {
+    return (
+      <span className="text-xs text-blue-200 bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 rounded-full">
+        Telegram
+      </span>
+    );
+  }
+  return (
+    <span className="text-xs text-blue-200 bg-blue-600/10 border border-blue-600/30 px-2 py-0.5 rounded-full">
+      VK
+    </span>
+  );
+}
+
+/**
  * Разделить имя и фамилию
  */
 function splitName(fullName: string | null): { firstName: string; lastName: string } {
@@ -148,6 +200,7 @@ function exportToCSV(guests: Guest[], filename: string): void {
     'Город',
     'Ресторан',
     'Статус',
+    'Платформа',
     'Верифицирован',
     'Дата создания',
   ];
@@ -164,6 +217,7 @@ function exportToCSV(guests: Guest[], filename: string): void {
       guest.cityName || '',
       guest.favoriteRestaurantName || '',
       getStatusText(guest.status),
+      getPlatformLabel(guest.platform),
       guest.isVerified ? 'Да' : 'Нет',
       guest.createdAt ? new Date(guest.createdAt).toLocaleDateString('ru-RU') : '',
     ];
@@ -501,6 +555,7 @@ export function GuestDatabaseManagement(): JSX.Element {
               <thead>
                 <tr className="border-b border-white/10">
                   <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Статус</th>
+                  <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Платформа</th>
                   <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Имя</th>
                   <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Фамилия</th>
                   <th className="text-left p-3 md:p-4 text-white/70 font-medium text-sm font-bold">Телефон</th>
@@ -538,6 +593,11 @@ export function GuestDatabaseManagement(): JSX.Element {
                           </span>
                         )}
                       </div>
+                    </td>
+                    <td className="p-3 md:p-4">
+                      {renderPlatformBadges(guest.platform) || (
+                        <span className="text-xs text-white/50">—</span>
+                      )}
                     </td>
                     <td className="p-3 md:p-4 text-white font-medium">{firstName}</td>
                     <td className="p-3 md:p-4 text-white font-medium">{lastName}</td>
@@ -602,6 +662,11 @@ export function GuestDatabaseManagement(): JSX.Element {
                   <p className="text-white font-medium">{selectedGuest.name}</p>
                   {selectedGuest.phone && (
                     <p className="text-white/70 text-sm">{selectedGuest.phone}</p>
+                  )}
+                  {selectedGuest.platform && (
+                    <p className="text-white/70 text-sm">
+                      Платформа: {getPlatformLabel(selectedGuest.platform)}
+                    </p>
                   )}
                 </div>
               </DialogDescription>
