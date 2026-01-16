@@ -2,7 +2,8 @@ import { getCartApiBaseUrl } from "@shared/api/cart";
 import type { CartOrderRecord } from "@shared/api/cart";
 import type { Permission, UserRole } from "@shared/types";
 import type { AppSettings } from "@shared/api/settings";
-import { getUser } from "@/lib/telegram";
+import { getPlatform, getUser } from "@/lib/platform";
+import { getVk } from "@/lib/vkCore";
 import { logger } from "@/lib/logger";
 
 function normalizeBaseUrl(base: string | undefined): string {
@@ -83,6 +84,22 @@ const parseAdminVkIds = (raw: string | undefined): Set<string> => {
   );
 };
 const ADMIN_VK_IDS = parseAdminVkIds(import.meta.env.VITE_ADMIN_VK_IDS);
+
+const getVkUserId = (): string | undefined => {
+  const vk = getVk();
+  const initUserId = vk?.initDataUnsafe?.user?.id;
+  if (initUserId) {
+    return String(initUserId);
+  }
+  if (typeof window !== "undefined") {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paramId = urlParams.get("vk_user_id");
+    if (paramId && /^\d+$/.test(paramId)) {
+      return paramId;
+    }
+  }
+  return undefined;
+};
 
 export type AdminRole = UserRole;
 
