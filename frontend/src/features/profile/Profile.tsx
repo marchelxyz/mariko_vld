@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { ProfileAvatar, useProfile } from "@entities/user";
 import { Settings, Check, X, Pencil } from "lucide-react";
-import { useToast } from "@/hooks";
+import { useAppSettings, useToast } from "@/hooks";
 import { getCleanPhoneNumber, usePhoneInput } from "@shared/hooks";
 import {
   Button,
@@ -17,11 +17,13 @@ import {
 } from "@shared/ui";
 import type { UserProfile } from "@shared/types";
 
-type EditableFieldType = "name" | "birthDate" | "gender" | "phone" | null;
+type FieldKey = "name" | "birthDate" | "gender" | "phone";
+type EditableFieldType = FieldKey | null;
 
 const Profile = () => {
   const navigate = useNavigate();
   const { profile, loading, updateProfile } = useProfile();
+  const { settings } = useAppSettings();
   const { toast: showToast } = useToast();
   const phoneInput = usePhoneInput();
   
@@ -29,6 +31,11 @@ const Profile = () => {
   const [editingField, setEditingField] = useState<EditableFieldType>(null);
   const [editValue, setEditValue] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isConsentDialogOpen, setIsConsentDialogOpen] = useState(false);
+  const [consentChecked, setConsentChecked] = useState(false);
+  const [policyChecked, setPolicyChecked] = useState(false);
+  const [pendingField, setPendingField] = useState<FieldKey | null>(null);
+  const [pendingValue, setPendingValue] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
   const selectRef = useRef<HTMLSelectElement>(null);
   
@@ -120,22 +127,37 @@ const Profile = () => {
       return;
     }
 
+    const nextValue =
+      editingField === "phone" ? getCleanPhoneNumber(phoneInput.value || "") : editValue;
+    const needsConsent =
+      isPersonalDataField(editingField) &&
+      (!profile.personalDataConsentGiven || !profile.personalDataPolicyConsentGiven);
+
+    if (needsConsent) {
+      setPendingField(editingField);
+      setPendingValue(nextValue);
+      setConsentChecked(false);
+      setPolicyChecked(false);
+      setIsConsentDialogOpen(true);
+      return;
+    }
+
     setIsSaving(true);
     try {
       const updateData: Partial<UserProfile> = {};
       
       switch (editingField) {
         case "name":
-          updateData.name = editValue;
+          updateData.name = nextValue;
           break;
         case "birthDate":
-          updateData.birthDate = editValue;
+          updateData.birthDate = nextValue;
           break;
         case "gender":
-          updateData.gender = editValue;
+          updateData.gender = nextValue;
           break;
         case "phone":
-          updateData.phone = getCleanPhoneNumber(phoneInput.value || "");
+          updateData.phone = nextValue;
           break;
       }
 
@@ -160,6 +182,46 @@ const Profile = () => {
   function cancelEditing() {
     setEditingField(null);
     setEditValue("");
+  }
+
+  async function handleConfirmConsentSave() {
+    if (!pendingField || isSaving) {
+      return;
+    }
+    if (!consentChecked || !policyChecked) {
+      showToast({
+        title: "Нужны согласия",
+        description: "Чтобы сохранить данные, отметьте оба согласия.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const updateData: Partial<UserProfile> = {
+        ...buildConsentUpdatePayload(),
+        [pendingField]: pendingValue,
+      };
+      if (pendingField === "phone") {
+        updateData.phone = getCleanPhoneNumber(pendingValue);
+      }
+      const success = await updateProfile(updateData);
+      if (success) {
+        showToast({ title: "Сохранено", description: "Изменения успешно сохранены" });
+        setEditingField(null);
+        setEditValue("");
+        setIsConsentDialogOpen(false);
+        setPendingField(null);
+        setPendingValue("");
+      } else {
+        throw new Error("Не удалось сохранить");
+      }
+    } catch {
+      showToast({ title: "Ошибка", description: "Не удалось сохранить изменения", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   /**
