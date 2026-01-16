@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { getTg, getUser } from "@/lib/telegramCore";
 
 function normalizeBaseUrl(base: string): string {
   if (!base || base === "/") {
@@ -68,6 +69,15 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
       ...(options?.headers ?? {}),
     },
   };
+
+  const telegramUser = getUser();
+  if (telegramUser?.id) {
+    (fetchOptions.headers as Record<string, string>)["X-Telegram-Id"] = String(telegramUser.id);
+  }
+  const telegramApp = getTg();
+  if (telegramApp?.initData) {
+    (fetchOptions.headers as Record<string, string>)["X-Telegram-Init-Data"] = telegramApp.initData;
+  }
 
   if (options?.body) {
     fetchOptions.body = options.body;
