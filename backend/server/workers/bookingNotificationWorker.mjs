@@ -1,5 +1,6 @@
 import { logger } from "../utils/logger.mjs";
 import { sendTelegramMessage } from "../services/telegramService.mjs";
+import { sendVKMessage } from "../services/vkMessageService.mjs";
 import {
   fetchPendingBookingNotifications,
   markBookingNotificationFailed,
@@ -34,9 +35,25 @@ const handleTelegramNotification = async (notification) => {
   }
 };
 
+const handleVkNotification = async (notification) => {
+  const payload = normalizePayload(notification.payload);
+  const result = await sendVKMessage({
+    vkUserId: notification.recipient_id,
+    text: notification.message,
+    tokenOverride: payload.vkGroupToken || null,
+  });
+  if (!result?.success) {
+    throw new Error(result?.error || "VK send failed");
+  }
+};
+
 const processNotification = async (notification) => {
   if (notification.platform === "telegram") {
     await handleTelegramNotification(notification);
+    return;
+  }
+  if (notification.platform === "vk") {
+    await handleVkNotification(notification);
     return;
   }
   throw new Error(`Unsupported platform: ${notification.platform}`);

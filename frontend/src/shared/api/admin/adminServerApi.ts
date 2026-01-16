@@ -442,7 +442,12 @@ export const adminServerApi = {
 
   async updateBookingStatus(
     bookingId: string,
-    payload: { status: string; sendNotification?: boolean; customMessage?: string },
+    payload: {
+      status: string;
+      sendNotification?: boolean;
+      customMessage?: string;
+      platform?: "telegram" | "vk" | null;
+    },
   ): Promise<UpdateBookingStatusResponse> {
     const response = await fetch(
       `${ADMIN_API_BASE}/bookings/${encodeURIComponent(bookingId)}/status`,

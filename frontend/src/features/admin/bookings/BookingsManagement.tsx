@@ -91,6 +91,7 @@ export default function BookingsManagement(): JSX.Element {
         status: pendingChange.status,
         sendNotification,
         customMessage: trimmedMessage ? trimmedMessage : undefined,
+        platform: pendingChange.booking.platform ?? null,
       });
       if (sendNotification && result.notification && !result.notification.success) {
         alert(result.notification.error || "Не удалось отправить сообщение");
