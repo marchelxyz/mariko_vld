@@ -1,7 +1,8 @@
-import { VK_API_VERSION, VK_GROUP_TOKEN, VK_GROUP_TOKENS } from "../config.mjs";
+import { VK_GROUP_TOKEN, VK_GROUP_TOKENS } from "../config.mjs";
 import { logger } from "../utils/logger.mjs";
 
 const VK_API_BASE = "https://api.vk.com/method";
+const VK_API_VERSION = process.env.VK_API_VERSION ?? "5.199";
 
 const resolveVkToken = (tokenOverride) => {
   if (tokenOverride) {
