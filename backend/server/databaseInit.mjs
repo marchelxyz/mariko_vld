@@ -791,7 +791,7 @@ export async function initializeDatabase() {
       await query(
         `INSERT INTO app_settings (key, value)
          VALUES
-           ('support_email', 'support@vhachapuri.ru'),
+           ('support_telegram_url', ''),
            ('personal_data_consent_url', 'https://vhachapuri.ru/policy'),
            ('personal_data_policy_url', 'https://vhachapuri.ru/policy')
          ON CONFLICT (key) DO NOTHING`,
