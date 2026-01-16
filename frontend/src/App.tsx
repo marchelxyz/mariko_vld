@@ -49,7 +49,6 @@ const queryClient = new QueryClient({
 function AppContent() {
   useEnsureUserProfileSync();
   const { profile, isInitialized } = useProfile();
-  const { profile, isInitialized } = useProfile();
 
   useEffect(() => {
     logger.componentLifecycle('App', 'mount');
