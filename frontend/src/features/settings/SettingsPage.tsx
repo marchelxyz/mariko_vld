@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { RotateCcw, MessageSquare } from "lucide-react";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { Button } from "@shared/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { useProfile } from "@/entities/user";
+import { useAppSettings } from "@/hooks";
 import { useOnboardingContext } from "@/contexts/OnboardingContext";
 import { profileApi } from "@/shared/api/profile";
 import { cn } from "@shared/utils";
@@ -12,8 +13,32 @@ import { cn } from "@shared/utils";
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { profile, refetch: refetchProfile } = useProfile();
+  const { settings } = useAppSettings();
   const { setOnboardingTourShown } = useOnboardingContext();
   const [isProcessing, setIsProcessing] = useState(false);
+  const supportEmail = settings.supportEmail?.trim();
+  const supportPayload = useMemo(() => {
+    if (typeof window === "undefined") {
+      return "";
+    }
+    const name = profile?.name || "Не указано";
+    const phone = profile?.phone || "Не указан";
+    const userAgent = window.navigator.userAgent;
+    const platform = window.navigator.platform;
+    const language = window.navigator.language;
+    const screen = `${window.screen.width}x${window.screen.height}`;
+    return [
+      `ФИО: ${name}`,
+      `Телефон: ${phone}`,
+      `Платформа: ${platform}`,
+      `Язык: ${language}`,
+      `Экран: ${screen}`,
+      `User-Agent: ${userAgent}`,
+    ].join("\n");
+  }, [profile?.name, profile?.phone]);
+  const supportLink = supportEmail
+    ? `mailto:${encodeURIComponent(supportEmail)}?subject=${encodeURIComponent("Поддержка Марико")}&body=${encodeURIComponent(supportPayload)}`
+    : "";
 
   const handleBackClick = () => {
     navigate("/profile");
@@ -266,11 +291,21 @@ export default function SettingsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    disabled
-                    className="border-white/20 !text-black/50 cursor-not-allowed flex items-center gap-2 hover:!text-black/50"
+                    asChild
+                    disabled={!supportLink}
+                    className="border-white/20 !text-black flex items-center gap-2 hover:!text-black"
                   >
-                    <MessageSquare className="w-4 h-4" />
-                    В разработке
+                    {supportLink ? (
+                      <a href={supportLink}>
+                        <MessageSquare className="w-4 h-4" />
+                        Написать
+                      </a>
+                    ) : (
+                      <span className="inline-flex items-center gap-2 opacity-60">
+                        <MessageSquare className="w-4 h-4" />
+                        Почта не указана
+                      </span>
+                    )}
                   </Button>
                 </div>
               </div>

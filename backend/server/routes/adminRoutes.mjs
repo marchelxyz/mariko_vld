@@ -44,6 +44,17 @@ const formatBookingTime = (value) => {
   return timeString.replace("Z", "").slice(0, 5);
 };
 
+const normalizeDateFilter = (value) => {
+  if (!value || typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
+};
+
 const buildBookingTelegramMessage = (booking, status) => {
   const name = booking.customer_name || "Гость";
   const date = formatBookingDate(booking.booking_date);
@@ -526,6 +537,8 @@ export function createAdminRouter() {
       : null;
     const restaurantFilter =
       typeof req.query?.restaurantId === "string" ? req.query.restaurantId.trim() : null;
+    const fromDate = normalizeDateFilter(req.query?.fromDate);
+    const toDate = normalizeDateFilter(req.query?.toDate);
 
     if (
       restaurantFilter &&
@@ -573,6 +586,16 @@ export function createAdminRouter() {
       if (restaurantFilter) {
         queryText += ` AND b.restaurant_id = $${paramIndex++}`;
         params.push(restaurantFilter);
+      }
+
+      if (fromDate) {
+        queryText += ` AND b.booking_date >= $${paramIndex++}`;
+        params.push(fromDate);
+      }
+
+      if (toDate) {
+        queryText += ` AND b.booking_date <= $${paramIndex++}`;
+        params.push(toDate);
       }
 
       if (admin.role !== "super_admin" && admin.role !== "admin") {
