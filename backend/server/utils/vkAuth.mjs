@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
-import { VK_SECRET_KEY, VK_SERVICE_KEY } from "../config.mjs";
+
+const VK_SECRET_KEY = process.env.VK_SECRET_KEY ?? null;
+const VK_SERVICE_KEY = process.env.VK_SERVICE_KEY ?? null;
 
 /**
  * Проверяет подпись VK initData.
