@@ -172,7 +172,6 @@ const SCHEMAS = {
       social_networks JSONB DEFAULT '[]'::jsonb,
       remarked_restaurant_id INTEGER,
       review_link TEXT,
-      vk_group_token TEXT,
       max_cart_item_quantity INTEGER DEFAULT 10,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -690,24 +689,6 @@ export async function initializeDatabase() {
       }
     } catch (error) {
       console.warn("⚠️  Предупреждение при добавлении поля max_cart_item_quantity:", error?.message || error);
-    }
-
-    // Миграция: добавляем поле vk_group_token в таблицу restaurants
-    try {
-      const columnExists = await query(`
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name = 'restaurants' AND column_name = 'vk_group_token'
-      `);
-      
-      if (columnExists.rows.length === 0) {
-        await query(`ALTER TABLE restaurants ADD COLUMN vk_group_token TEXT`);
-        console.log("✅ Поле vk_group_token добавлено в таблицу restaurants");
-      } else {
-        console.log("ℹ️  Поле vk_group_token уже существует в таблице restaurants");
-      }
-    } catch (error) {
-      console.warn("⚠️  Предупреждение при добавлении поля vk_group_token:", error?.message || error);
     }
 
     // Миграция: добавляем поле onboarding_tour_shown в таблицу user_profiles
