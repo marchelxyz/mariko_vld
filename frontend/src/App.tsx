@@ -33,7 +33,6 @@ const Franchise = lazy(() => import("./pages/franchise"));
 const NotFound = lazy(() => import("./pages/notFound"));
 const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
 const BlockedPage = lazy(() => import("./pages/blocked"));
-const BlockedPage = lazy(() => import("./pages/blocked"));
 
 // Create a query client
 const queryClient = new QueryClient({
