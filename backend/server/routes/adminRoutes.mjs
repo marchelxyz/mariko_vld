@@ -542,6 +542,8 @@ export function createAdminRouter() {
       : null;
     const restaurantFilter =
       typeof req.query?.restaurantId === "string" ? req.query.restaurantId.trim() : null;
+    const fromDate = normalizeDateFilter(req.query?.fromDate);
+    const toDate = normalizeDateFilter(req.query?.toDate);
 
     if (
       restaurantFilter &&
