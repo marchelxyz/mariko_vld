@@ -1,8 +1,12 @@
-import { VK_GROUP_TOKEN, VK_GROUP_TOKENS } from "../config.mjs";
 import { logger } from "../utils/logger.mjs";
 
 const VK_API_BASE = "https://api.vk.com/method";
 const VK_API_VERSION = process.env.VK_API_VERSION ?? "5.199";
+const VK_GROUP_TOKEN = process.env.VK_GROUP_TOKEN ?? process.env.VK_MESSAGE_GROUP_TOKEN ?? null;
+const VK_GROUP_TOKENS = (process.env.VK_GROUP_TOKENS ?? "")
+  .split(",")
+  .map((token) => token.trim())
+  .filter(Boolean);
 
 const resolveVkToken = (tokenOverride) => {
   if (tokenOverride) {
