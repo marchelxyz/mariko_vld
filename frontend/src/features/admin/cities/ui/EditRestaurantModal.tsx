@@ -283,7 +283,7 @@ export function EditRestaurantModal({
               value={vkGroupToken}
               onChange={(e) => setVkGroupToken(e.target.value)}
               placeholder="vk1.a...."
-              type="password"
+              type="text"
             />
             <p className="text-white/60 text-xs mt-1">
               Токен сообщества ВК для уведомлений по этому ресторану
