@@ -1,11 +1,11 @@
 export type AppSettings = {
-  supportEmail: string;
+  supportTelegramUrl: string;
   personalDataConsentUrl: string;
   personalDataPolicyUrl: string;
 };
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
-  supportEmail: "support@vhachapuri.ru",
+  supportTelegramUrl: "",
   personalDataConsentUrl: "https://vhachapuri.ru/policy",
   personalDataPolicyUrl: "https://vhachapuri.ru/policy",
 };

@@ -9,7 +9,7 @@ import { safeOpenLink } from "@/lib/telegramCore";
 const BlockedPage = () => {
   const { settings } = useAppSettings();
   const { profile } = useProfile();
-  const supportEmail = settings.supportEmail?.trim();
+  const supportTelegramUrl = settings.supportTelegramUrl?.trim();
   const supportSubject = "Поддержка заблокированного пользователя Марико";
   const supportPayload = useMemo(() => {
     if (typeof window === "undefined") {
@@ -23,6 +23,7 @@ const BlockedPage = () => {
     const screen = `${window.screen.width}x${window.screen.height}`;
     const appPlatform = resolveAppPlatformName();
     return [
+      `Тема: ${supportSubject}`,
       `ФИО: ${name}`,
       `Телефон: ${phone}`,
       `Платформа приложения: ${appPlatform}`,
@@ -33,30 +34,27 @@ const BlockedPage = () => {
       "",
       "Причина: блокировка пользователя",
     ].join("\n");
-  }, [profile?.name, profile?.phone]);
-  const supportMailto = supportEmail
-    ? `mailto:${encodeURIComponent(supportEmail)}?subject=${encodeURIComponent(supportSubject)}&body=${encodeURIComponent(supportPayload)}`
+  }, [profile?.name, profile?.phone, supportSubject]);
+  const supportLink = supportTelegramUrl
+    ? buildTelegramSupportLink(supportTelegramUrl, supportPayload)
     : "";
   const isTelegramWebApp = typeof window !== "undefined" && Boolean(window.Telegram?.WebApp);
 
   const handleSupportClick = () => {
-    if (!supportEmail) {
+    if (!supportTelegramUrl || !supportLink) {
       return;
-    }
-    if (!supportMailto) {
-      return;
-    }
-    if (isTelegramWebApp) {
-      const opened = safeOpenLink(supportMailto);
-      if (opened) {
-        return;
-      }
     }
     if (typeof window !== "undefined") {
-      window.location.href = supportMailto;
+      if (isTelegramWebApp) {
+        const opened = safeOpenLink(supportLink);
+        if (opened) {
+          return;
+        }
+      }
+      window.location.href = supportLink;
       return;
     }
-    safeOpenLink(supportMailto);
+    safeOpenLink(supportLink);
   };
 
   return (
@@ -74,11 +72,11 @@ const BlockedPage = () => {
           <Button
             variant="default"
             className="inline-flex items-center gap-2"
-            disabled={!supportEmail}
+            disabled={!supportTelegramUrl}
             onClick={handleSupportClick}
           >
             <Mail className="w-4 h-4" />
-            {supportEmail ? "Написать в поддержку" : "Почта поддержки не указана"}
+            {supportTelegramUrl ? "Написать в поддержку" : "Ссылка не указана"}
           </Button>
         </div>
       </div>
@@ -118,4 +116,29 @@ function isVkEnvironment(): boolean {
   }
   const href = window.location.href.toLowerCase();
   return href.includes("vk.com") || href.includes("vk.ru");
+}
+
+/**
+ * Собирает ссылку на поддержку в Telegram с текстом обращения.
+ */
+function buildTelegramSupportLink(baseUrl: string, message: string): string {
+  const trimmed = baseUrl.trim();
+  if (!trimmed) {
+    return "";
+  }
+  try {
+    const url = new URL(trimmed);
+    if (url.hostname.endsWith("t.me")) {
+      url.searchParams.set("text", message);
+      return url.toString();
+    }
+    if (url.protocol === "tg:") {
+      url.searchParams.set("text", message);
+      return url.toString();
+    }
+  } catch {
+    // fallback ниже
+  }
+  const separator = trimmed.includes("?") ? "&" : "?";
+  return `${trimmed}${separator}text=${encodeURIComponent(message)}`;
 }
