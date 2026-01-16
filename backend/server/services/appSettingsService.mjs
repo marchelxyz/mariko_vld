@@ -1,13 +1,13 @@
 import { query, queryMany } from "../postgresClient.mjs";
 
 export const SETTINGS_KEYS = {
-  supportEmail: "support_email",
+  supportTelegramUrl: "support_telegram_url",
   personalDataConsentUrl: "personal_data_consent_url",
   personalDataPolicyUrl: "personal_data_policy_url",
 };
 
 export const DEFAULT_SETTINGS = {
-  supportEmail: "support@vhachapuri.ru",
+  supportTelegramUrl: "",
   personalDataConsentUrl: "https://vhachapuri.ru/policy",
   personalDataPolicyUrl: "https://vhachapuri.ru/policy",
 };
@@ -20,7 +20,8 @@ export const getAppSettings = async () => {
   );
   const mapped = new Map(rows.map((row) => [row.key, row.value]));
   return {
-    supportEmail: mapped.get(SETTINGS_KEYS.supportEmail) ?? DEFAULT_SETTINGS.supportEmail,
+    supportTelegramUrl:
+      mapped.get(SETTINGS_KEYS.supportTelegramUrl) ?? DEFAULT_SETTINGS.supportTelegramUrl,
     personalDataConsentUrl:
       mapped.get(SETTINGS_KEYS.personalDataConsentUrl) ?? DEFAULT_SETTINGS.personalDataConsentUrl,
     personalDataPolicyUrl:
@@ -30,8 +31,8 @@ export const getAppSettings = async () => {
 
 export const updateAppSettings = async (updates = {}) => {
   const entries = [];
-  if (updates.supportEmail !== undefined) {
-    entries.push([SETTINGS_KEYS.supportEmail, String(updates.supportEmail).trim()]);
+  if (updates.supportTelegramUrl !== undefined) {
+    entries.push([SETTINGS_KEYS.supportTelegramUrl, String(updates.supportTelegramUrl).trim()]);
   }
   if (updates.personalDataConsentUrl !== undefined) {
     entries.push([SETTINGS_KEYS.personalDataConsentUrl, String(updates.personalDataConsentUrl).trim()]);
