@@ -339,9 +339,8 @@ const INDEXES = [
     `CREATE INDEX IF NOT EXISTS idx_city_recommended_dishes_city_id ON city_recommended_dishes(city_id);`,
     `CREATE INDEX IF NOT EXISTS idx_city_recommended_dishes_menu_item_id ON city_recommended_dishes(menu_item_id);`,
     `CREATE INDEX IF NOT EXISTS idx_city_recommended_dishes_display_order ON city_recommended_dishes(display_order);`,
-    `CREATE INDEX IF NOT EXISTS idx_saved_carts_user_id ON saved_carts(user_id);`,
-    `CREATE INDEX IF NOT EXISTS idx_saved_carts_telegram_id ON saved_carts(telegram_id);`,
-    `CREATE INDEX IF NOT EXISTS idx_saved_carts_vk_id ON saved_carts(vk_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_user_carts_user_id ON user_carts(user_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_user_carts_updated_at ON user_carts(updated_at DESC);`,
     `CREATE INDEX IF NOT EXISTS idx_booking_notifications_status ON booking_notifications(status);`,
     `CREATE INDEX IF NOT EXISTS idx_booking_notifications_scheduled ON booking_notifications(scheduled_at);`,
     `CREATE INDEX IF NOT EXISTS idx_booking_notifications_platform ON booking_notifications(platform);`,
@@ -760,6 +759,98 @@ export async function initializeDatabase() {
     }
 
     // Миграция: добавляем поля согласий на обработку персональных данных
+    try {
+      const consentColumns = await query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'user_profiles'
+          AND column_name IN (
+            'personal_data_consent_given',
+            'personal_data_consent_date',
+            'personal_data_policy_consent_given',
+            'personal_data_policy_consent_date'
+          )
+      `);
+      const existingColumns = new Set(consentColumns.rows.map((row) => row.column_name));
+      if (!existingColumns.has('personal_data_consent_given')) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN personal_data_consent_given BOOLEAN DEFAULT false`);
+        console.log("✅ Поле personal_data_consent_given добавлено в таблицу user_profiles");
+      }
+      if (!existingColumns.has('personal_data_consent_date')) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN personal_data_consent_date TIMESTAMP`);
+        console.log("✅ Поле personal_data_consent_date добавлено в таблицу user_profiles");
+      }
+      if (!existingColumns.has('personal_data_policy_consent_given')) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN personal_data_policy_consent_given BOOLEAN DEFAULT false`);
+        console.log("✅ Поле personal_data_policy_consent_given добавлено в таблицу user_profiles");
+      }
+      if (!existingColumns.has('personal_data_policy_consent_date')) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN personal_data_policy_consent_date TIMESTAMP`);
+        console.log("✅ Поле personal_data_policy_consent_date добавлено в таблицу user_profiles");
+      }
+      if (
+        existingColumns.has('personal_data_consent_given') &&
+        existingColumns.has('personal_data_consent_date') &&
+        existingColumns.has('personal_data_policy_consent_given') &&
+        existingColumns.has('personal_data_policy_consent_date')
+      ) {
+        console.log("ℹ️  Поля согласий уже существуют в таблице user_profiles");
+      }
+    } catch (error) {
+      console.warn("⚠️  Предупреждение при добавлении полей согласий:", error?.message || error);
+    }
+
+    // Миграция: добавляем поля блокировки пользователя
+    try {
+      const banColumns = await query(`
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'user_profiles'
+          AND column_name IN ('is_banned', 'banned_at', 'banned_reason')
+      `);
+
+      const existingBanColumns = new Set(banColumns.rows.map((row) => row.column_name));
+
+      if (!existingBanColumns.has('is_banned')) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN is_banned BOOLEAN DEFAULT false`);
+        console.log("✅ Поле is_banned добавлено в таблицу user_profiles");
+      }
+      if (!existingBanColumns.has('banned_at')) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN banned_at TIMESTAMP`);
+        console.log("✅ Поле banned_at добавлено в таблицу user_profiles");
+      }
+      if (!existingBanColumns.has('banned_reason')) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN banned_reason TEXT`);
+        console.log("✅ Поле banned_reason добавлено в таблицу user_profiles");
+      }
+
+      if (
+        existingBanColumns.has('is_banned') &&
+        existingBanColumns.has('banned_at') &&
+        existingBanColumns.has('banned_reason')
+      ) {
+        console.log("ℹ️  Поля блокировки уже существуют в таблице user_profiles");
+      }
+    } catch (error) {
+      console.warn("⚠️  Предупреждение при добавлении полей блокировки:", error?.message || error);
+    }
+
+    // Миграция: базовые настройки приложения
+    try {
+      await query(
+        `INSERT INTO app_settings (key, value)
+         VALUES
+           ('support_telegram_url', ''),
+           ('personal_data_consent_url', 'https://vhachapuri.ru/policy'),
+           ('personal_data_policy_url', 'https://vhachapuri.ru/policy')
+         ON CONFLICT (key) DO NOTHING`,
+      );
+      console.log("✅ Базовые настройки приложения добавлены");
+    } catch (error) {
+      console.warn("⚠️  Предупреждение при добавлении настроек приложения:", error?.message || error);
+    }
+
+    // Миграция: добавляем поле calories в таблицу menu_items
     try {
       const consentColumns = await query(`
         SELECT column_name 

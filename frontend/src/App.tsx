@@ -6,7 +6,6 @@ import { DebugGrid } from "@/components/DebugGrid";
 import { AdminProvider, CartProvider, RestaurantProvider, DebugGridProvider, OnboardingProvider } from "@/contexts";
 import { useEnsureUserProfileSync } from "@/hooks";
 import { useProfile } from "@/entities/user";
-import { useProfile } from "@/entities/user";
 import { logger } from "@/lib/logger";
 import { isActive, onActivated, onDeactivated, requestFullscreenMode } from "@/lib/platform";
 import { Toaster as SonnerToaster } from "@shared/ui/sonner";

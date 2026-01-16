@@ -18,10 +18,115 @@ type AdminContextValue = {
 
 const AdminContext = createContext<AdminContextValue | undefined>(undefined);
 
-/**
- * AdminProvider - провайдер для админ-контекста.
- * Загружает данные администратора через API и предоставляет их через контекст.
- */
+const ADMIN_STORAGE_KEY = "mariko_admin_roles_v1";
+
+type AdminStorageData = {
+  isAdmin: boolean;
+  userRole: UserRole;
+  permissions: Permission[];
+  userId: string;
+  allowedRestaurants: string[];
+  timestamp: number;
+};
+
+const ADMIN_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 часа
+
+const loadAdminFromStorage = (): AdminStorageData | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    const raw = window.sessionStorage?.getItem(ADMIN_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as AdminStorageData;
+    // Проверяем, не устарели ли данные
+    const now = Date.now();
+    if (parsed.timestamp && now - parsed.timestamp > ADMIN_CACHE_DURATION) {
+      window.sessionStorage?.removeItem(ADMIN_STORAGE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch (error) {
+    logger.warn('admin', 'Не удалось загрузить данные админа из хранилища', undefined, error instanceof Error ? error : new Error(String(error)));
+    return null;
+  }
+};
+
+const saveAdminToStorage = (data: Omit<AdminStorageData, 'timestamp'>) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    const payload: AdminStorageData = {
+      ...data,
+      timestamp: Date.now(),
+    };
+    window.sessionStorage?.setItem(ADMIN_STORAGE_KEY, JSON.stringify(payload));
+  } catch (error) {
+    logger.warn('admin', 'Не удалось сохранить данные админа в хранилище', undefined, error instanceof Error ? error : new Error(String(error)));
+  }
+};
+
+const derivePermissions = (role: UserRole): Permission[] => {
+  switch (role) {
+    case UserRole.SUPER_ADMIN:
+      return Object.values(Permission);
+    case UserRole.ADMIN:
+      return [
+        Permission.MANAGE_ROLES,
+        Permission.MANAGE_RESTAURANTS,
+        Permission.MANAGE_MENU,
+        Permission.MANAGE_PROMOTIONS,
+        Permission.MANAGE_DELIVERIES,
+        Permission.MANAGE_USERS,
+        Permission.VIEW_CITIES,
+        Permission.VIEW_RESTAURANTS,
+        Permission.VIEW_USERS,
+        Permission.VIEW_MENU,
+      ];
+    case UserRole.MANAGER:
+      return [
+        Permission.MANAGE_RESTAURANTS,
+        Permission.MANAGE_MENU,
+        Permission.MANAGE_PROMOTIONS,
+        Permission.MANAGE_DELIVERIES,
+        Permission.VIEW_RESTAURANTS,
+        Permission.VIEW_MENU,
+      ];
+    case UserRole.RESTAURANT_MANAGER:
+      return [
+        Permission.MANAGE_MENU,
+        Permission.MANAGE_DELIVERIES,
+        Permission.VIEW_MENU,
+      ];
+    case UserRole.MARKETER:
+      return [Permission.MANAGE_PROMOTIONS];
+    case UserRole.DELIVERY_MANAGER:
+      return [Permission.MANAGE_DELIVERIES];
+    default:
+      return [];
+  }
+};
+
+const isPermissionValue = (value: unknown): value is Permission =>
+  Object.values(Permission).includes(value as Permission);
+
+const mapRole = (value: string): UserRole => {
+  switch (value) {
+    case UserRole.SUPER_ADMIN:
+    case UserRole.ADMIN:
+    case UserRole.MANAGER:
+    case UserRole.RESTAURANT_MANAGER:
+    case UserRole.MARKETER:
+    case UserRole.DELIVERY_MANAGER:
+      return value;
+    default:
+      return UserRole.USER;
+  }
+};
+
 export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Element => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);

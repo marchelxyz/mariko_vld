@@ -1,5 +1,5 @@
 import { logger } from "../utils/logger.mjs";
-import { sendVKMessage } from "../services/vkMessageService.mjs";
+import { sendTelegramMessage } from "../services/telegramService.mjs";
 import {
   fetchPendingBookingNotifications,
   markBookingNotificationFailed,
@@ -22,21 +22,21 @@ const normalizePayload = (payload) => {
   }
 };
 
-const handleVkNotification = async (notification) => {
+const handleTelegramNotification = async (notification) => {
   const payload = normalizePayload(notification.payload);
-  const result = await sendVKMessage({
-    vkUserId: notification.recipient_id,
+  const result = await sendTelegramMessage({
+    telegramId: notification.recipient_id,
     text: notification.message,
-    tokenOverride: payload.vkGroupToken || null,
+    replyMarkup: payload.replyMarkup,
   });
   if (!result?.success) {
-    throw new Error(result?.error || "VK send failed");
+    throw new Error(result?.error || "Telegram send failed");
   }
 };
 
 const processNotification = async (notification) => {
-  if (notification.platform === "vk") {
-    await handleVkNotification(notification);
+  if (notification.platform === "telegram") {
+    await handleTelegramNotification(notification);
     return;
   }
   throw new Error(`Unsupported platform: ${notification.platform}`);
@@ -54,7 +54,7 @@ const processPendingNotifications = async () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       await markBookingNotificationFailed(notification.id, message);
-      logger.error("vk", error instanceof Error ? error : new Error(message), {
+      logger.error("telegram", error instanceof Error ? error : new Error(message), {
         notificationId: notification.id,
       });
     }
@@ -64,7 +64,7 @@ const processPendingNotifications = async () => {
 export const startBookingNotificationWorker = () => {
   setInterval(() => {
     processPendingNotifications().catch((error) => {
-      logger.error("vk", error instanceof Error ? error : new Error("Worker error"));
+      logger.error("telegram", error instanceof Error ? error : new Error("Worker error"));
     });
   }, WORKER_INTERVAL_MS);
 };

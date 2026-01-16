@@ -1,19 +1,19 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { RotateCcw, MessageSquare } from "lucide-react";
+import { Settings, RotateCcw, MessageSquare, ChevronLeft } from "lucide-react";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { Button } from "@shared/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { useProfile } from "@/entities/user";
 import { useAppSettings } from "@/hooks";
-import { useOnboardingContext } from "@/contexts/OnboardingContext";
 import { profileApi } from "@/shared/api/profile";
 import { cn } from "@shared/utils";
+import { useOnboardingContext } from "@/contexts/OnboardingContext";
 import { safeOpenLink } from "@/lib/telegramCore";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
-  const { profile, refetch: refetchProfile } = useProfile();
+  const { profile, reload: refetchProfile } = useProfile();
   const { settings } = useAppSettings();
   const { setOnboardingTourShown } = useOnboardingContext();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -70,17 +70,73 @@ export default function SettingsPage() {
   const handleRestartTraining = async () => {
     setIsProcessing(true);
     try {
-      // Сбрасываем флаг прохождения обучения через OnboardingContext
+      // Сбрасываем флаг прохождения обучения
       await setOnboardingTourShown(false);
       
       toast({
         title: "Обучение сброшено",
         description: "Теперь вы пройдете обучение заново при следующем входе в приложение",
       });
+      
+      // Обновляем профиль
+      await refetchProfile();
     } catch (error) {
       toast({
         title: "Ошибка",
         description: "Не удалось сбросить обучение. Попробуйте позже.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  /**
+   * Отозвать согласие с политикой обработки персональных данных.
+   */
+  const handleRevokePolicyConsent = async () => {
+    setIsProcessing(true);
+    try {
+      await profileApi.updateUserProfile(profile.id, {
+        personalDataPolicyConsentGiven: false,
+        personalDataPolicyConsentDate: null,
+      });
+      toast({
+        title: "Согласие отозвано",
+        description:
+          "При следующем бронировании вам нужно будет снова согласиться с политикой обработки персональных данных",
+      });
+      await refetchProfile();
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось отозвать согласие. Попробуйте позже.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  /**
+   * Дать согласие с политикой обработки персональных данных.
+   */
+  const handleGivePolicyConsent = async () => {
+    setIsProcessing(true);
+    try {
+      await profileApi.updateUserProfile(profile.id, {
+        personalDataPolicyConsentGiven: true,
+        personalDataPolicyConsentDate: new Date().toISOString(),
+      });
+      toast({
+        title: "Согласие дано",
+        description: "Согласие с политикой обработки персональных данных сохранено",
+      });
+      await refetchProfile();
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось дать согласие. Попробуйте позже.",
         variant: "destructive",
       });
     } finally {
@@ -130,53 +186,6 @@ export default function SettingsPage() {
       });
       
       // Обновляем профиль
-      await refetchProfile();
-    } catch (error) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось дать согласие. Попробуйте позже.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleRevokePolicyConsent = async () => {
-    setIsProcessing(true);
-    try {
-      await profileApi.updateUserProfile(profile.id, {
-        personalDataPolicyConsentGiven: false,
-        personalDataPolicyConsentDate: null,
-      });
-      toast({
-        title: "Согласие отозвано",
-        description:
-          "При следующем бронировании вам нужно будет снова согласиться с политикой обработки персональных данных",
-      });
-      await refetchProfile();
-    } catch (error) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось отозвать согласие. Попробуйте позже.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleGivePolicyConsent = async () => {
-    setIsProcessing(true);
-    try {
-      await profileApi.updateUserProfile(profile.id, {
-        personalDataPolicyConsentGiven: true,
-        personalDataPolicyConsentDate: new Date().toISOString(),
-      });
-      toast({
-        title: "Согласие дано",
-        description: "Согласие с политикой обработки персональных данных сохранено",
-      });
       await refetchProfile();
     } catch (error) {
       toast({

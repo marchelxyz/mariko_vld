@@ -3,220 +3,105 @@ import { useNavigate } from "react-router-dom";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { ProfileAvatar, useProfile } from "@entities/user";
 import { Settings, Check, X, Pencil } from "lucide-react";
-import { useAppSettings, useToast } from "@/hooks";
+import { useToast } from "@/hooks";
 import { getCleanPhoneNumber, usePhoneInput } from "@shared/hooks";
 import type { UserProfile } from "@shared/types";
-import {
-  Checkbox,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  Label,
-  Button,
-} from "@shared/ui";
 
-type FieldKey = "name" | "birthDate" | "gender" | "phone";
-
-type EditableFieldProps = {
-  label: string;
-  value: string;
-  fieldKey: FieldKey;
-  loading?: boolean;
-  isEditing: boolean;
-  onStartEdit: () => void;
-  onSave: (value: string) => Promise<void>;
-  onCancel: () => void;
-};
-
-/**
- * Форматирует ввод даты в формат дд.мм.гггг.
- */
-function formatDateInput(value: string): string {
-  const numbers = value.replace(/\D/g, "");
-  if (numbers.length <= 2) {
-    return numbers;
-  } else if (numbers.length <= 4) {
-    return `${numbers.slice(0, 2)}.${numbers.slice(2)}`;
-  } else {
-    return `${numbers.slice(0, 2)}.${numbers.slice(2, 4)}.${numbers.slice(4, 8)}`;
-  }
-}
-
-/**
- * Проверяет корректность даты рождения.
- */
-function isValidBirthDate(dateStr: string): boolean {
-  if (!dateStr || dateStr.length !== 10) return false;
-  const [day, month, year] = dateStr.split(".").map(Number);
-  const dateObj = new Date(year, month - 1, day);
-  if (isNaN(dateObj.getTime())) return false;
-  if (dateObj.getFullYear() !== year || dateObj.getMonth() !== month - 1 || dateObj.getDate() !== day) {
-    return false;
-  }
-  const currentYear = new Date().getFullYear();
-  if (year < currentYear - 100 || year > currentYear - 14) return false;
-  return true;
-}
-
-/**
- * Компонент редактируемого поля профиля.
- */
-function EditableProfileField({
-  label,
-  value,
-  fieldKey,
-  loading,
-  isEditing,
-  onStartEdit,
-  onSave,
-  onCancel,
-}: EditableFieldProps) {
-  const [editValue, setEditValue] = useState(value);
-  const [isSaving, setIsSaving] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const phoneInput = usePhoneInput(fieldKey === "phone" ? value : "");
-
-  useEffect(() => {
-    if (isEditing) {
-      if (fieldKey === "phone") {
-        phoneInput.setValue(value);
-      } else {
-        setEditValue(value);
-      }
-      // Фокус на поле при начале редактирования
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
-  }, [isEditing, value, fieldKey]);
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      const finalValue = fieldKey === "phone" ? getCleanPhoneNumber(phoneInput.value) : editValue;
-      await onSave(finalValue);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSave();
-    } else if (e.key === "Escape") {
-      onCancel();
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    if (fieldKey === "birthDate") {
-      setEditValue(formatDateInput(e.target.value));
-    } else if (fieldKey === "phone") {
-      phoneInput.onChange(e as React.ChangeEvent<HTMLInputElement>);
-    } else {
-      setEditValue(e.target.value);
-    }
-  };
-
-  // Режим просмотра
-  if (!isEditing) {
-    return (
-      <button
-        onClick={onStartEdit}
-        className="w-full text-left bg-mariko-field rounded-[16px] px-5 md:px-7 py-3 md:py-4 hover:bg-mariko-field/80 transition-colors group cursor-pointer"
-        disabled={loading}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <p className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-1">
-              {label}
-            </p>
-            {loading ? (
-              <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" />
-            ) : (
-              <p className="text-mariko-dark font-el-messiri text-base md:text-lg">
-                {value || "—"}
-              </p>
-            )}
-          </div>
-          <Pencil className="w-4 h-4 text-mariko-dark/40 group-hover:text-mariko-dark/70 transition-colors" />
-        </div>
-      </button>
-    );
-  }
-
-  // Режим редактирования
-  return (
-    <div className="bg-mariko-field rounded-[16px] px-5 md:px-7 py-3 md:py-4">
-      <p className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2">
-        {label}
-      </p>
-      <div className="flex items-center gap-2">
-        {fieldKey === "gender" ? (
-          <select
-            ref={inputRef as unknown as React.RefObject<HTMLSelectElement>}
-            value={editValue || "Не указан"}
-            onChange={handleChange}
-            className="flex-1 bg-white border border-gray-300 text-mariko-dark font-el-messiri text-base md:text-lg rounded-lg px-3 py-2 h-10 md:h-11 focus:outline-none focus:ring-2 focus:ring-mariko-secondary"
-          >
-            <option value="Не указан">Не указан</option>
-            <option value="Мужской">Мужской</option>
-            <option value="Женский">Женский</option>
-          </select>
-        ) : (
-          <input
-            ref={inputRef}
-            type={fieldKey === "phone" ? "tel" : "text"}
-            value={fieldKey === "phone" ? phoneInput.value : editValue}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            placeholder={fieldKey === "birthDate" ? "дд.мм.гггг" : fieldKey === "phone" ? "+7 (999) 123-45-67" : ""}
-            maxLength={fieldKey === "birthDate" ? 10 : undefined}
-            className="flex-1 bg-white border border-gray-300 text-mariko-dark font-el-messiri text-base md:text-lg rounded-lg px-3 py-2 h-10 md:h-11 focus:outline-none focus:ring-2 focus:ring-mariko-secondary"
-          />
-        )}
-        <button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="p-2 rounded-full bg-green-500 hover:bg-green-600 text-white transition-colors disabled:opacity-50"
-          aria-label="Сохранить"
-        >
-          <Check className="w-5 h-5" />
-        </button>
-        <button
-          onClick={onCancel}
-          disabled={isSaving}
-          className="p-2 rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors disabled:opacity-50"
-          aria-label="Отмена"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-    </div>
-  );
-}
+type EditableFieldType = "name" | "birthDate" | "gender" | "phone" | null;
 
 const Profile = () => {
   const navigate = useNavigate();
   const { profile, loading, updateProfile } = useProfile();
-  const { settings } = useAppSettings();
   const { toast: showToast } = useToast();
-  const [editingField, setEditingField] = useState<FieldKey | null>(null);
-  const [isConsentDialogOpen, setIsConsentDialogOpen] = useState(false);
-  const [consentChecked, setConsentChecked] = useState(false);
-  const [policyChecked, setPolicyChecked] = useState(false);
-  const [pendingField, setPendingField] = useState<FieldKey | null>(null);
-  const [pendingValue, setPendingValue] = useState<string>("");
-
+  const phoneInput = usePhoneInput();
+  
+  // Состояние для inline-редактирования
+  const [editingField, setEditingField] = useState<EditableFieldType>(null);
+  const [editValue, setEditValue] = useState<string>("");
+  const [isSaving, setIsSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const selectRef = useRef<HTMLSelectElement>(null);
+  
   const normalizedName = (profile.name || "").trim();
   const hasCustomName = normalizedName.length > 0 && normalizedName !== "Пользователь";
   const greetingText = hasCustomName
     ? `Сердечно встречаем тебя, ${normalizedName}!`
     : "Сердечно встречаем тебя, генацвале!";
 
-  const handleSaveField = async (fieldKey: FieldKey, value: string) => {
+  // Фокус на поле при начале редактирования
+  useEffect(() => {
+    if (editingField && editingField !== "gender") {
+      inputRef.current?.focus();
+    } else if (editingField === "gender") {
+      selectRef.current?.focus();
+    }
+  }, [editingField]);
+
+  /**
+   * Начинает редактирование поля.
+   */
+  function startEditing(field: EditableFieldType) {
+    if (loading || isSaving) return;
+    
+    setEditingField(field);
+    switch (field) {
+      case "name":
+        setEditValue(profile.name || "");
+        break;
+      case "birthDate":
+        setEditValue(profile.birthDate || "");
+        break;
+      case "gender":
+        setEditValue(profile.gender || "Женский");
+        break;
+      case "phone":
+        phoneInput.setValue(profile.phone || "");
+        break;
+    }
+  }
+
+  /**
+   * Форматирует ввод даты рождения.
+   */
+  function formatDateInput(value: string): string {
+    const numbers = value.replace(/\D/g, "");
+    if (numbers.length <= 2) {
+      return numbers;
+    } else if (numbers.length <= 4) {
+      return `${numbers.slice(0, 2)}.${numbers.slice(2)}`;
+    } else {
+      return `${numbers.slice(0, 2)}.${numbers.slice(2, 4)}.${numbers.slice(4, 8)}`;
+    }
+  }
+
+  /**
+   * Проверяет корректность даты рождения.
+   */
+  function isValidBirthDate(dateStr: string): boolean {
+    if (!dateStr || dateStr.length < 10) return false;
+    const [day, month, year] = dateStr.split(".").map(Number);
+    const dateObj = new Date(year, month - 1, day);
+    if (isNaN(dateObj.getTime())) return false;
+    if (
+      dateObj.getFullYear() !== year ||
+      dateObj.getMonth() !== month - 1 ||
+      dateObj.getDate() !== day
+    ) {
+      return false;
+    }
+    const currentYear = new Date().getFullYear();
+    if (year < currentYear - 100 || year > currentYear - 14) return false;
+    return true;
+  }
+
+  /**
+   * Сохраняет изменения в поле.
+   */
+  async function saveField() {
+    if (!editingField || isSaving) return;
+    
     // Валидация даты рождения
-    if (fieldKey === "birthDate" && value && !isValidBirthDate(value)) {
+    if (editingField === "birthDate" && editValue && !isValidBirthDate(editValue)) {
       showToast({
         title: "Ошибка",
         description: "Дата должна быть в формате дд.мм.гггг и валидной",
@@ -225,63 +110,172 @@ const Profile = () => {
       return;
     }
 
-    const needsConsent = isPersonalDataField(fieldKey);
-    const consentMissing =
-      !profile.personalDataConsentGiven || !profile.personalDataPolicyConsentGiven;
-    if (needsConsent && consentMissing) {
-      openConsentDialog(fieldKey, value);
-      return;
-    }
-    await executeProfileUpdate({ [fieldKey]: value });
-  };
-
-  const openConsentDialog = (fieldKey: FieldKey, value: string) => {
-    setPendingField(fieldKey);
-    setPendingValue(value);
-    setConsentChecked(false);
-    setPolicyChecked(false);
-    setIsConsentDialogOpen(true);
-  };
-
-  const handleConfirmConsentSave = async () => {
-    if (!pendingField) {
-      return;
-    }
-    if (!consentChecked || !policyChecked) {
-      showToast({
-        title: "Нужны согласия",
-        description: "Чтобы сохранить данные, отметьте оба согласия.",
-        variant: "destructive",
-      });
-      return;
-    }
-    const updateData = {
-      [pendingField]: pendingValue,
-      ...buildConsentUpdatePayload(),
-    } as Partial<UserProfile>;
-    await executeProfileUpdate(updateData);
-    setIsConsentDialogOpen(false);
-    setPendingField(null);
-    setPendingValue("");
-  };
-
-  const executeProfileUpdate = async (updateData: Partial<UserProfile>) => {
+    setIsSaving(true);
     try {
+      const updateData: Partial<UserProfile> = {};
+      
+      switch (editingField) {
+        case "name":
+          updateData.name = editValue;
+          break;
+        case "birthDate":
+          updateData.birthDate = editValue;
+          break;
+        case "gender":
+          updateData.gender = editValue;
+          break;
+        case "phone":
+          updateData.phone = getCleanPhoneNumber(phoneInput.value || "");
+          break;
+      }
+
       const success = await updateProfile(updateData);
       if (success) {
-        showToast({ title: "Сохранено", description: "Данные успешно обновлены" });
+        showToast({ title: "Сохранено", description: "Изменения успешно сохранены" });
         setEditingField(null);
+        setEditValue("");
       } else {
         throw new Error("Не удалось сохранить");
       }
     } catch {
-      showToast({
-        title: "Ошибка",
-        description: "Не удалось сохранить изменения",
-        variant: "destructive",
-      });
+      showToast({ title: "Ошибка", description: "Не удалось сохранить изменения", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
     }
-  };
+  }
+
+  /**
+   * Отменяет редактирование.
+   */
+  function cancelEditing() {
+    setEditingField(null);
+    setEditValue("");
+  }
+
+  /**
+   * Обработчик нажатия клавиш (Enter для сохранения, Escape для отмены).
+   */
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveField();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      cancelEditing();
+    }
+  }
+
+  /**
+   * Рендерит редактируемое поле профиля.
+   */
+  function renderEditableProfileField(
+    label: string,
+    value: string | undefined,
+    fieldType: EditableFieldType
+  ) {
+    const isEditing = editingField === fieldType;
+    
+    // Режим редактирования
+    if (isEditing) {
+      return (
+        <div className="bg-mariko-field rounded-[16px] px-5 md:px-7 py-3 md:py-4">
+          <p className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2">
+            {label}
+          </p>
+          <div className="flex items-center gap-2">
+            {fieldType === "gender" ? (
+              <select
+                ref={selectRef}
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={isSaving}
+                className="flex-1 bg-white border border-mariko-secondary/30 text-mariko-dark font-el-messiri text-base md:text-lg rounded-lg px-3 py-2 h-10 md:h-11 focus:outline-none focus:ring-2 focus:ring-mariko-secondary/50"
+              >
+                <option value="Женский">Женский</option>
+                <option value="Мужской">Мужской</option>
+              </select>
+            ) : fieldType === "phone" ? (
+              <input
+                ref={inputRef}
+                type="tel"
+                value={phoneInput.value}
+                onChange={phoneInput.onChange}
+                onKeyDown={handleKeyDown}
+                disabled={isSaving}
+                placeholder="+7 (999) 123-45-67"
+                className="flex-1 bg-white border border-mariko-secondary/30 text-mariko-dark font-el-messiri text-base md:text-lg rounded-lg px-3 py-2 h-10 md:h-11 focus:outline-none focus:ring-2 focus:ring-mariko-secondary/50"
+              />
+            ) : fieldType === "birthDate" ? (
+              <input
+                ref={inputRef}
+                type="text"
+                value={editValue}
+                onChange={(e) => setEditValue(formatDateInput(e.target.value))}
+                onKeyDown={handleKeyDown}
+                disabled={isSaving}
+                placeholder="дд.мм.гггг"
+                maxLength={10}
+                className="flex-1 bg-white border border-mariko-secondary/30 text-mariko-dark font-el-messiri text-base md:text-lg rounded-lg px-3 py-2 h-10 md:h-11 focus:outline-none focus:ring-2 focus:ring-mariko-secondary/50"
+              />
+            ) : (
+              <input
+                ref={inputRef}
+                type="text"
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={isSaving}
+                className="flex-1 bg-white border border-mariko-secondary/30 text-mariko-dark font-el-messiri text-base md:text-lg rounded-lg px-3 py-2 h-10 md:h-11 focus:outline-none focus:ring-2 focus:ring-mariko-secondary/50"
+              />
+            )}
+            
+            {/* Кнопки сохранения и отмены */}
+            <button
+              onClick={saveField}
+              disabled={isSaving}
+              className="p-2 rounded-full bg-green-500 hover:bg-green-600 text-white transition-colors disabled:opacity-50"
+              aria-label="Сохранить"
+            >
+              <Check className="w-5 h-5" />
+            </button>
+            <button
+              onClick={cancelEditing}
+              disabled={isSaving}
+              className="p-2 rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors disabled:opacity-50"
+              aria-label="Отмена"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
+    // Режим просмотра (кликабельный)
+    return (
+      <button
+        type="button"
+        onClick={() => startEditing(fieldType)}
+        disabled={loading}
+        className="w-full text-left bg-mariko-field rounded-[16px] px-5 md:px-7 py-3 md:py-4 hover:bg-mariko-field/80 transition-colors cursor-pointer group relative"
+      >
+        <p className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-1">
+          {label}
+        </p>
+        {loading ? (
+          <div className="h-5 w-2/3 bg-gray-200 rounded animate-pulse" />
+        ) : (
+          <div className="flex items-center justify-between">
+            <p className="text-mariko-dark font-el-messiri text-base md:text-lg">
+              {value || "—"}
+            </p>
+            <Pencil className="w-4 h-4 text-mariko-dark/40 group-hover:text-mariko-dark/70 transition-colors" />
+          </div>
+        )}
+      </button>
+    );
+  }
 
   return (
     <div className="app-screen overflow-hidden bg-transparent">
@@ -321,51 +315,15 @@ const Profile = () => {
             </div>
           </div>
 
-          {/* Поля профиля с inline-редактированием */}
+          {/* Profile Fields */}
           <div
             className="relative z-20 mt-6 md:mt-8 space-y-3 md:space-y-4"
             style={{ paddingBottom: "calc(var(--app-bottom-inset) + 160px)" }}
           >
-            <EditableProfileField
-              label="ФИО"
-              value={profile.name}
-              fieldKey="name"
-              loading={loading}
-              isEditing={editingField === "name"}
-              onStartEdit={() => setEditingField("name")}
-              onSave={(value) => handleSaveField("name", value)}
-              onCancel={() => setEditingField(null)}
-            />
-            <EditableProfileField
-              label="Дата рождения"
-              value={profile.birthDate}
-              fieldKey="birthDate"
-              loading={loading}
-              isEditing={editingField === "birthDate"}
-              onStartEdit={() => setEditingField("birthDate")}
-              onSave={(value) => handleSaveField("birthDate", value)}
-              onCancel={() => setEditingField(null)}
-            />
-            <EditableProfileField
-              label="Пол"
-              value={profile.gender}
-              fieldKey="gender"
-              loading={loading}
-              isEditing={editingField === "gender"}
-              onStartEdit={() => setEditingField("gender")}
-              onSave={(value) => handleSaveField("gender", value)}
-              onCancel={() => setEditingField(null)}
-            />
-            <EditableProfileField
-              label="Телефон"
-              value={profile.phone}
-              fieldKey="phone"
-              loading={loading}
-              isEditing={editingField === "phone"}
-              onStartEdit={() => setEditingField("phone")}
-              onSave={(value) => handleSaveField("phone", value)}
-              onCancel={() => setEditingField(null)}
-            />
+            {renderEditableProfileField("ФИО", profile.name, "name")}
+            {renderEditableProfileField("Дата рождения", profile.birthDate, "birthDate")}
+            {renderEditableProfileField("Пол", profile.gender, "gender")}
+            {renderEditableProfileField("Телефон", profile.phone, "phone")}
           </div>
         </div>
 

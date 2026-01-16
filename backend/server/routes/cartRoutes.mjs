@@ -146,10 +146,7 @@ export function registerCartRoutes(app) {
       const effectiveId = mergedProfile?.id ?? resolvedId;
       const row = await upsertUserProfileRecord({
         id: effectiveId,
-        telegramId: body.telegramId ?? headerTelegramId ?? (headerTelegramId ? resolvedId : undefined),
-        vkId: body.vkId !== undefined 
-          ? (typeof body.vkId === "number" ? body.vkId : Number(body.vkId))
-          : (headerVkId ? Number(headerVkId) : undefined),
+        telegramId: body.telegramId ?? headerTelegramId ?? body.id,
         name: body.name,
         phone: body.phone ?? body.customerPhone,
         primaryAddressId: body.primaryAddressId,
@@ -236,10 +233,7 @@ export function registerCartRoutes(app) {
       const effectiveId = mergedProfile?.id ?? resolvedId;
       const row = await upsertUserProfileRecord({
         id: effectiveId,
-        telegramId: body.telegramId ?? headerTelegramId ?? (headerTelegramId ? resolvedId : undefined),
-        vkId: body.vkId !== undefined 
-          ? (typeof body.vkId === "number" ? body.vkId : Number(body.vkId))
-          : (headerVkId ? Number(headerVkId) : undefined),
+        telegramId: body.telegramId ?? headerTelegramId ?? resolvedId,
         name: body.name,
         phone: body.phone,
         primaryAddressId: body.primaryAddressId,

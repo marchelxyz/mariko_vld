@@ -2,8 +2,7 @@ import { getCartApiBaseUrl } from "@shared/api/cart";
 import type { CartOrderRecord } from "@shared/api/cart";
 import type { Permission, UserRole } from "@shared/types";
 import type { AppSettings } from "@shared/api/settings";
-import { getUser, getPlatform } from "@/lib/platform";
-import { getUserId as getVkUserId } from "@/lib/vkCore";
+import { getUser } from "@/lib/telegram";
 import { logger } from "@/lib/logger";
 
 function normalizeBaseUrl(base: string | undefined): string {
@@ -122,6 +121,7 @@ export type AdminBooking = {
   eventTags: unknown;
   source: string;
   status: string;
+  platform?: "telegram" | "vk" | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -167,7 +167,7 @@ export type Guest = {
   updatedAt: string | null;
   telegramId: string | null;
   vkId: string | null;
-  platform: "telegram" | "vk" | "multi" | null;
+  platform?: "telegram" | "vk" | "multi" | null;
 };
 
 type UpdateGuestBanResponse = {
@@ -482,7 +482,7 @@ export const adminServerApi = {
   ): Promise<Pick<Guest, "id" | "isBanned" | "bannedAt" | "bannedReason">> {
     const response = await fetch(`${ADMIN_API_BASE}/users/${encodeURIComponent(guestId)}/ban`, {
       method: "PATCH",
-      headers: buildHeaders(undefined, undefined),
+      headers: buildHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await handleResponse<UpdateGuestBanResponse>(response);
@@ -538,7 +538,7 @@ export const adminServerApi = {
 
   async getSettings(): Promise<AppSettings> {
     const response = await fetch(`${ADMIN_API_BASE}/settings`, {
-      headers: buildHeaders(undefined, undefined),
+      headers: buildHeaders(),
     });
     const data = await handleResponse<AdminSettingsResponse>(response);
     return data.settings;
@@ -547,7 +547,7 @@ export const adminServerApi = {
   async updateSettings(payload: Partial<AppSettings>): Promise<AppSettings> {
     const response = await fetch(`${ADMIN_API_BASE}/settings`, {
       method: "PATCH",
-      headers: buildHeaders(undefined, undefined),
+      headers: buildHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await handleResponse<AdminSettingsResponse>(response);
