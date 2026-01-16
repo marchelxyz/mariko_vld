@@ -786,17 +786,31 @@ export function createAdminRouter() {
       }
 
       if (shouldSendVk && vkId) {
-        const vkMessage =
+        const vkKeyboard =
           status === "closed" && booking.review_link
-            ? `${message}\n\nОставить отзыв: ${booking.review_link}`
-            : message;
+            ? {
+                inline: true,
+                buttons: [
+                  [
+                    {
+                      action: {
+                        type: "open_link",
+                        link: booking.review_link,
+                        label: "Оставить отзыв",
+                      },
+                      color: "primary",
+                    },
+                  ],
+                ],
+              }
+            : null;
         await enqueueBookingNotification({
           bookingId,
           restaurantId: booking.restaurant_id,
           platform: "vk",
           recipientId: String(vkId),
-          message: vkMessage,
-          payload: { vkGroupToken: booking.vk_group_token || null },
+          message,
+          payload: { vkGroupToken: booking.vk_group_token || null, vkKeyboard },
         });
         queuedPlatforms.push("vk");
       }
