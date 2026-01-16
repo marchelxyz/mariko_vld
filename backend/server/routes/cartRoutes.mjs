@@ -139,9 +139,13 @@ export function registerCartRoutes(app) {
 
     try {
       const effectiveId = resolvedId;
+      const isVkUser = Boolean(headerVkId) || (Boolean(headerUserId) && !headerTelegramId);
+      const telegramId = isVkUser ? (body.telegramId ?? null) : body.telegramId ?? headerTelegramId;
+      const vkId = body.vkId ?? headerVkId ?? (isVkUser ? headerUserId : null);
       const row = await upsertUserProfileRecord({
         id: effectiveId,
-        telegramId: body.telegramId ?? headerTelegramId ?? body.id,
+        telegramId: telegramId ?? undefined,
+        vkId: vkId ? String(vkId) : undefined,
         name: body.name,
         phone: body.phone ?? body.customerPhone,
         primaryAddressId: body.primaryAddressId,
@@ -225,9 +229,13 @@ export function registerCartRoutes(app) {
     }
     try {
       const effectiveId = resolvedId;
+      const isVkUser = Boolean(headerVkId) || (Boolean(headerUserId) && !headerTelegramId);
+      const telegramId = isVkUser ? (body.telegramId ?? null) : body.telegramId ?? headerTelegramId;
+      const vkId = body.vkId ?? headerVkId ?? (isVkUser ? headerUserId : null);
       const row = await upsertUserProfileRecord({
         id: effectiveId,
-        telegramId: body.telegramId ?? headerTelegramId ?? resolvedId,
+        telegramId: telegramId ?? undefined,
+        vkId: vkId ? String(vkId) : undefined,
         name: body.name,
         phone: body.phone,
         primaryAddressId: body.primaryAddressId,
