@@ -277,7 +277,6 @@ export function createCitiesRouter() {
       socialNetworks,
       remarkedRestaurantId,
       reviewLink,
-      vkGroupToken,
     } = req.body ?? {};
 
     if (typeof cityId !== "string" || typeof name !== "string" || typeof address !== "string" || !cityId.trim() || !name.trim() || !address.trim()) {
@@ -313,9 +312,9 @@ export function createCitiesRouter() {
         `INSERT INTO restaurants (
           id, city_id, name, address, is_active, phone_number, 
           delivery_aggregators, yandex_maps_url, two_gis_url, 
-          social_networks, remarked_restaurant_id,       review_link, vk_group_token, max_cart_item_quantity, is_delivery_enabled, display_order, created_at, updated_at
+          social_networks, remarked_restaurant_id,       review_link, max_cart_item_quantity, is_delivery_enabled, display_order, created_at, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())`,
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())`,
         [
           restaurantId,
           cityId.trim(),
@@ -329,7 +328,6 @@ export function createCitiesRouter() {
           socialNetworks ? JSON.stringify(socialNetworks) : null,
           remarkedRestaurantId || null,
           reviewLink.trim(),
-          vkGroupToken?.trim() || null,
           maxCartItemQuantity,
           true,
           0,
@@ -361,7 +359,6 @@ export function createCitiesRouter() {
       socialNetworks,
       remarkedRestaurantId,
       reviewLink,
-      vkGroupToken,
       maxCartItemQuantity,
     } = req.body ?? {};
 
@@ -416,10 +413,6 @@ export function createCitiesRouter() {
         }
         updateData.push(`review_link = $${paramIndex++}`);
         params.push(reviewLink.trim());
-      }
-      if (vkGroupToken !== undefined) {
-        updateData.push(`vk_group_token = $${paramIndex++}`);
-        params.push(vkGroupToken?.trim() || null);
       }
       if (maxCartItemQuantity !== undefined) {
         if (typeof maxCartItemQuantity !== "number" || maxCartItemQuantity < 1) {

@@ -30,7 +30,6 @@ type CreateCityModalProps = {
       socialNetworks?: SocialNetwork[];
       remarkedRestaurantId?: number;
       reviewLink: string;
-      vkGroupToken?: string;
     };
   }) => Promise<void>;
 };
@@ -91,7 +90,6 @@ export function CreateCityModal({
   const [socialNetworks, setSocialNetworks] = useState<SocialNetwork[]>([]);
   const [remarkedRestaurantId, setRemarkedRestaurantId] = useState<string>('');
   const [reviewLink, setReviewLink] = useState('');
-  const [vkGroupToken, setVkGroupToken] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -109,7 +107,6 @@ export function CreateCityModal({
       setSocialNetworks([]);
       setRemarkedRestaurantId('');
       setReviewLink('');
-      setVkGroupToken('');
     }
   }, [isOpen]);
 
@@ -226,7 +223,6 @@ export function CreateCityModal({
           return parsed;
         })() : undefined,
         reviewLink: reviewLink.trim(),
-        vkGroupToken: vkGroupToken.trim() || undefined,
       } : undefined;
 
       const cityData = {
@@ -376,19 +372,6 @@ export function CreateCityModal({
               />
               <p className="text-white/60 text-xs mt-1">
                 Ссылка на страницу отзывов ресторана. Используется в кнопке "Оставить отзыв"
-              </p>
-            </div>
-
-            <div>
-              <Label className="text-white">VK GROUP TOKEN (опционально)</Label>
-              <Input
-                value={vkGroupToken}
-                onChange={(e) => setVkGroupToken(e.target.value)}
-                placeholder="vk1.a...."
-                type="password"
-              />
-              <p className="text-white/60 text-xs mt-1">
-                Токен сообщества ВК для уведомлений по этому ресторану
               </p>
             </div>
 

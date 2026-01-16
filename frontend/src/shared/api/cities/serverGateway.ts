@@ -234,7 +234,6 @@ export async function createRestaurantViaServer(
     socialNetworks?: Array<{ name: string; url: string }>;
     remarkedRestaurantId?: number;
     reviewLink: string;
-    vkGroupToken?: string;
     maxCartItemQuantity?: number;
   }
 ): Promise<{ success: boolean; restaurantId?: string; errorMessage?: string }> {
@@ -281,7 +280,6 @@ export async function updateRestaurantViaServer(
     socialNetworks?: Array<{ name: string; url: string }>;
     remarkedRestaurantId?: number;
     reviewLink?: string;
-    vkGroupToken?: string;
     maxCartItemQuantity?: number;
   }
 ): Promise<{ success: boolean; errorMessage?: string }> {
