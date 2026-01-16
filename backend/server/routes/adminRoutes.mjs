@@ -1031,10 +1031,14 @@ export function createAdminRouter() {
         }
 
         // Определяем платформу на основе наличия telegram_id или vk_id
+        const hasTelegram = Boolean(profile.telegram_id);
+        const hasVk = Boolean(profile.vk_id);
         let platform = null;
-        if (profile.telegram_id) {
+        if (hasTelegram && hasVk) {
+          platform = "multi";
+        } else if (hasTelegram) {
           platform = "telegram";
-        } else if (profile.vk_id) {
+        } else if (hasVk) {
           platform = "vk";
         }
 

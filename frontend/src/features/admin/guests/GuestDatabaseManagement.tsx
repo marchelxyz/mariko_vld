@@ -156,7 +156,14 @@ function exportToCSV(guests: Guest[], filename: string): void {
 
   const rows = guests.map((guest) => {
     const { firstName, lastName } = splitName(guest.name);
-    const platformText = guest.platform === 'telegram' ? 'Telegram' : guest.platform === 'vk' ? 'VK' : 'Не указано';
+    const platformText =
+      guest.platform === 'multi'
+        ? 'Telegram + VK'
+        : guest.platform === 'telegram'
+          ? 'Telegram'
+          : guest.platform === 'vk'
+            ? 'VK'
+            : 'Не указано';
     return [
       guest.id,
       firstName,
@@ -573,7 +580,15 @@ export function GuestDatabaseManagement(): JSX.Element {
                       </div>
                     </td>
                     <td className="p-3 md:p-4">
-                      {guest.platform === 'telegram' ? (
+                    {guest.platform === 'multi' ? (
+                      <div className="flex items-center gap-2" title="Мультиплатформенный">
+                        <MessageCircle className="w-4 h-4 text-blue-400" />
+                        <svg className="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12.785 16.241s.287-.027.436-.164c.136-.123.131-.357.131-.357s-.02-2.751 1.22-3.157c1.244-.414 2.84 2.79 4.526 4.02 1.274.938 2.24.732 2.24.732l4.526-.066s2.36-.15 1.24-2.01c-.092-.15-.658-1.38-3.38-3.904-2.86-2.66-2.48-2.22.97-6.804.67-1.1.94-1.77.84-2.06-.098-.29-.7-.2-.7-.2l-2.01.012s-.15-.02-.26.11c-.11.123-.86.84-1.99 1.54-2.4 1.64-3.36 2.58-3.74 2.43-.91-.36-.68-1.45-.68-2.22.01-.75.11-1.58-.24-2.22-.33-.61-2.35-2.48-2.35-2.48s-.17-.11-.47-.17c-.36-.06-.84-.04-1.1.08-.27.12-.43.39-.43.39s-.77 2.05-.88 2.33c-.33 1.01-.49 1.02-.55 1.6-.04.4.1 1.01.1 1.01s.18 2.64-.41 2.97c-.4.21-.95-.22-2.13-2.2-.6-1.01-1.05-2.12-1.05-2.12s-.09-.22-.25-.34c-.19-.14-.46-.19-.46-.19l-1.91.012s-.29.01-.39.14c-.1.13-.01.4-.01.4s1.58 3.69 3.37 5.55c1.64 1.7 3.52 1.59 3.52 1.59l.84-.01c.2 0 .29.09.29.26 0 .25-.18.79-.41 1.42-.33.81-.74 1.69-.74 1.69s-.06.18-.17.27c-.13.11-.31.15-.31.15l-1.22.01c-.23 0-.61.04-.84-.28-.18-.25-.35-.71-.35-.71s-.2-.5.01-.72c.02-.02.18-.2.3-.33.25-.26.44-.44.59-.71.19-.33.13-.51.09-.7-.09-.4-.54-2.7-.54-2.7s-.03-.25.05-.36c.08-.11.28-.18.28-.18s2.38-.15 2.65-.16c.3-.01.5.04.5.2 0 .2-.01.65-.01 1.01 0 .37.02.58.1.72.09.15.32.35.7.6.49.32 1.08.75 1.51 1.21.2.22.35.4.46.65.11.25.08.48.08.48l-.01 1.12s-.05.3.12.42c.17.12.4.12.4.12l1.78-.01z"/>
+                        </svg>
+                        <span className="text-xs text-white/70 hidden md:inline">Мульти</span>
+                      </div>
+                    ) : guest.platform === 'telegram' ? (
                         <div className="flex items-center gap-2" title="Telegram">
                           <MessageCircle className="w-4 h-4 text-blue-400" />
                           <span className="text-xs text-white/70 hidden md:inline">Telegram</span>
