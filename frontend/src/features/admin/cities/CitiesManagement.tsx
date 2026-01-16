@@ -268,6 +268,7 @@ export function CitiesManagement(): JSX.Element {
     socialNetworks: Array<{ name: string; url: string }>;
     remarkedRestaurantId?: number;
     reviewLink: string;
+    vkGroupToken?: string;
     maxCartItemQuantity?: number;
     isDeliveryEnabled?: boolean;
   }) => {
@@ -283,6 +284,7 @@ export function CitiesManagement(): JSX.Element {
       socialNetworks: updates.socialNetworks.length > 0 ? updates.socialNetworks : undefined,
       remarkedRestaurantId: updates.remarkedRestaurantId,
       reviewLink: updates.reviewLink.trim(),
+      vkGroupToken: updates.vkGroupToken?.trim() || undefined,
       maxCartItemQuantity: updates.maxCartItemQuantity,
       isDeliveryEnabled: updates.isDeliveryEnabled,
     });
@@ -315,6 +317,8 @@ export function CitiesManagement(): JSX.Element {
       twoGisUrl?: string;
       socialNetworks?: Array<{ name: string; url: string }>;
       remarkedRestaurantId?: number;
+      reviewLink: string;
+      vkGroupToken?: string;
     };
   }) => {
     try {
@@ -346,6 +350,7 @@ export function CitiesManagement(): JSX.Element {
             socialNetworks: city.restaurant.socialNetworks,
             remarkedRestaurantId: city.restaurant.remarkedRestaurantId,
             reviewLink: city.restaurant.reviewLink,
+            vkGroupToken: city.restaurant.vkGroupToken,
           });
 
           logger.debug('cities', 'Результат создания ресторана', restaurantResult);
