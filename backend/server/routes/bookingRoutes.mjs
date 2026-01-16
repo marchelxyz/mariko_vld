@@ -1,5 +1,6 @@
 import express from "express";
 import { db, ensureDatabase, query, queryOne } from "../postgresClient.mjs";
+import { upsertUserProfileRecord } from "../services/profileService.mjs";
 import { createLogger } from "../utils/logger.mjs";
 
 const logger = createLogger('booking');
@@ -868,6 +869,11 @@ export function createBookingRouter() {
         duration: bookingDuration,
       } = req.body ?? {};
 
+      const headerTelegramId = (() => {
+        const raw = req.get("x-telegram-id");
+        return typeof raw === "string" ? raw.trim() : null;
+      })();
+
       // Валидация обязательных полей
       if (!restaurantId || typeof restaurantId !== "string") {
         const duration = Date.now() - startTime;
@@ -897,6 +903,20 @@ export function createBookingRouter() {
       }
 
       if (!date || typeof date !== "string") {
+      if (headerTelegramId) {
+        try {
+          await upsertUserProfileRecord({
+            id: headerTelegramId,
+            telegramId: headerTelegramId,
+            name: name?.trim(),
+            phone: phone?.trim(),
+          });
+        } catch (error) {
+          logger.warn("booking", "Не удалось обновить профиль по Telegram ID", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
         const duration = Date.now() - startTime;
         logger.requestError('POST', '/', new Error('Не указана дата'), 400);
         return res.status(400).json({ 
