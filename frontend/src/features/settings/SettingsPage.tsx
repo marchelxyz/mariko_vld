@@ -43,28 +43,26 @@ export default function SettingsPage() {
   const supportMailto = supportEmail
     ? `mailto:${encodeURIComponent(supportEmail)}?subject=${encodeURIComponent(supportSubject)}&body=${encodeURIComponent(supportPayload)}`
     : "";
-  const supportWebLink = supportEmail
-    ? `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(supportEmail)}&su=${encodeURIComponent(supportSubject)}&body=${encodeURIComponent(supportPayload)}`
-    : "";
   const isTelegramWebApp = typeof window !== "undefined" && Boolean(window.Telegram?.WebApp);
 
   const handleSupportClick = () => {
     if (!supportEmail) {
       return;
     }
-    if (isTelegramWebApp && supportWebLink) {
-      const opened = safeOpenLink(supportWebLink);
+    if (!supportMailto) {
+      return;
+    }
+    if (isTelegramWebApp) {
+      const opened = safeOpenLink(supportMailto);
       if (opened) {
         return;
       }
     }
-    if (typeof window !== "undefined" && supportWebLink) {
-      window.open(supportWebLink, "_blank", "noopener");
+    if (typeof window !== "undefined") {
+      window.location.href = supportMailto;
       return;
     }
-    if (supportMailto) {
-      safeOpenLink(supportMailto);
-    }
+    safeOpenLink(supportMailto);
   };
 
   const handleBackClick = () => {
