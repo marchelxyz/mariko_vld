@@ -18,12 +18,18 @@ import {
   ADMIN_PERMISSION,
   canAssignRole,
 } from "../services/adminService.mjs";
-import { listUserProfiles, fetchUserProfile } from "../services/profileService.mjs";
+import {
+  listUserProfiles,
+  fetchUserProfile,
+  fetchUserProfileByPhoneAndName,
+} from "../services/profileService.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
 import { enqueueBookingNotification } from "../services/bookingNotificationService.mjs";
 import { getAppSettings, updateAppSettings } from "../services/appSettingsService.mjs";
+import { createLogger } from "../utils/logger.mjs";
 
 const BOOKING_STATUS_VALUES = new Set(["created", "confirmed", "closed", "cancelled"]);
+const logger = createLogger("booking-status");
 
 const formatBookingDate = (value) => {
   if (!value) return "Дата не указана";
@@ -100,7 +106,7 @@ const normalizePhoneDigits = (raw) => {
   return String(raw).replace(/\D/g, "");
 };
 
-const resolveTelegramIdByPhone = async (phone) => {
+const resolveTelegramIdByPhone = async (phone, name) => {
   const digits = normalizePhoneDigits(phone);
   if (!digits) return null;
   const last10 = digits.length > 10 ? digits.slice(-10) : digits;
@@ -114,13 +120,19 @@ const resolveTelegramIdByPhone = async (phone) => {
      LIMIT 1`,
     [candidates, last10],
   );
-  if (!row?.telegram_id) {
-    return null;
+  if (row?.telegram_id) {
+    return String(row.telegram_id);
   }
-  return String(row.telegram_id);
+  if (name) {
+    const profile = await fetchUserProfileByPhoneAndName(phone, name);
+    if (profile?.telegram_id) {
+      return String(profile.telegram_id);
+    }
+  }
+  return null;
 };
 
-const resolveVkIdByPhone = async (phone) => {
+const resolveVkIdByPhone = async (phone, name) => {
   const digits = normalizePhoneDigits(phone);
   if (!digits) return null;
   const last10 = digits.length > 10 ? digits.slice(-10) : digits;
@@ -134,10 +146,16 @@ const resolveVkIdByPhone = async (phone) => {
      LIMIT 1`,
     [candidates, last10],
   );
-  if (!row?.vk_id) {
-    return null;
+  if (row?.vk_id) {
+    return String(row.vk_id);
   }
-  return String(row.vk_id);
+  if (name) {
+    const profile = await fetchUserProfileByPhoneAndName(phone, name);
+    if (profile?.vk_id) {
+      return String(profile.vk_id);
+    }
+  }
+  return null;
 };
 
 export function createAdminRouter() {
@@ -737,8 +755,8 @@ export function createAdminRouter() {
     if (sendNotification) {
       const trimmedMessage = typeof customMessage === "string" ? customMessage.trim() : "";
       const message = trimmedMessage || buildBookingTelegramMessage(booking, status);
-      const telegramId = await resolveTelegramIdByPhone(booking.customer_phone);
-      const vkId = await resolveVkIdByPhone(booking.customer_phone);
+      const telegramId = await resolveTelegramIdByPhone(booking.customer_phone, booking.customer_name);
+      const vkId = await resolveVkIdByPhone(booking.customer_phone, booking.customer_name);
       const replyMarkup =
         status === "closed" && booking.review_link
           ? {
@@ -761,6 +779,15 @@ export function createAdminRouter() {
         : Boolean(telegramId);
       const shouldSendVk = requestedPlatform ? requestedPlatform === "vk" : Boolean(vkId);
       const queuedPlatforms = [];
+
+      logger.info("Подготовка уведомления", {
+        bookingId,
+        status,
+        platform: requestedPlatform,
+        source: booking.source,
+        hasTelegramId: Boolean(telegramId),
+        hasVkId: Boolean(vkId),
+      });
 
       if (shouldSendTelegram && telegramId) {
         await enqueueBookingNotification({

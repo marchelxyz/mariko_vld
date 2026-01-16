@@ -21,6 +21,11 @@ export const sendTelegramMessage = async ({ telegramId, text, replyMarkup }) => 
   }
 
   try {
+    logger.info("telegram", "Отправка сообщения", {
+      telegramId,
+      messageLength: text.length,
+      hasReplyMarkup: Boolean(replyMarkup),
+    });
     const payload = {
       chat_id: telegramId,
       text,
@@ -40,6 +45,7 @@ export const sendTelegramMessage = async ({ telegramId, text, replyMarkup }) => 
       });
       return { success: false, error: data?.description || "Ошибка отправки Telegram сообщения" };
     }
+    logger.info("telegram", "Сообщение отправлено", { telegramId });
     return { success: true, response: data };
   } catch (error) {
     logger.error("telegram", error instanceof Error ? error : new Error("Telegram error"));
