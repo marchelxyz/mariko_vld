@@ -29,9 +29,11 @@ export default function SettingsPage() {
     const platform = window.navigator.platform;
     const language = window.navigator.language;
     const screen = `${window.screen.width}x${window.screen.height}`;
+    const appPlatform = resolveAppPlatformName();
     return [
       `ФИО: ${name}`,
       `Телефон: ${phone}`,
+      `Платформа приложения: ${appPlatform}`,
       `Платформа: ${platform}`,
       `Язык: ${language}`,
       `Экран: ${screen}`,
@@ -337,4 +339,36 @@ export default function SettingsPage() {
       <BottomNavigation currentPage="profile" />
     </div>
   );
+}
+
+/**
+ * Определяет название платформы приложения для поддержки.
+ */
+function resolveAppPlatformName(): string {
+  if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+    return "Telegram";
+  }
+  if (isVkEnvironment()) {
+    return "VKontakte";
+  }
+  return "Web";
+}
+
+/**
+ * Простая проверка, что приложение запущено в VK.
+ */
+function isVkEnvironment(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const hasVkBridge = Boolean((window as Window & { vkBridge?: unknown }).vkBridge);
+  if (hasVkBridge) {
+    return true;
+  }
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has("vk_app_id") || urlParams.has("vk_user_id")) {
+    return true;
+  }
+  const href = window.location.href.toLowerCase();
+  return href.includes("vk.com") || href.includes("vk.ru");
 }

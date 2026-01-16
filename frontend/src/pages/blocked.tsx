@@ -1,12 +1,61 @@
+import { useMemo } from "react";
 import { Mail, ShieldAlert } from "lucide-react";
 import { Button } from "@shared/ui/button";
 import { Header } from "@shared/ui/widgets";
 import { useAppSettings } from "@/hooks";
+import { useProfile } from "@/entities/user";
+import { safeOpenLink } from "@/lib/telegramCore";
 
 const BlockedPage = () => {
   const { settings } = useAppSettings();
+  const { profile } = useProfile();
   const supportEmail = settings.supportEmail?.trim();
-  const supportLink = supportEmail ? `mailto:${supportEmail}` : undefined;
+  const supportSubject = "Поддержка Марико — блокировка";
+  const supportPayload = useMemo(() => {
+    if (typeof window === "undefined") {
+      return "";
+    }
+    const name = profile?.name || "Не указано";
+    const phone = profile?.phone || "Не указан";
+    const userAgent = window.navigator.userAgent;
+    const platform = window.navigator.platform;
+    const language = window.navigator.language;
+    const screen = `${window.screen.width}x${window.screen.height}`;
+    const appPlatform = resolveAppPlatformName();
+    return [
+      `ФИО: ${name}`,
+      `Телефон: ${phone}`,
+      `Платформа приложения: ${appPlatform}`,
+      `Платформа: ${platform}`,
+      `Язык: ${language}`,
+      `Экран: ${screen}`,
+      `User-Agent: ${userAgent}`,
+      "",
+      "Причина: блокировка пользователя",
+    ].join("\n");
+  }, [profile?.name, profile?.phone]);
+  const supportMailto = supportEmail
+    ? `mailto:${encodeURIComponent(supportEmail)}?subject=${encodeURIComponent(supportSubject)}&body=${encodeURIComponent(supportPayload)}`
+    : "";
+  const supportWebLink = supportEmail
+    ? `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(supportEmail)}&su=${encodeURIComponent(supportSubject)}&body=${encodeURIComponent(supportPayload)}`
+    : "";
+  const isTelegramWebApp = typeof window !== "undefined" && Boolean(window.Telegram?.WebApp);
+
+  const handleSupportClick = () => {
+    if (!supportEmail) {
+      return;
+    }
+    if (isTelegramWebApp && supportMailto) {
+      const opened = safeOpenLink(supportMailto);
+      if (opened) {
+        return;
+      }
+    }
+    if (typeof window !== "undefined" && supportWebLink) {
+      window.open(supportWebLink, "_blank", "noopener");
+    }
+  };
 
   return (
     <div className="app-screen min-h-screen bg-transparent overflow-hidden flex flex-col">
@@ -21,22 +70,13 @@ const BlockedPage = () => {
             Вас заблокировала администрация приложения. Свяжитесь с поддержкой, чтобы узнать подробнее.
           </p>
           <Button
-            asChild
             variant="default"
             className="inline-flex items-center gap-2"
-            disabled={!supportLink}
+            disabled={!supportEmail}
+            onClick={handleSupportClick}
           >
-            {supportLink ? (
-              <a href={supportLink}>
-                <Mail className="w-4 h-4" />
-                Написать в поддержку
-              </a>
-            ) : (
-              <span className="inline-flex items-center gap-2 opacity-70">
-                <Mail className="w-4 h-4" />
-                Почта поддержки не указана
-              </span>
-            )}
+            <Mail className="w-4 h-4" />
+            {supportEmail ? "Написать в поддержку" : "Почта поддержки не указана"}
           </Button>
         </div>
       </div>
@@ -45,3 +85,35 @@ const BlockedPage = () => {
 };
 
 export default BlockedPage;
+
+/**
+ * Определяет название платформы приложения для поддержки.
+ */
+function resolveAppPlatformName(): string {
+  if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+    return "Telegram";
+  }
+  if (isVkEnvironment()) {
+    return "VKontakte";
+  }
+  return "Web";
+}
+
+/**
+ * Простая проверка, что приложение запущено в VK.
+ */
+function isVkEnvironment(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const hasVkBridge = Boolean((window as Window & { vkBridge?: unknown }).vkBridge);
+  if (hasVkBridge) {
+    return true;
+  }
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has("vk_app_id") || urlParams.has("vk_user_id")) {
+    return true;
+  }
+  const href = window.location.href.toLowerCase();
+  return href.includes("vk.com") || href.includes("vk.ru");
+}
