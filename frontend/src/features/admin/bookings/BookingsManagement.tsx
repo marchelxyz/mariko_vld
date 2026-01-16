@@ -119,7 +119,7 @@ export default function BookingsManagement(): JSX.Element {
         </div>
         <Button
           variant="outline"
-          className="border-white/30 text-white hover:bg-white/10"
+          className="border-white/30 text-white bg-transparent hover:bg-white/10"
           onClick={() => refetch()}
           disabled={isFetching}
         >
