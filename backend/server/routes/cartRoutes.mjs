@@ -13,7 +13,6 @@ import { fetchRestaurantIntegrationConfig, enqueueIikoOrder } from "../services/
 import { normaliseNullableString } from "../utils.mjs";
 import { addressService } from "../services/addressService.mjs";
 import { verifyVKInitData, getVKUserIdFromInitData } from "../utils/vkAuth.mjs";
-import { sendVKMessage } from "../services/vkMessageService.mjs";
 
 const healthPayload = () => ({ status: "ok", database: Boolean(db) });
 
@@ -59,20 +58,6 @@ const getVerifiedVkIdFromHeaders = (req) => {
 // Универсальная функция для получения ID пользователя из заголовков (Telegram или VK)
 const getUserIdFromHeaders = (req) => {
   return getTelegramIdFromHeaders(req) || getVerifiedVkIdFromHeaders(req);
-};
-
-const buildVkWelcomeMessage = (name) => {
-  const safeName = name?.trim() || "генацвале";
-  return [
-    `🇬🇪 Гамарджоба, ${safeName}! Добро пожаловать в «Хачапури Марико».`,
-    "",
-    "• 📍 Найти ресторан в вашем городе",
-    "• 📋 Забронировать столик",
-    "• 🎁 Узнать об акциях",
-    "• ⭐ Оставить отзыв",
-    "",
-    "Будем рады видеть вас в гостях ❤️",
-  ].join("\n");
 };
 
 export function registerCartRoutes(app) {
@@ -159,20 +144,12 @@ export function registerCartRoutes(app) {
         body.name,
       );
       const effectiveId = mergedProfile?.id ?? resolvedId;
-      const existingProfile = await fetchUserProfile(effectiveId);
-      const resolvedVkId =
-        body.vkId !== undefined
-          ? typeof body.vkId === "number"
-            ? body.vkId
-            : Number(body.vkId)
-          : headerVkId
-            ? Number(headerVkId)
-            : undefined;
-      const hasVkId = Boolean(mergedProfile?.vk_id || existingProfile?.vk_id);
       const row = await upsertUserProfileRecord({
         id: effectiveId,
         telegramId: body.telegramId ?? headerTelegramId ?? (headerTelegramId ? resolvedId : undefined),
-        vkId: resolvedVkId,
+        vkId: body.vkId !== undefined 
+          ? (typeof body.vkId === "number" ? body.vkId : Number(body.vkId))
+          : (headerVkId ? Number(headerVkId) : undefined),
         name: body.name,
         phone: body.phone ?? body.customerPhone,
         primaryAddressId: body.primaryAddressId,
@@ -199,12 +176,6 @@ export function registerCartRoutes(app) {
         favoriteRestaurantAddress:
           body.favoriteRestaurantAddress ?? body.favorite_restaurant_address,
       });
-      if (resolvedVkId && !hasVkId) {
-        await sendVKMessage({
-          vkUserId: resolvedVkId,
-          text: buildVkWelcomeMessage(body.name),
-        });
-      }
       return res.json({ success: true, profile: mapProfileRowToClient(row, effectiveId) });
     } catch (error) {
       console.error("Ошибка синхронизации профиля:", error);

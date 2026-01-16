@@ -21,7 +21,6 @@ import {
 import { listUserProfiles, fetchUserProfile } from "../services/profileService.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
 import { sendTelegramMessage } from "../services/telegramService.mjs";
-import { sendVKMessage } from "../services/vkMessageService.mjs";
 import { getAppSettings, updateAppSettings } from "../services/appSettingsService.mjs";
 
 const BOOKING_STATUS_VALUES = new Set(["created", "confirmed", "closed", "cancelled"]);
@@ -114,21 +113,6 @@ const resolveTelegramIdByPhone = async (phone) => {
     return null;
   }
   return String(row.telegram_id);
-};
-
-const resolveVkIdByPhone = async (phone) => {
-  const digits = normalizePhoneDigits(phone);
-  if (!digits) return null;
-  const row = await queryOne(
-    `SELECT vk_id FROM user_profiles
-     WHERE regexp_replace(phone, '\\\\D', '', 'g') = $1
-     LIMIT 1`,
-    [digits],
-  );
-  if (!row?.vk_id) {
-    return null;
-  }
-  return String(row.vk_id);
 };
 
 export function createAdminRouter() {
@@ -709,7 +693,6 @@ export function createAdminRouter() {
     if (sendNotification) {
       const message = buildBookingTelegramMessage(booking, status);
       const telegramId = await resolveTelegramIdByPhone(booking.customer_phone);
-      const vkId = await resolveVkIdByPhone(booking.customer_phone);
       const replyMarkup =
         status === "closed" && booking.review_link
           ? {
@@ -723,20 +706,11 @@ export function createAdminRouter() {
               ],
             }
           : undefined;
-      const telegramResult = await sendTelegramMessage({
+      notificationResult = await sendTelegramMessage({
         telegramId,
         text: message,
         replyMarkup,
       });
-      const vkMessage =
-        status === "closed" && booking.review_link
-          ? `${message}\n\nОставить отзыв: ${booking.review_link}`
-          : message;
-      const vkResult = await sendVKMessage({
-        vkUserId: vkId,
-        text: vkMessage,
-      });
-      notificationResult = { telegram: telegramResult, vk: vkResult };
     }
 
     return res.json({ success: true, notification: notificationResult });
