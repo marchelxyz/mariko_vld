@@ -5,3 +5,5 @@ export { DeliveryManagement } from "./deliveries";
 export { PromotionsManagement } from "./promotions/PromotionsManagement";
 export { RecommendedDishesManagement } from "./recommendedDishes";
 export { GuestDatabaseManagement } from "./guests";
+export { BookingsManagement } from "./bookings";
+export { AppSettingsManagement } from "./settings";
