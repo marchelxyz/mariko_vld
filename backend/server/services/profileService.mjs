@@ -255,6 +255,26 @@ export const fetchUserProfile = async (identifier) => {
   }
 };
 
+export const fetchUserProfileByPhoneAndName = async (phone, name) => {
+  if (!db) {
+    return null;
+  }
+  try {
+    const normalizedPhone = normalisePhone(phone);
+    const normalizedName = normaliseNullableString(name);
+    if (!normalizedPhone || !normalizedName || normalizedName === "Пользователь") {
+      return null;
+    }
+    return await queryOne(
+      `SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles WHERE phone = $1 AND name = $2 LIMIT 1`,
+      [normalizedPhone, normalizedName],
+    );
+  } catch (error) {
+    console.error("Ошибка поиска профиля по телефону и имени:", error);
+    return null;
+  }
+};
+
 export const listUserProfiles = async () => {
   if (!db) {
     return [];

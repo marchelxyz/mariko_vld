@@ -4,6 +4,7 @@ import { queryMany, queryOne, query } from "../postgresClient.mjs";
 import {
   upsertUserProfileRecord,
   fetchUserProfile,
+  fetchUserProfileByPhoneAndName,
   buildDefaultProfile,
   mapProfileRowToClient,
 } from "../services/profileService.mjs";
@@ -138,8 +139,13 @@ export function registerCartRoutes(app) {
     }
 
     try {
+      const mergedProfile = await fetchUserProfileByPhoneAndName(
+        body.phone ?? body.customerPhone,
+        body.name,
+      );
+      const effectiveId = mergedProfile?.id ?? resolvedId;
       const row = await upsertUserProfileRecord({
-        id: resolvedId,
+        id: effectiveId,
         telegramId: body.telegramId ?? headerTelegramId ?? (headerTelegramId ? resolvedId : undefined),
         vkId: body.vkId !== undefined 
           ? (typeof body.vkId === "number" ? body.vkId : Number(body.vkId))
@@ -170,7 +176,7 @@ export function registerCartRoutes(app) {
         favoriteRestaurantAddress:
           body.favoriteRestaurantAddress ?? body.favorite_restaurant_address,
       });
-      return res.json({ success: true, profile: mapProfileRowToClient(row, resolvedId) });
+      return res.json({ success: true, profile: mapProfileRowToClient(row, effectiveId) });
     } catch (error) {
       console.error("Ошибка синхронизации профиля:", error);
       return res
@@ -226,8 +232,10 @@ export function registerCartRoutes(app) {
         .json({ success: false, message: "Передайте ID пользователя для обновления" });
     }
     try {
+      const mergedProfile = await fetchUserProfileByPhoneAndName(body.phone, body.name);
+      const effectiveId = mergedProfile?.id ?? resolvedId;
       const row = await upsertUserProfileRecord({
-        id: resolvedId,
+        id: effectiveId,
         telegramId: body.telegramId ?? headerTelegramId ?? (headerTelegramId ? resolvedId : undefined),
         vkId: body.vkId !== undefined 
           ? (typeof body.vkId === "number" ? body.vkId : Number(body.vkId))
@@ -258,7 +266,7 @@ export function registerCartRoutes(app) {
         favoriteRestaurantAddress:
           body.favoriteRestaurantAddress ?? body.favorite_restaurant_address,
       });
-      return res.json({ success: true, profile: mapProfileRowToClient(row, resolvedId) });
+      return res.json({ success: true, profile: mapProfileRowToClient(row, effectiveId) });
     } catch (error) {
       console.error("Ошибка обновления профиля:", error);
       return res
