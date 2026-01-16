@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useCityContext } from "@/contexts";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { cn } from "@shared/utils";
-import { safeOpenLink } from "@/lib/telegram";
+import { safeOpenLink } from "@/lib/platform";
 
 interface InteractiveLinkProps {
   icon: LucideIcon;

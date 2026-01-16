@@ -5,7 +5,7 @@ import { useCart, useCityContext } from "@/contexts";
 import { recalculateCart, submitCartOrder } from "@/shared/api/cart";
 import { profileApi } from "@shared/api/profile";
 import type { UserProfile } from "@shared/types";
-import { getUser, telegram } from "@/lib/telegram";
+import { getUser } from "@/lib/platform";
 
 type AddressSuggestion = {
   id: string;
@@ -306,7 +306,8 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
     setIsLocating(true);
     setLocationError(null);
     try {
-      const tg = telegram.getTg?.() as unknown as { LocationManager?: TelegramLocationManager };
+      // LocationManager доступен только в Telegram
+      const tg = (typeof window !== "undefined" && (window as unknown as { Telegram?: { WebApp?: { LocationManager?: TelegramLocationManager } } }).Telegram?.WebApp) as unknown as { LocationManager?: TelegramLocationManager };
       const locationManager = tg?.LocationManager;
       if (locationManager?.init && locationManager?.getLocation) {
         locationManager.init();
@@ -634,8 +635,10 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                 <div key={item.id} className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">{item.name}</p>
-                    {item.weight && (
-                      <p className="text-sm text-mariko-dark/70">{item.weight}</p>
+                    {(item.weight || item.calories) && (
+                      <p className="text-sm text-mariko-dark/70">
+                        {[item.weight, item.calories].filter(Boolean).join(' / ')}
+                      </p>
                     )}
                   </div>
                   <div className="flex items-center">

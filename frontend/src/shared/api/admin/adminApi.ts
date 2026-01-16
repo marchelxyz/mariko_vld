@@ -16,7 +16,7 @@ import {
   type UserWithRole,
   UserRole,
 } from "@shared/types";
-import { storage } from "@/lib/telegram";
+import { storage } from "@/lib/platform";
 import { logger } from "@/lib/logger";
 
 /**

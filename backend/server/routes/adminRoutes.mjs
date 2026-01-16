@@ -11,6 +11,7 @@ import {
   authoriseAnyAdmin,
   buildUserWithRole,
   getTelegramIdFromRequest,
+  getVkIdFromRequest,
   listAdminRecords,
   fetchAdminRecordByTelegram,
   resolveAdminContext,
@@ -171,8 +172,9 @@ export function createAdminRouter() {
 
   router.get("/me", async (req, res) => {
     const telegramId = getTelegramIdFromRequest(req);
+    const vkId = getVkIdFromRequest(req);
 
-    if (!telegramId) {
+    if (!telegramId && !vkId) {
       return res.status(401).json({ success: false, message: "Не удалось определить администратора" });
     }
 
@@ -182,7 +184,7 @@ export function createAdminRouter() {
 
     // Мягкая проверка - просто возвращаем информацию о пользователе
     // Права доступа к админ-панели уже проверены на фронтенде
-    const context = await resolveAdminContext(telegramId);
+    const context = await resolveAdminContext(telegramId, vkId);
     return res.json({
       success: true,
       role: context.role,
@@ -1009,6 +1011,7 @@ export function createAdminRouter() {
       const cityId = typeof req.query?.cityId === "string" ? req.query.cityId.trim() : null;
       const searchQuery = typeof req.query?.search === "string" ? req.query.search.trim() : null;
       const verifiedOnly = req.query?.verified === "true";
+      const platformFilter = typeof req.query?.platform === "string" ? req.query.platform.trim() : null;
 
       // Получаем список ресторанов для фильтрации
       let allowedRestaurantIds = [];
@@ -1176,9 +1179,14 @@ export function createAdminRouter() {
       });
 
       // Фильтрация по статусу верификации
-      const filteredGuests = verifiedOnly
+      let filteredGuests = verifiedOnly
         ? guests.filter((g) => g.isVerified)
         : guests;
+
+      // Фильтрация по платформе
+      if (platformFilter && (platformFilter === "telegram" || platformFilter === "vk")) {
+        filteredGuests = filteredGuests.filter((g) => g.platform === platformFilter);
+      }
 
       return res.json({
         success: true,

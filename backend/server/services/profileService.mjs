@@ -44,6 +44,12 @@ export const mapProfileRowToClient = (row, fallbackId = "") => ({
       : typeof row?.telegram_id === "string"
         ? Number(row.telegram_id)
         : undefined,
+  vkId:
+    typeof row?.vk_id === "number"
+      ? row.vk_id
+      : typeof row?.vk_id === "string"
+        ? Number(row.vk_id)
+        : undefined,
   createdAt: row?.created_at ?? null,
   updatedAt: row?.updated_at ?? null,
 });
@@ -133,13 +139,31 @@ export const buildProfileUpsertPayload = (input) => {
   if (input.favoriteRestaurantAddress !== undefined) {
     payload.favorite_restaurant_address = normaliseNullableString(input.favoriteRestaurantAddress);
   }
-  const telegramId =
-    input.telegramId !== undefined
-      ? normaliseTelegramId(input.telegramId)
-      : normaliseTelegramId(input.id);
-  if (telegramId) {
-    const numeric = Number(telegramId);
-    payload.telegram_id = Number.isFinite(numeric) ? numeric : null;
+  // Устанавливаем telegram_id только если он явно указан
+  // Не используем id как telegram_id, если есть vkId (чтобы не путать VK ID с Telegram ID)
+  if (input.telegramId !== undefined) {
+    const telegramId = normaliseTelegramId(input.telegramId);
+    if (telegramId) {
+      const numeric = Number(telegramId);
+      payload.telegram_id = Number.isFinite(numeric) ? numeric : null;
+    } else {
+      payload.telegram_id = null;
+    }
+  } else if (input.vkId === undefined) {
+    // Если vkId не указан, то это может быть Telegram пользователь
+    // Используем id как telegram_id только если нет vkId
+    const telegramId = normaliseTelegramId(input.id);
+    if (telegramId) {
+      const numeric = Number(telegramId);
+      payload.telegram_id = Number.isFinite(numeric) ? numeric : null;
+    }
+  }
+  // Если vkId указан, но telegramId не указан, то telegram_id остается null (не перезаписываем)
+  
+  if (input.vkId !== undefined) {
+    const vkId = typeof input.vkId === "string" ? input.vkId.trim() : String(input.vkId);
+    const numeric = Number(vkId);
+    payload.vk_id = Number.isFinite(numeric) ? numeric : null;
   }
   return payload;
 };
@@ -206,12 +230,22 @@ export const fetchUserProfile = async (identifier) => {
 
     const numeric = Number(asString);
     if (Number.isFinite(numeric)) {
-      const fallback = await queryOne(
+      // Сначала ищем по telegram_id
+      const telegramResult = await queryOne(
         `SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles WHERE telegram_id = $1 LIMIT 1`,
         [numeric],
       );
-      if (fallback) {
-        return fallback;
+      if (telegramResult) {
+        return telegramResult;
+      }
+      
+      // Если не найдено, ищем по vk_id
+      const vkResult = await queryOne(
+        `SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles WHERE vk_id = $1 LIMIT 1`,
+        [numeric],
+      );
+      if (vkResult) {
+        return vkResult;
       }
       const vkFallback = await queryOne(
         `SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles WHERE vk_id = $1 LIMIT 1`,

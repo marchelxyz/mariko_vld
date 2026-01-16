@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import { getUser } from "@/lib/telegram";
+import { getUserId, getPlatform } from "@/lib/platform";
 import { onboardingServerApi } from "@shared/api/onboarding";
 
 interface OnboardingContextType {
@@ -31,7 +31,8 @@ export const OnboardingProvider = ({ children }: OnboardingProviderProps) => {
     let scheduledHandle: number | ReturnType<typeof setTimeout> | null = null;
 
     const loadOnboardingFlag = async () => {
-      const userId = getUser()?.id;
+      // Используем getUserId(), который возвращает строку для обеих платформ
+      const userId = getUserId();
       if (!userId) {
         // Если пользователь не определен, считаем что подсказки не показывались
         if (!cancelled) {
@@ -41,6 +42,7 @@ export const OnboardingProvider = ({ children }: OnboardingProviderProps) => {
       }
 
       try {
+        // Передаем userId как строку (для VK это будет VK ID, для Telegram - Telegram ID)
         const shown = await onboardingServerApi.getOnboardingTourShown(userId);
         if (!cancelled) {
           setOnboardingTourShownState(shown);
@@ -93,13 +95,15 @@ export const OnboardingProvider = ({ children }: OnboardingProviderProps) => {
   }, []);
 
   const setOnboardingTourShown = async (shown: boolean) => {
-    const userId = getUser()?.id;
+    // Используем getUserId(), который возвращает строку для обеих платформ
+    const userId = getUserId();
     if (!userId) {
       console.warn("[onboarding] user ID not available, cannot persist tour flag");
       return;
     }
 
     try {
+      // Передаем userId как строку (для VK это будет VK ID, для Telegram - Telegram ID)
       await onboardingServerApi.setOnboardingTourShown(userId, shown);
       setOnboardingTourShownState(shown);
     } catch (error) {

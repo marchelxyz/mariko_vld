@@ -5,7 +5,7 @@ import { BottomNavigation } from "@widgets/bottomNavigation";
 import { Header } from "@widgets/header";
 import { PageHeader } from "@widgets/pageHeader";
 import { createYookassaPayment, fetchPaymentStatus } from "@/shared/api/payments";
-import { safeOpenLink } from "@/lib/telegram";
+import { safeOpenLink } from "@/lib/platform";
 
 type LocationState = {
   orderId?: string;

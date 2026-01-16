@@ -293,7 +293,21 @@ export default function OrdersPage() {
             </div>
           )}
 
-          {isLoading ? (
+          {!userPhone ? (
+            <div className="bg-white rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.08)] px-6 py-6 text-center">
+              <p className="text-mariko-dark font-semibold">Укажите номер телефона</p>
+              <p className="text-mariko-dark/70 text-sm mt-2">
+                Без телефона мы не сможем найти ваши бронирования.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate("/profile")}
+                className="mt-4 inline-flex items-center justify-center rounded-full bg-mariko-primary px-4 py-2 text-sm font-semibold text-white hover:bg-mariko-primary/90 transition-colors"
+              >
+                Перейти в профиль
+              </button>
+            </div>
+          ) : isLoading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="w-8 h-8 animate-spin text-mariko-primary" />
             </div>
