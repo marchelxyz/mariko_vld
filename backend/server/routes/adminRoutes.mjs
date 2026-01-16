@@ -140,26 +140,6 @@ const resolveVkIdByPhone = async (phone) => {
   return String(row.vk_id);
 };
 
-const resolveVkIdByPhone = async (phone) => {
-  const digits = normalizePhoneDigits(phone);
-  if (!digits) return null;
-  const last10 = digits.length > 10 ? digits.slice(-10) : digits;
-  const candidates = Array.from(
-    new Set([digits, last10 ? `7${last10}` : "", last10 ? `8${last10}` : ""].filter(Boolean)),
-  );
-  const row = await queryOne(
-    `SELECT vk_id FROM user_profiles
-     WHERE regexp_replace(phone, '\\\\D', '', 'g') = ANY($1)
-        OR right(regexp_replace(phone, '\\\\D', '', 'g'), 10) = $2
-     LIMIT 1`,
-    [candidates, last10],
-  );
-  if (!row?.vk_id) {
-    return null;
-  }
-  return String(row.vk_id);
-};
-
 export function createAdminRouter() {
   const router = express.Router();
 
