@@ -20,7 +20,7 @@ import {
 } from "../services/adminService.mjs";
 import { listUserProfiles, fetchUserProfile } from "../services/profileService.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
-import { sendVKMessage } from "../services/vkMessageService.mjs";
+import { enqueueBookingNotification } from "../services/bookingNotificationService.mjs";
 import { getAppSettings, updateAppSettings } from "../services/appSettingsService.mjs";
 
 const BOOKING_STATUS_VALUES = new Set(["created", "confirmed", "closed", "cancelled"]);
@@ -694,15 +694,25 @@ export function createAdminRouter() {
     if (sendNotification) {
       const message = buildBookingTelegramMessage(booking, status);
       const vkId = await resolveVkIdByPhone(booking.customer_phone);
-      const vkMessage =
-        status === "closed" && booking.review_link
-          ? `${message}\n\nОставить отзыв: ${booking.review_link}`
-          : message;
-      notificationResult = await sendVKMessage({
-        vkUserId: vkId,
-        text: vkMessage,
-        tokenOverride: booking.vk_group_token || null,
-      });
+      if (vkId) {
+        const vkMessage =
+          status === "closed" && booking.review_link
+            ? `${message}\n\nОставить отзыв: ${booking.review_link}`
+            : message;
+        await enqueueBookingNotification({
+          bookingId,
+          restaurantId: booking.restaurant_id,
+          platform: "vk",
+          recipientId: String(vkId),
+          message: vkMessage,
+          payload: {
+            vkGroupToken: booking.vk_group_token || null,
+          },
+        });
+        notificationResult = { queued: true };
+      } else {
+        notificationResult = { queued: false, reason: "vk_id_not_found" };
+      }
     }
 
     return res.json({ success: true, notification: notificationResult });
