@@ -10,7 +10,7 @@ const BlockedPage = () => {
   const { settings } = useAppSettings();
   const { profile } = useProfile();
   const supportEmail = settings.supportEmail?.trim();
-  const supportSubject = "Поддержка Марико — блокировка";
+  const supportSubject = "Поддержка заблокированного пользователя Марико";
   const supportPayload = useMemo(() => {
     if (typeof window === "undefined") {
       return "";
@@ -46,14 +46,18 @@ const BlockedPage = () => {
     if (!supportEmail) {
       return;
     }
-    if (isTelegramWebApp && supportMailto) {
-      const opened = safeOpenLink(supportMailto);
+    if (isTelegramWebApp && supportWebLink) {
+      const opened = safeOpenLink(supportWebLink);
       if (opened) {
         return;
       }
     }
     if (typeof window !== "undefined" && supportWebLink) {
       window.open(supportWebLink, "_blank", "noopener");
+      return;
+    }
+    if (supportMailto) {
+      safeOpenLink(supportMailto);
     }
   };
 
