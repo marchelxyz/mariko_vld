@@ -41,7 +41,7 @@ export function getPlatform(): Platform {
   if (isInVk()) {
     return "vk";
   }
-  if (isInTelegram()) {
+  if (isInTelegram() || hasTelegramInitDataInUrl()) {
     return "telegram";
   }
   return "web";
@@ -58,7 +58,11 @@ export function getUser(): PlatformUser | undefined {
   }
   if (platform === "telegram") {
     const tgUser = getTelegramUser();
-    return mapTelegramUser(tgUser);
+    const mapped = mapTelegramUser(tgUser);
+    if (mapped) {
+      return mapped;
+    }
+    return parseTelegramUserFromInitData(resolveTelegramInitData());
   }
   return undefined;
 }
@@ -86,8 +90,15 @@ export function getUserId(): string | undefined {
   if (platform === "vk") {
     return getVkUserId();
   }
-  const user = getUser();
-  return user?.id?.toString();
+  if (platform === "telegram") {
+    const user = getUser();
+    if (user?.id) {
+      return user.id.toString();
+    }
+    const parsed = parseTelegramUserFromInitData(resolveTelegramInitData());
+    return parsed?.id?.toString();
+  }
+  return undefined;
 }
 
 /**
@@ -352,5 +363,55 @@ function resolveTelegramInitData(): string | undefined {
   if (tg?.initData) {
     return tg.initData;
   }
+  if (typeof window !== "undefined") {
+    const urlParams = new URLSearchParams(window.location.search);
+    const raw = urlParams.get("tgWebAppData");
+    if (raw) {
+      return raw;
+    }
+  }
   return undefined;
+}
+
+function hasTelegramInitDataInUrl(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.has("tgWebAppData");
+}
+
+function parseTelegramUserFromInitData(initData?: string): PlatformUser | undefined {
+  if (!initData) {
+    return undefined;
+  }
+  try {
+    const params = new URLSearchParams(initData);
+    const rawUser = params.get("user");
+    if (!rawUser) {
+      return undefined;
+    }
+    const parsed = JSON.parse(rawUser) as {
+      id?: number | string;
+      first_name?: string;
+      last_name?: string;
+      username?: string;
+      photo_url?: string;
+    };
+    const numericId = Number(parsed.id);
+    if (!Number.isFinite(numericId)) {
+      return undefined;
+    }
+    return {
+      id: numericId,
+      first_name: parsed.first_name || "",
+      last_name: parsed.last_name || undefined,
+      username: parsed.username || undefined,
+      photo_url: parsed.photo_url || undefined,
+      avatar: parsed.photo_url || undefined,
+    };
+  } catch (error) {
+    console.warn("[platform] failed to parse Telegram init data", error);
+    return undefined;
+  }
 }
