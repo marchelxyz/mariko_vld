@@ -324,11 +324,14 @@ const resolveVkId = (override?: string): string | undefined => {
       hasInitData: !!getVkUserId(),
       hasUser: !!user,
     });
+    // Fallback: используем первый ID из списка администраторов, если доступен
+    const fallback = getFallbackVkId();
+    if (fallback) {
+      logger.debug('admin-api', 'Using fallback VK ID', { fallback });
+      return fallback;
+    }
   }
-  // Fallback: используем первый ID из списка администраторов
-  const fallback = getFallbackVkId();
-  logger.debug('admin-api', 'Using fallback VK ID', { fallback });
-  return fallback;
+  return undefined;
 };
 
 const buildHeaders = (overrideTelegramId?: string, overrideVkId?: string): Record<string, string> => {
