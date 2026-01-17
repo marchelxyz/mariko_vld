@@ -39,16 +39,18 @@ export function useEnsureUserProfileSync(): void {
       return;
     }
 
-    // Для VK всегда используем асинхронное получение данных пользователя
     getUserAsync().then((user) => {
       if (user?.id) {
-        syncProfile(user);
+        syncProfile(platform, user);
       }
     });
   }, []);
 }
 
-function syncProfile(user: { id: number; first_name: string; last_name?: string; username?: string; photo_url?: string; avatar?: string }): void {
+function syncProfile(
+  platform: "vk" | "telegram",
+  user: { id: number; first_name: string; last_name?: string; username?: string; photo_url?: string; avatar?: string },
+): void {
   const userId = user.id.toString();
   const displayName =
     [user.first_name, user.last_name].filter(Boolean).join(" ").trim() ||
@@ -82,32 +84,37 @@ function syncProfile(user: { id: number; first_name: string; last_name?: string;
       return;
     }
 
-    // Формируем тело запроса для VK
     const body: Record<string, unknown> = {
       id: userId,
       name: displayName,
       photo,
-      vkId: user.id,
     };
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      "X-VK-Id": userId,
     };
 
-    // Добавляем initData для проверки подписи
-    const initData = getInitData();
-    if (initData) {
-      headers["X-VK-Init-Data"] = initData;
+    if (platform === "vk") {
+      body.vkId = user.id;
+      headers["X-VK-Id"] = userId;
+      const initData = getInitData();
+      if (initData) {
+        headers["X-VK-Init-Data"] = initData;
+      }
+      console.log("[profile-sync] Отправка VK запроса синхронизации профиля", {
+        userId,
+        hasInitData: !!initData,
+        initDataPreview: initData ? initData.substring(0, 100) : undefined,
+        endpoint,
+      });
+    } else {
+      body.telegramId = user.id;
+      headers["X-Telegram-Id"] = userId;
+      console.log("[profile-sync] Отправка Telegram запроса синхронизации профиля", {
+        userId,
+        endpoint,
+      });
     }
-    
-    // Логируем заголовки для диагностики
-    console.log('[profile-sync] Отправка запроса синхронизации профиля', {
-      userId,
-      hasInitData: !!initData,
-      initDataPreview: initData ? initData.substring(0, 100) : undefined,
-      endpoint
-    });
 
     fetch(endpoint, {
       method: "POST",
