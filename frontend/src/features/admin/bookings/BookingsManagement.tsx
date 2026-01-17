@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch, Textarea } from "@shared/ui";
 import { adminServerApi, type AdminBooking } from "@shared/api/admin";
 import { getAllCitiesAsync, type City } from "@shared/data";
@@ -37,6 +37,7 @@ export default function BookingsManagement(): JSX.Element {
   );
   const [sendNotification, setSendNotification] = useState(true);
   const [customMessage, setCustomMessage] = useState("");
+  const prefillMessageRef = useRef("");
 
   useEffect(() => {
     const loadRestaurants = async () => {
@@ -80,7 +81,25 @@ export default function BookingsManagement(): JSX.Element {
   const handleStatusChangeRequest = (booking: AdminBooking, status: string) => {
     setPendingChange({ booking, status });
     setSendNotification(true);
-    setCustomMessage(buildSmsPreview(booking, status));
+    const fallbackMessage = buildSmsPreview(booking, status);
+    prefillMessageRef.current = fallbackMessage;
+    setCustomMessage(fallbackMessage);
+    const platform = booking.platform === "vk" || booking.platform === "telegram" ? booking.platform : null;
+    if (platform) {
+      adminServerApi
+        .getBookingStatusMessage(status, platform)
+        .then((message) => {
+          if (!message) {
+            return;
+          }
+          setCustomMessage((current) =>
+            current === prefillMessageRef.current ? message : current,
+          );
+        })
+        .catch(() => {
+          // игнорируем, оставляем дефолт
+        });
+    }
   };
 
   const confirmStatusChange = async () => {

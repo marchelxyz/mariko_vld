@@ -553,6 +553,21 @@ export const adminServerApi = {
     return handleResponse<UpdateBookingStatusResponse>(response);
   },
 
+  async getBookingStatusMessage(
+    status: string,
+    platform: "telegram" | "vk",
+  ): Promise<string | null> {
+    const search = new URLSearchParams({
+      status,
+      platform,
+    });
+    const response = await fetch(`${ADMIN_API_BASE}/bookings/status-message?${search.toString()}`, {
+      headers: buildHeaders(undefined, undefined),
+    });
+    const data = await handleResponse<{ success: boolean; message?: string | null }>(response);
+    return typeof data?.message === "string" ? data.message : null;
+  },
+
   async getSettings(): Promise<AppSettings> {
     const response = await fetch(`${ADMIN_API_BASE}/settings`, {
       headers: buildHeaders(),
