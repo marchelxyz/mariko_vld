@@ -1,68 +1,93 @@
 /**
- * Модуль для работы с VK Mini Apps.
- * Эта ветка предназначена только для VK.
+ * Модуль для работы с VK/Telegram Mini Apps.
  */
 
-import { getUser as getVkUser, getUserAsync as getVkUserAsync, isInVk, getVk, storage as vkStorage } from "./vk";
-import type { VKUser } from "@/types";
+import {
+  getUser as getVkUser,
+  getUserAsync as getVkUserAsync,
+  getUserId as getVkUserId,
+  isInVk,
+  getVk,
+  storage as vkStorage,
+} from "./vk";
+import {
+  getTg,
+  getUser as getTelegramUser,
+  isInTelegram,
+  markReady as markTelegramReady,
+  requestFullscreenMode as requestTelegramFullscreenMode,
+  safeOpenLink as safeTelegramOpenLink,
+  storage as telegramStorage,
+  onActivated as onTelegramActivated,
+  onDeactivated as onTelegramDeactivated,
+} from "./telegramCore";
+import type { VKUser, TelegramInitUser } from "@/types";
 
-export type Platform = "vk" | "web";
+export type Platform = "vk" | "telegram" | "web";
 
-export interface PlatformUser {
+export type PlatformUser = {
   id: number;
   first_name: string;
   last_name?: string;
   username?: string;
   photo_url?: string;
   avatar?: string;
-}
+};
 
 /**
- * Определяет текущую платформу (всегда VK или web).
+ * Определяет текущую платформу.
  */
 export function getPlatform(): Platform {
   if (isInVk()) {
     return "vk";
   }
+  if (isInTelegram()) {
+    return "telegram";
+  }
   return "web";
 }
 
 /**
- * Получает данные пользователя из VK.
+ * Получает данные пользователя из текущей платформы.
  */
 export function getUser(): PlatformUser | undefined {
-  const vkUser = getVkUser();
-  if (!vkUser) return undefined;
-  return {
-    id: vkUser.id,
-    first_name: vkUser.first_name,
-    last_name: vkUser.last_name,
-    avatar: vkUser.avatar,
-    photo_url: vkUser.avatar,
-  };
+  const platform = getPlatform();
+  if (platform === "vk") {
+    const vkUser = getVkUser();
+    return mapVkUser(vkUser);
+  }
+  if (platform === "telegram") {
+    const tgUser = getTelegramUser();
+    return mapTelegramUser(tgUser);
+  }
+  return undefined;
 }
 
 /**
- * Асинхронно получает данные пользователя из VK.
+ * Асинхронно получает данные пользователя из текущей платформы.
  */
 export async function getUserAsync(): Promise<PlatformUser | undefined> {
-  const vkUser = await getVkUserAsync();
-  if (!vkUser) return undefined;
-  return {
-    id: vkUser.id,
-    first_name: vkUser.first_name,
-    last_name: vkUser.last_name,
-    avatar: vkUser.avatar,
-    photo_url: vkUser.avatar,
-  };
+  const platform = getPlatform();
+  if (platform === "vk") {
+    const vkUser = await getVkUserAsync();
+    return mapVkUser(vkUser);
+  }
+  if (platform === "telegram") {
+    return getUser();
+  }
+  return undefined;
 }
 
 /**
  * Получает ID пользователя как строку.
  */
 export function getUserId(): string | undefined {
+  const platform = getPlatform();
+  if (platform === "vk") {
+    return getVkUserId();
+  }
   const user = getUser();
-  return user?.id.toString();
+  return user?.id?.toString();
 }
 
 /**
@@ -81,45 +106,64 @@ export function getUserDisplayName(): string {
 }
 
 /**
- * Сигнализирует VK, что приложение готово.
+ * Сигнализирует платформе, что приложение готово.
  */
 export function markReady(): void {
-  const vk = getVk();
-  if (vk) {
-    try {
-      vk.ready();
-      console.log("[platform] VK ready() вызван успешно");
-    } catch (error) {
-      console.warn("[platform] vk ready() failed", error);
+  const platform = getPlatform();
+  if (platform === "vk") {
+    const vk = getVk();
+    if (vk) {
+      try {
+        vk.ready();
+        console.log("[platform] VK ready() вызван успешно");
+      } catch (error) {
+        console.warn("[platform] vk ready() failed", error);
+      }
+      return;
     }
-  } else {
-    // Если VK WebApp недоступен, но мы в VK (по URL параметрам), логируем предупреждение
     if (isInVk()) {
-      console.warn("[platform] VK WebApp недоступен, но платформа определена как VK. Возможно, SDK еще не загружен.");
+      console.warn(
+        "[platform] VK WebApp недоступен, но платформа определена как VK. Возможно, SDK еще не загружен.",
+      );
     }
+    return;
+  }
+  if (platform === "telegram") {
+    markTelegramReady();
   }
 }
 
 /**
- * Запрашивает полноэкранный режим в VK.
+ * Запрашивает полноэкранный режим для текущей платформы.
  */
 export function requestFullscreenMode(): void {
-  const vk = getVk();
-  if (vk) {
-    try {
-      if (typeof vk.expand === "function") {
-        vk.expand();
+  const platform = getPlatform();
+  if (platform === "vk") {
+    const vk = getVk();
+    if (vk) {
+      try {
+        if (typeof vk.expand === "function") {
+          vk.expand();
+        }
+      } catch (error) {
+        console.warn("[platform] vk expand() failed", error);
       }
-    } catch (error) {
-      console.warn("[platform] vk expand() failed", error);
     }
+    return;
+  }
+  if (platform === "telegram") {
+    requestTelegramFullscreenMode();
   }
 }
 
 /**
- * Открывает ссылку через VK.
+ * Открывает ссылку через платформенный API.
  */
 export function safeOpenLink(url: string): boolean {
+  const platform = getPlatform();
+  if (platform === "telegram") {
+    return safeTelegramOpenLink(url);
+  }
   const vk = getVk();
   try {
     if (vk && typeof vk.openLink === "function") {
@@ -129,19 +173,44 @@ export function safeOpenLink(url: string): boolean {
   } catch (error) {
     console.warn("[platform] vk openLink failed", error);
   }
-  
+
   if (typeof window !== "undefined") {
     window.open(url, "_blank", "noopener");
     return true;
   }
-  
+
   return false;
 }
 
 /**
- * Хранилище для VK (использует localStorage).
+ * Хранилище для текущей платформы.
  */
-export const storage = vkStorage;
+export const storage = {
+  getItem(key: string): string | null {
+    return resolveStorage().getItem(key);
+  },
+  getItemAsync(key: string): Promise<string | null> {
+    return resolveStorage().getItemAsync(key);
+  },
+  setItem(key: string, value: string): void {
+    resolveStorage().setItem(key, value);
+  },
+  removeItem(key: string): void {
+    resolveStorage().removeItem(key);
+  },
+  clear(): void {
+    resolveStorage().clear();
+  },
+  getJSON<T>(key: string, fallback: T): T {
+    return resolveStorage().getJSON(key, fallback);
+  },
+  setJSON<T>(key: string, value: T): void {
+    resolveStorage().setJSON(key, value);
+  },
+  subscribe(key: string, listener: (value: string | null) => void): () => void {
+    return resolveStorage().subscribe(key, listener);
+  },
+};
 
 /**
  * Возвращает текущий флаг активности приложения (для VK всегда true).
@@ -154,6 +223,10 @@ export function isActive(): boolean {
  * Подписывается на события активации приложения (для VK сразу вызывает callback).
  */
 export function onActivated(callback: () => void): () => void {
+  const platform = getPlatform();
+  if (platform === "telegram") {
+    return onTelegramActivated(callback);
+  }
   callback();
   return () => {};
 }
@@ -162,14 +235,22 @@ export function onActivated(callback: () => void): () => void {
  * Подписывается на события деактивации приложения (для VK пустая функция).
  */
 export function onDeactivated(callback: () => void): () => void {
+  const platform = getPlatform();
+  if (platform === "telegram") {
+    return onTelegramDeactivated(callback);
+  }
   return () => {};
 }
 
 /**
- * Получает initData из VK (для API запросов).
- * Возвращает строку в формате query string для использования в заголовках.
+ * Получает initData для API запросов.
+ * Возвращает строку в формате query string (VK) или initData (Telegram).
  */
 export function getInitData(): string | undefined {
+  const platform = getPlatform();
+  if (platform === "telegram") {
+    return resolveTelegramInitData();
+  }
   const vk = getVk();
   // VK initData находится в vk.initData, но это объект, нужно сериализовать
   if (vk?.initData) {
@@ -228,5 +309,48 @@ export function getInitData(): string | undefined {
     console.warn('[platform] getInitData: initData не найден, хотя платформа определена как VK');
   }
   
+  return undefined;
+}
+
+function mapVkUser(user?: VKUser): PlatformUser | undefined {
+  if (!user) {
+    return undefined;
+  }
+  return {
+    id: user.id,
+    first_name: user.first_name,
+    last_name: user.last_name,
+    avatar: user.avatar,
+    photo_url: user.avatar,
+  };
+}
+
+function mapTelegramUser(user?: TelegramInitUser): PlatformUser | undefined {
+  if (!user) {
+    return undefined;
+  }
+  return {
+    id: user.id,
+    first_name: user.first_name,
+    last_name: user.last_name,
+    username: user.username,
+    photo_url: user.photo_url,
+    avatar: user.photo_url,
+  };
+}
+
+function resolveStorage() {
+  const platform = getPlatform();
+  if (platform === "telegram") {
+    return telegramStorage;
+  }
+  return vkStorage;
+}
+
+function resolveTelegramInitData(): string | undefined {
+  const tg = getTg();
+  if (tg?.initData) {
+    return tg.initData;
+  }
   return undefined;
 }
