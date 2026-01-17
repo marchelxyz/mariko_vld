@@ -21,7 +21,11 @@
    - Значение: `577222108,727331113` (ваши Telegram ID через запятую)
    - Используется для fallback на фронтенде
 
-3. **`VITE_SERVER_API_URL`** (опционально, но рекомендуется)
+3. **`VITE_ADMIN_VK_IDS`** (обязательно для VK Mini App!)
+   - Значение: `123456789,987654321` (ваши VK ID через запятую)
+   - Используется для fallback на фронтенде в VK Mini App
+
+4. **`VITE_SERVER_API_URL`** (опционально, но рекомендуется)
    - Значение: `https://your-backend.up.railway.app/api`
    - Используется как fallback, если `VITE_ADMIN_API_URL` не установлена
 
@@ -31,6 +35,10 @@
 
 1. **`ADMIN_TELEGRAM_IDS`** (обязательно!)
    - Значение: `577222108,727331113` (те же значения, что и `VITE_ADMIN_TELEGRAM_IDS` на Vercel)
+   - ⚠️ **Важно**: Без префикса `VITE_`! Это переменная для backend.
+
+2. **`ADMIN_VK_IDS`** (обязательно для VK Mini App!)
+   - Значение: `123456789,987654321` (ваши VK ID через запятую)
    - ⚠️ **Важно**: Без префикса `VITE_`! Это переменная для backend.
 
 #### Шаг 3: Автоматическая настройка через скрипты
@@ -81,6 +89,14 @@ npm run dev
   - `backend/server/config.mjs`
   - `backend/server/services/adminService.mjs`
 
+##### `ADMIN_VK_IDS`
+- **Описание**: Список VK ID администраторов через запятую. Пользователи с этими ID получают роль `super_admin` без проверки в базе данных. Используется для VK Mini App.
+- **Формат**: Список числовых VK ID через запятую (пробелы игнорируются)
+- **Пример**: `123456789` или `123456789,987654321,555555555`
+- **Где используется**: 
+  - `backend/server/config.mjs`
+  - `backend/server/services/adminService.mjs`
+
 ### Frontend
 
 #### Обязательные переменные
@@ -92,6 +108,13 @@ npm run dev
 - **Где используется**: 
   - `frontend/src/shared/api/admin/adminServerApi.ts`
   - `frontend/src/shared/hooks/useAdmin.ts`
+
+##### `VITE_ADMIN_VK_IDS`
+- **Описание**: Список VK ID администраторов через запятую. Используется для fallback доступа к админке в VK Mini App, когда пользователь не определён через VK WebApp.
+- **Формат**: Список числовых VK ID через запятую (пробелы игнорируются)
+- **Пример**: `123456789` или `123456789,987654321,555555555`
+- **Где используется**: 
+  - `frontend/src/shared/api/admin/adminServerApi.ts`
 
 #### Необязательные переменные
 
@@ -107,13 +130,14 @@ npm run dev
 
 ### 1. Проверка через переменную окружения
 
-1. Запрос должен содержать заголовок `X-Telegram-Id` или `X-Admin-Telegram` с Telegram ID пользователя.
-2. Система проверяет, есть ли Telegram ID в списке `ADMIN_TELEGRAM_IDS` (бэкенд) или `VITE_ADMIN_TELEGRAM_IDS` (фронтенд).
-3. Если ID найден в списке, пользователь получает роль `super_admin` без проверки в базе данных.
+1. Запрос должен содержать заголовок `X-Telegram-Id` или `X-Admin-Telegram` с Telegram ID пользователя, либо заголовок `X-VK-Id` с VK ID пользователя.
+2. Система проверяет, есть ли Telegram ID в списке `ADMIN_TELEGRAM_IDS` (бэкенд) или `VITE_ADMIN_TELEGRAM_IDS` (фронтенд), либо VK ID в списке `ADMIN_VK_IDS` (бэкенд) или `VITE_ADMIN_VK_IDS` (фронтенд).
+3. Если ID найден в соответствующем списке, пользователь получает роль `super_admin` без проверки в базе данных.
+4. Приоритет проверки: сначала проверяется VK ID (если передан), затем Telegram ID.
 
 ### 2. Проверка через базу данных
 
-1. Если Telegram ID не найден в переменной окружения, система проверяет наличие записи в таблице `admin_users` в базе данных.
+1. Если Telegram ID или VK ID не найден в переменной окружения, система проверяет наличие записи в таблице `admin_users` в базе данных (по Telegram ID).
 2. Роль определяется из поля `role` в таблице `admin_users`:
    - `super_admin` - полный доступ ко всем функциям
    - `admin` - доступ с ограничениями по ресторанам (определяется полем `permissions.allowedRestaurants`)
@@ -137,6 +161,11 @@ npm run dev
 ADMIN_TELEGRAM_IDS=577222108
 # Или несколько администраторов:
 # ADMIN_TELEGRAM_IDS=577222108,123456789,987654321
+
+# Admin access (VK IDs через запятую) - для VK Mini App
+ADMIN_VK_IDS=123456789
+# Или несколько администраторов:
+# ADMIN_VK_IDS=123456789,987654321,555555555
 ```
 
 ### Frontend (.env)
@@ -146,6 +175,11 @@ VITE_ADMIN_API_URL=http://localhost:4000/api/cart/admin
 VITE_ADMIN_TELEGRAM_IDS=577222108
 # Или несколько администраторов:
 # VITE_ADMIN_TELEGRAM_IDS=577222108,123456789,987654321
+
+# Admin access (VK IDs через запятую) - для VK Mini App
+VITE_ADMIN_VK_IDS=123456789
+# Или несколько администраторов:
+# VITE_ADMIN_VK_IDS=123456789,987654321,555555555
 ```
 
 ### Bot (.env)
@@ -153,6 +187,10 @@ VITE_ADMIN_TELEGRAM_IDS=577222108
 # Админ-доступ (Telegram IDs через запятую)
 ADMIN_TELEGRAM_IDS=577222108
 VITE_ADMIN_TELEGRAM_IDS=577222108
+
+# Админ-доступ (VK IDs через запятую) - для VK Mini App
+ADMIN_VK_IDS=123456789
+VITE_ADMIN_VK_IDS=123456789
 ```
 
 ---
@@ -219,13 +257,13 @@ VITE_ADMIN_TELEGRAM_IDS=577222108
 **Причина**: `VITE_ADMIN_API_URL` не установлена или указывает на Vercel  
 **Решение**: Установите `VITE_ADMIN_API_URL` с URL Railway backend
 
-### Ошибка: "Требуется Telegram ID администратора (401)"
-**Причина**: `ADMIN_TELEGRAM_IDS` не установлена на Railway backend  
-**Решение**: Установите `ADMIN_TELEGRAM_IDS` на Railway с теми же значениями, что и `VITE_ADMIN_TELEGRAM_IDS`
+### Ошибка: "Требуется Telegram ID или VK ID администратора (401)"
+**Причина**: `ADMIN_TELEGRAM_IDS` или `ADMIN_VK_IDS` не установлены на Railway backend  
+**Решение**: Установите `ADMIN_TELEGRAM_IDS` на Railway с теми же значениями, что и `VITE_ADMIN_TELEGRAM_IDS`, и/или `ADMIN_VK_IDS` с теми же значениями, что и `VITE_ADMIN_VK_IDS`
 
 ### Ошибка: "Нет прав администратора (403)"
-**Причина**: Telegram ID пользователя не найден в `ADMIN_TELEGRAM_IDS`  
-**Решение**: Добавьте ваш Telegram ID в обе переменные (`VITE_ADMIN_TELEGRAM_IDS` на Vercel и `ADMIN_TELEGRAM_IDS` на Railway)
+**Причина**: Telegram ID или VK ID пользователя не найден в соответствующих списках администраторов  
+**Решение**: Добавьте ваш Telegram ID в обе переменные (`VITE_ADMIN_TELEGRAM_IDS` на Vercel и `ADMIN_TELEGRAM_IDS` на Railway) и/или ваш VK ID в обе переменные (`VITE_ADMIN_VK_IDS` на Vercel и `ADMIN_VK_IDS` на Railway)
 
 ### Если все еще не работает
 
@@ -247,9 +285,10 @@ VITE_ADMIN_TELEGRAM_IDS=577222108
 
 ⚠️ **Важно**: 
 - Переменные `ADMIN_TELEGRAM_IDS` и `VITE_ADMIN_TELEGRAM_IDS` должны содержать одинаковые значения.
-- В production окружении рекомендуется использовать только авторизацию через Telegram ID и таблицу `admin_users`.
-- Telegram ID должны быть надёжно защищены и не попадать в публичные репозитории.
-- Используйте только числовые Telegram ID (проверка выполняется регулярным выражением `/^\d+$/`).
+- Переменные `ADMIN_VK_IDS` и `VITE_ADMIN_VK_IDS` должны содержать одинаковые значения.
+- В production окружении рекомендуется использовать только авторизацию через Telegram ID/VK ID и таблицу `admin_users`.
+- Telegram ID и VK ID должны быть надёжно защищены и не попадать в публичные репозитории.
+- Используйте только числовые ID (проверка выполняется регулярным выражением `/^\d+$/`).
 
 ---
 

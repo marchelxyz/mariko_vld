@@ -36,6 +36,24 @@ const parseAdminTelegramIds = (raw) => {
   return parsed;
 };
 export const ADMIN_TELEGRAM_IDS = parseAdminTelegramIds(process.env.ADMIN_TELEGRAM_IDS);
+// Парсим список VK ID администраторов (через запятую)
+const parseAdminVkIds = (raw) => {
+  console.log('[config] ADMIN_VK_IDS raw:', raw);
+  if (!raw) {
+    console.log('[config] ADMIN_VK_IDS is empty, returning empty Set');
+    return new Set();
+  }
+  const parsed = new Set(
+    raw
+      .split(",")
+      .map((id) => id.trim())
+      .filter((id) => id && /^\d+$/.test(id))
+      .map((id) => String(id))
+  );
+  console.log('[config] ADMIN_VK_IDS parsed:', Array.from(parsed));
+  return parsed;
+};
+export const ADMIN_VK_IDS = parseAdminVkIds(process.env.ADMIN_VK_IDS);
 export const ADMIN_ROLE_VALUES = new Set([
   "super_admin",
   "admin",

@@ -7,7 +7,7 @@ import { AdminProvider, CartProvider, RestaurantProvider, DebugGridProvider, Onb
 import { useEnsureUserProfileSync } from "@/hooks";
 import { useProfile } from "@/entities/user";
 import { logger } from "@/lib/logger";
-import { isActive, onActivated, onDeactivated, requestFullscreenMode } from "@/lib/telegram";
+import { isActive, onActivated, onDeactivated, requestFullscreenMode } from "@/lib/platform";
 import { Toaster as SonnerToaster } from "@shared/ui/sonner";
 import { Toaster } from "@shared/ui/toaster";
 import { TooltipProvider } from "@shared/ui/tooltip";

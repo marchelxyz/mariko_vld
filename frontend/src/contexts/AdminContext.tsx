@@ -1,7 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { adminServerApi } from "@shared/api/admin";
-import { Permission, UserRole } from "@shared/types";
-import { getUser } from "@/lib/telegram";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Permission } from "@shared/types";
+import { UserRole } from "@shared/types/admin";
+import { getUserId } from "@/lib/platform";
+import { adminServerApi } from "@shared/api/admin/adminServerApi";
 import { logger } from "@/lib/logger";
 
 type AdminContextValue = {
@@ -131,108 +132,54 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
   const [isLoading, setIsLoading] = useState(true);
   const [userRole, setUserRole] = useState<UserRole>(UserRole.USER);
   const [permissions, setPermissions] = useState<Permission[]>([]);
-  const [userId, setUserId] = useState<string>('');
+  const [userId] = useState<string>(getUserId() || '');
   const [allowedRestaurants, setAllowedRestaurants] = useState<string[]>([]);
-  const checkedRef = useRef(false);
 
+  // Загружаем данные администратора при монтировании компонента
   useEffect(() => {
-    // Проверяем только один раз за сеанс
-    if (checkedRef.current) {
-      return;
-    }
-
-    let disposed = false;
-    const checkAdmin = async () => {
+    let cancelled = false;
+    
+    const loadAdminData = async () => {
+      setIsLoading(true);
       try {
-        setIsLoading(true);
-
-        // Пытаемся загрузить из sessionStorage
-        const cached = loadAdminFromStorage();
-        if (cached) {
-          logger.debug('admin', 'Загружены данные админа из кеша', { cached });
-          if (!disposed) {
-            setIsAdmin(cached.isAdmin);
-            setUserRole(cached.userRole);
-            setPermissions(cached.permissions);
-            setUserId(cached.userId);
-            setAllowedRestaurants(cached.allowedRestaurants);
-            setIsLoading(false);
-            checkedRef.current = true;
-          }
-          return;
-        }
-
-        const user = getUser();
-        // Парсим список Telegram ID администраторов (через запятую)
-        const adminIdsRaw = import.meta.env.VITE_ADMIN_TELEGRAM_IDS;
-        logger.debug('admin', 'VITE_ADMIN_TELEGRAM_IDS', { adminIdsRaw });
-        const adminIds = adminIdsRaw
-          ? adminIdsRaw
-              .split(",")
-              .map((id) => id.trim())
-              .filter((id) => id && /^\d+$/.test(id))
-          : [];
-        const fallbackId = adminIds.length > 0 ? adminIds[0] : undefined;
-        logger.debug('admin', 'Parsed admin IDs', { adminIds, fallbackId });
-        logger.debug('admin', 'Telegram user', { user });
-        // Используем только числовой ID или undefined, чтобы resolveTelegramId мог использовать свой fallback
-        const currentUserId = user?.id?.toString() || fallbackId || undefined;
-        logger.debug('admin', 'Current user ID', { currentUserId });
-        setUserId(currentUserId || '');
-
-        // Передаем undefined, если нет валидного ID - resolveTelegramId сам использует fallback
-        const response = await adminServerApi.getCurrentAdmin(currentUserId);
-        logger.debug('admin', 'Admin response', { response });
-        const mappedRole = mapRole(response.role);
-        const serverPermissions = Array.isArray(response.permissions)
-          ? response.permissions.filter(isPermissionValue)
-          : null;
-        const resolvedPermissions =
-          serverPermissions && serverPermissions.length > 0
-            ? serverPermissions
-            : derivePermissions(mappedRole);
-
-        if (disposed) {
-          return;
-        }
-
-        const adminData = {
-          isAdmin: mappedRole !== UserRole.USER && resolvedPermissions.length > 0,
-          userRole: mappedRole,
-          permissions: resolvedPermissions,
-          userId: currentUserId || '',
-          allowedRestaurants: response.allowedRestaurants ?? [],
-        };
-
-        setUserRole(mappedRole);
-        setPermissions(resolvedPermissions);
-        setAllowedRestaurants(adminData.allowedRestaurants);
-        setIsAdmin(adminData.isAdmin);
-
-        // Сохраняем в sessionStorage для кеширования на время сеанса
-        saveAdminToStorage(adminData);
-        checkedRef.current = true;
-      } catch (error) {
-        logger.error('admin', error instanceof Error ? error : new Error('Ошибка проверки прав администратора'), {
-          error: error instanceof Error ? error.message : String(error),
+        const response = await adminServerApi.getCurrentAdmin();
+        
+        if (cancelled) return;
+        
+        const role = response.role || UserRole.USER;
+        const isAdminUser = role !== UserRole.USER;
+        
+        setIsAdmin(isAdminUser);
+        setUserRole(role);
+        setPermissions(response.permissions || []);
+        setAllowedRestaurants(response.allowedRestaurants || []);
+        
+        logger.debug('admin-context', 'Admin data loaded', {
+          role,
+          isAdmin: isAdminUser,
+          permissionsCount: response.permissions?.length || 0,
+          allowedRestaurantsCount: response.allowedRestaurants?.length || 0,
         });
-        if (!disposed) {
-          setIsAdmin(false);
-          setUserRole(UserRole.USER);
-          setPermissions([]);
-          setAllowedRestaurants([]);
-        }
+      } catch (error) {
+        if (cancelled) return;
+        
+        // Если ошибка, считаем пользователя обычным пользователем
+        logger.warn('admin-context', 'Failed to load admin data', { error });
+        setIsAdmin(false);
+        setUserRole(UserRole.USER);
+        setPermissions([]);
+        setAllowedRestaurants([]);
       } finally {
-        if (!disposed) {
+        if (!cancelled) {
           setIsLoading(false);
         }
       }
     };
-
-    void checkAdmin();
-
+    
+    loadAdminData();
+    
     return () => {
-      disposed = true;
+      cancelled = true;
     };
   }, []);
 

@@ -4,7 +4,7 @@
 import type { Restaurant } from "@shared/data";
 import type { Review, UserProfile } from "@shared/types";
 import { profileDB } from "./database";
-import { getUser } from "@/lib/telegram";
+import { getUser, getPlatform } from "@/lib/platform";
 
 export interface ReviewData {
   rating: number;
@@ -42,28 +42,43 @@ export const analyzeSentiment = (rating: number, text: string): 'positive' | 'ne
 // API функции для интеграции с ботом
 export const botApi = {
   // Получение профиля пользователя
-  async getUserProfile(telegramUserId: string): Promise<UserProfile> {
+  async getUserProfile(userId: string): Promise<UserProfile> {
     try {
-      // Пытаемся найти профиль по Telegram ID
-      const telegramId = parseInt(telegramUserId);
-      let profile = isNaN(telegramId)
-        ? profileDB.getProfile(telegramUserId)
-        : profileDB.getProfileByTelegramId(telegramId);
+      const platform = getPlatform();
+      const platformUserId = parseInt(userId);
+      
+      // Пытаемся найти профиль по ID или по платформенному ID
+      let profile = isNaN(platformUserId)
+        ? profileDB.getProfile(userId)
+        : (platform === "vk" 
+            ? profileDB.getProfileByVkId(platformUserId)
+            : profileDB.getProfileByTelegramId(platformUserId));
+
+      // Если профиль не найден по платформенному ID, ищем по общему ID
+      if (!profile) {
+        profile = profileDB.getProfile(userId);
+      }
 
       // Если профиля нет, создаем новый
       if (!profile) {
-        const telegramUser = getUser();
+        const platformUser = getUser();
 
-        profile = profileDB.createProfile({
-          id: telegramUserId,
-          telegramId: telegramId || undefined,
-          name: telegramUser?.first_name
-            ? `${telegramUser.first_name} ${telegramUser.last_name || ""}`.trim()
+        const profileData: Parameters<typeof profileDB.createProfile>[0] = {
+          id: userId,
+          name: platformUser?.first_name
+            ? `${platformUser.first_name} ${platformUser.last_name || ""}`.trim()
             : "",
           phone: "",
           birthDate: "",
           gender: "Не указан"
-        });
+        };
+
+        // Добавляем платформенный ID в зависимости от платформы
+        if (platform === "vk") {
+          profileData.vkId = platformUserId || undefined;
+        }
+
+        profile = profileDB.createProfile(profileData);
 
         // Логируем первый вход (без больших данных)
         profileDB.logActivity(profile.id, "first_login");
@@ -98,14 +113,14 @@ export const botApi = {
 
       // Fallback профиль
       return {
-        id: telegramUserId,
+        id: userId,
         name: "Пользователь",
         phone: "",
         birthDate: "",
         gender: "Не указан",
         photo: "",
         notificationsEnabled: true,
-        telegramId: Number.isFinite(parseInt(telegramUserId)) ? parseInt(telegramUserId) : undefined,
+        telegramId: undefined,
         favoriteCityId: null,
         favoriteCityName: null,
         favoriteRestaurantId: null,
@@ -122,18 +137,17 @@ export const botApi = {
 
   // Обновление профиля пользователя
   async updateUserProfile(
-    telegramUserId: string,
+    userId: string,
     profile: Partial<UserProfile>,
   ): Promise<boolean> {
     try {
       // Обновление профиля
-
-      const updatedProfile = profileDB.updateProfile(telegramUserId, profile);
+      const updatedProfile = profileDB.updateProfile(userId, profile);
 
       if (updatedProfile) {
         // Логируем изменения (только ключи полей)
         profileDB.logActivity(
-          telegramUserId,
+          userId,
           "profile_updated",
           Object.keys(profile).join(","),
         );

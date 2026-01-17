@@ -4,7 +4,7 @@ import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { isMarikoDeliveryEnabledForCity } from "@/shared/config/marikoDelivery";
 import { useAdmin } from "@shared/hooks";
 import { ActionButton } from "@shared/ui";
-import { safeOpenLink } from "@/lib/telegram";
+import { safeOpenLink } from "@/lib/platform";
 
 const Delivery = () => {
   const navigate = useNavigate();

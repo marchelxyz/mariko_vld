@@ -13,6 +13,7 @@ export interface UserProfile {
   lastAddressLon?: number | null;
   lastAddressUpdatedAt?: string | null;
   telegramId?: number;
+  vkId?: number;
   favoriteCityId?: string | null;
   favoriteCityName?: string | null;
   favoriteRestaurantId?: string | null;

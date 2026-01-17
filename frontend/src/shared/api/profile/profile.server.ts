@@ -1,4 +1,5 @@
 import type { UserProfile } from "@shared/types";
+import { getInitData, getPlatform } from "@/lib/platform";
 
 function getProfileApiBaseUrl(): string {
   // Используем VITE_SERVER_API_URL если он установлен (предпочтительный вариант)
@@ -20,10 +21,26 @@ type ProfileResponse = {
   message?: string;
 };
 
-const buildHeaders = (userId: string): Record<string, string> => ({
-  "Content-Type": "application/json",
-  "X-Telegram-Id": userId,
-});
+const buildHeaders = (userId: string): Record<string, string> => {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  const platform = getPlatform();
+  const initData = getInitData();
+
+  if (platform === "vk") {
+    headers["X-VK-Id"] = userId;
+    if (initData) {
+      headers["X-VK-Init-Data"] = initData;
+    }
+  } else {
+    // Fallback для web платформы
+    headers["X-Telegram-Id"] = userId;
+  }
+
+  return headers;
+};
 
 const handleResponse = async (response: Response): Promise<ProfileResponse> => {
   const payload = await response.json().catch(() => ({}));

@@ -11,12 +11,52 @@ import { getAppSettings } from "../services/appSettingsService.mjs";
 import { fetchRestaurantIntegrationConfig, enqueueIikoOrder } from "../services/integrationService.mjs";
 import { normaliseNullableString } from "../utils.mjs";
 import { addressService } from "../services/addressService.mjs";
+import { verifyVKInitData, getVKUserIdFromInitData } from "../utils/vkAuth.mjs";
 
 const healthPayload = () => ({ status: "ok", database: Boolean(db) });
 
 const getTelegramIdFromHeaders = (req) => {
   const raw = req.get("x-telegram-id");
   return typeof raw === "string" ? raw.trim() : null;
+};
+
+const getVkIdFromHeaders = (req) => {
+  const raw = req.get("x-vk-id");
+  return typeof raw === "string" ? raw.trim() : null;
+};
+
+/**
+ * Получает и проверяет VK ID из заголовков с проверкой подписи initData.
+ * 
+ * @param {Object} req - Express request object
+ * @returns {string|null} - Проверенный VK ID или null
+ */
+const getVerifiedVkIdFromHeaders = (req) => {
+  // Сначала пробуем получить из заголовка X-VK-Id (для обратной совместимости)
+  const headerVkId = getVkIdFromHeaders(req);
+  
+  // Проверяем initData для безопасности
+  const rawInitData = req.get("x-vk-init-data");
+  if (rawInitData) {
+    const verifiedInitData = verifyVKInitData(rawInitData);
+    if (verifiedInitData) {
+      const vkUserId = getVKUserIdFromInitData(verifiedInitData);
+      if (vkUserId) {
+        // Если проверка прошла успешно, используем ID из initData
+        return vkUserId;
+      }
+    }
+    // Если проверка не прошла, но есть initData, логируем предупреждение
+    console.warn("[cartRoutes] Проверка подписи VK initData не прошла");
+  }
+  
+  // Fallback на заголовок X-VK-Id (для обратной совместимости)
+  return headerVkId;
+};
+
+// Универсальная функция для получения ID пользователя из заголовков (Telegram или VK)
+const getUserIdFromHeaders = (req) => {
+  return getTelegramIdFromHeaders(req) || getVerifiedVkIdFromHeaders(req);
 };
 
 export function registerCartRoutes(app) {
@@ -84,11 +124,14 @@ export function registerCartRoutes(app) {
     }
 
     const body = req.body ?? {};
+    const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerVkId = getVerifiedVkIdFromHeaders(req);
     const resolvedId =
       (typeof body.id === "string" && body.id.trim()) ||
-      headerTelegramId ||
-      (typeof body.telegramId === "string" && body.telegramId.trim());
+      headerUserId ||
+      (typeof body.telegramId === "string" && body.telegramId.trim()) ||
+      (typeof body.vkId === "string" && body.vkId.trim());
 
     if (!resolvedId) {
       return res.status(400).json({ success: false, message: "Не удалось определить пользователя" });
@@ -138,15 +181,16 @@ export function registerCartRoutes(app) {
     if (!ensureDatabase(res)) {
       return;
     }
+    const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getTelegramIdFromHeaders(req);
     const requestedId =
       normaliseNullableString(req.query?.id) ??
       normaliseNullableString(req.query?.userId) ??
-      headerTelegramId;
+      headerUserId;
     if (!requestedId) {
       return res
         .status(400)
-        .json({ success: false, message: "Передайте Telegram ID или userId пользователя" });
+        .json({ success: false, message: "Передайте Telegram ID, VK ID или userId пользователя" });
     }
     try {
       const row = await fetchUserProfile(requestedId);
@@ -170,8 +214,10 @@ export function registerCartRoutes(app) {
       return;
     }
     const body = req.body ?? {};
+    const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getTelegramIdFromHeaders(req);
-    const resolvedId = normaliseNullableString(body.id) ?? headerTelegramId;
+    const headerVkId = getVerifiedVkIdFromHeaders(req);
+    const resolvedId = normaliseNullableString(body.id) ?? headerUserId;
     if (!resolvedId) {
       return res
         .status(400)
@@ -221,15 +267,20 @@ export function registerCartRoutes(app) {
     if (!ensureDatabase(res)) {
       return;
     }
+    // Используем getUserIdFromHeaders, который поддерживает и VK ID, и Telegram ID
+    const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerVkId = getVkIdFromHeaders(req);
     const requestedId =
       normaliseNullableString(req.query?.id) ??
       normaliseNullableString(req.query?.userId) ??
+      headerVkId ??
+      headerUserId ??
       headerTelegramId;
     if (!requestedId) {
       return res
         .status(400)
-        .json({ success: false, message: "Передайте Telegram ID или userId пользователя" });
+        .json({ success: false, message: "Передайте VK ID, Telegram ID или userId пользователя" });
     }
     try {
       const row = await fetchUserProfile(requestedId);
@@ -248,19 +299,30 @@ export function registerCartRoutes(app) {
       return;
     }
     const body = req.body ?? {};
+    // Используем getUserIdFromHeaders, который поддерживает и VK ID, и Telegram ID
+    const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerVkId = getVkIdFromHeaders(req);
     const resolvedId =
       (typeof body.id === "string" && body.id.trim()) ||
-      headerTelegramId ||
-      (typeof body.userId === "string" && body.userId.trim());
+      (headerUserId ?? headerTelegramId ?? headerVkId ?? (typeof body.userId === "string" && body.userId.trim()));
     if (!resolvedId) {
       return res.status(400).json({ success: false, message: "Не удалось определить пользователя" });
     }
     try {
       const shown = body.shown === true;
+      // Определяем telegramId и vkId для сохранения в профиле
+      // Если есть VK ID в заголовках, это VK пользователь
+      const isVkUser = !!headerVkId || (!!headerUserId && !headerTelegramId);
+      const telegramId = body.telegramId ?? (headerTelegramId && !isVkUser ? headerTelegramId : null);
+      // Для VK пользователей используем VK ID из заголовков или из body
+      const vkId = body.vkId ?? (headerVkId || (isVkUser && headerUserId ? headerUserId : null));
+      
       const row = await upsertUserProfileRecord({
         id: resolvedId,
-        telegramId: body.telegramId ?? headerTelegramId ?? resolvedId,
+        // Для VK пользователей не устанавливаем telegramId, если он не указан явно
+        telegramId: isVkUser ? (telegramId || null) : (telegramId ?? resolvedId),
+        vkId: vkId ? String(vkId) : undefined,
         onboardingTourShown: shown,
       });
       return res.json({ success: true, shown: row?.onboarding_tour_shown === true });
@@ -561,121 +623,172 @@ export function registerCartRoutes(app) {
     return res.json({ success: true });
   });
 
-  /**
-   * Получить корзину пользователя
-   * GET /api/cart/cart
-   */
-  app.get("/api/cart/cart", async (req, res) => {
+  // ===== Сохранение корзины пользователя =====
+  app.post("/api/cart/save", async (req, res) => {
     if (!ensureDatabase(res)) {
       return;
     }
-
+    const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getTelegramIdFromHeaders(req);
-    const userId = normaliseNullableString(req.query?.userId) ?? headerTelegramId;
-
-    if (!userId) {
-      return res.status(400).json({ success: false, message: "Необходимо указать userId" });
+    const headerVkId = getVerifiedVkIdFromHeaders(req);
+    const body = req.body ?? {};
+    
+    const resolvedId =
+      (typeof body.userId === "string" && body.userId.trim()) ||
+      (typeof body.id === "string" && body.id.trim()) ||
+      headerUserId;
+    
+    if (!resolvedId) {
+      return res.status(400).json({ success: false, message: "Не удалось определить пользователя" });
     }
+
+    const items = Array.isArray(body.items) ? body.items : [];
+    const restaurantId = typeof body.restaurantId === "string" ? body.restaurantId : null;
+    const cityId = typeof body.cityId === "string" ? body.cityId : null;
 
     try {
-      const cart = await queryOne(
-        `SELECT items FROM user_carts WHERE user_id = $1`,
-        [userId]
-      );
+      const telegramId = body.telegramId ?? (headerTelegramId ? Number(headerTelegramId) : null);
+      const vkId = body.vkId ?? (headerVkId ? Number(headerVkId) : null);
 
-      if (!cart) {
-        return res.json({ success: true, items: [] });
-      }
-
-      return res.json({ success: true, items: cart.items || [] });
-    } catch (error) {
-      console.error("Ошибка получения корзины:", error);
-      return res.status(500).json({ 
-        success: false, 
-        message: "Не удалось получить корзину",
-        error: error?.message || "Неизвестная ошибка",
-      });
-    }
-  });
-
-  /**
-   * Сохранить корзину пользователя
-   * POST /api/cart/cart
-   */
-  app.post("/api/cart/cart", async (req, res) => {
-    if (!ensureDatabase(res)) {
-      return;
-    }
-
-    const headerTelegramId = getTelegramIdFromHeaders(req);
-    const userId = normaliseNullableString(req.body?.userId) ?? headerTelegramId;
-    const items = req.body?.items;
-
-    if (!userId) {
-      return res.status(400).json({ success: false, message: "Необходимо указать userId" });
-    }
-
-    if (!Array.isArray(items)) {
-      return res.status(400).json({ success: false, message: "items должен быть массивом" });
-    }
-
-    try {
-      // Проверяем существование пользователя
-      const user = await queryOne(`SELECT id FROM user_profiles WHERE id = $1`, [userId]);
-      if (!user) {
-        return res.status(404).json({ success: false, message: "Пользователь не найден" });
-      }
-
-      // Сохраняем или обновляем корзину
-      await query(
-        `INSERT INTO user_carts (user_id, items, updated_at)
-         VALUES ($1, $2::jsonb, NOW())
+      // Используем UPSERT для сохранения или обновления корзины
+      const result = await queryOne(
+        `INSERT INTO saved_carts (user_id, telegram_id, vk_id, items, restaurant_id, city_id, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())
          ON CONFLICT (user_id) 
-         DO UPDATE SET items = $2::jsonb, updated_at = NOW()`,
-        [userId, JSON.stringify(items)]
+         DO UPDATE SET 
+           telegram_id = EXCLUDED.telegram_id,
+           vk_id = EXCLUDED.vk_id,
+           items = EXCLUDED.items,
+           restaurant_id = EXCLUDED.restaurant_id,
+           city_id = EXCLUDED.city_id,
+           updated_at = NOW()
+         RETURNING *`,
+        [
+          resolvedId,
+          telegramId,
+          vkId,
+          JSON.stringify(items),
+          restaurantId,
+          cityId,
+        ],
       );
 
-      return res.json({ success: true });
+      if (!result) {
+        return res.status(500).json({ success: false, message: "Не удалось сохранить корзину" });
+      }
+
+      // Парсим JSON поля если они строки
+      const cart = {
+        ...result,
+        items: typeof result.items === "string" ? JSON.parse(result.items) : result.items,
+      };
+
+      return res.json({ success: true, cart });
     } catch (error) {
       console.error("Ошибка сохранения корзины:", error);
-      return res.status(500).json({ 
-        success: false, 
-        message: "Не удалось сохранить корзину",
-        error: error?.message || "Неизвестная ошибка",
-      });
+      return res.status(500).json({ success: false, message: "Не удалось сохранить корзину" });
     }
   });
 
-  /**
-   * Очистить корзину пользователя
-   * DELETE /api/cart/cart
-   */
-  app.delete("/api/cart/cart", async (req, res) => {
+  app.get("/api/cart/save", async (req, res) => {
     if (!ensureDatabase(res)) {
       return;
     }
-
+    const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getTelegramIdFromHeaders(req);
-    const userId = normaliseNullableString(req.query?.userId ?? req.body?.userId) ?? headerTelegramId;
+    const headerVkId = getVerifiedVkIdFromHeaders(req);
+    
+    const requestedId =
+      normaliseNullableString(req.query?.userId) ??
+      normaliseNullableString(req.query?.id) ??
+      headerUserId;
 
-    if (!userId) {
-      return res.status(400).json({ success: false, message: "Необходимо указать userId" });
+    if (!requestedId) {
+      return res.status(400).json({ success: false, message: "Передайте userId для получения корзины" });
     }
 
     try {
-      await query(
-        `UPDATE user_carts SET items = '[]'::jsonb, updated_at = NOW() WHERE user_id = $1`,
-        [userId]
+      // Ищем корзину по user_id, telegram_id или vk_id
+      let result = await queryOne(
+        `SELECT * FROM saved_carts WHERE user_id = $1 LIMIT 1`,
+        [requestedId],
       );
+
+      // Если не найдено по user_id, пробуем найти по telegram_id или vk_id
+      if (!result) {
+        if (headerTelegramId) {
+          result = await queryOne(
+            `SELECT * FROM saved_carts WHERE telegram_id = $1 LIMIT 1`,
+            [Number(headerTelegramId)],
+          );
+        }
+        if (!result && headerVkId) {
+          result = await queryOne(
+            `SELECT * FROM saved_carts WHERE vk_id = $1 LIMIT 1`,
+            [Number(headerVkId)],
+          );
+        }
+      }
+
+      if (!result) {
+        return res.json({ success: true, cart: null });
+      }
+
+      // Парсим JSON поля если они строки
+      const cart = {
+        ...result,
+        items: typeof result.items === "string" ? JSON.parse(result.items) : result.items,
+      };
+
+      return res.json({ success: true, cart });
+    } catch (error) {
+      console.error("Ошибка получения корзины:", error);
+      return res.status(500).json({ success: false, message: "Не удалось загрузить корзину" });
+    }
+  });
+
+  app.delete("/api/cart/save", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const headerUserId = getUserIdFromHeaders(req);
+    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerVkId = getVerifiedVkIdFromHeaders(req);
+    
+    const requestedId =
+      normaliseNullableString(req.query?.userId) ??
+      normaliseNullableString(req.query?.id) ??
+      headerUserId;
+
+    if (!requestedId) {
+      return res.status(400).json({ success: false, message: "Передайте userId для удаления корзины" });
+    }
+
+    try {
+      const result = await queryOne(
+        `DELETE FROM saved_carts WHERE user_id = $1 RETURNING id`,
+        [requestedId],
+      );
+
+      // Если не найдено по user_id, пробуем удалить по telegram_id или vk_id
+      if (!result) {
+        if (headerTelegramId) {
+          await queryOne(
+            `DELETE FROM saved_carts WHERE telegram_id = $1 RETURNING id`,
+            [Number(headerTelegramId)],
+          );
+        } else if (headerVkId) {
+          await queryOne(
+            `DELETE FROM saved_carts WHERE vk_id = $1 RETURNING id`,
+            [Number(headerVkId)],
+          );
+        }
+      }
 
       return res.json({ success: true });
     } catch (error) {
-      console.error("Ошибка очистки корзины:", error);
-      return res.status(500).json({ 
-        success: false, 
-        message: "Не удалось очистить корзину",
-        error: error?.message || "Неизвестная ошибка",
-      });
+      console.error("Ошибка удаления корзины:", error);
+      return res.status(500).json({ success: false, message: "Не удалось удалить корзину" });
     }
   });
 }

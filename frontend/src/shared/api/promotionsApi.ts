@@ -1,5 +1,5 @@
 import { defaultPromotions, type PromotionCardData } from "@shared/data";
-import { getTg } from "@/lib/telegram";
+import { getInitData, getPlatform } from "@/lib/platform";
 
 const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
 const RAW_SERVER_API_BASE = normalizeBaseUrl(rawServerEnv || "/api");
@@ -56,9 +56,9 @@ function buildAdminHeaders(initial?: Record<string, string>): Record<string, str
     ...(initial ?? {}),
   };
 
-  const initData = getTg()?.initData;
+  const initData = getInitData();
   if (initData) {
-    headers["X-Telegram-Init-Data"] = initData;
+    headers["X-VK-Init-Data"] = initData;
   }
 
   return headers;

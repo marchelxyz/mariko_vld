@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { getUser } from "@/lib/telegram";
+import { getUser, getUserAsync, getPlatform, getInitData } from "@/lib/platform";
 
 function getProfileSyncApiBaseUrl(): string {
   // Используем VITE_SERVER_API_URL если он установлен (предпочтительный вариант)
@@ -32,102 +32,115 @@ const buildSignature = (name: string, photo: string) => JSON.stringify({ name, p
 
 export function useEnsureUserProfileSync(): void {
   useEffect(() => {
-    const user = getUser();
-    if (!user?.id) {
+    const platform = getPlatform();
+    
+    // Для веб-версии не синхронизируем профиль
+    if (platform === "web") {
       return;
     }
 
-    const userId = user.id.toString();
-    const displayName =
-      [user.first_name, user.last_name].filter(Boolean).join(" ").trim() ||
-      user.username ||
-      "Пользователь";
-    const photo = user.photo_url ?? "";
-    const signature = buildSignature(displayName, photo);
-
-    const localStorage = getBrowserStorage("local");
-    const sessionStorage = getBrowserStorage("session");
-    const signatureKey = `${SIGNATURE_PREFIX}:${userId}`;
-    const pendingKey = `${PENDING_PREFIX}:${userId}`;
-
-    if (localStorage?.getItem(signatureKey) === signature) {
-      return;
-    }
-    if (sessionStorage?.getItem(pendingKey)) {
-      return;
-    }
-    sessionStorage?.setItem(pendingKey, signature);
-
-    const baseUrl = getProfileSyncApiBaseUrl();
-    const endpoint = `${baseUrl}/cart/profile/sync`;
-
-    let cancelled = false;
-    let scheduledHandle: number | ReturnType<typeof setTimeout> | null = null;
-
-    const runSync = () => {
-      if (cancelled) {
-        sessionStorage?.removeItem(pendingKey);
-        return;
+    // Для VK всегда используем асинхронное получение данных пользователя
+    getUserAsync().then((user) => {
+      if (user?.id) {
+        syncProfile(user);
       }
-
-      fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Telegram-Id": userId,
-        },
-        body: JSON.stringify({
-          id: userId,
-          name: displayName,
-          photo,
-          telegramId: user.id,
-        }),
-      })
-        .then((response) => {
-          if (!response.ok) {
-            return response.text().then((text) => {
-              throw new Error(text || `Profile sync failed (${response.status})`);
-            });
-          }
-          localStorage?.setItem(signatureKey, signature);
-          return null;
-        })
-        .catch((error) => {
-          console.warn("[profile-sync] failed to bootstrap profile", error);
-        })
-        .finally(() => {
-          sessionStorage?.removeItem(pendingKey);
-        });
-    };
-
-    // Не критично для первого экрана → выполняем в idle, чтобы не конкурировать с основными запросами.
-    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-      scheduledHandle = (
-        window as unknown as {
-          requestIdleCallback: (cb: () => void, options?: { timeout?: number }) => number;
-        }
-      ).requestIdleCallback(runSync, { timeout: 2000 });
-    } else if (typeof window !== "undefined") {
-      scheduledHandle = setTimeout(runSync, 0);
-    } else {
-      runSync();
-    }
-
-    return () => {
-      cancelled = true;
-      sessionStorage?.removeItem(pendingKey);
-      if (scheduledHandle === null || typeof window === "undefined") {
-        return;
-      }
-      if ("cancelIdleCallback" in window && typeof scheduledHandle === "number") {
-        (
-          window as unknown as {
-            cancelIdleCallback: (id: number) => void;
-          }
-        ).cancelIdleCallback(scheduledHandle);
-      } else {
-        clearTimeout(scheduledHandle);
-      }
-    };
+    });
   }, []);
+}
+
+function syncProfile(user: { id: number; first_name: string; last_name?: string; username?: string; photo_url?: string; avatar?: string }): void {
+  const userId = user.id.toString();
+  const displayName =
+    [user.first_name, user.last_name].filter(Boolean).join(" ").trim() ||
+    user.username ||
+    "Пользователь";
+  const photo = user.photo_url || user.avatar || "";
+  const signature = buildSignature(displayName, photo);
+
+  const localStorage = getBrowserStorage("local");
+  const sessionStorage = getBrowserStorage("session");
+  const signatureKey = `${SIGNATURE_PREFIX}:${userId}`;
+  const pendingKey = `${PENDING_PREFIX}:${userId}`;
+
+  if (localStorage?.getItem(signatureKey) === signature) {
+    return;
+  }
+  if (sessionStorage?.getItem(pendingKey)) {
+    return;
+  }
+  sessionStorage?.setItem(pendingKey, signature);
+
+  const baseUrl = getProfileSyncApiBaseUrl();
+  const endpoint = `${baseUrl}/cart/profile/sync`;
+
+  let cancelled = false;
+  let scheduledHandle: number | ReturnType<typeof setTimeout> | null = null;
+
+  const runSync = () => {
+    if (cancelled) {
+      sessionStorage?.removeItem(pendingKey);
+      return;
+    }
+
+    // Формируем тело запроса для VK
+    const body: Record<string, unknown> = {
+      id: userId,
+      name: displayName,
+      photo,
+      vkId: user.id,
+    };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "X-VK-Id": userId,
+    };
+
+    // Добавляем initData для проверки подписи
+    const initData = getInitData();
+    if (initData) {
+      headers["X-VK-Init-Data"] = initData;
+    }
+    
+    // Логируем заголовки для диагностики
+    console.log('[profile-sync] Отправка запроса синхронизации профиля', {
+      userId,
+      hasInitData: !!initData,
+      initDataPreview: initData ? initData.substring(0, 100) : undefined,
+      endpoint
+    });
+
+    fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          return response.text().then((text) => {
+            throw new Error(text || `Profile sync failed (${response.status})`);
+          });
+        }
+        localStorage?.setItem(signatureKey, signature);
+        return null;
+      })
+      .catch((error) => {
+        console.warn("[profile-sync] failed to bootstrap profile", error);
+      })
+      .finally(() => {
+        sessionStorage?.removeItem(pendingKey);
+      });
+  };
+
+  // Не критично для первого экрана → выполняем в idle, чтобы не конкурировать с основными запросами.
+  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+    scheduledHandle = (
+      window as unknown as {
+        requestIdleCallback: (cb: () => void, options?: { timeout?: number }) => number;
+      }
+    ).requestIdleCallback(runSync, { timeout: 2000 });
+  } else if (typeof window !== "undefined") {
+    scheduledHandle = setTimeout(runSync, 0);
+  } else {
+    runSync();
+  }
 }

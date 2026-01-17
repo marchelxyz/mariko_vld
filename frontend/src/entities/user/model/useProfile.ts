@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { profileApi } from "@shared/api";
 import type { UserProfile } from "@shared/types";
-import { getUser, storage } from "@/lib/telegram";
+import { getUser, getUserAsync, storage, getPlatform } from "@/lib/platform";
 
 const inflightProfileRequests = new Map<string, Promise<UserProfile>>();
 
@@ -17,12 +17,78 @@ const getUserProfileShared = (userId: string): Promise<UserProfile> => {
   return request;
 };
 
-const resolveTelegramUserId = (): string => {
-  const telegramUser = getUser();
-  return telegramUser?.id?.toString() || "demo_user";
+const resolveUserId = (): string => {
+  const user = getUser();
+  return user?.id?.toString() || "demo_user";
 };
 
-const resolveTelegramPhotoUrl = (): string => (getUser()?.photo_url ?? "").trim();
+/**
+ * Получает URL фото пользователя из платформы (VK или Telegram).
+ * Для VK использует асинхронный метод для получения полных данных.
+ */
+const resolvePhotoUrl = async (): Promise<string> => {
+  const platform = getPlatform();
+  
+  // Для VK нужно использовать асинхронный метод
+  if (platform === "vk") {
+    try {
+      const user = await getUserAsync();
+      console.log("[profile] resolvePhotoUrl для VK:", {
+        hasUser: !!user,
+        hasAvatar: !!user?.avatar,
+        avatar: user?.avatar?.substring(0, 50) || "нет",
+      });
+      if (user?.avatar) {
+        return user.avatar.trim();
+      }
+    } catch (error) {
+      console.warn("Не удалось получить фото пользователя из VK:", error);
+    }
+  }
+  
+  // Для других платформ используем синхронный метод
+  const user = getUser();
+  return (user?.photo_url || user?.avatar || "").trim();
+};
+
+/**
+ * Получает имя пользователя из платформы (VK или Telegram).
+ * Для VK использует асинхронный метод для получения полных данных.
+ */
+const resolveUserName = async (): Promise<string> => {
+  const platform = getPlatform();
+  
+  // Для VK нужно использовать асинхронный метод
+  if (platform === "vk") {
+    try {
+      const user = await getUserAsync();
+      console.log("[profile] resolveUserName для VK:", {
+        hasUser: !!user,
+        firstName: user?.first_name || "нет",
+        lastName: user?.last_name || "нет",
+      });
+      if (user) {
+        const parts = [user.first_name, user.last_name].filter(Boolean);
+        if (parts.length > 0) {
+          return parts.join(" ");
+        }
+      }
+    } catch (error) {
+      console.warn("Не удалось получить имя пользователя из VK:", error);
+    }
+  }
+  
+  // Для других платформ используем синхронный метод
+  const user = getUser();
+  if (user) {
+    const parts = [user.first_name, user.last_name].filter(Boolean);
+    if (parts.length > 0) {
+      return parts.join(" ");
+    }
+  }
+  
+  return "";
+};
 
 const defaultProfile: UserProfile = {
   id: "default",
@@ -61,15 +127,15 @@ export const useProfile = () => {
     loadProfile();
   }, []);
 
-  const applyProfileUpdate = (incomingProfile: Partial<UserProfile>) => {
-    const telegramPhotoUrl = resolveTelegramPhotoUrl();
+  const applyProfileUpdate = async (incomingProfile: Partial<UserProfile>) => {
+    const photoUrl = await resolvePhotoUrl();
     setProfile((currentProfile) => {
       const mergedProfile = {
         ...defaultProfile,
         ...currentProfile,
         ...incomingProfile,
       };
-      const resolvedPhoto = telegramPhotoUrl || defaultProfile.photo;
+      const resolvedPhoto = photoUrl || defaultProfile.photo;
       return { ...mergedProfile, photo: resolvedPhoto };
     });
   };
@@ -79,8 +145,8 @@ export const useProfile = () => {
       setLoading(true);
       setError(null);
 
-      // Получаем ID пользователя из Telegram
-      const currentUserId = resolveTelegramUserId();
+      // Получаем ID пользователя
+      const currentUserId = resolveUserId();
       
       // Обновляем userId только если он изменился
       if (currentUserId !== userId) {
@@ -94,7 +160,7 @@ export const useProfile = () => {
         const cached = storage.getItem(storageKey);
         if (cached) {
           const parsed = JSON.parse(cached) as Partial<UserProfile>;
-          applyProfileUpdate({ ...parsed, id: currentUserId });
+          await applyProfileUpdate({ ...parsed, id: currentUserId });
           setIsInitialized(true);
         }
       } catch (cacheErr) {
@@ -102,13 +168,52 @@ export const useProfile = () => {
       }
 
       const userProfile = await getUserProfileShared(currentUserId);
-      const telegramPhotoUrl = resolveTelegramPhotoUrl();
+      const photoUrl = await resolvePhotoUrl();
+      
+      // Получаем имя пользователя из платформы (VK/Telegram)
+      const platformUserName = await resolveUserName();
+      
+      // Если имя из платформы есть, но в профиле его нет или оно дефолтное, используем имя из платформы
+      const finalName = platformUserName && platformUserName.trim() 
+        ? (userProfile.name && userProfile.name !== "Пользователь" && userProfile.name.trim() 
+            ? userProfile.name 
+            : platformUserName.trim())
+        : (userProfile.name || defaultProfile.name);
+      
       const resolvedProfile: UserProfile = {
         ...defaultProfile,
         ...userProfile,
         id: currentUserId,
-        photo: telegramPhotoUrl || userProfile.photo || defaultProfile.photo,
+        name: finalName,
+        photo: photoUrl || userProfile.photo || defaultProfile.photo,
       };
+      
+      // Если получили имя или фото из платформы и их нет в профиле на сервере, обновляем профиль
+      const profileUpdates: Partial<UserProfile> = {};
+      let shouldUpdateProfile = false;
+      
+      if (platformUserName && platformUserName.trim() && 
+          (!userProfile.name || userProfile.name === "Пользователь" || !userProfile.name.trim())) {
+        profileUpdates.name = platformUserName.trim();
+        shouldUpdateProfile = true;
+      }
+      
+      // Если получили фото из платформы и его нет в профиле на сервере, обновляем профиль
+      if (photoUrl && photoUrl.trim() && 
+          (!userProfile.photo || !userProfile.photo.trim() || userProfile.photo === defaultProfile.photo)) {
+        profileUpdates.photo = photoUrl.trim();
+        shouldUpdateProfile = true;
+      }
+      
+      if (shouldUpdateProfile) {
+        try {
+          await profileApi.updateUserProfile(currentUserId, profileUpdates);
+        } catch (updateErr) {
+          console.warn("Не удалось обновить профиль данными из платформы:", updateErr);
+          // Не считаем это критической ошибкой, продолжаем с локальными данными
+        }
+      }
+      
       setProfile(resolvedProfile);
       try {
         storage.setItem(storageKey, JSON.stringify(resolvedProfile));
@@ -119,13 +224,21 @@ export const useProfile = () => {
     } catch (err) {
       setError("Не удалось загрузить профиль");
       console.error("Ошибка загрузки профиля:", err);
-      const telegramPhotoUrl = resolveTelegramPhotoUrl();
-      const resolvedPhoto = telegramPhotoUrl || defaultProfile.photo;
-      setProfile((prevProfile) => ({
-        ...defaultProfile,
-        ...prevProfile,
-        photo: resolvedPhoto,
-      }));
+      try {
+        const photoUrl = await resolvePhotoUrl();
+        const resolvedPhoto = photoUrl || defaultProfile.photo;
+        setProfile((prevProfile) => ({
+          ...defaultProfile,
+          ...prevProfile,
+          photo: resolvedPhoto,
+        }));
+      } catch (photoErr) {
+        console.warn("Не удалось получить фото при ошибке загрузки профиля:", photoErr);
+        setProfile((prevProfile) => ({
+          ...defaultProfile,
+          ...prevProfile,
+        }));
+      }
       // В случае ошибки оставляем дефолтный профиль
       setIsInitialized(true);
     } finally {
@@ -136,8 +249,8 @@ export const useProfile = () => {
   const updateProfile = async (updates: Partial<UserProfile>) => {
     try {
       setError(null); // Очищаем предыдущие ошибки
-      const telegramPhotoUrl = (getUser()?.photo_url ?? "").trim();
-      const resolvedPhoto = telegramPhotoUrl || defaultProfile.photo;
+      const photoUrl = await resolvePhotoUrl();
+      const resolvedPhoto = photoUrl || defaultProfile.photo;
       const { photo: _ignoredPhoto, ...restUpdates } = updates;
       const updatedProfile = { ...profile, ...restUpdates, photo: resolvedPhoto };
 
@@ -174,11 +287,11 @@ export const useProfile = () => {
         const savedProfile = storage.getItem(`profile_${currentUserId}`);
         if (savedProfile) {
           const parsedProfile = JSON.parse(savedProfile);
-          const telegramPhotoUrl = (getUser()?.photo_url ?? "").trim();
+          const photoUrl = await resolvePhotoUrl();
           setProfile({
             ...defaultProfile,
             ...parsedProfile,
-            photo: telegramPhotoUrl || defaultProfile.photo,
+            photo: photoUrl || defaultProfile.photo,
           });
           console.log("Профиль восстановлен из локального хранилища");
         }
@@ -198,13 +311,13 @@ export const useProfile = () => {
     const storageKey = `profile_${userId}`;
 
     storageUnsubscribeRef.current?.();
-    storageUnsubscribeRef.current = storage.subscribe(storageKey, (value) => {
+    storageUnsubscribeRef.current = storage.subscribe(storageKey, async (value) => {
       if (!value) {
         return;
       }
       try {
         const parsedProfile = JSON.parse(value) as Partial<UserProfile>;
-        applyProfileUpdate(parsedProfile);
+        await applyProfileUpdate(parsedProfile);
       } catch (err) {
         console.warn("Не удалось распарсить профиль из хранилища:", err);
       }
@@ -236,6 +349,7 @@ export const useProfile = () => {
     error,
     updateProfile,
     reload: loadProfile,
+    refetch: loadProfile,
     isInitialized,
   };
 };

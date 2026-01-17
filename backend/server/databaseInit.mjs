@@ -9,6 +9,7 @@ const SCHEMAS = {
     CREATE TABLE IF NOT EXISTS user_profiles (
       id VARCHAR(255) PRIMARY KEY,
       telegram_id BIGINT UNIQUE,
+      vk_id BIGINT UNIQUE,
       name VARCHAR(255) NOT NULL DEFAULT 'Пользователь',
       phone VARCHAR(20),
       birth_date VARCHAR(10),
@@ -281,11 +282,15 @@ const SCHEMAS = {
     );
   `,
 
-  user_carts: `
-    CREATE TABLE IF NOT EXISTS user_carts (
+  saved_carts: `
+    CREATE TABLE IF NOT EXISTS saved_carts (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id VARCHAR(255) NOT NULL,
+      telegram_id BIGINT,
+      vk_id BIGINT,
       items JSONB NOT NULL DEFAULT '[]'::jsonb,
+      restaurant_id VARCHAR(255),
+      city_id VARCHAR(255),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(user_id)
@@ -298,6 +303,7 @@ const SCHEMAS = {
  */
 const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_user_profiles_telegram_id ON user_profiles(telegram_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_user_profiles_vk_id ON user_profiles(vk_id);`,
   `CREATE INDEX IF NOT EXISTS idx_user_profiles_phone ON user_profiles(phone);`,
   `CREATE INDEX IF NOT EXISTS idx_user_addresses_user_id ON user_addresses(user_id);`,
   `CREATE INDEX IF NOT EXISTS idx_user_addresses_primary ON user_addresses(user_id, is_primary) WHERE is_primary = true;`,
@@ -439,6 +445,7 @@ export async function initializeDatabase() {
       "menu_categories",    // menu_categories зависит от restaurants
       "menu_items",         // menu_items зависит от menu_categories
       "city_recommended_dishes", // city_recommended_dishes зависит от cities и menu_items
+      "saved_carts",       // saved_carts зависит от user_profiles
     ];
 
     // Создаем таблицы в правильном порядке
@@ -845,38 +852,120 @@ export async function initializeDatabase() {
 
     // Миграция: добавляем поле calories в таблицу menu_items
     try {
-      const columnExists = await query(`
+      const consentColumns = await query(`
         SELECT column_name 
         FROM information_schema.columns 
-        WHERE table_name = 'menu_items' AND column_name = 'calories'
+        WHERE table_name = 'user_profiles'
+          AND column_name IN (
+            'personal_data_consent_given',
+            'personal_data_consent_date',
+            'personal_data_policy_consent_given',
+            'personal_data_policy_consent_date'
+          )
       `);
-      
-      if (columnExists.rows.length === 0) {
-        await query(`ALTER TABLE menu_items ADD COLUMN calories VARCHAR(50)`);
-        console.log("✅ Поле calories добавлено в таблицу menu_items");
-      } else {
-        console.log("ℹ️  Поле calories уже существует в таблице menu_items");
+      const existingColumns = new Set(consentColumns.rows.map((row) => row.column_name));
+      if (!existingColumns.has('personal_data_consent_given')) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN personal_data_consent_given BOOLEAN DEFAULT false`);
+        console.log("✅ Поле personal_data_consent_given добавлено в таблицу user_profiles");
+      }
+      if (!existingColumns.has('personal_data_consent_date')) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN personal_data_consent_date TIMESTAMP`);
+        console.log("✅ Поле personal_data_consent_date добавлено в таблицу user_profiles");
+      }
+      if (!existingColumns.has('personal_data_policy_consent_given')) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN personal_data_policy_consent_given BOOLEAN DEFAULT false`);
+        console.log("✅ Поле personal_data_policy_consent_given добавлено в таблицу user_profiles");
+      }
+      if (!existingColumns.has('personal_data_policy_consent_date')) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN personal_data_policy_consent_date TIMESTAMP`);
+        console.log("✅ Поле personal_data_policy_consent_date добавлено в таблицу user_profiles");
+      }
+      if (
+        existingColumns.has('personal_data_consent_given') &&
+        existingColumns.has('personal_data_consent_date') &&
+        existingColumns.has('personal_data_policy_consent_given') &&
+        existingColumns.has('personal_data_policy_consent_date')
+      ) {
+        console.log("ℹ️  Поля согласий уже существуют в таблице user_profiles");
       }
     } catch (error) {
-      console.warn("⚠️  Предупреждение при добавлении поля calories:", error?.message || error);
+      console.warn("⚠️  Предупреждение при добавлении полей согласий:", error?.message || error);
     }
 
-    // Миграция: добавляем поле is_delivery_enabled в таблицу restaurants
+    // Миграция: добавляем поля блокировки пользователя
+    try {
+      const banColumns = await query(`
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'user_profiles'
+          AND column_name IN ('is_banned', 'banned_at', 'banned_reason')
+      `);
+
+      const existingBanColumns = new Set(banColumns.rows.map((row) => row.column_name));
+
+      if (!existingBanColumns.has('is_banned')) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN is_banned BOOLEAN DEFAULT false`);
+        console.log("✅ Поле is_banned добавлено в таблицу user_profiles");
+      }
+      if (!existingBanColumns.has('banned_at')) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN banned_at TIMESTAMP`);
+        console.log("✅ Поле banned_at добавлено в таблицу user_profiles");
+      }
+      if (!existingBanColumns.has('banned_reason')) {
+        await query(`ALTER TABLE user_profiles ADD COLUMN banned_reason TEXT`);
+        console.log("✅ Поле banned_reason добавлено в таблицу user_profiles");
+      }
+
+      if (
+        existingBanColumns.has('is_banned') &&
+        existingBanColumns.has('banned_at') &&
+        existingBanColumns.has('banned_reason')
+      ) {
+        console.log("ℹ️  Поля блокировки уже существуют в таблице user_profiles");
+      }
+    } catch (error) {
+      console.warn("⚠️  Предупреждение при добавлении полей блокировки:", error?.message || error);
+    }
+
+    // Миграция: базовые настройки приложения
+    try {
+      await query(
+        `INSERT INTO app_settings (key, value)
+         VALUES
+           ('support_telegram_url', ''),
+           ('personal_data_consent_url', 'https://vhachapuri.ru/policy'),
+           ('personal_data_policy_url', 'https://vhachapuri.ru/policy')
+         ON CONFLICT (key) DO NOTHING`,
+      );
+      console.log("✅ Базовые настройки приложения добавлены");
+    } catch (error) {
+      console.warn("⚠️  Предупреждение при добавлении настроек приложения:", error?.message || error);
+    }
+
+    // Миграция: добавляем поле vk_id в таблицу user_profiles
     try {
       const columnExists = await query(`
         SELECT column_name 
         FROM information_schema.columns 
-        WHERE table_name = 'restaurants' AND column_name = 'is_delivery_enabled'
+        WHERE table_name = 'user_profiles' AND column_name = 'vk_id'
       `);
       
       if (columnExists.rows.length === 0) {
-        await query(`ALTER TABLE restaurants ADD COLUMN is_delivery_enabled BOOLEAN DEFAULT true`);
-        console.log("✅ Поле is_delivery_enabled добавлено в таблицу restaurants");
+        await query(`ALTER TABLE user_profiles ADD COLUMN vk_id BIGINT UNIQUE`);
+        console.log("✅ Поле vk_id добавлено в таблицу user_profiles");
+        
+        // Создаем индекс для vk_id
+        try {
+          await query(`CREATE INDEX IF NOT EXISTS idx_user_profiles_vk_id ON user_profiles(vk_id)`);
+          console.log("✅ Индекс для vk_id создан");
+        } catch (indexError) {
+          console.warn("⚠️  Предупреждение при создании индекса для vk_id:", indexError?.message || indexError);
+        }
       } else {
-        console.log("ℹ️  Поле is_delivery_enabled уже существует в таблице restaurants");
+        console.log("ℹ️  Поле vk_id уже существует в таблице user_profiles");
       }
     } catch (error) {
-      console.warn("⚠️  Предупреждение при добавлении поля is_delivery_enabled:", error?.message || error);
+      console.warn("⚠️  Предупреждение при добавлении поля vk_id:", error?.message || error);
     }
 
     // Создаем индексы

@@ -56,19 +56,65 @@ const corsOptions = {
   origin: function (origin, callback) {
     // Разрешаем запросы без origin (например, мобильные приложения или Postman)
     if (!origin) {
+      logger.debug("[CORS] Запрос без origin, разрешаем");
       return callback(null, true);
     }
-    // Возвращаем конкретный origin из запроса (разрешаем все origins)
-    // Для production можно ограничить список разрешенных origins
-    callback(null, origin);
+    
+    // Список разрешенных origins для VK Mini App и других платформ
+    const allowedOrigins = [
+      'https://mariko-vld-vk.vercel.app',
+      'https://vk.com',
+      'https://m.vk.com',
+      'https://ok.ru', // Одноклассники тоже используют VK Mini Apps
+    ];
+    
+    // Проверяем точное совпадение origin с разрешенными доменами
+    const isAllowed = allowedOrigins.some(allowed => origin === allowed);
+    
+    if (isAllowed) {
+      logger.info(`[CORS] Разрешен origin: ${origin}`);
+      callback(null, origin);
+    } else {
+      // Для разработки разрешаем все origins, но логируем предупреждение
+      if (process.env.NODE_ENV !== 'production') {
+        logger.warn(`[CORS] Разрешен origin из dev режима: ${origin}`);
+        callback(null, origin);
+      } else {
+        // В production: временно разрешаем все origins для диагностики, но логируем
+        // TODO: после диагностики вернуть строгую проверку
+        logger.warn(`[CORS] Разрешен origin в production (временно для диагностики): ${origin}`);
+        callback(null, origin);
+      }
+    }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Telegram-Init-Data', 'X-Telegram-Id'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Telegram-Init-Data', 
+    'X-Telegram-Id',
+    'X-VK-Init-Data',
+    'X-VK-Id',
+  ],
   exposedHeaders: ['Content-Type'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
+
+// Добавляем логирование для всех запросов (для диагностики CORS)
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    logger.debug(`[CORS] Preflight запрос: ${req.method} ${req.path}`, {
+      origin: req.headers.origin,
+      'access-control-request-method': req.headers['access-control-request-method'],
+      'access-control-request-headers': req.headers['access-control-request-headers'],
+    });
+  }
+  next();
+});
 app.use(express.json());
 
 // Эндпоинт для диагностики и инициализации БД
