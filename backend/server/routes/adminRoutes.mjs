@@ -21,7 +21,12 @@ import {
 import { listUserProfiles, fetchUserProfile } from "../services/profileService.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
 import { enqueueBookingNotification } from "../services/bookingNotificationService.mjs";
-import { getAppSettings, updateAppSettings } from "../services/appSettingsService.mjs";
+import {
+  getAppSettings,
+  updateAppSettings,
+  getBookingStatusMessageMap,
+  setBookingStatusMessage,
+} from "../services/appSettingsService.mjs";
 import { createLogger } from "../utils/logger.mjs";
 
 const BOOKING_STATUS_VALUES = new Set(["created", "confirmed", "closed", "cancelled"]);
@@ -685,6 +690,35 @@ export function createAdminRouter() {
     }
   });
 
+  router.get("/bookings/status-message", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const admin = await authoriseAnyAdmin(req, res, ADMIN_PERMISSION.MANAGE_BOOKINGS);
+    if (!admin) {
+      return;
+    }
+    const status = typeof req.query?.status === "string" ? req.query.status.trim() : "";
+    const platform =
+      typeof req.query?.platform === "string" ? req.query.platform.trim().toLowerCase() : "";
+    if (!status || !BOOKING_STATUS_VALUES.has(status)) {
+      return res.status(400).json({ success: false, message: "Некорректный статус бронирования" });
+    }
+    if (platform !== "vk" && platform !== "telegram") {
+      return res.status(400).json({ success: false, message: "Некорректная платформа" });
+    }
+    try {
+      const messages = await getBookingStatusMessageMap([platform], status);
+      const message = messages.get(platform) ?? null;
+      return res.json({ success: true, message });
+    } catch (error) {
+      console.error("Ошибка получения сообщения статуса брони:", error);
+      return res
+        .status(500)
+        .json({ success: false, message: "Не удалось получить сообщение" });
+    }
+  });
+
   router.patch("/bookings/:bookingId/status", async (req, res) => {
     if (!ensureDatabase(res)) {
       return;
@@ -738,7 +772,6 @@ export function createAdminRouter() {
     let notificationResult = null;
     if (sendNotification) {
       const trimmedMessage = typeof customMessage === "string" ? customMessage.trim() : "";
-      const message = trimmedMessage || buildBookingTelegramMessage(booking, status);
       const telegramId = await resolveTelegramIdByPhone(booking.customer_phone, booking.customer_name);
       const vkId = await resolveVkIdByPhone(booking.customer_phone, booking.customer_name);
       const replyMarkup =
@@ -762,6 +795,11 @@ export function createAdminRouter() {
         ? requestedPlatform === "telegram"
         : Boolean(telegramId);
       const shouldSendVk = requestedPlatform ? requestedPlatform === "vk" : Boolean(vkId);
+      const platformsToSend = [
+        ...(shouldSendTelegram ? ["telegram"] : []),
+        ...(shouldSendVk ? ["vk"] : []),
+      ];
+      const savedMessages = await getBookingStatusMessageMap(platformsToSend, status);
       const queuedPlatforms = [];
 
       logger.info("Подготовка уведомления", {
@@ -774,6 +812,8 @@ export function createAdminRouter() {
       });
 
       if (shouldSendTelegram && telegramId) {
+        const message =
+          trimmedMessage || savedMessages.get("telegram") || buildBookingTelegramMessage(booking, status);
         await enqueueBookingNotification({
           bookingId,
           restaurantId: booking.restaurant_id,
@@ -786,6 +826,8 @@ export function createAdminRouter() {
       }
 
       if (shouldSendVk && vkId) {
+        const message =
+          trimmedMessage || savedMessages.get("vk") || buildBookingTelegramMessage(booking, status);
         const vkKeyboard =
           status === "closed" && booking.review_link
             ? {
@@ -812,6 +854,14 @@ export function createAdminRouter() {
           payload: { vkGroupToken: booking.vk_group_token || null, vkKeyboard },
         });
         queuedPlatforms.push("vk");
+      }
+
+      if (trimmedMessage && platformsToSend.length > 0) {
+        await Promise.all(
+          platformsToSend.map((platformKey) =>
+            setBookingStatusMessage(platformKey, status, trimmedMessage),
+          ),
+        );
       }
 
       if (queuedPlatforms.length > 0) {
