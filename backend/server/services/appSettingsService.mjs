@@ -12,6 +12,11 @@ export const DEFAULT_SETTINGS = {
   personalDataPolicyUrl: "https://vhachapuri.ru/policy",
 };
 
+const BOOKING_MESSAGE_PREFIX = "booking_status_message";
+
+const buildBookingStatusMessageKey = (platform, status) =>
+  `${BOOKING_MESSAGE_PREFIX}_${platform}_${status}`;
+
 export const getAppSettings = async () => {
   const keys = Object.values(SETTINGS_KEYS);
   const rows = await queryMany(
@@ -55,4 +60,42 @@ export const updateAppSettings = async (updates = {}) => {
   }
 
   return getAppSettings();
+};
+
+export const getBookingStatusMessageMap = async (platforms = [], status) => {
+  if (!status || platforms.length === 0) {
+    return new Map();
+  }
+  const keys = platforms.map((platform) => buildBookingStatusMessageKey(platform, status));
+  const rows = await queryMany(
+    `SELECT key, value FROM app_settings WHERE key = ANY($1)`,
+    [keys],
+  );
+  const mapped = new Map(rows.map((row) => [row.key, row.value]));
+  const result = new Map();
+  platforms.forEach((platform) => {
+    const key = buildBookingStatusMessageKey(platform, status);
+    const value = mapped.get(key);
+    if (typeof value === "string" && value.trim()) {
+      result.set(platform, value);
+    }
+  });
+  return result;
+};
+
+export const setBookingStatusMessage = async (platform, status, message) => {
+  if (!platform || !status) {
+    return;
+  }
+  const trimmed = typeof message === "string" ? message.trim() : "";
+  if (!trimmed) {
+    return;
+  }
+  const key = buildBookingStatusMessageKey(platform, status);
+  await query(
+    `INSERT INTO app_settings (key, value, updated_at)
+     VALUES ($1, $2, NOW())
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+    [key, trimmed],
+  );
 };
