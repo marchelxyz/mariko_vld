@@ -5,8 +5,18 @@ import { useToast } from "@/hooks";
 import { BottomNavigation, Header } from "@shared/ui/widgets";
 import { ProfileAvatar, useProfile } from "@entities/user";
 import { getCleanPhoneNumber, usePhoneInput } from "@shared/hooks";
-import { Button, Input, Label } from "@shared/ui";
-import { telegram } from "@/lib/telegram";
+import {
+  Button,
+  Checkbox,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Label,
+} from "@shared/ui";
+import { getPlatform } from "@/lib/platform";
 import type { UserProfile } from "@shared/types";
 
 type AddressSuggestion = {
@@ -19,6 +29,23 @@ type AddressSuggestion = {
   lon?: number;
 };
 
+type ProfileUpdateInput = {
+  profile: UserProfile;
+  nameValue: string;
+  birthDateValue: string;
+  genderValue: string;
+  phoneValue: string;
+  addressLine: string;
+  addressCoords: { lat: number; lon: number } | null;
+};
+
+type PersonalDataInput = {
+  nameValue: string;
+  birthDateValue: string;
+  genderValue: string;
+  phoneValue: string;
+};
+
 const GEO_SUGGEST_URL = "/api/cart/geocode/suggest";
 const MIN_ADDRESS_LENGTH = 3;
 type TelegramLocationManager = {
@@ -29,6 +56,7 @@ type TelegramLocationManager = {
 const EditProfile = () => {
   const navigate = useNavigate();
   const { profile, updateProfile } = useProfile();
+  const { settings } = useAppSettings();
   const { toast: showToast } = useToast();
   // Хук для форматирования телефона - как в анкете вакансии
   const phoneInput = usePhoneInput();
@@ -45,6 +73,10 @@ const EditProfile = () => {
   const [isSuggestLoading, setIsSuggestLoading] = useState(false);
   const [suggestError, setSuggestError] = useState<string | null>(null);
   const [autoLocateAttempted, setAutoLocateAttempted] = useState(false);
+  const [isConsentDialogOpen, setIsConsentDialogOpen] = useState(false);
+  const [consentChecked, setConsentChecked] = useState(false);
+  const [policyChecked, setPolicyChecked] = useState(false);
+  const [pendingUpdateData, setPendingUpdateData] = useState<Partial<UserProfile> | null>(null);
   const rawDisplayName = (isEditing ? nameValue : profile.name) || "";
   const normalizedDisplayName = rawDisplayName.trim();
   const hasCustomGreetingName =
@@ -78,22 +110,65 @@ const EditProfile = () => {
       return;
     }
 
-    try {
-      const updateData: Partial<UserProfile> = {};
-      if (nameValue !== (profile.name || "")) updateData.name = nameValue;
-      if (birthDateValue !== (profile.birthDate || "")) updateData.birthDate = birthDateValue;
-      if (genderValue !== (profile.gender || "")) updateData.gender = genderValue;
-      const cleanedPhone = getCleanPhoneNumber(phoneInput.value || "");
-      if (cleanedPhone !== getCleanPhoneNumber(profile.phone || "")) updateData.phone = cleanedPhone;
-      if (addressLine && addressLine !== (profile.lastAddressText || "")) {
-        updateData.lastAddressText = addressLine;
-        if (addressCoords) {
-          // сохраняем координаты, если удалось определить/выбрать
-          updateData.lastAddressLat = addressCoords.lat;
-          updateData.lastAddressLon = addressCoords.lon;
-        }
-      }
+    const updateData = buildProfileUpdateData({
+      profile,
+      nameValue,
+      birthDateValue,
+      genderValue,
+      phoneValue: phoneInput.value || "",
+      addressLine,
+      addressCoords,
+    });
+    const hasPersonalInput = hasPersonalDataInput({
+      nameValue,
+      birthDateValue,
+      genderValue,
+      phoneValue: phoneInput.value || "",
+    });
+    const needsConsent = hasPersonalDataChanges(updateData) || hasPersonalInput;
+    const consentMissing =
+      !profile.personalDataConsentGiven || !profile.personalDataPolicyConsentGiven;
+    if (needsConsent && consentMissing) {
+      openConsentDialog(updateData);
+      return;
+    }
+    await executeProfileUpdate(updateData);
+  };
 
+  const handleCancel = () => {
+    setIsEditing(false);
+  };
+
+  const openConsentDialog = (updateData: Partial<UserProfile>) => {
+    setPendingUpdateData(updateData);
+    setConsentChecked(false);
+    setPolicyChecked(false);
+    setIsConsentDialogOpen(true);
+  };
+
+  const handleConfirmConsentSave = async () => {
+    if (!pendingUpdateData) {
+      return;
+    }
+    if (!consentChecked || !policyChecked) {
+      showToast({
+        title: "Нужны согласия",
+        description: "Чтобы сохранить данные, отметьте оба согласия.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const updateData = {
+      ...pendingUpdateData,
+      ...buildConsentUpdatePayload(),
+    };
+    await executeProfileUpdate(updateData);
+    setIsConsentDialogOpen(false);
+    setPendingUpdateData(null);
+  };
+
+  const executeProfileUpdate = async (updateData: Partial<UserProfile>) => {
+    try {
       const success = await updateProfile(updateData);
       if (success) {
         showToast({ title: "Профиль обновлен", description: "Изменения успешно сохранены" });
@@ -102,12 +177,12 @@ const EditProfile = () => {
         throw new Error("Не удалось сохранить");
       }
     } catch (error) {
-      showToast({ title: "Ошибка", description: "Не удалось сохранить изменения", variant: "destructive" });
+      showToast({
+        title: "Ошибка",
+        description: "Не удалось сохранить изменения",
+        variant: "destructive",
+      });
     }
-  };
-
-  const handleCancel = () => {
-    setIsEditing(false);
   };
 
   const formatDateInput = (value: string) => {
@@ -229,7 +304,8 @@ const EditProfile = () => {
 
   const requestLocation = async () => {
     try {
-      const tg = telegram.getTg?.() as unknown as { LocationManager?: TelegramLocationManager };
+      // LocationManager доступен только в Telegram
+      const tg = (getPlatform() === "telegram" && typeof window !== "undefined" && (window as unknown as { Telegram?: { WebApp?: { LocationManager?: TelegramLocationManager } } }).Telegram?.WebApp) as unknown as { LocationManager?: TelegramLocationManager };
       const locationManager = tg?.LocationManager;
       if (locationManager?.init && locationManager?.getLocation) {
         locationManager.init();
@@ -422,8 +498,155 @@ const EditProfile = () => {
           <BottomNavigation currentPage="profile" />
         </div>
       </div>
+
+      <Dialog
+        open={isConsentDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsConsentDialogOpen(false);
+            setPendingUpdateData(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg bg-mariko-secondary border-white/10">
+          <DialogHeader>
+            <DialogTitle className="text-white font-el-messiri text-xl md:text-2xl">
+              Согласие на обработку данных
+            </DialogTitle>
+            <DialogDescription className="text-white/70 mt-2">
+              Чтобы сохранить персональные данные, необходимо подтвердить оба согласия.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="profile-consent"
+                checked={consentChecked}
+                onCheckedChange={(checked) => setConsentChecked(checked === true)}
+                className="mt-1"
+              />
+              <Label
+                htmlFor="profile-consent"
+                className="text-white/90 text-sm cursor-pointer leading-relaxed"
+              >
+                Даю согласие на{" "}
+                <a
+                  href={settings.personalDataConsentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:text-white transition-colors"
+                >
+                  обработку персональных данных
+                </a>
+              </Label>
+            </div>
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="profile-policy-consent"
+                checked={policyChecked}
+                onCheckedChange={(checked) => setPolicyChecked(checked === true)}
+                className="mt-1"
+              />
+              <Label
+                htmlFor="profile-policy-consent"
+                className="text-white/90 text-sm cursor-pointer leading-relaxed"
+              >
+                Соглашаюсь с{" "}
+                <a
+                  href={settings.personalDataPolicyUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:text-white transition-colors"
+                >
+                  политикой обработки персональных данных
+                </a>
+              </Label>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsConsentDialogOpen(false);
+                  setPendingUpdateData(null);
+                }}
+                className="border-white/20 text-white hover:bg-white/10"
+              >
+                Отмена
+              </Button>
+              <Button
+                onClick={handleConfirmConsentSave}
+                disabled={!consentChecked || !policyChecked}
+              >
+                Сохранить
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
+/**
+ * Формирует payload обновления профиля из введенных значений.
+ */
+function buildProfileUpdateData(input: ProfileUpdateInput): Partial<UserProfile> {
+  const updateData: Partial<UserProfile> = {};
+  if (input.nameValue !== (input.profile.name || "")) updateData.name = input.nameValue;
+  if (input.birthDateValue !== (input.profile.birthDate || "")) {
+    updateData.birthDate = input.birthDateValue;
+  }
+  if (input.genderValue !== (input.profile.gender || "")) updateData.gender = input.genderValue;
+  const cleanedPhone = getCleanPhoneNumber(input.phoneValue || "");
+  if (cleanedPhone !== getCleanPhoneNumber(input.profile.phone || "")) {
+    updateData.phone = cleanedPhone;
+  }
+  if (input.addressLine && input.addressLine !== (input.profile.lastAddressText || "")) {
+    updateData.lastAddressText = input.addressLine;
+    if (input.addressCoords) {
+      updateData.lastAddressLat = input.addressCoords.lat;
+      updateData.lastAddressLon = input.addressCoords.lon;
+    }
+  }
+  return updateData;
+}
+
+/**
+ * Проверяет, содержит ли обновление персональные данные.
+ */
+function hasPersonalDataChanges(updateData: Partial<UserProfile>): boolean {
+  return (
+    updateData.name !== undefined ||
+    updateData.birthDate !== undefined ||
+    updateData.gender !== undefined ||
+    updateData.phone !== undefined
+  );
+}
+
+/**
+ * Проверяет, заполнены ли пользователем персональные данные в форме.
+ */
+function hasPersonalDataInput(input: PersonalDataInput): boolean {
+  const cleanedPhone = getCleanPhoneNumber(input.phoneValue || "");
+  return Boolean(
+    input.nameValue.trim() ||
+      input.birthDateValue.trim() ||
+      input.genderValue.trim() ||
+      cleanedPhone,
+  );
+}
+
+/**
+ * Возвращает флаги согласий с датами подтверждения.
+ */
+function buildConsentUpdatePayload(): Partial<UserProfile> {
+  const now = new Date().toISOString();
+  return {
+    personalDataConsentGiven: true,
+    personalDataConsentDate: now,
+    personalDataPolicyConsentGiven: true,
+    personalDataPolicyConsentDate: now,
+  };
+}
 
 export default EditProfile;

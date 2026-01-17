@@ -41,6 +41,7 @@
     
     <!-- DNS prefetch for external resources -->
     <link rel="dns-prefetch" href="https://telegram.org" />
+    <link rel="dns-prefetch" href="https://vk.com" />
     <link rel="dns-prefetch" href="https://telegra.ph" />
     <link rel="dns-prefetch" href="https://vhachapuri.ru" />
     
@@ -122,8 +123,93 @@
     
     <div id="root"></div>
 
-    <!-- Telegram WebApp API -->
-    <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Telegram WebApp API - загружается только если не в VK -->
+    <script>
+      // Проверяем, запущено ли приложение в VK
+      // Если в URL есть параметры VK (vk_app_id), не загружаем Telegram скрипт
+      const urlParams = new URLSearchParams(window.location.search);
+      const isVK = urlParams.has('vk_app_id') || urlParams.has('vk_user_id') || 
+                   (typeof window !== 'undefined' && window.location.href.includes('vk.com'));
+      
+      if (!isVK) {
+        // Загружаем Telegram скрипт только если не в VK
+        // В VK Mini Apps window.vk.WebApp доступен автоматически в iframe
+        const script = document.createElement('script');
+        script.src = 'https://telegram.org/js/telegram-web-app.js';
+        script.defer = true;
+        document.head.appendChild(script);
+      } else {
+        // В VK Mini Apps SDK может быть доступен автоматически через window.vk.WebApp в iframe
+        // Используем официальные библиотеки @vkid/sdk и @vkontakte/vk-bridge
+        console.log('[VK] Определена платформа VK, инициализируем VK Bridge и проверяем WebApp');
+        
+        // Функция для проверки и инициализации VK SDK
+        const initVKSDK = () => {
+          // Если WebApp уже доступен, используем его
+          if (window.vk && window.vk.WebApp) {
+            console.log('[VK] window.vk.WebApp доступен', {
+              version: window.vk.WebApp.version,
+              platform: window.vk.WebApp.platform,
+              initData: window.vk.WebApp.initData ? 'present' : 'missing'
+            });
+            return true;
+          }
+          
+          // Если window.vk есть, но WebApp нет - возможно это старый формат
+          // Пытаемся загрузить официальный SDK через CDN как fallback
+          if (window.vk && !window.vk.WebApp) {
+            console.log('[VK] window.vk найден, но WebApp отсутствует. Пробуем загрузить SDK через CDN...');
+            
+            // Загружаем официальный VK Mini Apps SDK через CDN (fallback)
+            const vkScript = document.createElement('script');
+            vkScript.src = 'https://unpkg.com/@vkid/sdk@latest/dist/umd/index.js';
+            vkScript.onload = () => {
+              console.log('[VK] SDK загружен через CDN, проверяем WebApp...');
+              // SDK может инициализироваться асинхронно
+              setTimeout(() => {
+                if (window.vk && window.vk.WebApp) {
+                  console.log('[VK] window.vk.WebApp теперь доступен', {
+                    version: window.vk.WebApp.version,
+                    platform: window.vk.WebApp.platform
+                  });
+                } else {
+                  console.warn('[VK] SDK загружен, но WebApp все еще недоступен. Используем VK Bridge из npm пакета.');
+                }
+              }, 500);
+            };
+            vkScript.onerror = () => {
+              console.warn('[VK] Не удалось загрузить SDK через CDN. Используем VK Bridge из npm пакета @vkontakte/vk-bridge.');
+            };
+            document.head.appendChild(vkScript);
+            return false;
+          }
+          
+          return false;
+        };
+        
+        // Проверяем сразу
+        if (!initVKSDK()) {
+          // Если SDK не доступен сразу, проверяем с задержкой
+          let checkCount = 0;
+          const maxChecks = 100; // 10 секунд максимум
+          const checkVK = setInterval(function() {
+            checkCount++;
+            if (window.vk && window.vk.WebApp) {
+              console.log('[VK] window.vk.WebApp стал доступен', {
+                version: window.vk.WebApp.version,
+                platform: window.vk.WebApp.platform,
+                initData: window.vk.WebApp.initData ? 'present' : 'missing'
+              });
+              clearInterval(checkVK);
+            } else if (checkCount >= maxChecks) {
+              // После 10 секунд прекращаем проверку
+              console.warn('[VK] window.vk.WebApp не найден после 10 секунд ожидания. Приложение будет работать через VK Bridge из npm пакета @vkontakte/vk-bridge и fallback режим (URL параметры).');
+              clearInterval(checkVK);
+            }
+          }, 100);
+        }
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
     
     <!-- Remove loading spinner when app loads -->

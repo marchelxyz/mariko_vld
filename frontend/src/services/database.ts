@@ -2,7 +2,7 @@
 // В продакшене это будет заменено на реальную базу данных (PostgreSQL, MongoDB и т.д.)
 
 import type { Review, UserProfile as SharedUserProfile } from "@shared/types";
-import { storage } from "@/lib/telegram";
+import { storage } from "@/lib/platform";
 
 export type UserProfile = SharedUserProfile & {
   createdAt: string;
@@ -163,11 +163,16 @@ class ProfileDatabase {
     // Сначала ищем по ID
     let profile = profiles.find((p) => p.id === userId);
     
-    // Если не найден и это не demo_user, ищем по telegramId
+    // Если не найден и это не demo_user, ищем по telegramId или vkId
     if (!profile && userId !== "demo_user") {
-      const telegramId = parseInt(userId);
-      if (!isNaN(telegramId)) {
-        profile = profiles.find((p) => p.telegramId === telegramId);
+      const platformId = parseInt(userId);
+      if (!isNaN(platformId)) {
+        // Пытаемся найти по telegramId
+        profile = profiles.find((p) => p.telegramId === platformId);
+        // Если не найден, ищем по vkId
+        if (!profile) {
+          profile = profiles.find((p) => p.vkId === platformId);
+        }
       }
     }
     
@@ -178,6 +183,12 @@ class ProfileDatabase {
   getProfileByTelegramId(telegramId: number): UserProfile | null {
     const profiles = this.getAllProfiles();
     return profiles.find((p) => p.telegramId === telegramId) || null;
+  }
+
+  // Получить профиль по VK ID
+  getProfileByVkId(vkId: number): UserProfile | null {
+    const profiles = this.getAllProfiles();
+    return profiles.find((p) => p.vkId === vkId) || null;
   }
 
   // Создать новый профиль
@@ -223,19 +234,25 @@ class ProfileDatabase {
       const profiles = this.getAllProfiles();
       let profileIndex = profiles.findIndex((p) => p.id === userId);
 
-      // Если профиль не найден по ID, ищем по telegramId
+      // Если профиль не найден по ID, ищем по telegramId или vkId
       if (profileIndex === -1 && userId !== "demo_user") {
-        const telegramId = parseInt(userId);
-        if (!isNaN(telegramId)) {
-          profileIndex = profiles.findIndex((p) => p.telegramId === telegramId);
+        const platformId = parseInt(userId);
+        if (!isNaN(platformId)) {
+          // Пытаемся найти по telegramId
+          profileIndex = profiles.findIndex((p) => p.telegramId === platformId);
+          // Если не найден, ищем по vkId
+          if (profileIndex === -1) {
+            profileIndex = profiles.findIndex((p) => p.vkId === platformId);
+          }
         }
       }
 
       // Если все еще не найден, создаем новый профиль
       if (profileIndex === -1) {
+        const platformId = userId !== "demo_user" ? parseInt(userId) : undefined;
         const newProfile = this.createProfile({
           id: userId,
-          telegramId: userId !== "demo_user" ? parseInt(userId) : undefined,
+          // Не устанавливаем telegramId или vkId автоматически - это должно быть сделано вызывающим кодом
           ...updates,
         });
         return newProfile;
@@ -616,6 +633,7 @@ class ProfileDatabase {
           .map((profile) => ({
             id: profile.id,
             telegramId: profile.telegramId,
+            vkId: profile.vkId,
             name: profile.name,
             phone: profile.phone,
             birthDate: profile.birthDate,
@@ -683,6 +701,7 @@ class ProfileDatabase {
           .map((profile) => ({
             id: profile.id,
             telegramId: profile.telegramId,
+            vkId: profile.vkId,
             name: profile.name,
             phone: profile.phone,
             birthDate: profile.birthDate,
@@ -773,6 +792,7 @@ class ProfileDatabase {
         .map((profile) => ({
           id: profile.id,
           telegramId: profile.telegramId,
+          vkId: profile.vkId,
           name: profile.name,
           phone: profile.phone,
           birthDate: profile.birthDate,

@@ -133,7 +133,7 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
       className={cn(
         // Чёрный фон 30% и сильный blur
         "fixed bottom-0 left-0 right-0 z-40 rounded-t-2xl bg-black/30 backdrop-blur-3xl border-t border-white/5 shadow-[0_-12px_28px_rgba(0,0,0,0.3)]",
-        "md:static md:rounded-2xl md:mx-auto md:max-w-4xl md:mb-4 md:shadow-none",
+        "md:fixed md:rounded-2xl md:mx-auto md:max-w-4xl md:left-1/2 md:-translate-x-1/2 md:shadow-[0_-12px_28px_rgba(0,0,0,0.3)]",
         className,
       )}
       style={{ paddingBottom: "calc(6px + var(--tg-safe-area-bottom, 0px))" }}
