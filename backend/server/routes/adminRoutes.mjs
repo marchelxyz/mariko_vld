@@ -115,9 +115,13 @@ const resolveTelegramIdByPhone = async (phone, name) => {
     new Set([digits, last10 ? `7${last10}` : "", last10 ? `8${last10}` : ""].filter(Boolean)),
   );
   const row = await queryOne(
-    `SELECT telegram_id FROM user_profiles
-     WHERE regexp_replace(phone, '\\\\D', '', 'g') = ANY($1)
-        OR right(regexp_replace(phone, '\\\\D', '', 'g'), 10) = $2
+    `SELECT telegram_id, vk_id
+     FROM user_profiles
+     WHERE (regexp_replace(phone, '\\\\D', '', 'g') = ANY($1)
+        OR right(regexp_replace(phone, '\\\\D', '', 'g'), 10) = $2)
+       AND telegram_id IS NOT NULL
+       AND (vk_id IS NULL OR vk_id::text != telegram_id::text)
+     ORDER BY updated_at DESC NULLS LAST
      LIMIT 1`,
     [candidates, last10],
   );
