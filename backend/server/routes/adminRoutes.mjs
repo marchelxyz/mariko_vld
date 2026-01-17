@@ -798,7 +798,6 @@ export function createAdminRouter() {
                         link: booking.review_link,
                         label: "Оставить отзыв",
                       },
-                      color: "primary",
                     },
                   ],
                 ],
