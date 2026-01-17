@@ -158,22 +158,27 @@ export const getTelegramIdFromRequest = (req) => {
  */
 export const getVkIdFromRequest = (req) => {
   const raw = req.get("x-vk-id");
-  console.log('[adminService] getVkIdFromRequest', { 
-    raw, 
-    rawType: typeof raw,
-    headers: req.headers ? Object.keys(req.headers).filter(k => k.toLowerCase().includes('vk')) : []
-  });
-  
   if (!raw) {
-    console.log('[adminService] getVkIdFromRequest: заголовок X-VK-Id отсутствует');
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[adminService] getVkIdFromRequest: заголовок X-VK-Id отсутствует");
+    }
     return null;
+  }
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[adminService] getVkIdFromRequest", {
+      raw,
+      rawType: typeof raw,
+      headers: req.headers ? Object.keys(req.headers).filter((k) => k.toLowerCase().includes("vk")) : [],
+    });
   }
   const trimmed = typeof raw === "string" ? raw.trim() : String(raw).trim();
   if (!trimmed || !/^\d+$/.test(trimmed)) {
     console.warn('[adminService] getVkIdFromRequest: некорректный формат VK ID', { raw, trimmed });
     return null;
   }
-  console.log('[adminService] getVkIdFromRequest: успешно получен VK ID', { vkId: trimmed });
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[adminService] getVkIdFromRequest: успешно получен VK ID", { vkId: trimmed });
+  }
   return trimmed;
 };
 
@@ -257,7 +262,9 @@ export const resolveAdminContext = async (telegramId, vkId = null) => {
       });
     }
   } else {
-    console.log('[adminService] VK ID не передан в resolveAdminContext');
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[adminService] VK ID не передан в resolveAdminContext");
+    }
   }
   
   // Затем проверяем Telegram ID
