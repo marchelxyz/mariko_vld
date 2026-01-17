@@ -597,6 +597,8 @@ export function createAdminRouter() {
           b.customer_name,
           b.customer_phone,
           b.customer_email,
+          b.customer_telegram_id,
+          b.customer_vk_id,
           b.booking_date,
           b.booking_time,
           b.guests_count,
@@ -609,8 +611,8 @@ export function createAdminRouter() {
           r.name as restaurant_name,
           r.address as restaurant_address,
           r.review_link,
-          up.telegram_id as customer_telegram_id,
-          up.vk_id as customer_vk_id
+          up.telegram_id as profile_telegram_id,
+          up.vk_id as profile_vk_id
         FROM bookings b
         LEFT JOIN restaurants r ON b.restaurant_id = r.id
         LEFT JOIN user_profiles up
@@ -679,9 +681,9 @@ export function createAdminRouter() {
               ? "vk"
               : row.source === "telegram"
                 ? "telegram"
-                : row.customer_vk_id
+                : row.customer_vk_id || row.profile_vk_id
                   ? "vk"
-                  : row.customer_telegram_id
+                  : row.customer_telegram_id || row.profile_telegram_id
                     ? "telegram"
                     : null,
           createdAt: row.created_at,
@@ -742,6 +744,8 @@ export function createAdminRouter() {
         b.restaurant_id,
         b.customer_name,
         b.customer_phone,
+        b.customer_telegram_id,
+        b.customer_vk_id,
         b.booking_date,
         b.booking_time,
         r.address as restaurant_address,
@@ -776,8 +780,13 @@ export function createAdminRouter() {
     let notificationResult = null;
     if (sendNotification) {
       const trimmedMessage = typeof customMessage === "string" ? customMessage.trim() : "";
-      const telegramId = await resolveTelegramIdByPhone(booking.customer_phone, booking.customer_name);
-      const vkId = await resolveVkIdByPhone(booking.customer_phone, booking.customer_name);
+      const directTelegramId = booking.customer_telegram_id
+        ? String(booking.customer_telegram_id)
+        : null;
+      const directVkId = booking.customer_vk_id ? String(booking.customer_vk_id) : null;
+      const telegramId =
+        directTelegramId || (await resolveTelegramIdByPhone(booking.customer_phone, booking.customer_name));
+      const vkId = directVkId || (await resolveVkIdByPhone(booking.customer_phone, booking.customer_name));
       const replyMarkup =
         status === "closed" && booking.review_link
           ? {

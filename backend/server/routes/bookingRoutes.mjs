@@ -873,6 +873,10 @@ export function createBookingRouter() {
         const raw = req.get("x-telegram-id");
         return typeof raw === "string" ? raw.trim() : null;
       })();
+      const headerVkId = (() => {
+        const raw = req.get("x-vk-id");
+        return typeof raw === "string" ? raw.trim() : null;
+      })();
 
       // Валидация обязательных полей
       if (!restaurantId || typeof restaurantId !== "string") {
@@ -1017,21 +1021,23 @@ export function createBookingRouter() {
       // Сохраняем бронирование в БД
       const bookingResult = await query(
         `INSERT INTO bookings (
-          restaurant_id, 
-          remarked_restaurant_id, 
+          restaurant_id,
+          remarked_restaurant_id,
           remarked_reserve_id,
-          customer_name, 
-          customer_phone, 
+          customer_name,
+          customer_phone,
           customer_email,
-          booking_date, 
-          booking_time, 
-          guests_count, 
-          comment, 
-          event_tags, 
-          source, 
+          customer_telegram_id,
+          customer_vk_id,
+          booking_date,
+          booking_time,
+          guests_count,
+          comment,
+          event_tags,
+          source,
           status,
           remarked_response
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
         RETURNING id, created_at`,
         [
           restaurantId,
@@ -1040,6 +1046,8 @@ export function createBookingRouter() {
           name.trim(),
           formattedPhone,
           email?.trim() || null,
+          headerTelegramId ? Number(headerTelegramId) : null,
+          headerVkId ? Number(headerVkId) : null,
           date,
           time,
           guestsCountNum,

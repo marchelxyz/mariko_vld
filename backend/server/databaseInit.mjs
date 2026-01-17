@@ -189,6 +189,8 @@ const SCHEMAS = {
       customer_name VARCHAR(255) NOT NULL,
       customer_phone VARCHAR(20) NOT NULL,
       customer_email VARCHAR(255),
+      customer_telegram_id BIGINT,
+      customer_vk_id BIGINT,
       booking_date DATE NOT NULL,
       booking_time TIME NOT NULL,
       guests_count INTEGER NOT NULL DEFAULT 1,
@@ -738,6 +740,42 @@ export async function initializeDatabase() {
       }
     } catch (error) {
       console.warn("⚠️  Предупреждение при добавлении поля vk_group_token:", error?.message || error);
+    }
+
+    // Миграция: добавляем поле customer_telegram_id в таблицу bookings
+    try {
+      const columnExists = await query(`
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'bookings' AND column_name = 'customer_telegram_id'
+      `);
+
+      if (columnExists.rows.length === 0) {
+        await query(`ALTER TABLE bookings ADD COLUMN customer_telegram_id BIGINT`);
+        console.log("✅ Поле customer_telegram_id добавлено в таблицу bookings");
+      } else {
+        console.log("ℹ️  Поле customer_telegram_id уже существует в таблице bookings");
+      }
+    } catch (error) {
+      console.warn("⚠️  Предупреждение при добавлении поля customer_telegram_id:", error?.message || error);
+    }
+
+    // Миграция: добавляем поле customer_vk_id в таблицу bookings
+    try {
+      const columnExists = await query(`
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'bookings' AND column_name = 'customer_vk_id'
+      `);
+
+      if (columnExists.rows.length === 0) {
+        await query(`ALTER TABLE bookings ADD COLUMN customer_vk_id BIGINT`);
+        console.log("✅ Поле customer_vk_id добавлено в таблицу bookings");
+      } else {
+        console.log("ℹ️  Поле customer_vk_id уже существует в таблице bookings");
+      }
+    } catch (error) {
+      console.warn("⚠️  Предупреждение при добавлении поля customer_vk_id:", error?.message || error);
     }
 
     // Миграция: добавляем поле onboarding_tour_shown в таблицу user_profiles
