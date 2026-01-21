@@ -61,6 +61,27 @@ const normalizeImageUrl = (raw?: string | null) => {
   }
 };
 
+/**
+ * Читает файл как data URL для предпросмотра.
+ */
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === "string") {
+        resolve(result);
+      } else {
+        reject(new Error("Не удалось прочитать файл как data URL"));
+      }
+    };
+    reader.onerror = () => {
+      reject(reader.error ?? new Error("Ошибка чтения файла"));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 type PromotionsErrorContext = {
   currentCityId: string | null;
   copyFromCityId: string | null;
@@ -167,6 +188,7 @@ function PromotionsManagementContent({
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isLoadingPromos, setIsLoadingPromos] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [uploadingPromoId, setUploadingPromoId] = useState<string | null>(null);
   const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
   const [openLibraryForId, setOpenLibraryForId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -490,7 +512,16 @@ function PromotionsManagementContent({
       return;
     }
     event.target.value = "";
+    const previousUrl =
+      promotions.find((promo) => promo.id === uploadTargetId)?.imageUrl ?? "";
     try {
+      setUploadingPromoId(uploadTargetId);
+      const previewUrl = await readFileAsDataUrl(file);
+      setPromotions((prev) =>
+        prev.map((promo) =>
+          promo.id === uploadTargetId ? { ...promo, imageUrl: previewUrl } : promo,
+        ),
+      );
       const uploaded = await uploadPromotionImage(file, currentCityId);
       if (uploaded?.url) {
         handleSelectLibraryImage(uploadTargetId, uploaded.url);
@@ -500,12 +531,18 @@ function PromotionsManagementContent({
       }
     } catch (error) {
       console.error("Ошибка загрузки изображения акции:", error);
+      setPromotions((prev) =>
+        prev.map((promo) =>
+          promo.id === uploadTargetId ? { ...promo, imageUrl: previousUrl } : promo,
+        ),
+      );
       toast({
         title: "Не удалось загрузить изображение",
         description: "Попробуйте ещё раз.",
         variant: "destructive",
       });
     } finally {
+      setUploadingPromoId(null);
       setUploadTargetId(null);
     }
   };
@@ -548,10 +585,10 @@ function PromotionsManagementContent({
               variant="default"
               onClick={handleManualSave}
               className="bg-mariko-primary"
-              disabled={isSaving}
+              disabled={isSaving || Boolean(uploadingPromoId)}
             >
               <Save className="h-4 w-4 mr-2" />
-              {isSaving ? "Сохранение..." : "Сохранить"}
+              {uploadingPromoId ? "Загрузка изображения..." : isSaving ? "Сохранение..." : "Сохранить"}
             </Button>
           </div>
         </div>
