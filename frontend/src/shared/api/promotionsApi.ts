@@ -1,5 +1,5 @@
 import { defaultPromotions, type PromotionCardData } from "@shared/data";
-import { getInitData, getPlatform } from "@/lib/platform";
+import { getInitData, getPlatform, getUserId } from "@/lib/platform";
 
 const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
 const RAW_SERVER_API_BASE = normalizeBaseUrl(rawServerEnv || "/api");
@@ -56,8 +56,17 @@ function buildAdminHeaders(initial?: Record<string, string>): Record<string, str
     ...(initial ?? {}),
   };
 
+  const platform = getPlatform();
+  const userId = getUserId();
+  if (platform === "vk" && userId) {
+    headers["X-VK-Id"] = userId;
+  }
+  if (platform === "telegram" && userId) {
+    headers["X-Telegram-Id"] = userId;
+  }
+
   const initData = getInitData();
-  if (initData) {
+  if (initData && platform === "vk") {
     headers["X-VK-Init-Data"] = initData;
   }
 
