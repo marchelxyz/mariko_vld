@@ -1,10 +1,23 @@
 import path from "path";
 import react from "@vitejs/plugin-react-swc";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 
 // https://vitejs.dev/config/
+function normalizeBasePath(basePath: string | undefined): string {
+  if (!basePath || basePath === "/") {
+    return "/";
+  }
+  const normalized = basePath.startsWith("/") ? basePath : `/${basePath}`;
+  return normalized.endsWith("/") ? normalized : `${normalized}/`;
+}
+
+function resolveBasePath(mode: string): string {
+  const env = loadEnv(mode, process.cwd(), "VITE_");
+  return normalizeBasePath(env.VITE_BASE_PATH);
+}
+
 export default defineConfig(({ mode }) => ({
-  base: mode === 'production' ? '/' : '/',
+  base: resolveBasePath(mode),
   server: {
     host: "::",
     port: 8080,
