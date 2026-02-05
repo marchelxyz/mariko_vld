@@ -225,21 +225,6 @@ try {
   logger.error('app', err instanceof Error ? err : new Error('Ошибка рендеринга приложения'), {
     type: 'render_error',
   });
-  try {
-    const message = err instanceof Error ? err.message : String(err);
-    const instance = getTg();
-    try {
-      if (instance && typeof instance.showAlert === 'function') {
-        instance.showAlert(`Ошибка рендеринга: ${message}`);
-      } else {
-        alert(`Ошибка рендеринга: ${message}`);
-      }
-    } catch (alertError) {
-      console.warn('showAlert failed, using fallback', alertError);
-      alert(`Ошибка рендеринга: ${message}`);
-    }
-  } catch (_) {
-    const message = err instanceof Error ? err.message : String(err);
-    alert(`Ошибка рендеринга: ${message}`);
-  }
+  const message = err instanceof Error ? err.message : String(err);
+  alert(`Ошибка рендеринга: ${message}`);
 }
