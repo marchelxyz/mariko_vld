@@ -65,13 +65,46 @@ RUN mkdir -p /etc/nginx/templates && \
     echo '    root /usr/share/nginx/html;' >> /etc/nginx/templates/default.conf.template && \
     echo '    index index.html;' >> /etc/nginx/templates/default.conf.template && \
     echo '' >> /etc/nginx/templates/default.conf.template && \
+    echo '    location = / {' >> /etc/nginx/templates/default.conf.template && \
+    echo '        return 301 ${APP_BASE_PATH}/$is_args$args;' >> /etc/nginx/templates/default.conf.template && \
+    echo '    }' >> /etc/nginx/templates/default.conf.template && \
+    echo '' >> /etc/nginx/templates/default.conf.template && \
+    echo '    location ^~ /assets/ {' >> /etc/nginx/templates/default.conf.template && \
+    echo '        try_files $uri =404;' >> /etc/nginx/templates/default.conf.template && \
+    echo '    }' >> /etc/nginx/templates/default.conf.template && \
+    echo '' >> /etc/nginx/templates/default.conf.template && \
+    echo '    location ^~ /images/ {' >> /etc/nginx/templates/default.conf.template && \
+    echo '        try_files $uri =404;' >> /etc/nginx/templates/default.conf.template && \
+    echo '    }' >> /etc/nginx/templates/default.conf.template && \
+    echo '' >> /etc/nginx/templates/default.conf.template && \
+    echo '    location ^~ ${APP_BASE_PATH}/assets/ {' >> /etc/nginx/templates/default.conf.template && \
+    echo '        rewrite ^${APP_BASE_PATH}/assets/(.*)$ /assets/$1 break;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        try_files /assets/$1 =404;' >> /etc/nginx/templates/default.conf.template && \
+    echo '    }' >> /etc/nginx/templates/default.conf.template && \
+    echo '' >> /etc/nginx/templates/default.conf.template && \
+    echo '    location ^~ ${APP_BASE_PATH}/images/ {' >> /etc/nginx/templates/default.conf.template && \
+    echo '        rewrite ^${APP_BASE_PATH}/images/(.*)$ /images/$1 break;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        try_files /images/$1 =404;' >> /etc/nginx/templates/default.conf.template && \
+    echo '    }' >> /etc/nginx/templates/default.conf.template && \
+    echo '' >> /etc/nginx/templates/default.conf.template && \
     echo '    location = ${APP_BASE_PATH} {' >> /etc/nginx/templates/default.conf.template && \
-    echo '        return 301 ${APP_BASE_PATH}/;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        return 301 ${APP_BASE_PATH}/$is_args$args;' >> /etc/nginx/templates/default.conf.template && \
     echo '    }' >> /etc/nginx/templates/default.conf.template && \
     echo '' >> /etc/nginx/templates/default.conf.template && \
     echo '    # Проксирование API запросов на backend' >> /etc/nginx/templates/default.conf.template && \
-    echo '    location ${APP_BASE_PATH}/api/ {' >> /etc/nginx/templates/default.conf.template && \
-    echo '        rewrite ^${APP_BASE_PATH}/api(/.*)$ /api$1 break;' >> /etc/nginx/templates/default.conf.template && \
+    echo '    location ^~ /api {' >> /etc/nginx/templates/default.conf.template && \
+    echo '        proxy_pass http://127.0.0.1:4010;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        proxy_http_version 1.1;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        proxy_set_header Upgrade $http_upgrade;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        proxy_set_header Connection "upgrade";' >> /etc/nginx/templates/default.conf.template && \
+    echo '        proxy_set_header Host $host;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        proxy_set_header X-Real-IP $remote_addr;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        proxy_set_header X-Forwarded-Proto $scheme;' >> /etc/nginx/templates/default.conf.template && \
+    echo '    }' >> /etc/nginx/templates/default.conf.template && \
+    echo '' >> /etc/nginx/templates/default.conf.template && \
+    echo '    location ^~ ${APP_BASE_PATH}/api {' >> /etc/nginx/templates/default.conf.template && \
+    echo '        rewrite ^${APP_BASE_PATH}/api(.*)$ /api$1 break;' >> /etc/nginx/templates/default.conf.template && \
     echo '        proxy_pass http://127.0.0.1:4010;' >> /etc/nginx/templates/default.conf.template && \
     echo '        proxy_http_version 1.1;' >> /etc/nginx/templates/default.conf.template && \
     echo '        proxy_set_header Upgrade $http_upgrade;' >> /etc/nginx/templates/default.conf.template && \
@@ -113,12 +146,16 @@ RUN mkdir -p /etc/supervisor/conf.d && \
     echo 'stderr_logfile_maxbytes=0' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'stdout_logfile=/dev/stdout' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'stdout_logfile_maxbytes=0' >> /etc/supervisor/conf.d/supervisord.conf && \
-    echo 'environment=CART_SERVER_PORT="4010",PORT="4010"' >> /etc/supervisor/conf.d/supervisord.conf
+    echo 'environment=CART_SERVER_PORT="4010",CART_SERVER_HOST="127.0.0.1"' >> /etc/supervisor/conf.d/supervisord.conf
 
 # Entry point: подставляем PORT в nginx конфиг и запускаем supervisor
 RUN echo '#!/bin/sh' > /app/entrypoint.sh && \
     echo 'set -e' >> /app/entrypoint.sh && \
     echo ': "${PORT:=80}"' >> /app/entrypoint.sh && \
+    echo 'PORT="${PORT%%/*}"' >> /app/entrypoint.sh && \
+    echo ': "${APP_BASE_PATH:=/tg}"' >> /app/entrypoint.sh && \
+    echo 'APP_BASE_PATH="${APP_BASE_PATH%/}"' >> /app/entrypoint.sh && \
+    echo 'APP_BASE_PATH="/${APP_BASE_PATH#/}"' >> /app/entrypoint.sh && \
     echo 'envsubst '\''${PORT} ${APP_BASE_PATH}'\'' < /etc/nginx/templates/default.conf.template > /etc/nginx/http.d/default.conf' >> /app/entrypoint.sh && \
     echo 'exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf' >> /app/entrypoint.sh && \
     chmod +x /app/entrypoint.sh
