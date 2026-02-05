@@ -66,7 +66,7 @@ RUN mkdir -p /etc/nginx/templates && \
     echo '    index index.html;' >> /etc/nginx/templates/default.conf.template && \
     echo '' >> /etc/nginx/templates/default.conf.template && \
     echo '    location = / {' >> /etc/nginx/templates/default.conf.template && \
-    echo '        return 301 ${APP_BASE_PATH}/;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        return 301 ${APP_BASE_PATH}/$is_args$args;' >> /etc/nginx/templates/default.conf.template && \
     echo '    }' >> /etc/nginx/templates/default.conf.template && \
     echo '' >> /etc/nginx/templates/default.conf.template && \
     echo '    location ^~ /assets/ {' >> /etc/nginx/templates/default.conf.template && \
@@ -88,7 +88,7 @@ RUN mkdir -p /etc/nginx/templates && \
     echo '    }' >> /etc/nginx/templates/default.conf.template && \
     echo '' >> /etc/nginx/templates/default.conf.template && \
     echo '    location = ${APP_BASE_PATH} {' >> /etc/nginx/templates/default.conf.template && \
-    echo '        return 301 ${APP_BASE_PATH}/;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        return 301 ${APP_BASE_PATH}/$is_args$args;' >> /etc/nginx/templates/default.conf.template && \
     echo '    }' >> /etc/nginx/templates/default.conf.template && \
     echo '' >> /etc/nginx/templates/default.conf.template && \
     echo '    # Проксирование API запросов на backend' >> /etc/nginx/templates/default.conf.template && \
