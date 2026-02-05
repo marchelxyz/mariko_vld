@@ -119,6 +119,7 @@ RUN mkdir -p /etc/supervisor/conf.d && \
 RUN echo '#!/bin/sh' > /app/entrypoint.sh && \
     echo 'set -e' >> /app/entrypoint.sh && \
     echo ': "${PORT:=80}"' >> /app/entrypoint.sh && \
+    echo 'PORT="${PORT%%/*}"' >> /app/entrypoint.sh && \
     echo 'envsubst '\''${PORT} ${APP_BASE_PATH}'\'' < /etc/nginx/templates/default.conf.template > /etc/nginx/http.d/default.conf' >> /app/entrypoint.sh && \
     echo 'exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf' >> /app/entrypoint.sh && \
     chmod +x /app/entrypoint.sh
