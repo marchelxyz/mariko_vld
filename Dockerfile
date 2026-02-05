@@ -65,6 +65,18 @@ RUN mkdir -p /etc/nginx/templates && \
     echo '    root /usr/share/nginx/html;' >> /etc/nginx/templates/default.conf.template && \
     echo '    index index.html;' >> /etc/nginx/templates/default.conf.template && \
     echo '' >> /etc/nginx/templates/default.conf.template && \
+    echo '    location = / {' >> /etc/nginx/templates/default.conf.template && \
+    echo '        return 301 ${APP_BASE_PATH}/;' >> /etc/nginx/templates/default.conf.template && \
+    echo '    }' >> /etc/nginx/templates/default.conf.template && \
+    echo '' >> /etc/nginx/templates/default.conf.template && \
+    echo '    location ^~ /assets/ {' >> /etc/nginx/templates/default.conf.template && \
+    echo '        try_files $uri =404;' >> /etc/nginx/templates/default.conf.template && \
+    echo '    }' >> /etc/nginx/templates/default.conf.template && \
+    echo '' >> /etc/nginx/templates/default.conf.template && \
+    echo '    location ^~ /images/ {' >> /etc/nginx/templates/default.conf.template && \
+    echo '        try_files $uri =404;' >> /etc/nginx/templates/default.conf.template && \
+    echo '    }' >> /etc/nginx/templates/default.conf.template && \
+    echo '' >> /etc/nginx/templates/default.conf.template && \
     echo '    location = ${APP_BASE_PATH} {' >> /etc/nginx/templates/default.conf.template && \
     echo '        return 301 ${APP_BASE_PATH}/;' >> /etc/nginx/templates/default.conf.template && \
     echo '    }' >> /etc/nginx/templates/default.conf.template && \
