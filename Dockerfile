@@ -113,7 +113,7 @@ RUN mkdir -p /etc/supervisor/conf.d && \
     echo 'stderr_logfile_maxbytes=0' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'stdout_logfile=/dev/stdout' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'stdout_logfile_maxbytes=0' >> /etc/supervisor/conf.d/supervisord.conf && \
-    echo 'environment=CART_SERVER_PORT="4010",PORT="4010"' >> /etc/supervisor/conf.d/supervisord.conf
+    echo 'environment=CART_SERVER_PORT="4010"' >> /etc/supervisor/conf.d/supervisord.conf
 
 # Entry point: подставляем PORT в nginx конфиг и запускаем supervisor
 RUN echo '#!/bin/sh' > /app/entrypoint.sh && \
