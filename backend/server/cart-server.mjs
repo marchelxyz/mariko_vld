@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { PORT } from "./config.mjs";
+import { PORT, CART_SERVER_HOST } from "./config.mjs";
 import { db } from "./postgresClient.mjs";
 import { initializeDatabase, checkDatabaseTables } from "./databaseInit.mjs";
 import { runAutoMigration } from "./autoMigration.mjs";
@@ -306,8 +306,11 @@ async function startServer() {
     logger.warn("DATABASE_URL не задан – сохраняем только в лог");
   }
 
-  server = app.listen(PORT, "0.0.0.0", () => {
-    logger.info(`Cart mock server (Express) listening on http://0.0.0.0:${PORT}`, { port: PORT });
+  server = app.listen(PORT, CART_SERVER_HOST, () => {
+    logger.info(
+      `Cart mock server (Express) listening on http://${CART_SERVER_HOST}:${PORT}`,
+      { port: PORT, host: CART_SERVER_HOST },
+    );
     if (!db) {
       logger.info("DATABASE_URL не задан – сохраняем только в лог");
     } else {
