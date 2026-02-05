@@ -92,8 +92,19 @@ RUN mkdir -p /etc/nginx/templates && \
     echo '    }' >> /etc/nginx/templates/default.conf.template && \
     echo '' >> /etc/nginx/templates/default.conf.template && \
     echo '    # Проксирование API запросов на backend' >> /etc/nginx/templates/default.conf.template && \
-    echo '    location ${APP_BASE_PATH}/api/ {' >> /etc/nginx/templates/default.conf.template && \
-    echo '        rewrite ^${APP_BASE_PATH}/api(/.*)$ /api$1 break;' >> /etc/nginx/templates/default.conf.template && \
+    echo '    location ^~ /api {' >> /etc/nginx/templates/default.conf.template && \
+    echo '        proxy_pass http://127.0.0.1:4010;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        proxy_http_version 1.1;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        proxy_set_header Upgrade $http_upgrade;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        proxy_set_header Connection "upgrade";' >> /etc/nginx/templates/default.conf.template && \
+    echo '        proxy_set_header Host $host;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        proxy_set_header X-Real-IP $remote_addr;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        proxy_set_header X-Forwarded-Proto $scheme;' >> /etc/nginx/templates/default.conf.template && \
+    echo '    }' >> /etc/nginx/templates/default.conf.template && \
+    echo '' >> /etc/nginx/templates/default.conf.template && \
+    echo '    location ^~ ${APP_BASE_PATH}/api {' >> /etc/nginx/templates/default.conf.template && \
+    echo '        rewrite ^${APP_BASE_PATH}/api(.*)$ /api$1 break;' >> /etc/nginx/templates/default.conf.template && \
     echo '        proxy_pass http://127.0.0.1:4010;' >> /etc/nginx/templates/default.conf.template && \
     echo '        proxy_http_version 1.1;' >> /etc/nginx/templates/default.conf.template && \
     echo '        proxy_set_header Upgrade $http_upgrade;' >> /etc/nginx/templates/default.conf.template && \
