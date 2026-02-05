@@ -153,9 +153,12 @@ RUN echo '#!/bin/sh' > /app/entrypoint.sh && \
     echo 'set -e' >> /app/entrypoint.sh && \
     echo ': "${PORT:=80}"' >> /app/entrypoint.sh && \
     echo 'PORT="${PORT%%/*}"' >> /app/entrypoint.sh && \
+    echo 'case "$PORT" in (""|*[!0-9]*) PORT=80 ;; esac' >> /app/entrypoint.sh && \
+    echo 'export PORT' >> /app/entrypoint.sh && \
     echo ': "${APP_BASE_PATH:=/tg}"' >> /app/entrypoint.sh && \
     echo 'APP_BASE_PATH="${APP_BASE_PATH%/}"' >> /app/entrypoint.sh && \
     echo 'APP_BASE_PATH="/${APP_BASE_PATH#/}"' >> /app/entrypoint.sh && \
+    echo 'export APP_BASE_PATH' >> /app/entrypoint.sh && \
     echo 'envsubst '\''${PORT} ${APP_BASE_PATH}'\'' < /etc/nginx/templates/default.conf.template > /etc/nginx/http.d/default.conf' >> /app/entrypoint.sh && \
     echo 'exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf' >> /app/entrypoint.sh && \
     chmod +x /app/entrypoint.sh
