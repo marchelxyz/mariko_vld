@@ -15,6 +15,7 @@ if (fs.existsSync(localEnvPath)) {
 }
 
 export const PORT = Number(process.env.CART_SERVER_PORT ?? process.env.PORT ?? 4010);
+export const CART_SERVER_HOST = process.env.CART_SERVER_HOST ?? "0.0.0.0";
 export const CART_ORDERS_TABLE = process.env.CART_ORDERS_TABLE ?? "cart_orders";
 const maxOrdersLimitRaw = Number.parseInt(process.env.CART_ORDERS_MAX_LIMIT ?? "", 10);
 export const MAX_ORDERS_LIMIT = Number.isFinite(maxOrdersLimitRaw) ? maxOrdersLimitRaw : 50;
