@@ -77,6 +77,16 @@ RUN mkdir -p /etc/nginx/templates && \
     echo '        try_files $uri =404;' >> /etc/nginx/templates/default.conf.template && \
     echo '    }' >> /etc/nginx/templates/default.conf.template && \
     echo '' >> /etc/nginx/templates/default.conf.template && \
+    echo '    location ^~ ${APP_BASE_PATH}/assets/ {' >> /etc/nginx/templates/default.conf.template && \
+    echo '        rewrite ^${APP_BASE_PATH}/assets/(.*)$ /assets/$1 break;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        try_files $uri =404;' >> /etc/nginx/templates/default.conf.template && \
+    echo '    }' >> /etc/nginx/templates/default.conf.template && \
+    echo '' >> /etc/nginx/templates/default.conf.template && \
+    echo '    location ^~ ${APP_BASE_PATH}/images/ {' >> /etc/nginx/templates/default.conf.template && \
+    echo '        rewrite ^${APP_BASE_PATH}/images/(.*)$ /images/$1 break;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        try_files $uri =404;' >> /etc/nginx/templates/default.conf.template && \
+    echo '    }' >> /etc/nginx/templates/default.conf.template && \
+    echo '' >> /etc/nginx/templates/default.conf.template && \
     echo '    location = ${APP_BASE_PATH} {' >> /etc/nginx/templates/default.conf.template && \
     echo '        return 301 ${APP_BASE_PATH}/;' >> /etc/nginx/templates/default.conf.template && \
     echo '    }' >> /etc/nginx/templates/default.conf.template && \
