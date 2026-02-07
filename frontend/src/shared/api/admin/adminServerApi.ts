@@ -3,7 +3,7 @@ import type { CartOrderRecord } from "@shared/api/cart";
 import type { Permission, UserRole } from "@shared/types";
 import type { AppSettings } from "@shared/api/settings";
 import { getPlatform, getUser } from "@/lib/platform";
-import { getUser as getTelegramUser } from "@/lib/telegramCore";
+import { getTg, getUser as getTelegramUser } from "@/lib/telegramCore";
 import { getVk } from "@/lib/vkCore";
 import { logger } from "@/lib/logger";
 
@@ -296,6 +296,15 @@ const resolveTelegramId = (override?: string): string | undefined => {
   return fallback;
 };
 
+const getTelegramInitData = (): string | undefined => {
+  const tg = getTg();
+  const initData = tg?.initData;
+  if (!initData || typeof initData !== "string") {
+    return undefined;
+  }
+  return initData;
+};
+
 const getTelegramUserId = (): string | undefined => {
   const user = getTelegramUser();
   if (!user?.id) {
@@ -355,6 +364,10 @@ const buildHeaders = (overrideTelegramId?: string, overrideVkId?: string): Recor
   const telegramId = resolveTelegramId(overrideTelegramId);
   if (telegramId) {
     headers["X-Telegram-Id"] = telegramId;
+  }
+  const telegramInitData = getTelegramInitData();
+  if (telegramInitData) {
+    headers["X-Telegram-Init-Data"] = telegramInitData;
   }
   const vkId = resolveVkId(overrideVkId);
   if (vkId) {
