@@ -34,6 +34,9 @@ export type PlatformUser = {
   avatar?: string;
 };
 
+const TELEGRAM_INIT_DATA_STORAGE_KEY = "mariko_tg_init_data";
+const TELEGRAM_USER_ID_STORAGE_KEY = "mariko_tg_user_id";
+
 /**
  * Определяет текущую платформу.
  */
@@ -41,7 +44,7 @@ export function getPlatform(): Platform {
   if (isInVk()) {
     return "vk";
   }
-  if (isInTelegram() || hasTelegramInitDataInUrl()) {
+  if (isInTelegram() || hasTelegramInitDataInUrl() || hasTelegramInitDataInStorage()) {
     return "telegram";
   }
   return "web";
@@ -93,10 +96,16 @@ export function getUserId(): string | undefined {
   if (platform === "telegram") {
     const user = getUser();
     if (user?.id) {
+      cacheTelegramUserId(user.id.toString());
       return user.id.toString();
     }
     const parsed = parseTelegramUserFromInitData(resolveTelegramInitData());
-    return parsed?.id?.toString();
+    const parsedId = parsed?.id?.toString();
+    if (parsedId) {
+      cacheTelegramUserId(parsedId);
+      return parsedId;
+    }
+    return getCachedTelegramUserId();
   }
   return undefined;
 }
@@ -361,16 +370,18 @@ function resolveStorage() {
 function resolveTelegramInitData(): string | undefined {
   const tg = getTg();
   if (tg?.initData) {
+    cacheTelegramInitData(tg.initData);
     return tg.initData;
   }
   if (typeof window !== "undefined") {
     const urlParams = new URLSearchParams(window.location.search);
     const raw = urlParams.get("tgWebAppData");
     if (raw) {
+      cacheTelegramInitData(raw);
       return raw;
     }
   }
-  return undefined;
+  return getCachedTelegramInitData();
 }
 
 function hasTelegramInitDataInUrl(): boolean {
@@ -414,4 +425,42 @@ function parseTelegramUserFromInitData(initData?: string): PlatformUser | undefi
     console.warn("[platform] failed to parse Telegram init data", error);
     return undefined;
   }
+}
+
+function cacheTelegramInitData(value: string): void {
+  try {
+    telegramStorage.setItem(TELEGRAM_INIT_DATA_STORAGE_KEY, value);
+  } catch (error) {
+    console.warn("[platform] failed to cache Telegram init data", error);
+  }
+}
+
+function cacheTelegramUserId(value: string): void {
+  try {
+    telegramStorage.setItem(TELEGRAM_USER_ID_STORAGE_KEY, value);
+  } catch (error) {
+    console.warn("[platform] failed to cache Telegram user id", error);
+  }
+}
+
+function getCachedTelegramInitData(): string | undefined {
+  try {
+    return telegramStorage.getItem(TELEGRAM_INIT_DATA_STORAGE_KEY) ?? undefined;
+  } catch (error) {
+    console.warn("[platform] failed to read cached Telegram init data", error);
+    return undefined;
+  }
+}
+
+function getCachedTelegramUserId(): string | undefined {
+  try {
+    return telegramStorage.getItem(TELEGRAM_USER_ID_STORAGE_KEY) ?? undefined;
+  } catch (error) {
+    console.warn("[platform] failed to read cached Telegram user id", error);
+    return undefined;
+  }
+}
+
+function hasTelegramInitDataInStorage(): boolean {
+  return Boolean(getCachedTelegramInitData() || getCachedTelegramUserId());
 }
