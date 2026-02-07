@@ -19,7 +19,14 @@ const getUserProfileShared = (userId: string): Promise<UserProfile> => {
 
 const resolveUserId = (): string => {
   const user = getUser();
-  return user?.id?.toString() || "demo_user";
+  if (user?.id) {
+    return user.id.toString();
+  }
+  const platform = getPlatform();
+  if (platform === "telegram") {
+    return "";
+  }
+  return "demo_user";
 };
 
 /**
@@ -122,9 +129,17 @@ export const useProfile = () => {
   const [userId, setUserId] = useState<string>("");
   const [isInitialized, setIsInitialized] = useState(false);
   const storageUnsubscribeRef = useRef<(() => void) | null>(null);
+  const retryTimeoutRef = useRef<number | null>(null);
+  const retryCountRef = useRef(0);
 
   useEffect(() => {
     loadProfile();
+    return () => {
+      if (retryTimeoutRef.current !== null) {
+        window.clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+    };
   }, []);
 
   const applyProfileUpdate = async (incomingProfile: Partial<UserProfile>) => {
@@ -147,6 +162,10 @@ export const useProfile = () => {
 
       // Получаем ID пользователя
       const currentUserId = resolveUserId();
+      if (!currentUserId) {
+        scheduleRetry();
+        return;
+      }
       
       // Обновляем userId только если он изменился
       if (currentUserId !== userId) {
@@ -246,6 +265,22 @@ export const useProfile = () => {
     }
   };
 
+  const scheduleRetry = () => {
+    if (typeof window === "undefined") {
+      setLoading(false);
+      return;
+    }
+    if (retryCountRef.current >= 10) {
+      setLoading(false);
+      return;
+    }
+    retryCountRef.current += 1;
+    retryTimeoutRef.current = window.setTimeout(() => {
+      retryTimeoutRef.current = null;
+      void loadProfile();
+    }, 500);
+  };
+
   const updateProfile = async (updates: Partial<UserProfile>) => {
     try {
       setError(null); // Очищаем предыдущие ошибки
@@ -255,7 +290,11 @@ export const useProfile = () => {
       const updatedProfile = { ...profile, ...restUpdates, photo: resolvedPhoto };
 
       // Используем правильный userId
-      const currentUserId = userId || "demo_user";
+      const currentUserId = userId;
+      if (!currentUserId) {
+        setError("Не удалось определить пользователя");
+        return false;
+      }
       const success = await profileApi.updateUserProfile(currentUserId, updatedProfile);
 
       if (success) {
@@ -283,7 +322,10 @@ export const useProfile = () => {
       
       // Попытка восстановить из fallback storage только в случае серьезной ошибки
       try {
-        const currentUserId = userId || "demo_user";
+        const currentUserId = userId;
+        if (!currentUserId) {
+          return false;
+        }
         const savedProfile = storage.getItem(`profile_${currentUserId}`);
         if (savedProfile) {
           const parsedProfile = JSON.parse(savedProfile);
