@@ -3,6 +3,7 @@ import type { CartOrderRecord } from "@shared/api/cart";
 import type { Permission, UserRole } from "@shared/types";
 import type { AppSettings } from "@shared/api/settings";
 import { getPlatform, getUser } from "@/lib/platform";
+import { getUser as getTelegramUser } from "@/lib/telegramCore";
 import { getVk } from "@/lib/vkCore";
 import { logger } from "@/lib/logger";
 
@@ -275,6 +276,11 @@ const resolveTelegramId = (override?: string): string | undefined => {
     logger.debug('admin-api', 'Using override ID', { override });
     return override;
   }
+  const telegramUserId = getTelegramUserId();
+  if (telegramUserId) {
+    logger.debug('admin-api', 'Using Telegram WebApp user ID', { userId: telegramUserId });
+    return telegramUserId;
+  }
   const platform = getPlatform();
   // Для Telegram платформы используем ID пользователя
   if (platform !== "vk") {
@@ -288,6 +294,14 @@ const resolveTelegramId = (override?: string): string | undefined => {
   const fallback = getFallbackTelegramId();
   logger.debug('admin-api', 'Using fallback ID', { fallback });
   return fallback;
+};
+
+const getTelegramUserId = (): string | undefined => {
+  const user = getTelegramUser();
+  if (!user?.id) {
+    return undefined;
+  }
+  return String(user.id);
 };
 
 const resolveVkId = (override?: string): string | undefined => {
