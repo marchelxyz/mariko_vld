@@ -5,7 +5,7 @@ import { useCart, useCityContext } from "@/contexts";
 import { recalculateCart, submitCartOrder } from "@/shared/api/cart";
 import { profileApi } from "@shared/api/profile";
 import type { UserProfile } from "@shared/types";
-import { getUser } from "@/lib/platform";
+import { getPlatform, getUser } from "@/lib/platform";
 
 type AddressSuggestion = {
   id: string;
@@ -35,8 +35,10 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   const { items, totalCount, totalPrice, removeItem, increaseItem, clearCart } = useCart();
   const { selectedRestaurant, selectedCity } = useCityContext();
   const navigate = useNavigate();
+  const platform = getPlatform();
   const telegramUser = getUser();
-  const telegramUserId = telegramUser?.id?.toString() || "demo_user";
+  const rawTelegramUserId = telegramUser?.id?.toString() ?? "";
+  const telegramUserId = rawTelegramUserId || (platform === "web" ? "demo_user" : "");
   const telegramUsername = telegramUser?.username ?? undefined;
   const telegramFullName = (() => {
     const parts = [telegramUser?.first_name, telegramUser?.last_name].filter(
@@ -354,10 +356,10 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
     setIsSubmitting(true);
     setLastSubmitStatus("idle");
     setLastSubmitMessage(null);
-    const normalizedTelegramId = telegramUserId === "demo_user" ? undefined : telegramUserId;
+    const normalizedTelegramId = telegramUserId && telegramUserId !== "demo_user" ? telegramUserId : undefined;
     const orderMeta = {
       clientApp: "mini-app",
-      telegramUserId,
+      telegramUserId: normalizedTelegramId,
       telegramUsername,
       telegramFullName,
       restaurantName: selectedRestaurant?.name,
@@ -490,7 +492,11 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
       return;
     }
     setPrefillAttempted(true);
-    const userId = telegramUserId;
+    const userId = telegramUserId && telegramUserId !== "demo_user" ? telegramUserId : "";
+    if (!userId) {
+      setIsPrefilling(false);
+      return;
+    }
     setIsPrefilling(true);
     profileApi
       .getUserProfile(userId)
