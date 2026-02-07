@@ -281,6 +281,11 @@ const resolveTelegramId = (override?: string): string | undefined => {
     logger.debug('admin-api', 'Using Telegram WebApp user ID', { userId: telegramUserId });
     return telegramUserId;
   }
+  const cachedTelegramUserId = getCachedTelegramUserId();
+  if (cachedTelegramUserId) {
+    logger.debug('admin-api', 'Using cached Telegram user ID', { userId: cachedTelegramUserId });
+    return cachedTelegramUserId;
+  }
   const platform = getPlatform();
   // Для Telegram платформы используем ID пользователя
   if (platform !== "vk") {
@@ -296,21 +301,100 @@ const resolveTelegramId = (override?: string): string | undefined => {
   return fallback;
 };
 
+const TELEGRAM_INIT_DATA_STORAGE_KEY = "mariko_tg_init_data";
+const TELEGRAM_USER_ID_STORAGE_KEY = "mariko_tg_user_id";
+
 const getTelegramInitData = (): string | undefined => {
   const tg = getTg();
   const initData = tg?.initData;
-  if (!initData || typeof initData !== "string") {
-    return undefined;
+  if (initData && typeof initData === "string") {
+    cacheTelegramInitData(initData);
+    return initData;
   }
-  return initData;
+  return getCachedTelegramInitData();
 };
 
 const getTelegramUserId = (): string | undefined => {
   const user = getTelegramUser();
-  if (!user?.id) {
+  if (user?.id) {
+    const id = String(user.id);
+    cacheTelegramUserId(id);
+    return id;
+  }
+  const initData = getTelegramInitData();
+  if (!initData) {
     return undefined;
   }
-  return String(user.id);
+  const parsed = parseTelegramUserId(initData);
+  if (!parsed) {
+    return undefined;
+  }
+  cacheTelegramUserId(parsed);
+  return parsed;
+};
+
+const parseTelegramUserId = (rawInitData: string): string | undefined => {
+  try {
+    const params = new URLSearchParams(rawInitData);
+    const userRaw = params.get("user");
+    if (!userRaw) {
+      return undefined;
+    }
+    const user = JSON.parse(userRaw);
+    if (!user?.id) {
+      return undefined;
+    }
+    return String(user.id);
+  } catch (error) {
+    logger.warn("admin-api", "Failed to parse Telegram user ID from init data", { error });
+    return undefined;
+  }
+};
+
+const cacheTelegramInitData = (value: string): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.sessionStorage.setItem(TELEGRAM_INIT_DATA_STORAGE_KEY, value);
+  } catch (error) {
+    logger.warn("admin-api", "Failed to cache Telegram init data", { error });
+  }
+};
+
+const cacheTelegramUserId = (value: string): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.sessionStorage.setItem(TELEGRAM_USER_ID_STORAGE_KEY, value);
+  } catch (error) {
+    logger.warn("admin-api", "Failed to cache Telegram user ID", { error });
+  }
+};
+
+const getCachedTelegramInitData = (): string | undefined => {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+  try {
+    return window.sessionStorage.getItem(TELEGRAM_INIT_DATA_STORAGE_KEY) ?? undefined;
+  } catch (error) {
+    logger.warn("admin-api", "Failed to read cached Telegram init data", { error });
+    return undefined;
+  }
+};
+
+const getCachedTelegramUserId = (): string | undefined => {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+  try {
+    return window.sessionStorage.getItem(TELEGRAM_USER_ID_STORAGE_KEY) ?? undefined;
+  } catch (error) {
+    logger.warn("admin-api", "Failed to read cached Telegram user ID", { error });
+    return undefined;
+  }
 };
 
 const resolveVkId = (override?: string): string | undefined => {
