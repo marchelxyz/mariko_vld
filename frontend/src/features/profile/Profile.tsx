@@ -69,7 +69,7 @@ const Profile = () => {
         setEditValue(profile.birthDate || "");
         break;
       case "gender":
-        setEditValue(profile.gender || "Женский");
+        setEditValue(profile.gender || "Не указан");
         break;
       case "phone":
         phoneInput.setValue(profile.phone || "");
@@ -264,6 +264,7 @@ const Profile = () => {
                 disabled={isSaving}
                 className="flex-1 bg-white border border-mariko-secondary/30 text-mariko-dark font-el-messiri text-base md:text-lg rounded-lg px-3 py-2 h-10 md:h-11 focus:outline-none focus:ring-2 focus:ring-mariko-secondary/50"
               >
+                <option value="Не указан">Не указан</option>
                 <option value="Женский">Женский</option>
                 <option value="Мужской">Мужской</option>
               </select>

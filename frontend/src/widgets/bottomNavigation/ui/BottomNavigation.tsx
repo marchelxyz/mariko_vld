@@ -53,7 +53,7 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
     };
 
     updateMetrics();
-    const handleResize = () => updateMetrics();
+    const handleResize = createRafThrottled(updateMetrics);
 
     window.addEventListener("resize", handleResize);
     if (window.visualViewport) {
@@ -171,3 +171,16 @@ export const BottomNavigation = ({ currentPage, className }: BottomNavigationPro
     </nav>
   );
 };
+
+function createRafThrottled(callback: () => void): () => void {
+  let rafId: number | null = null;
+  return () => {
+    if (rafId !== null) {
+      return;
+    }
+    rafId = window.requestAnimationFrame(() => {
+      rafId = null;
+      callback();
+    });
+  };
+}
