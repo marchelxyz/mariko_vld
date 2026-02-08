@@ -78,13 +78,11 @@ RUN mkdir -p /etc/nginx/templates && \
     echo '    }' >> /etc/nginx/templates/default.conf.template && \
     echo '' >> /etc/nginx/templates/default.conf.template && \
     echo '    location ^~ ${APP_BASE_PATH}/assets/ {' >> /etc/nginx/templates/default.conf.template && \
-    echo '        rewrite ^${APP_BASE_PATH}/assets/(.*)$ /assets/$1 break;' >> /etc/nginx/templates/default.conf.template && \
-    echo '        try_files /assets/$1 =404;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        alias /usr/share/nginx/html/assets/;' >> /etc/nginx/templates/default.conf.template && \
     echo '    }' >> /etc/nginx/templates/default.conf.template && \
     echo '' >> /etc/nginx/templates/default.conf.template && \
     echo '    location ^~ ${APP_BASE_PATH}/images/ {' >> /etc/nginx/templates/default.conf.template && \
-    echo '        rewrite ^${APP_BASE_PATH}/images/(.*)$ /images/$1 break;' >> /etc/nginx/templates/default.conf.template && \
-    echo '        try_files /images/$1 =404;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        alias /usr/share/nginx/html/images/;' >> /etc/nginx/templates/default.conf.template && \
     echo '    }' >> /etc/nginx/templates/default.conf.template && \
     echo '' >> /etc/nginx/templates/default.conf.template && \
     echo '    location = ${APP_BASE_PATH} {' >> /etc/nginx/templates/default.conf.template && \
