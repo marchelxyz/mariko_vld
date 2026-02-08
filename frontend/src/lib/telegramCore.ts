@@ -40,6 +40,7 @@ const defaultSafeArea: SafeAreaInsets = { top: 0, right: 0, bottom: 0, left: 0 }
 let cachedSafeArea: SafeAreaInsets = defaultSafeArea;
 let lifecycleBound = false;
 let cachedIsActive = true;
+let lastFullscreenRequestAt = 0;
 
 const safeAreaSubscribers = new Set<SafeAreaListener>();
 const activationSubscribers = new Set<() => void>();
@@ -52,6 +53,22 @@ const pendingHydrationKeys = new Set<string>();
 const memoryStorage = new Map<string, string>();
 
 const noop = () => {};
+const fullscreenRequestCooldownMs = 1200;
+
+function shouldRequestFullscreen(tg: TelegramWebApp, payload?: TelegramViewportChangedPayload): boolean {
+  if (tg.isFullscreen === true) {
+    return false;
+  }
+  if (payload && payload.is_expanded) {
+    return false;
+  }
+  const now = Date.now();
+  if (now - lastFullscreenRequestAt < fullscreenRequestCooldownMs) {
+    return false;
+  }
+  lastFullscreenRequestAt = now;
+  return true;
+}
 
 /**
  * Returns the Telegram WebApp instance if available.
@@ -134,7 +151,7 @@ const ensureLifecycleBinding = () => {
       }
     });
     // Автоматически переходим в полноэкранный режим при изменении viewport, если не в полноэкранном режиме
-    if (tg.isFullscreen === false || !payload.is_expanded) {
+    if (shouldRequestFullscreen(tg, payload)) {
       requestFullscreenMode();
     }
   };
