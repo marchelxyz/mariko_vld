@@ -14,7 +14,6 @@ require('dotenv').config({ path: botEnvPath });
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL;
-const API_PORT = Number(process.env.API_PORT || process.env.PORT || 4000);
 const ADMIN_PANEL_TOKEN = process.env.ADMIN_PANEL_TOKEN;
 const ADMIN_TELEGRAM_IDS = (process.env.ADMIN_TELEGRAM_IDS || '')
   .split(',')
@@ -34,6 +33,18 @@ const parseBooleanEnv = (value, fallback) => {
   return fallback;
 };
 
+/**
+ * Парсит порт из переменной окружения с безопасным фолбэком.
+ */
+const parsePortEnv = (value, fallback) => {
+  if (value == null) return fallback;
+  const normalized = String(value).trim();
+  if (!normalized) return fallback;
+  const parsed = Number.parseInt(normalized, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const API_PORT = parsePortEnv(process.env.API_PORT || process.env.PORT, 4000);
 const BOT_POLLING_ENABLED = parseBooleanEnv(process.env.BOT_POLLING_ENABLED, true);
 
 if (!BOT_TOKEN && BOT_POLLING_ENABLED) {
