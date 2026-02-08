@@ -34,11 +34,6 @@ WORKDIR /app/backend
 COPY backend/package*.json ./
 RUN npm ci --only=production
 
-# Устанавливаем зависимости бота
-WORKDIR /app/backend/bot
-COPY backend/bot/package*.json ./
-RUN npm ci --only=production
-
 # ============================================
 # Stage 3: Финальный образ с nginx и node
 # ============================================
@@ -59,8 +54,6 @@ COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
 # Копируем backend из builder (только node_modules и package.json уже установлены)
 COPY --from=backend-builder /app/backend/node_modules /app/backend/node_modules
 COPY --from=backend-builder /app/backend/package*.json /app/backend/
-# Копируем зависимости бота
-COPY --from=backend-builder /app/backend/bot/node_modules /app/backend/bot/node_modules
 # Копируем исходный код backend
 COPY backend/ /app/backend/
 
@@ -153,17 +146,7 @@ RUN mkdir -p /etc/supervisor/conf.d && \
     echo 'stderr_logfile_maxbytes=0' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'stdout_logfile=/dev/stdout' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'stdout_logfile_maxbytes=0' >> /etc/supervisor/conf.d/supervisord.conf && \
-    echo 'environment=CART_SERVER_PORT="4010",CART_SERVER_HOST="127.0.0.1"' >> /etc/supervisor/conf.d/supervisord.conf && \
-    echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
-    echo '[program:bot]' >> /etc/supervisor/conf.d/supervisord.conf && \
-    echo 'command=node /app/backend/bot/main-bot.cjs' >> /etc/supervisor/conf.d/supervisord.conf && \
-    echo 'directory=/app/backend/bot' >> /etc/supervisor/conf.d/supervisord.conf && \
-    echo 'autostart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
-    echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
-    echo 'stderr_logfile=/dev/stderr' >> /etc/supervisor/conf.d/supervisord.conf && \
-    echo 'stderr_logfile_maxbytes=0' >> /etc/supervisor/conf.d/supervisord.conf && \
-    echo 'stdout_logfile=/dev/stdout' >> /etc/supervisor/conf.d/supervisord.conf && \
-    echo 'stdout_logfile_maxbytes=0' >> /etc/supervisor/conf.d/supervisord.conf
+    echo 'environment=CART_SERVER_PORT="4010",CART_SERVER_HOST="127.0.0.1"' >> /etc/supervisor/conf.d/supervisord.conf
 
 # Entry point: подставляем PORT в nginx конфиг и запускаем supervisor
 RUN echo '#!/bin/sh' > /app/entrypoint.sh && \
