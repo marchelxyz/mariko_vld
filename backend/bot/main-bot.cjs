@@ -20,7 +20,11 @@ const ADMIN_TELEGRAM_IDS = (process.env.ADMIN_TELEGRAM_IDS || '')
   .split(',')
   .map((id) => id.trim())
   .filter(Boolean);
+const SERVER_API_URL = process.env.SERVER_API_URL || process.env.VITE_SERVER_API_URL;
+const SETTINGS_API_URL = buildSettingsApiUrl(SERVER_API_URL);
+const SUPPORT_URL_CACHE_TTL_MS = Number(process.env.SUPPORT_URL_CACHE_TTL_MS || 300_000);
 const isProduction = process.env.NODE_ENV === 'production';
+let supportUrlCache = { value: null, expiresAt: 0 };
 
 const parseBooleanEnv = (value, fallback) => {
   if (value == null) return fallback;
@@ -190,15 +194,23 @@ if (!BOT_POLLING_ENABLED) {
   console.log('⏸️ BOT_POLLING_ENABLED=false — Telegram polling отключен (standby режим)');
 }
 
-const buildOpenWebAppMarkup = ({ mode = 'web_app' } = {}) => {
+/**
+ * Собирает inline-клавиатуру для приветственного сообщения.
+ */
+const buildOpenWebAppMarkup = ({ mode = 'web_app', supportUrl } = {}) => {
   if (!NORMALIZED_WEBAPP_URL) return null;
   const button =
     mode === 'url'
       ? { text: "🍽️ Начать", url: NORMALIZED_WEBAPP_URL }
       : { text: "🍽️ Начать", web_app: { url: NORMALIZED_WEBAPP_URL } };
+  const normalizedSupportUrl = normalizeSupportUrl(supportUrl);
+  const keyboard = [[button]];
+  if (normalizedSupportUrl) {
+    keyboard.push([{ text: "🆘 Поддержка", url: normalizedSupportUrl }]);
+  }
   return {
     reply_markup: {
-      inline_keyboard: [[button]],
+      inline_keyboard: keyboard,
     },
   };
 };
@@ -221,7 +233,8 @@ const sendWelcome = async (chatId, firstName) => {
     disable_web_page_preview: true,
   };
 
-  const webAppMarkup = buildOpenWebAppMarkup({ mode: 'web_app' });
+  const supportUrl = await getSupportUrl();
+  const webAppMarkup = buildOpenWebAppMarkup({ mode: 'web_app', supportUrl });
   if (webAppMarkup) {
     try {
       return await bot.telegram.sendMessage(chatId, message, { ...baseOptions, ...webAppMarkup });
@@ -233,7 +246,7 @@ const sendWelcome = async (chatId, firstName) => {
     }
   }
 
-  const urlMarkup = buildOpenWebAppMarkup({ mode: 'url' });
+  const urlMarkup = buildOpenWebAppMarkup({ mode: 'url', supportUrl });
   if (urlMarkup) {
     try {
       return await bot.telegram.sendMessage(chatId, message, { ...baseOptions, ...urlMarkup });
@@ -339,6 +352,76 @@ const gracefulShutdown = (signal) => {
 
 process.once("SIGINT", () => gracefulShutdown("SIGINT"));
 process.once("SIGTERM", () => gracefulShutdown("SIGTERM"));
+
+/**
+ * Формирует endpoint для получения настроек приложения.
+ */
+function buildSettingsApiUrl(rawBaseUrl) {
+  if (!rawBaseUrl) return null;
+  const trimmed = String(rawBaseUrl).trim();
+  if (!trimmed) return null;
+  return `${trimmed.replace(/\/$/, "")}/cart/settings`;
+}
+
+/**
+ * Нормализует ссылку на поддержку (Telegram).
+ */
+function normalizeSupportUrl(rawUrl) {
+  if (!rawUrl) return null;
+  const trimmed = String(rawUrl).trim();
+  if (!trimmed) return null;
+  if (/^tg:\/\//i.test(trimmed)) return trimmed;
+  if (/^https?:\/\/t\.me\//i.test(trimmed)) return trimmed;
+  return null;
+}
+
+/**
+ * Запрашивает ссылку поддержки из настроек приложения.
+ */
+async function fetchSupportUrlFromSettings() {
+  if (!SETTINGS_API_URL) {
+    return null;
+  }
+  if (typeof fetch !== "function") {
+    console.warn("⚠️ fetch недоступен — кнопка поддержки будет отключена");
+    return null;
+  }
+  try {
+    const response = await fetch(SETTINGS_API_URL, {
+      headers: { accept: "application/json" },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload?.success === false) {
+      const message =
+        payload?.message || `Запрос настроек завершился ошибкой (${response.status})`;
+      console.warn("⚠️", message);
+      return null;
+    }
+    return normalizeSupportUrl(payload?.settings?.supportTelegramUrl);
+  } catch (error) {
+    console.warn("⚠️ Не удалось получить ссылку поддержки:", error?.message || error);
+    return null;
+  }
+}
+
+/**
+ * Возвращает ссылку поддержки с кэшированием.
+ */
+async function getSupportUrl() {
+  if (!SETTINGS_API_URL) {
+    return null;
+  }
+  const now = Date.now();
+  if (supportUrlCache.expiresAt > now) {
+    return supportUrlCache.value;
+  }
+  const nextValue = await fetchSupportUrlFromSettings();
+  supportUrlCache = {
+    value: nextValue,
+    expiresAt: now + SUPPORT_URL_CACHE_TTL_MS,
+  };
+  return nextValue;
+}
 const parseRestaurantPermissions = (permissions) => {
   if (!permissions) {
     return [];
