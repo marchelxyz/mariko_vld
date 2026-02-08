@@ -290,12 +290,15 @@ export const useProfile = () => {
       const updatedProfile = { ...profile, ...restUpdates, photo: resolvedPhoto };
 
       // Используем правильный userId
-      const currentUserId = userId;
-      if (!currentUserId) {
+      const resolvedUserId = userId || resolveUserId();
+      if (!resolvedUserId) {
         setError("Не удалось определить пользователя");
         return false;
       }
-      const success = await profileApi.updateUserProfile(currentUserId, updatedProfile);
+      if (resolvedUserId !== userId) {
+        setUserId(resolvedUserId);
+      }
+      const success = await profileApi.updateUserProfile(resolvedUserId, updatedProfile);
 
       if (success) {
         // Обновляем локальное состояние только при успешном сохранении
@@ -303,7 +306,7 @@ export const useProfile = () => {
         
         // Дополнительно сохраняем в fallback storage для надежности
         try {
-          storage.setItem(`profile_${currentUserId}`, JSON.stringify(updatedProfile));
+          storage.setItem(`profile_${resolvedUserId}`, JSON.stringify(updatedProfile));
         } catch (storageErr) {
           console.warn("Не удалось сохранить данные локально:", storageErr);
           // Не считаем это критической ошибкой
