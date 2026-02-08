@@ -279,7 +279,7 @@ export const FirstRunTour = ({ enabled = true }: FirstRunTourProps) => {
   useEffect(() => {
     if (!open) return;
 
-    const handleResize = createRafThrottled(() => setViewport(getViewport()));
+    const handleResize = () => setViewport(getViewport());
     window.addEventListener("resize", handleResize);
     if (window.visualViewport) {
       window.visualViewport.addEventListener("resize", handleResize);
@@ -495,16 +495,3 @@ export const FirstRunTour = ({ enabled = true }: FirstRunTourProps) => {
     document.body,
   );
 };
-
-function createRafThrottled(callback: () => void): () => void {
-  let rafId: number | null = null;
-  return () => {
-    if (rafId !== null) {
-      return;
-    }
-    rafId = window.requestAnimationFrame(() => {
-      rafId = null;
-      callback();
-    });
-  };
-}

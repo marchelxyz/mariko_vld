@@ -89,7 +89,7 @@ const EditProfile = () => {
     setIsEditing(true);
     setNameValue(profile.name || "");
     setBirthDateValue(profile.birthDate || "");
-    setGenderValue(profile.gender || "Не указан");
+    setGenderValue(profile.gender || "");
     setAddressLine(profile.lastAddressText || "");
     if (profile.lastAddressLat && profile.lastAddressLon) {
       setAddressCoords({ lat: profile.lastAddressLat, lon: profile.lastAddressLon });
@@ -424,7 +424,6 @@ const EditProfile = () => {
               <div className="bg-mariko-field rounded-[16px] px-5 md:px-7 py-3 md:py-4">
                 <Label className="text-mariko-dark font-el-messiri text-base md:text-lg font-semibold mb-2 block">Пол</Label>
                 <select value={genderValue} onChange={(e) => setGenderValue(e.target.value)} className="flex-1 bg-white/10 border border-white/20 text-mariko-dark font-el-messiri text-base md:text-lg rounded-lg px-3 py-2 h-10 md:h-11">
-                  <option value="Не указан" className="bg-mariko-secondary text-white">Не указан</option>
                   <option value="Женский" className="bg-mariko-secondary text-white">Женский</option>
                   <option value="Мужской" className="bg-mariko-secondary text-white">Мужской</option>
                 </select>
