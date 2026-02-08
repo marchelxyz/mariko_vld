@@ -44,7 +44,7 @@ const parsePortEnv = (value, fallback) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-const API_PORT = parsePortEnv(process.env.API_PORT || process.env.PORT, 4000);
+const API_PORT = parsePortEnv(process.env.API_PORT, 4000);
 const BOT_POLLING_ENABLED = parseBooleanEnv(process.env.BOT_POLLING_ENABLED, true);
 
 if (!BOT_TOKEN && BOT_POLLING_ENABLED) {
