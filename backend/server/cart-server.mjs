@@ -22,6 +22,7 @@ import { createMenuRouter, createAdminMenuRouter } from "./routes/menuRoutes.mjs
 import { createStorageRouter } from "./routes/storageRoutes.mjs";
 import { logger } from "./utils/logger.mjs";
 import { startBookingNotificationWorker } from "./workers/bookingNotificationWorker.mjs";
+import { startTelegramBot, stopTelegramBot } from "./services/telegramBotService.mjs";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -318,6 +319,10 @@ async function startServer() {
     }
   });
 
+  startTelegramBot().catch((error) => {
+    logger.error("Ошибка запуска Telegram-бота", error);
+  });
+
   // Обработка ошибок сервера
   server.on("error", (error) => {
     logger.error("Ошибка сервера", error);
@@ -335,6 +340,7 @@ async function startServer() {
 // Graceful shutdown
 async function shutdown(signal) {
   logger.info(`Получен сигнал ${signal}, начинаем graceful shutdown...`);
+  stopTelegramBot(signal);
   
   if (server) {
     server.close(() => {
