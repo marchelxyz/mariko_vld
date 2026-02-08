@@ -34,10 +34,6 @@ WORKDIR /app/backend
 COPY backend/package*.json ./
 RUN npm ci --only=production
 
-# Устанавливаем зависимости Telegram-бота отдельно
-COPY backend/bot/package*.json ./bot/
-RUN cd bot && npm ci --only=production
-
 # ============================================
 # Stage 3: Финальный образ с nginx и node
 # ============================================
@@ -57,7 +53,6 @@ COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
 
 # Копируем backend из builder (только node_modules и package.json уже установлены)
 COPY --from=backend-builder /app/backend/node_modules /app/backend/node_modules
-COPY --from=backend-builder /app/backend/bot/node_modules /app/backend/bot/node_modules
 COPY --from=backend-builder /app/backend/package*.json /app/backend/
 # Копируем исходный код backend
 COPY backend/ /app/backend/
