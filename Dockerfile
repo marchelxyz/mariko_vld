@@ -146,7 +146,17 @@ RUN mkdir -p /etc/supervisor/conf.d && \
     echo 'stderr_logfile_maxbytes=0' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'stdout_logfile=/dev/stdout' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'stdout_logfile_maxbytes=0' >> /etc/supervisor/conf.d/supervisord.conf && \
-    echo 'environment=CART_SERVER_PORT="4010",CART_SERVER_HOST="127.0.0.1"' >> /etc/supervisor/conf.d/supervisord.conf
+    echo 'environment=CART_SERVER_PORT="4010",CART_SERVER_HOST="127.0.0.1"' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '[program:bot]' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'command=node /app/backend/bot/main-bot.cjs' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'directory=/app/backend/bot' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'autostart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'stderr_logfile=/dev/stderr' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'stderr_logfile_maxbytes=0' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'stdout_logfile=/dev/stdout' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'stdout_logfile_maxbytes=0' >> /etc/supervisor/conf.d/supervisord.conf
 
 # Entry point: подставляем PORT в nginx конфиг и запускаем supervisor
 RUN echo '#!/bin/sh' > /app/entrypoint.sh && \
