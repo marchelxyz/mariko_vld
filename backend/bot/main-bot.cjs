@@ -14,7 +14,6 @@ require('dotenv').config({ path: botEnvPath });
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL;
-const WEBAPP_BASE_PATH = process.env.WEBAPP_BASE_PATH;
 const API_PORT = Number(process.env.API_PORT || process.env.PORT || 4000);
 const ADMIN_PANEL_TOKEN = process.env.ADMIN_PANEL_TOKEN;
 const ADMIN_TELEGRAM_IDS = (process.env.ADMIN_TELEGRAM_IDS || '')
@@ -96,24 +95,8 @@ const normalizeHttpUrl = (rawUrl) => {
   }
 };
 
-const normalizeBasePath = (rawPath) => {
-  if (!rawPath) return "";
-  const trimmed = String(rawPath).trim();
-  if (!trimmed) return "";
-  const withSlashes = `/${trimmed.replace(/^\/+|\/+$/g, "")}/`;
-  return withSlashes === "//" ? "" : withSlashes;
-};
-
-const joinBasePath = (baseUrl, basePath) => {
-  if (!baseUrl) return null;
-  if (!basePath) return baseUrl;
-  return baseUrl.replace(/\/$/, "") + basePath;
-};
-
 const NORMALIZED_WEBAPP_URL = normalizeHttpUrl(WEBAPP_URL);
-const NORMALIZED_WEBAPP_BASE_PATH = normalizeBasePath(WEBAPP_BASE_PATH);
-const RESOLVED_WEBAPP_URL = joinBasePath(NORMALIZED_WEBAPP_URL, NORMALIZED_WEBAPP_BASE_PATH);
-if (!RESOLVED_WEBAPP_URL) {
+if (!NORMALIZED_WEBAPP_URL) {
   console.warn('⚠️ WEBAPP_URL не задан или некорректен — кнопка открытия Mini App будет отключена');
 }
 
@@ -207,15 +190,12 @@ if (!BOT_POLLING_ENABLED) {
   console.log('⏸️ BOT_POLLING_ENABLED=false — Telegram polling отключен (standby режим)');
 }
 
-/**
- * Формирует ссылку для открытия Mini App с учётом base path.
- */
 const buildOpenWebAppMarkup = ({ mode = 'web_app' } = {}) => {
-  if (!RESOLVED_WEBAPP_URL) return null;
+  if (!NORMALIZED_WEBAPP_URL) return null;
   const button =
     mode === 'url'
-      ? { text: "🍽️ Начать", url: RESOLVED_WEBAPP_URL }
-      : { text: "🍽️ Начать", web_app: { url: RESOLVED_WEBAPP_URL } };
+      ? { text: "🍽️ Начать", url: NORMALIZED_WEBAPP_URL }
+      : { text: "🍽️ Начать", web_app: { url: NORMALIZED_WEBAPP_URL } };
   return {
     reply_markup: {
       inline_keyboard: [[button]],
