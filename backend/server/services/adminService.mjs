@@ -1,5 +1,5 @@
 import { queryOne, queryMany, db } from "../postgresClient.mjs";
-import { ADMIN_TELEGRAM_IDS, ADMIN_VK_IDS, ADMIN_ROLE_VALUES } from "../config.mjs";
+import { ADMIN_TELEGRAM_IDS, ADMIN_ROLE_VALUES } from "../config.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
 
 export const ADMIN_PERMISSION = {
@@ -153,35 +153,6 @@ export const getTelegramIdFromRequest = (req) => {
   return null;
 };
 
-/**
- * Получает VK ID из заголовков запроса
- */
-export const getVkIdFromRequest = (req) => {
-  const raw = req.get("x-vk-id");
-  if (!raw) {
-    if (process.env.NODE_ENV !== "production") {
-      console.log("[adminService] getVkIdFromRequest: заголовок X-VK-Id отсутствует");
-    }
-    return null;
-  }
-  if (process.env.NODE_ENV !== "production") {
-    console.log("[adminService] getVkIdFromRequest", {
-      raw,
-      rawType: typeof raw,
-      headers: req.headers ? Object.keys(req.headers).filter((k) => k.toLowerCase().includes("vk")) : [],
-    });
-  }
-  const trimmed = typeof raw === "string" ? raw.trim() : String(raw).trim();
-  if (!trimmed || !/^\d+$/.test(trimmed)) {
-    console.warn('[adminService] getVkIdFromRequest: некорректный формат VK ID', { raw, trimmed });
-    return null;
-  }
-  if (process.env.NODE_ENV !== "production") {
-    console.log("[adminService] getVkIdFromRequest: успешно получен VK ID", { vkId: trimmed });
-  }
-  return trimmed;
-};
-
 export const fetchAdminRecordByTelegram = async (telegramId) => {
   if (!db || !telegramId) {
     return null;
@@ -232,42 +203,13 @@ export const listAdminRecords = async () => {
   }
 };
 
-export const resolveAdminContext = async (telegramId, vkId = null) => {
-  console.log('[adminService] resolveAdminContext', { 
-    telegramId, 
-    vkId, 
-    vkIdType: typeof vkId,
-    adminVkIds: Array.from(ADMIN_VK_IDS),
-    adminTelegramIds: Array.from(ADMIN_TELEGRAM_IDS)
+export const resolveAdminContext = async (telegramId) => {
+  console.log('[adminService] resolveAdminContext', {
+    telegramId,
+    adminTelegramIds: Array.from(ADMIN_TELEGRAM_IDS),
   });
-  
-  // Сначала проверяем VK ID, если он передан
-  if (vkId) {
-    const normalizedVkId = String(vkId).trim();
-    console.log('[adminService] Проверяем VK ID', { 
-      vkId, 
-      normalizedVkId, 
-      inAdminList: ADMIN_VK_IDS.has(normalizedVkId),
-      adminVkIds: Array.from(ADMIN_VK_IDS)
-    });
-    
-    if (normalizedVkId && ADMIN_VK_IDS.has(normalizedVkId)) {
-      console.log('[adminService] VK ID found in ADMIN_VK_IDS, returning super_admin', { vkId: normalizedVkId });
-      return { role: "super_admin", allowedRestaurants: [], permissions: getPermissionsForRole("super_admin") };
-    } else {
-      console.log('[adminService] VK ID не найден в ADMIN_VK_IDS', { 
-        normalizedVkId, 
-        adminVkIds: Array.from(ADMIN_VK_IDS),
-        comparison: Array.from(ADMIN_VK_IDS).map(id => ({ id, matches: id === normalizedVkId }))
-      });
-    }
-  } else {
-    if (process.env.NODE_ENV !== "production") {
-      console.log("[adminService] VK ID не передан в resolveAdminContext");
-    }
-  }
-  
-  // Затем проверяем Telegram ID
+
+  // Проверяем Telegram ID
   if (!telegramId) {
     return { role: "user", allowedRestaurants: [], permissions: [] };
   }
@@ -313,29 +255,27 @@ export const buildUserWithRole = (profile, adminRecord) => {
 
 export const authoriseSuperAdmin = async (req, res) => {
   const telegramId = getTelegramIdFromRequest(req);
-  const vkId = getVkIdFromRequest(req);
-  
-  if (!telegramId && !vkId) {
-    res.status(401).json({ success: false, message: "Требуется Telegram ID или VK ID администратора" });
+
+  if (!telegramId) {
+    res.status(401).json({ success: false, message: "Требуется Telegram ID администратора" });
     return null;
   }
-  const context = await resolveAdminContext(telegramId, vkId);
+  const context = await resolveAdminContext(telegramId);
   if (context.role !== "super_admin") {
     res.status(403).json({ success: false, message: "Доступ только для супер-админа" });
     return null;
   }
-  return { ...context, telegramId, vkId };
+  return { ...context, telegramId, vkId: null };
 };
 
 export const authoriseAdmin = async (req, res, requiredPermission = null) => {
   const telegramId = getTelegramIdFromRequest(req);
-  const vkId = getVkIdFromRequest(req);
-  
-  if (!telegramId && !vkId) {
-    res.status(401).json({ success: false, message: "Требуется Telegram ID или VK ID администратора" });
+
+  if (!telegramId) {
+    res.status(401).json({ success: false, message: "Требуется Telegram ID администратора" });
     return null;
   }
-  const context = await resolveAdminContext(telegramId, vkId);
+  const context = await resolveAdminContext(telegramId);
   const hasRoleAccess =
     context.role !== "user" && (ADMIN_ROLE_VALUES.has(context.role) || ROLE_PERMISSIONS[context.role]);
   if (!hasRoleAccess) {
@@ -346,7 +286,7 @@ export const authoriseAdmin = async (req, res, requiredPermission = null) => {
     res.status(403).json({ success: false, message: "Недостаточно прав для операции" });
     return null;
   }
-  return { ...context, telegramId, vkId };
+  return { ...context, telegramId, vkId: null };
 };
 
 /**
@@ -355,13 +295,12 @@ export const authoriseAdmin = async (req, res, requiredPermission = null) => {
  */
 export const authoriseAnyAdmin = async (req, res, requiredPermission = null) => {
   const telegramId = getTelegramIdFromRequest(req);
-  const vkId = getVkIdFromRequest(req);
-  
-  if (!telegramId && !vkId) {
-    res.status(401).json({ success: false, message: "Требуется Telegram ID или VK ID администратора" });
+
+  if (!telegramId) {
+    res.status(401).json({ success: false, message: "Требуется Telegram ID администратора" });
     return null;
   }
-  const context = await resolveAdminContext(telegramId, vkId);
+  const context = await resolveAdminContext(telegramId);
   // Если пользователь не имеет административных прав, возвращаем null без ошибки
   // (предполагается, что доступ к админ-панели уже проверен на фронтенде)
   const hasRoleAccess =
@@ -372,5 +311,5 @@ export const authoriseAnyAdmin = async (req, res, requiredPermission = null) => 
   if (requiredPermission && !hasPermissionForRole(context.role, requiredPermission)) {
     return null;
   }
-  return { ...context, telegramId, vkId };
+  return { ...context, telegramId, vkId: null };
 };

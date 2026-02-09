@@ -11,7 +11,6 @@ import {
   authoriseAnyAdmin,
   buildUserWithRole,
   getTelegramIdFromRequest,
-  getVkIdFromRequest,
   listAdminRecords,
   fetchAdminRecordByTelegram,
   resolveAdminContext,
@@ -163,9 +162,8 @@ export function createAdminRouter() {
 
   router.get("/me", async (req, res) => {
     const telegramId = getTelegramIdFromRequest(req);
-    const vkId = getVkIdFromRequest(req);
 
-    if (!telegramId && !vkId) {
+    if (!telegramId) {
       return res.status(401).json({ success: false, message: "Не удалось определить администратора" });
     }
 
@@ -175,7 +173,7 @@ export function createAdminRouter() {
 
     // Мягкая проверка - просто возвращаем информацию о пользователе
     // Права доступа к админ-панели уже проверены на фронтенде
-    const context = await resolveAdminContext(telegramId, vkId);
+    const context = await resolveAdminContext(telegramId);
     return res.json({
       success: true,
       role: context.role,
