@@ -1,17 +1,37 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
-import { markReady, requestFullscreenMode } from "@/lib/platform";
+import { getPlatform, markReady, requestFullscreenMode, setupFullscreenHandlers } from "@/lib/platform";
 import { logger } from "@/lib/logger";
 import bridge from "@vkontakte/vk-bridge";
 import { isInVk } from "@/lib/vkCore";
 
-const hideInitialSpinner = () => {
+function hideInitialSpinner(): void {
   const spinner = document.getElementById("loading-spinner");
   if (spinner) {
     spinner.style.display = "none";
   }
-};
+}
+
+function initTelegramApp(): void {
+  if (getPlatform() !== "telegram") {
+    return;
+  }
+  try {
+    markReady();
+    setupFullscreenHandlers();
+    requestFullscreenMode();
+    // Повторные вызовы с задержкой для надежности
+    setTimeout(() => {
+      requestFullscreenMode();
+    }, 100);
+    setTimeout(() => {
+      requestFullscreenMode();
+    }, 500);
+  } catch (error) {
+    logger.warn("app", "Не удалось инициализировать Telegram Mini App", error);
+  }
+}
 
 // Инициализация VK Mini App с ожиданием доступности SDK
 const initVKApp = async () => {
@@ -103,8 +123,8 @@ const initVKApp = async () => {
       }
     }
     
-    // Не вызываем markReady() и requestFullscreenMode() если VK недоступен
-    // Они могут вызвать ошибки
+    // Если это Telegram Mini App — запускаем Telegram инициализацию
+    initTelegramApp();
   }
 };
 

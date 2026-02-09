@@ -16,6 +16,7 @@ import {
   isInTelegram,
   markReady as markTelegramReady,
   requestFullscreenMode as requestTelegramFullscreenMode,
+  setupFullscreenHandlers as setupTelegramFullscreenHandlers,
   safeOpenLink as safeTelegramOpenLink,
   storage as telegramStorage,
   onActivated as onTelegramActivated,
@@ -174,6 +175,16 @@ export function requestFullscreenMode(): void {
   if (platform === "telegram") {
     requestTelegramFullscreenMode();
   }
+}
+
+/**
+ * Подключает обработчики полноэкранного режима (Telegram).
+ */
+export function setupFullscreenHandlers(): void {
+  if (getPlatform() !== "telegram") {
+    return;
+  }
+  setupTelegramFullscreenHandlers();
 }
 
 /**
