@@ -59,9 +59,6 @@ function shouldRequestFullscreen(tg: TelegramWebApp, payload?: TelegramViewportC
   if (tg.isFullscreen === true) {
     return false;
   }
-  if (payload && payload.is_expanded) {
-    return false;
-  }
   const now = Date.now();
   if (now - lastFullscreenRequestAt < fullscreenRequestCooldownMs) {
     return false;
