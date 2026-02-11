@@ -1,0 +1,31 @@
+{
+  "restaurants": [
+    {
+      "restaurantId": "nn-rozh",
+      "apiLogin": "PASTE_IIKO_API_LOGIN_HERE",
+      "organizationId": "PASTE_IIKO_ORGANIZATION_ID_HERE",
+      "terminalGroupId": "PASTE_IIKO_TERMINAL_GROUP_ID_HERE",
+      "deliveryTerminalId": null,
+      "defaultPaymentType": null,
+      "sourceKey": "mariko-main"
+    },
+    {
+      "restaurantId": "nn-park",
+      "apiLogin": "PASTE_IIKO_API_LOGIN_HERE",
+      "organizationId": "PASTE_IIKO_ORGANIZATION_ID_HERE",
+      "terminalGroupId": "PASTE_IIKO_TERMINAL_GROUP_ID_HERE",
+      "deliveryTerminalId": null,
+      "defaultPaymentType": null,
+      "sourceKey": "mariko-main"
+    },
+    {
+      "restaurantId": "spb-sadovaya",
+      "apiLogin": "PASTE_IIKO_API_LOGIN_HERE",
+      "organizationId": "PASTE_IIKO_ORGANIZATION_ID_HERE",
+      "terminalGroupId": "PASTE_IIKO_TERMINAL_GROUP_ID_HERE",
+      "deliveryTerminalId": null,
+      "defaultPaymentType": null,
+      "sourceKey": "mariko-main"
+    }
+  ]
+}

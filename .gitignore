@@ -37,3 +37,11 @@ deploy.sh
 
 backend/bot/.env
 frontend/.env
+
+# iiko production configs
+documentation/templates/iiko-network-restaurants.prod.json
+documentation/templates/*.prod.json
+
+# Reports (optional, можно коммитить для истории)
+documentation/reports/*.json
+!documentation/reports/.gitkeep
