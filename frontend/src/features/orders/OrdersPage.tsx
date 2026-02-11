@@ -3,81 +3,141 @@ import { AlertCircle, ChevronDown, ChevronUp, Loader2, RefreshCw } from "lucide-
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
-import { getBookings, type BookingListItem } from "@/shared/api/bookingApi";
+import type { CartItem } from "@/contexts";
+import { fetchMyOrdersWithStatus, type CartOrderRecord } from "@/shared/api/cart/ordersApi";
 import { cn } from "@shared/utils";
 import { getUser } from "@/lib/platform";
 import { useProfile } from "@entities/user";
 import { getCleanPhoneNumber } from "@shared/hooks/usePhoneInput";
 
-const BookingCard = ({
-  booking,
+const resolveStatus = (order: CartOrderRecord): string => {
+  const candidates = [order.iiko_status, order.provider_status, order.status];
+  const resolved = candidates.find((value) => typeof value === "string" && value.trim().length > 0);
+  return String(resolved ?? "processing").toLowerCase();
+};
+
+const statusLabel = (status: string): string => {
+  if (["completed", "delivered", "closed"].includes(status)) return "Доставлен";
+  if (["delivery", "ontheway", "courier"].includes(status)) return "В пути";
+  if (["kitchen", "cooking", "packed"].includes(status)) return "Готовится";
+  if (["failed", "cancelled", "canceled", "rejected", "error"].includes(status)) return "Отменён";
+  return "Принят";
+};
+
+const statusClassName = (status: string): string => {
+  if (["completed", "delivered", "closed"].includes(status)) return "bg-emerald-100 text-emerald-800";
+  if (["delivery", "ontheway", "courier"].includes(status)) return "bg-blue-100 text-blue-800";
+  if (["kitchen", "cooking", "packed"].includes(status)) return "bg-amber-100 text-amber-900";
+  if (["failed", "cancelled", "canceled", "rejected", "error"].includes(status)) return "bg-red-100 text-red-800";
+  return "bg-slate-100 text-slate-800";
+};
+
+const paymentMethodLabel = (value?: string | null): string => {
+  if (value === "cash") return "Наличными";
+  if (value === "card") return "Картой при получении";
+  if (value === "online") return "Онлайн";
+  return "Не указан";
+};
+
+const formatDateTime = (value?: string | null): string => {
+  if (!value) {
+    return "Дата неизвестна";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString("ru-RU", {
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const formatOrderNumber = (order: CartOrderRecord): string => {
+  const external = String(order.external_id ?? "").trim();
+  if (external) {
+    return external;
+  }
+  return String(order.id ?? "").slice(0, 8).toUpperCase() || "—";
+};
+
+const resolveOrderItems = (order: CartOrderRecord): CartItem[] => {
+  if (!Array.isArray(order.items)) {
+    return [];
+  }
+  return order.items;
+};
+
+const resolveRestaurantLabel = (order: CartOrderRecord): string => {
+  const meta = order.meta ?? {};
+  const restaurantName = typeof meta.restaurantName === "string" ? meta.restaurantName : "";
+  if (restaurantName.trim()) {
+    return restaurantName.trim();
+  }
+  return order.restaurant_id ?? "Ресторан";
+};
+
+const resolveAddressLabel = (order: CartOrderRecord): string => {
+  if (order.order_type === "pickup") {
+    return "Самовывоз";
+  }
+  const address = order.delivery_address ?? "";
+  if (address.trim()) {
+    return address;
+  }
+  return "Адрес не указан";
+};
+
+const OrderCard = ({
+  order,
   expanded,
   onToggle,
 }: {
-  booking: BookingListItem;
+  order: CartOrderRecord;
   expanded: boolean;
   onToggle: () => void;
 }) => {
-  const formatDateTime = (dateValue: Date, fallback: string) => {
-    try {
-      if (Number.isNaN(dateValue.getTime())) {
-        return fallback;
-      }
-      return dateValue.toLocaleString("ru-RU", {
-        day: "numeric",
-        month: "long",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      return fallback;
-    }
-  };
-
-  const statusColor = {
-    confirmed: "bg-green-100 text-green-900",
-    pending: "bg-yellow-100 text-yellow-900",
-    created: "bg-yellow-100 text-yellow-900",
-    closed: "bg-gray-100 text-gray-900",
-    cancelled: "bg-red-100 text-red-900",
-    canceled: "bg-red-100 text-red-900",
-  }[booking.status] || "bg-gray-100 text-gray-900";
-
-  const statusText = {
-    confirmed: "Подтверждена",
-    pending: "Ожидает",
-    created: "Новая",
-    closed: "Закрыта",
-    cancelled: "Отменена",
-    canceled: "Отменена",
-  }[booking.status] || "Статус уточняется";
-
-  const resolvedDateTime = resolveBookingDateTime(booking);
-  const fallbackDate = buildBookingFallbackDate(booking);
-  const cartItems = resolveBookingCartItems(booking);
+  const status = resolveStatus(order);
+  const items = resolveOrderItems(order);
+  const total = Number(order.total ?? order.subtotal ?? 0);
+  const paymentStatus =
+    order.payment_status === "paid" || order.payment_status === "succeeded"
+      ? "Оплачен"
+      : order.payment_status
+        ? "Ожидает оплаты"
+        : null;
 
   return (
-    <div className="bg-white rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.08)] px-4 py-5 md:px-6 md:py-6 text-left">
-      <div className="flex items-start gap-3 md:gap-4">
-        <div className="flex-1 space-y-1">
-          <p className="text-mariko-dark/60 text-sm">
-            Бронь #{String(booking.id ?? "").slice(0, 8).toUpperCase() || "—"}
-          </p>
-          <p className="text-mariko-dark font-semibold text-lg">
-            {formatDateTime(resolvedDateTime, fallbackDate)}
-          </p>
-          <p className="text-mariko-dark/70 text-sm">
-            {booking.guestsCount} гостей · {booking.restaurantName}
-          </p>
+    <div className="bg-white rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.08)] px-4 py-5 md:px-6 md:py-6">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-mariko-dark/60 text-sm">Заказ #{formatOrderNumber(order)}</p>
+          <p className="text-mariko-dark font-semibold text-lg">{formatDateTime(order.created_at)}</p>
+          <p className="text-mariko-dark/70 text-sm">{resolveRestaurantLabel(order)}</p>
+          <p className="text-mariko-dark/70 text-sm">{resolveAddressLabel(order)}</p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <span className={cn("text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap", statusColor)}>
-            {statusText}
+          <span className={cn("text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap", statusClassName(status))}>
+            {statusLabel(status)}
           </span>
+          <span className="text-sm font-semibold text-mariko-dark">{total}₽</span>
         </div>
       </div>
 
-      {cartItems.length > 0 && (
+      <div className="mt-3 flex flex-wrap gap-2 text-xs">
+        <span className="rounded-full bg-mariko-field/60 px-2.5 py-1 text-mariko-dark/80">
+          Оплата: {paymentMethodLabel(order.payment_method)}
+        </span>
+        {paymentStatus && (
+          <span className="rounded-full bg-mariko-field/60 px-2.5 py-1 text-mariko-dark/80">
+            {paymentStatus}
+          </span>
+        )}
+      </div>
+
+      {items.length > 0 && (
         <div className="mt-4">
           <button
             type="button"
@@ -87,25 +147,25 @@ const BookingCard = ({
             {expanded ? (
               <>
                 <ChevronUp className="w-4 h-4" />
-                Скрыть состав меню
+                Скрыть состав
               </>
             ) : (
               <>
                 <ChevronDown className="w-4 h-4" />
-                Показать состав меню ({cartItems.length} позиций)
+                Состав заказа ({items.length})
               </>
             )}
           </button>
 
           {expanded && (
             <div className="mt-3 space-y-2">
-              {cartItems.map((item, index) => (
-                <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
-                  <div>
-                    <p className="font-medium text-mariko-dark">{item.name}</p>
+              {items.map((item) => (
+                <div key={`${order.id}-${item.id}`} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+                  <div className="min-w-0">
+                    <p className="font-medium text-mariko-dark truncate">{item.name}</p>
                     <p className="text-sm text-mariko-dark/60">Количество: {item.amount}</p>
                   </div>
-                  <p className="font-semibold text-mariko-dark">{item.price * item.amount}₽</p>
+                  <p className="font-semibold text-mariko-dark whitespace-nowrap">{item.price * item.amount}₽</p>
                 </div>
               ))}
             </div>
@@ -116,98 +176,12 @@ const BookingCard = ({
   );
 };
 
-type BookingCartItem = {
-  name: string;
-  amount: number;
-  price: number;
-};
-
-const resolveBookingDateTime = (booking: BookingListItem): Date => {
-  const normalizedDate = normalizeBookingDate(booking.bookingDate);
-  const normalizedTime = normalizeBookingTime(booking.bookingTime);
-  if (normalizedDate && normalizedTime) {
-    return new Date(`${normalizedDate}T${normalizedTime}`);
-  }
-  if (normalizedDate) {
-    return new Date(normalizedDate);
-  }
-  if (booking.createdAt) {
-    return new Date(booking.createdAt);
-  }
-  return new Date("Invalid Date");
-};
-
-const normalizeBookingDate = (value?: string): string => {
-  if (!value) return "";
-  return value.includes("T") ? value.split("T")[0] : value;
-};
-
-const normalizeBookingTime = (value?: string): string => {
-  if (!value) return "";
-  const time = value.includes("T") ? value.split("T")[1] || value : value;
-  return time.replace("Z", "").slice(0, 5);
-};
-
-const buildBookingFallbackDate = (booking: BookingListItem): string => {
-  const date = normalizeBookingDate(booking.bookingDate);
-  const time = normalizeBookingTime(booking.bookingTime);
-  if (date && time) {
-    return `${date} ${time}`;
-  }
-  if (date) {
-    return date;
-  }
-  if (booking.createdAt) {
-    return booking.createdAt;
-  }
-  return "Дата не указана";
-};
-
-const resolveBookingCartItems = (booking: BookingListItem): BookingCartItem[] => {
-  const withItems = booking as BookingListItem & { cartItems?: BookingCartItem[] };
-  if (withItems.cartItems && withItems.cartItems.length > 0) {
-    return withItems.cartItems;
-  }
-  if (!booking.comment) {
-    return [];
-  }
-  return parseCartItemsFromComment(booking.comment);
-};
-
-const parseCartItemsFromComment = (comment: string): BookingCartItem[] => {
-  const lines = comment.split("\n").map((line) => line.trim());
-  const startIndex = lines.findIndex((line) => line.toLowerCase().startsWith("заказ:"));
-  if (startIndex === -1) {
-    return [];
-  }
-  const items: BookingCartItem[] = [];
-  for (let i = startIndex + 1; i < lines.length; i += 1) {
-    const line = lines[i];
-    if (!line || line.toLowerCase().startsWith("итого")) {
-      break;
-    }
-    const match = line.match(/^(.*?)\s*×\s*(\d+)\s*=\s*(\d+)\s*₽/);
-    if (!match) {
-      continue;
-    }
-    const name = match[1]?.trim() || "Позиция";
-    const amount = Number(match[2]);
-    const total = Number(match[3]);
-    if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(total)) {
-      continue;
-    }
-    const unitPrice = Math.max(Math.round(total / amount), 0);
-    items.push({ name, amount, price: unitPrice });
-  }
-  return items;
-};
-
 export default function OrdersPage() {
   const navigate = useNavigate();
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
 
   const user = getUser();
-  const userId = user?.id?.toString();
+  const telegramId = user?.id?.toString().trim() ?? "";
   const { profile, isInitialized } = useProfile();
   const userPhone = useMemo(() => {
     if (!isInitialized || profile.id === "default") {
@@ -217,38 +191,32 @@ export default function OrdersPage() {
     return rawPhone ? getCleanPhoneNumber(rawPhone) : "";
   }, [isInitialized, profile.id, profile.phone]);
 
-  const {
-    data: bookingsData,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: ["bookings", userId, userPhone],
-    queryFn: async () => {
-      if (!userId || !userPhone) return { success: false, bookings: [] };
-      return getBookings({ phone: userPhone, limit: 10 });
-    },
-    enabled: Boolean(userId && userPhone),
+  const hasIdentity = Boolean(telegramId || userPhone);
+
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["user-orders", telegramId, userPhone],
+    queryFn: async () =>
+      fetchMyOrdersWithStatus({
+        telegramId: telegramId || undefined,
+        phone: userPhone || undefined,
+        limit: 20,
+      }),
+    enabled: hasIdentity,
   });
 
-  const bookings = bookingsData?.bookings || [];
+  const orders = data ?? [];
 
   const toggleCard = (id: string) => {
     setExpandedCards((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
       } else {
-        newSet.add(id);
+        next.add(id);
       }
-      return newSet;
+      return next;
     });
   };
-
-  // Если нет бронирований, не показываем страницу
-  if (!isLoading && bookings.length === 0) {
-    return null;
-  }
 
   return (
     <div className="app-screen overflow-hidden bg-transparent">
@@ -258,16 +226,14 @@ export default function OrdersPage() {
       <div className="app-content bg-transparent relative overflow-hidden pt-0 md:pt-2 app-bottom-space">
         <div className="app-shell app-shell-wide w-full max-w-4xl pb-6 md:pb-8">
           <PageHeader
-            title="Мои брони"
-            subtitle="История ваших бронирований"
+            title="Мои заказы"
+            subtitle="История заказов и текущие статусы"
             variant="white"
             onBackClick={() => navigate("/menu")}
           />
 
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-white/80">
-              Последние бронирования столиков
-            </p>
+            <p className="text-sm text-white/80">Последние заказы доставки и самовывоза</p>
             <button
               type="button"
               onClick={() => refetch()}
@@ -282,52 +248,50 @@ export default function OrdersPage() {
             <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 text-red-800 flex items-start gap-2 mb-4">
               <AlertCircle className="w-5 h-5 mt-0.5" />
               <div className="flex-1">
-                <p className="font-semibold">Не получилось загрузить бронирования</p>
+                <p className="font-semibold">Не получилось загрузить заказы</p>
                 <p className="text-sm">Проверьте интернет или попробуйте позже.</p>
-                <button
-                  type="button"
-                  className="text-sm font-semibold underline mt-1"
-                  onClick={() => refetch()}
-                >
-                  Попробовать снова
-                </button>
               </div>
             </div>
           )}
 
-          {!userPhone ? (
+          {!hasIdentity ? (
             <div className="bg-white rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.08)] px-6 py-6 text-center">
-              <p className="text-mariko-dark font-semibold">Укажите номер телефона</p>
+              <p className="text-mariko-dark font-semibold">Не удалось определить пользователя</p>
               <p className="text-mariko-dark/70 text-sm mt-2">
-                Без телефона мы не сможем найти ваши бронирования.
+                Откройте приложение через Telegram или укажите телефон в профиле.
               </p>
-              <button
-                type="button"
-                onClick={() => navigate("/profile")}
-                className="mt-4 inline-flex items-center justify-center rounded-full bg-mariko-primary px-4 py-2 text-sm font-semibold text-white hover:bg-mariko-primary/90 transition-colors"
-              >
-                Перейти в профиль
-              </button>
             </div>
           ) : isLoading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="w-8 h-8 animate-spin text-mariko-primary" />
             </div>
+          ) : orders.length === 0 ? (
+            <div className="bg-white rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.08)] px-6 py-6 text-center">
+              <p className="text-mariko-dark font-semibold">Заказов пока нет</p>
+              <p className="text-mariko-dark/70 text-sm mt-2">Добавьте блюда в корзину и оформите первый заказ.</p>
+              <button
+                type="button"
+                onClick={() => navigate("/menu")}
+                className="mt-4 inline-flex items-center justify-center rounded-full bg-mariko-primary px-4 py-2 text-sm font-semibold text-white hover:bg-mariko-primary/90 transition-colors"
+              >
+                Перейти в меню
+              </button>
+            </div>
           ) : (
             <div className="space-y-4">
-              {bookings.map((booking) => (
-                <BookingCard
-                  key={booking.id}
-                  booking={booking}
-                  expanded={expandedCards.has(booking.id)}
-                  onToggle={() => toggleCard(booking.id)}
+              {orders.map((order) => (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  expanded={expandedCards.has(order.id)}
+                  onToggle={() => toggleCard(order.id)}
                 />
               ))}
             </div>
           )}
         </div>
       </div>
-      <BottomNavigation />
+      <BottomNavigation currentPage="home" />
     </div>
   );
 }

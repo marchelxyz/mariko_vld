@@ -28,6 +28,14 @@ export type CartOrderRecord = {
   items: CartItem[];
   warnings: string[] | null;
   meta: Record<string, unknown> | null;
+  payment_status?: string | null;
+  payment_method?: "cash" | "card" | "online" | string | null;
+  provider_status?: string | null;
+  provider_order_id?: string | null;
+  provider_error?: string | null;
+  iiko_status?: string | null;
+  iiko_order_id?: string | null;
+  iiko_details?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 };
@@ -51,7 +59,15 @@ function resolveOrdersEndpoint(): string {
   return `${getCartApiBaseUrl()}/cart/orders`;
 }
 
+function resolveUserOrdersEndpoint(): string {
+  if (import.meta.env.VITE_CART_USER_ORDERS_URL) {
+    return import.meta.env.VITE_CART_USER_ORDERS_URL;
+  }
+  return `${getCartApiBaseUrl()}/cart/user-orders`;
+}
+
 const CART_ORDERS_ENDPOINT = resolveOrdersEndpoint();
+const CART_USER_ORDERS_ENDPOINT = resolveUserOrdersEndpoint();
 
 export async function fetchMyOrders(params: FetchOrdersParams): Promise<CartOrderRecord[]> {
   const { telegramId, phone, limit, signal } = params;
@@ -73,6 +89,36 @@ export async function fetchMyOrders(params: FetchOrdersParams): Promise<CartOrde
   }
 
   const url = `${CART_ORDERS_ENDPOINT}?${searchParams.toString()}`;
+  const response = await fetch(url, { signal });
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    throw new Error(errorText || "Не удалось получить список заказов");
+  }
+
+  const data = (await response.json()) as OrdersResponse;
+  return Array.isArray(data?.orders) ? data.orders : [];
+}
+
+export async function fetchMyOrdersWithStatus(params: FetchOrdersParams): Promise<CartOrderRecord[]> {
+  const { telegramId, phone, limit, signal } = params;
+  const hasIdentifier = Boolean(telegramId?.trim() || phone?.trim());
+
+  if (!hasIdentifier) {
+    throw new Error("Не хватает данных для поиска заказов (telegramId или телефон)");
+  }
+
+  const searchParams = new URLSearchParams();
+  if (telegramId?.trim()) {
+    searchParams.set("telegramId", telegramId.trim());
+  }
+  if (phone?.trim()) {
+    searchParams.set("phone", phone.trim());
+  }
+  if (limit) {
+    searchParams.set("limit", String(limit));
+  }
+
+  const url = `${CART_USER_ORDERS_ENDPOINT}?${searchParams.toString()}`;
   const response = await fetch(url, { signal });
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");

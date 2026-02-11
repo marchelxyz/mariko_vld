@@ -3,9 +3,15 @@ const IIKO_TIMEOUT_MS = Number.parseInt(process.env.IIKO_TIMEOUT_MS ?? "", 10) |
 const IIKO_TOKEN_TTL_MS = Number.parseInt(process.env.IIKO_TOKEN_TTL_MS ?? "", 10) || 10 * 60 * 1000;
 const IIKO_STOP_LIST_CACHE_TTL_MS =
   Number.parseInt(process.env.IIKO_STOP_LIST_CACHE_TTL_MS ?? "", 10) || 30 * 1000;
+const IIKO_PAYMENT_TYPES_CACHE_TTL_MS =
+  Number.parseInt(process.env.IIKO_PAYMENT_TYPES_CACHE_TTL_MS ?? "", 10) || 10 * 60 * 1000;
+const IIKO_PAYMENT_MODE = String(process.env.IIKO_PAYMENT_MODE ?? "legacy")
+  .trim()
+  .toLowerCase();
 
 const tokenCache = new Map();
 const stopListCache = new Map();
+const paymentTypesCache = new Map();
 
 const normalisePhone = (value) => {
   if (value === null || value === undefined) {
@@ -237,7 +243,148 @@ const ensureAccessToken = async (apiLogin) => {
   return fresh.token;
 };
 
-const buildIikoDeliveryPayload = (config, order) => {
+const normalisePaymentMethod = (value) => {
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  if (normalized === "cash" || normalized === "card" || normalized === "online") {
+    return normalized;
+  }
+  return "cash";
+};
+
+const resolvePaymentMethodLabel = (paymentMethod) => {
+  if (paymentMethod === "card") {
+    return "💳 ОПЛАТА: КАРТОЙ при получении";
+  }
+  if (paymentMethod === "online") {
+    return "💳 ОПЛАТА: ОНЛАЙН (уже оплачено)";
+  }
+  return "💵 ОПЛАТА: НАЛИЧНЫМИ при получении";
+};
+
+const normalisePaymentTypeKind = (value, fallback = "Cash") => {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) {
+    return fallback;
+  }
+  const lower = normalized.toLowerCase();
+  if (lower === "cash") return "Cash";
+  if (lower === "card") return "Card";
+  if (lower === "external") return "External";
+  return fallback;
+};
+
+const getPaymentTypesCacheKey = (config) =>
+  [config?.api_login || "no-login", config?.iiko_organization_id || "no-org"].join(":");
+
+const getCachedPaymentTypes = (config) => {
+  const cacheKey = getPaymentTypesCacheKey(config);
+  const cached = paymentTypesCache.get(cacheKey);
+  if (!cached || cached.expiresAt <= Date.now()) {
+    return null;
+  }
+  return cached.paymentTypes;
+};
+
+const setCachedPaymentTypes = (config, paymentTypes) => {
+  const cacheKey = getPaymentTypesCacheKey(config);
+  paymentTypesCache.set(cacheKey, {
+    paymentTypes,
+    expiresAt: Date.now() + IIKO_PAYMENT_TYPES_CACHE_TTL_MS,
+  });
+};
+
+const fetchPaymentTypesByToken = async (accessToken, organizationId) => {
+  const url = `${IIKO_BASE_URL}/api/1/payment_types`;
+  const response = await requestJson(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ organizationIds: [organizationId] }),
+  });
+  return asArray(response?.paymentTypes);
+};
+
+const resolveIikoPaymentConfig = async (config, accessToken, paymentMethod) => {
+  const normalizedMethod = normalisePaymentMethod(paymentMethod);
+  const defaultPaymentTypeId = normaliseIikoProductId(config?.default_payment_type);
+
+  // Безопасный режим по умолчанию: всегда отправляем оплату как Cash/default_payment_type.
+  // Это сохраняет рабочее поведение, которое уже проверено на проекте.
+  if (IIKO_PAYMENT_MODE !== "mapped") {
+    if (!defaultPaymentTypeId) {
+      throw new Error(
+        "iiko: Не заполнен default_payment_type (нужен для legacy-режима оплаты)",
+      );
+    }
+    return {
+      paymentTypeId: defaultPaymentTypeId,
+      paymentTypeKind: "Cash",
+      isProcessedExternally: false,
+      paymentMethod: normalizedMethod,
+    };
+  }
+
+  const methodSpecificId = normaliseIikoProductId(
+    normalizedMethod === "cash"
+      ? config?.cash_payment_type
+      : normalizedMethod === "card"
+        ? config?.card_payment_type
+        : config?.online_payment_type,
+  );
+  const paymentTypeId = methodSpecificId || defaultPaymentTypeId;
+
+  if (!paymentTypeId) {
+    throw new Error("iiko: Не найден paymentTypeId для выбранного способа оплаты");
+  }
+
+  const configuredKindRaw =
+    normalizedMethod === "cash"
+      ? config?.cash_payment_kind
+      : normalizedMethod === "card"
+        ? config?.card_payment_kind
+        : config?.online_payment_kind;
+  const fallbackKind = normalizedMethod === "cash" ? "Cash" : "Card";
+  let paymentTypeKind = normalisePaymentTypeKind(configuredKindRaw, fallbackKind);
+
+  // Уточняем kind по paymentTypeId, если API отдает типы оплаты.
+  let paymentTypes = getCachedPaymentTypes(config);
+  if (!paymentTypes) {
+    try {
+      paymentTypes = await fetchPaymentTypesByToken(accessToken, config.iiko_organization_id);
+      setCachedPaymentTypes(config, paymentTypes);
+    } catch {
+      paymentTypes = [];
+    }
+  }
+  const matched = paymentTypes.find(
+    (type) =>
+      type &&
+      type.isDeleted !== true &&
+      normaliseIikoProductId(type.id) === paymentTypeId,
+  );
+  if (matched) {
+    paymentTypeKind = normalisePaymentTypeKind(matched.kind, paymentTypeKind);
+  }
+
+  // Если используем default_payment_type, в отсутствие явной конфигурации
+  // считаем его "Cash" для совместимости.
+  if (paymentTypeId === defaultPaymentTypeId && !configuredKindRaw && !matched) {
+    paymentTypeKind = "Cash";
+  }
+
+  return {
+    paymentTypeId,
+    paymentTypeKind,
+    isProcessedExternally: normalizedMethod === "online" && paymentTypeKind !== "Cash",
+    paymentMethod: normalizedMethod,
+  };
+};
+
+const buildIikoDeliveryPayload = async (config, order, accessToken) => {
   const items = buildIikoOrderItems(order.items ?? []);
 
   const phone = normalisePhone(order.customer_phone);
@@ -261,16 +408,19 @@ const buildIikoDeliveryPayload = (config, order) => {
   const deliveryApartment =
     order.delivery_apartment || order.deliveryApartment || deliveryParts.apartment || null;
 
-  // Используем тип оплаты "Наличные" для всех заказов
-  // paymentTypeKind должен соответствовать типу в iiko ("Cash" для "Наличные")
+  const paymentMethod = normalisePaymentMethod(
+    order.payment_method ?? order.paymentMethod ?? meta?.paymentMethod,
+  );
+  const paymentConfig = await resolveIikoPaymentConfig(config, accessToken, paymentMethod);
+
   const payments =
-    config.default_payment_type && (order.total || order.subtotal)
+    paymentConfig?.paymentTypeId && (order.total || order.subtotal)
       ? [
           {
-            paymentTypeKind: "Cash",
-            paymentTypeId: config.default_payment_type,
+            paymentTypeKind: paymentConfig.paymentTypeKind,
+            paymentTypeId: paymentConfig.paymentTypeId,
             sum: Number(order.total ?? order.subtotal ?? 0),
-            isProcessedExternally: false,
+            isProcessedExternally: paymentConfig.isProcessedExternally,
           },
         ]
       : undefined;
@@ -280,9 +430,7 @@ const buildIikoDeliveryPayload = (config, order) => {
   const orderServiceType = isDelivery ? "DeliveryByCourier" : "DeliveryByClient"; // DeliveryByClient = самовывоз
 
   // Формируем комментарий с информацией о способе оплаты
-  const paymentMethodLabel = order.payment_method === "cash"
-    ? "💵 ОПЛАТА: НАЛИЧНЫМИ при получении"
-    : "💳 ОПЛАТА: ОНЛАЙН (уже оплачено)";
+  const paymentMethodLabel = resolvePaymentMethodLabel(paymentMethod);
 
   const orderComment = order.comment
     ? `${paymentMethodLabel}\n\n${order.comment}`
@@ -354,7 +502,7 @@ export const iikoClient = {
     let payload = null;
     try {
       const token = await ensureAccessToken(config.api_login);
-      payload = buildIikoDeliveryPayload(config, order);
+      payload = await buildIikoDeliveryPayload(config, order, token);
 
       // Используем deliveries/create для заказов доставки/самовывоза
       const url = `${IIKO_BASE_URL}/api/1/deliveries/create`;

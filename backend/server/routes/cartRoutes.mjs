@@ -59,6 +59,31 @@ const getUserIdFromHeaders = (req) => {
   return getTelegramIdFromHeaders(req) || getVerifiedVkIdFromHeaders(req);
 };
 
+const normalizePaymentMethod = (value) => {
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  if (normalized === "cash" || normalized === "card" || normalized === "online") {
+    return normalized;
+  }
+  return "cash";
+};
+
+const parseStreetAndHouse = (value) => {
+  const raw = String(value ?? "").trim();
+  if (!raw) {
+    return { street: "", house: "" };
+  }
+  const match = raw.match(/^(.*?)[,\s]+(\d+[a-zA-Zа-яА-Я0-9\-\/]*)$/);
+  if (!match) {
+    return { street: raw, house: "" };
+  }
+  return {
+    street: (match[1] ?? "").trim(),
+    house: (match[2] ?? "").trim(),
+  };
+};
+
 export function registerCartRoutes(app) {
   app.get("/health", (req, res) => {
     res.json(healthPayload());
@@ -346,6 +371,29 @@ export function registerCartRoutes(app) {
       return res.status(400).json({ success: false, message: "Корзина пуста" });
     }
 
+    const orderType =
+      orderPayload?.orderType === "pickup" || orderPayload?.orderType === "delivery"
+        ? orderPayload.orderType
+        : "delivery";
+    const paymentMethod = normalizePaymentMethod(
+      orderPayload?.paymentMethod ?? orderPayload?.payment_method,
+    );
+    const parsedFromDeliveryAddress = parseStreetAndHouse(orderPayload?.deliveryAddress);
+    const deliveryStreet =
+      String(orderPayload?.deliveryStreet ?? orderPayload?.delivery_street ?? parsedFromDeliveryAddress.street ?? "").trim();
+    const deliveryHouse =
+      String(orderPayload?.deliveryHouse ?? orderPayload?.delivery_house ?? parsedFromDeliveryAddress.house ?? "").trim();
+    const deliveryApartment = String(
+      orderPayload?.deliveryApartment ?? orderPayload?.delivery_apartment ?? "",
+    ).trim();
+
+    if (orderType === "delivery" && (!deliveryStreet || !deliveryHouse)) {
+      return res.status(400).json({
+        success: false,
+        message: "Для доставки укажите улицу и номер дома",
+      });
+    }
+
     const orderId = `mock-${Date.now()}`;
     const resolvedTelegramId =
       typeof orderPayload?.customerTelegramId === "string" && orderPayload.customerTelegramId.length
@@ -363,6 +411,7 @@ export function registerCartRoutes(app) {
       telegramUserId: resolvedTelegramId ?? orderPayload?.meta?.telegramUserId ?? null,
       telegramUsername: resolvedTelegramUsername,
       telegramFullName: resolvedTelegramName,
+      paymentMethod,
       deliveryLocation:
         orderPayload?.deliveryLatitude && orderPayload?.deliveryLongitude
           ? {
@@ -372,9 +421,9 @@ export function registerCartRoutes(app) {
             }
           : orderPayload?.meta?.deliveryLocation ?? null,
       deliveryAddressParts: {
-        street: orderPayload?.deliveryStreet ?? null,
-        house: orderPayload?.deliveryHouse ?? null,
-        apartment: orderPayload?.deliveryApartment ?? null,
+        street: deliveryStreet || null,
+        house: deliveryHouse || null,
+        apartment: deliveryApartment || null,
       },
     };
 
@@ -485,30 +534,50 @@ export function registerCartRoutes(app) {
         });
 
         console.log(`💾 Saving order ${orderId} to PostgreSQL`);
-        const insertedOrder = await queryOne(
-          `INSERT INTO ${CART_ORDERS_TABLE} 
-           (external_id, restaurant_id, city_id, order_type, customer_name, customer_phone, 
-            delivery_address, comment, subtotal, delivery_fee, total, status, items, warnings, meta, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
-           RETURNING id`,
-          [
-            orderId,
-            orderPayload.restaurantId ?? null,
-            orderPayload.cityId ?? null,
-            orderPayload.orderType,
-            orderPayload.customerName,
-            orderPayload.customerPhone,
-            orderPayload.deliveryAddress ?? null,
-            orderPayload.comment ?? null,
-            subtotal,
-            deliveryFee,
-            total,
-            orderPayload?.status ?? "processing",
-            JSON.stringify(normalizedOrderItems),
-            JSON.stringify(warnings),
-            JSON.stringify(composedMeta),
-          ],
-        );
+        const insertValues = [
+          orderId,
+          orderPayload.restaurantId ?? null,
+          orderPayload.cityId ?? null,
+          orderType,
+          orderPayload.customerName,
+          orderPayload.customerPhone,
+          orderPayload.deliveryAddress ?? null,
+          orderPayload.comment ?? null,
+          subtotal,
+          deliveryFee,
+          total,
+          orderPayload?.status ?? "processing",
+          JSON.stringify(normalizedOrderItems),
+          JSON.stringify(warnings),
+          JSON.stringify(composedMeta),
+          paymentMethod,
+        ];
+
+        let insertedOrder = null;
+        try {
+          insertedOrder = await queryOne(
+            `INSERT INTO ${CART_ORDERS_TABLE} 
+             (external_id, restaurant_id, city_id, order_type, customer_name, customer_phone, 
+              delivery_address, comment, subtotal, delivery_fee, total, status, items, warnings, meta, payment_method, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
+             RETURNING *`,
+            insertValues,
+          );
+        } catch (insertError) {
+          if (insertError?.code !== "42703") {
+            throw insertError;
+          }
+
+          insertedOrder = await queryOne(
+            `INSERT INTO ${CART_ORDERS_TABLE} 
+             (external_id, restaurant_id, city_id, order_type, customer_name, customer_phone, 
+              delivery_address, comment, subtotal, delivery_fee, total, status, items, warnings, meta, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
+             RETURNING *`,
+            insertValues.slice(0, 15),
+          );
+        }
+
         if (!insertedOrder) {
           console.error("Ошибка записи в PostgreSQL: не получен ID");
           return res
@@ -518,7 +587,7 @@ export function registerCartRoutes(app) {
         console.log(`✅ Order ${orderId} saved to PostgreSQL`);
 
         // Сохраняем последний адрес в профиле (если есть Telegram ID и адрес)
-        if (resolvedTelegramId && orderPayload.orderType === "delivery") {
+        if (resolvedTelegramId && orderType === "delivery") {
           const lastAddressText =
             orderPayload.deliveryAddress ??
             composedMeta?.deliveryAddressParts?.street ??
@@ -536,7 +605,30 @@ export function registerCartRoutes(app) {
           );
         }
 
-        // ⚠️ Не отправляем в iiko до оплаты. Интеграция будет запущена после webhook оплаты.
+        if (paymentMethod !== "online" && restaurantId) {
+          try {
+            const integrationConfig = await fetchRestaurantIntegrationConfig(restaurantId);
+            if (integrationConfig) {
+              const orderRecord = {
+                ...insertedOrder,
+                external_id: orderId,
+                restaurant_id: restaurantId,
+                city_id: orderPayload.cityId ?? null,
+                order_type: orderType,
+                delivery_street: deliveryStreet || null,
+                delivery_house: deliveryHouse || null,
+                delivery_apartment: deliveryApartment || null,
+                payment_method: paymentMethod,
+                items: normalizedOrderItems,
+                warnings,
+                meta: composedMeta,
+              };
+              enqueueIikoOrder(integrationConfig, orderRecord);
+            }
+          } catch (integrationError) {
+            console.error("Ошибка отправки заказа в iiko:", integrationError);
+          }
+        }
       } catch (error) {
         if (error?.code === "42703") {
           console.error("Ошибка проверки iiko_product_id:", error);
@@ -558,8 +650,11 @@ export function registerCartRoutes(app) {
     res.json({
       success: true,
       orderId,
+      paymentMethod,
       message: db
-        ? "Заказ сохранён (mock). Доработайте обработку iiko."
+        ? paymentMethod === "online"
+          ? "Заказ сохранён. Оплатите онлайн, после этого он будет отправлен в ресторан."
+          : "Заказ принят и отправляется в ресторан."
         : "Заказ принят mock-сервером. Подключите PostgreSQL/iiko позже.",
     });
   });

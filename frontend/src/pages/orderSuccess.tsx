@@ -11,6 +11,7 @@ type LocationState = {
   orderId?: string;
   restaurantId?: string | null;
   message?: string | null;
+  paymentMethod?: "cash" | "card" | "online";
 };
 
 const FINAL_PAYMENT_STATUSES = new Set(["paid", "succeeded", "failed", "cancelled", "canceled"]);
@@ -38,6 +39,11 @@ const OrderSuccessPage = () => {
   );
   const restaurantId = state.restaurantId ?? null;
   const message = state.message ?? null;
+  const paymentMethod = useMemo(
+    () => state.paymentMethod ?? (searchParams.get("paymentMethod") as "cash" | "card" | "online" | null) ?? "online",
+    [searchParams, state.paymentMethod],
+  );
+  const isOnlinePayment = paymentMethod === "online";
 
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
@@ -106,6 +112,12 @@ const OrderSuccessPage = () => {
   const statusLabel = mapStatusToLabel(paymentStatus);
   const statusClass = mapStatusToClass(paymentStatus);
   const isPaid = (paymentStatus || "").toLowerCase() === "paid" || (paymentStatus || "").toLowerCase() === "succeeded";
+  const paymentLabel =
+    paymentMethod === "cash"
+      ? "Наличными при получении"
+      : paymentMethod === "card"
+        ? "Картой при получении"
+        : "Онлайн-оплата";
 
   return (
     <div className="app-screen min-h-screen bg-transparent flex flex-col">
@@ -115,7 +127,7 @@ const OrderSuccessPage = () => {
       <div className="flex-1">
         <PageHeader
           title="Заказ оформлен"
-          subtitle="Здесь можете оплатить или перейти в историю заказов"
+          subtitle={isOnlinePayment ? "Оплатите заказ или перейдите в историю заказов" : "Заказ передан в обработку"}
           variant="white"
           onBackClick={() => navigate("/menu")}
         />
@@ -127,9 +139,15 @@ const OrderSuccessPage = () => {
               {message && <p className="text-sm text-mariko-dark/80">{message}</p>}
               <div className="inline-flex items-center gap-2 text-sm">
                 <span className="text-mariko-dark/70">Статус оплаты:</span>
-                <span className={`px-3 py-1 rounded-full font-semibold text-xs ${statusClass}`}>
-                  {statusLabel}
-                </span>
+                {isOnlinePayment ? (
+                  <span className={`px-3 py-1 rounded-full font-semibold text-xs ${statusClass}`}>
+                    {statusLabel}
+                  </span>
+                ) : (
+                  <span className="px-3 py-1 rounded-full font-semibold text-xs bg-amber-100 text-amber-800">
+                    {paymentLabel}
+                  </span>
+                )}
               </div>
               {paymentError && (
                 <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">
@@ -139,7 +157,7 @@ const OrderSuccessPage = () => {
             </div>
 
             <div className="flex flex-col gap-3">
-              {!isPaid && (
+              {isOnlinePayment && !isPaid && (
                 <button
                   type="button"
                   className="w-full rounded-full bg-mariko-primary text-white py-3 font-el-messiri text-lg font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
@@ -150,7 +168,7 @@ const OrderSuccessPage = () => {
                   Оплатить
                 </button>
               )}
-              {isPaid && (
+              {(!isOnlinePayment || isPaid) && (
                 <button
                   type="button"
                   className="w-full rounded-full border border-mariko-field text-mariko-primary py-3 font-semibold bg-white hover:bg-mariko-field/30 transition-colors flex items-center justify-center gap-2"
