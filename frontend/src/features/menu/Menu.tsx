@@ -14,7 +14,14 @@ import { toast } from "@/hooks/use-toast";
 const Menu = (): JSX.Element => {
   const navigate = useNavigate();
   const { selectedRestaurant } = useCityContext();
-  const { addItem: addCartItem, removeItem: removeCartItem, getItemCount, maxCartItemQuantity } = useCart();
+  const {
+    addItem: addCartItem,
+    removeItem: removeCartItem,
+    getItemCount,
+    maxCartItemQuantity,
+    totalCount,
+    totalPrice,
+  } = useCart();
   
   const [menu, setMenu] = useState<RestaurantMenu | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -160,8 +167,9 @@ const Menu = (): JSX.Element => {
       }
       addCartItem(dish);
       toast({
-        title: "Добавлено в корзину",
-        description: `${dish.name}${currentCount > 0 ? ` (${currentCount + 1} шт.)` : ""}`,
+        title: "В корзине",
+        description: `${dish.name}${currentCount > 0 ? ` · ${currentCount + 1} шт.` : ""}`,
+        duration: 1300,
       });
     },
     [addCartItem, getItemCount, isDishOrderable, maxCartItemQuantity],
@@ -169,21 +177,9 @@ const Menu = (): JSX.Element => {
 
   const handleRemoveFromCart = useCallback(
     (dish: MenuItem) => {
-      const currentCount = getItemCount(dish.id);
       removeCartItem(dish.id);
-      if (currentCount > 1) {
-        toast({
-          title: "Количество уменьшено",
-          description: `${dish.name} (${currentCount - 1} шт.)`,
-        });
-      } else {
-        toast({
-          title: "Удалено из корзины",
-          description: `${dish.name}`,
-        });
-      }
     },
-    [removeCartItem, getItemCount],
+    [removeCartItem],
   );
 
   const activeCategoryId = useMemo(
@@ -312,24 +308,14 @@ const Menu = (): JSX.Element => {
           <h1 className="text-white font-el-messiri text-3xl md:text-4xl font-bold flex-1">
             Меню
           </h1>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleOrdersButtonClick}
-              className="inline-flex items-center gap-2 rounded-full border border-white/25 px-3.5 py-2 text-white font-semibold text-sm hover:bg-white/10 transition-colors"
-            >
-              <ListOrdered className="w-4 h-4" />
-                Мои брони
-            </button>
-            <button
-              type="button"
-              onClick={handleCartButtonClick}
-              aria-label="Открыть корзину"
-              className="p-2.5 rounded-full border border-white/20 text-white hover:bg-white/10 transition-colors"
-            >
-              <ShoppingBag className="w-6 h-6" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleOrdersButtonClick}
+            aria-label="Мои заказы"
+            className="p-2.5 rounded-full border border-white/20 text-white hover:bg-white/10 transition-colors"
+          >
+            <ListOrdered className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Category Tabs */}
@@ -405,6 +391,22 @@ const Menu = (): JSX.Element => {
 
       {/* Bottom Navigation */}
       <BottomNavigation currentPage="home" />
+
+      {totalCount > 0 && (
+        <button
+          type="button"
+          onClick={handleCartButtonClick}
+          className="fixed right-4 z-[60] inline-flex items-center gap-2 rounded-full border border-white/30 bg-mariko-primary px-4 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(131,14,14,0.45)] transition hover:brightness-110"
+          style={{
+            bottom: "calc(var(--app-bottom-bar-height) + var(--tg-safe-area-bottom, 0px) + 12px)",
+          }}
+        >
+          <ShoppingBag className="h-4 w-4" />
+          <span>Корзина</span>
+          <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">{totalCount}</span>
+          <span>{totalPrice}₽</span>
+        </button>
+      )}
 
       {/* Cart Drawer */}
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />

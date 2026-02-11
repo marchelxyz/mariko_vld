@@ -4,6 +4,7 @@ export type CartOrderPayload = {
   restaurantId: string | null;
   cityId: string | null;
   orderType: "delivery" | "pickup";
+  paymentMethod: "cash" | "card" | "online";
   customerName: string;
   customerPhone: string;
   customerTelegramId?: string;

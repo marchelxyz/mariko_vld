@@ -21,6 +21,26 @@ type AddressSuggestion = {
 const GEO_SUGGEST_URL = "/api/cart/geocode/suggest";
 const GEO_REVERSE_URL = "/api/cart/geocode/reverse";
 const MIN_ADDRESS_LENGTH = 3;
+
+type PaymentMethod = "cash" | "card" | "online";
+
+const parseAddressLine = (value: string) => {
+  const cleaned = value.trim();
+  if (!cleaned) {
+    return { street: "", house: "" };
+  }
+
+  const match = cleaned.match(/^(.*?)[,\s]+(\d+[a-zA-Zа-яА-Я0-9\-\/]*)$/);
+  if (!match) {
+    return { street: cleaned, house: "" };
+  }
+
+  return {
+    street: match[1]?.trim() ?? cleaned,
+    house: match[2]?.trim() ?? "",
+  };
+};
+
 type TelegramLocationManager = {
   init: () => void;
   getLocation: () => Promise<{ latitude: number; longitude: number }>;
@@ -52,6 +72,7 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   })();
   const [isCheckoutMode, setIsCheckoutMode] = useState(false);
   const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [customerName, setCustomerName] = useState("");
   const [phoneDigits, setPhoneDigits] = useState("");
   const [addressLine, setAddressLine] = useState("");
@@ -134,20 +155,22 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   const isPhoneComplete = phoneDigits.length === 10;
 
   const resolvedDeliveryAddress = (() => {
-    const combined = [addressLine, addressApartment]
+    const base = [addressCity, addressStreet, addressHouse]
       .map((value) => value.trim())
       .filter(Boolean)
       .join(", ");
-    return combined;
+    const fallback = addressLine.trim();
+    return [base || fallback, addressApartment.trim()].filter(Boolean).join(", ");
   })();
 
-  const isDeliveryAddressFilled =
-    orderType === "pickup" || Boolean(resolvedDeliveryAddress && resolvedDeliveryAddress.trim());
+  const hasStreetAndHouse = Boolean(addressStreet.trim() && addressHouse.trim());
+  const isDeliveryAddressFilled = orderType === "pickup" || hasStreetAndHouse;
 
   const isFormValid =
     items.length > 0 &&
     Boolean(customerName.trim()) &&
     isPhoneComplete &&
+    Boolean(paymentMethod) &&
     isDeliveryAddressFilled &&
     (calculation?.canSubmit ?? true);
 
@@ -362,6 +385,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
       telegramUserId: normalizedTelegramId,
       telegramUsername,
       telegramFullName,
+      paymentMethod,
       restaurantName: selectedRestaurant?.name,
       restaurantAddress: selectedRestaurant?.address,
       cityName: selectedCity?.name,
@@ -383,6 +407,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
         customerTelegramId: normalizedTelegramId,
         customerTelegramUsername: telegramUsername,
         customerTelegramName: telegramFullName,
+        paymentMethod,
         deliveryAddress: orderType === "delivery" ? resolvedDeliveryAddress : undefined,
         deliveryLatitude: addressCoords?.lat,
         deliveryLongitude: addressCoords?.lon,
@@ -422,14 +447,18 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
       setAddressStreet("");
       setAddressHouse("");
       setAddressApartment("");
+      setAddressLine("");
+      setAddressCity("");
       setAddressCoords(null);
       setComment("");
+      setPaymentMethod("cash");
       // Перенаправляем на отдельную страницу успеха заказа
       navigate("/order-success", {
         state: {
           orderId: resolvedOrderId,
           message: response.message,
           restaurantId: selectedRestaurant?.id ?? null,
+          paymentMethod,
         },
       });
       resetAndClose();
@@ -521,6 +550,13 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
           }
           if (!addressLine && profile.lastAddressText) {
             setAddressLine(profile.lastAddressText);
+            const parsed = parseAddressLine(profile.lastAddressText);
+            if (!addressStreet && parsed.street) {
+              setAddressStreet(parsed.street);
+            }
+            if (!addressHouse && parsed.house) {
+              setAddressHouse(parsed.house);
+            }
           } else {
             const profileCity = profile.favoriteCityName ?? "";
             const profileStreet = profile.favoriteRestaurantAddress ?? "";
@@ -704,6 +740,30 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
             </div>
 
             <div className="grid grid-cols-1 gap-3">
+              <div>
+                <p className="text-sm font-semibold text-mariko-dark/70 mb-2">Способ оплаты</p>
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { value: "cash", label: "Наличными при получении" },
+                    { value: "card", label: "Картой при получении" },
+                    { value: "online", label: "Онлайн-оплата" },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setPaymentMethod(option.value as PaymentMethod)}
+                      className={`w-full rounded-[12px] border px-3 py-2 text-left text-sm font-semibold transition-colors ${
+                        paymentMethod === option.value
+                          ? "border-mariko-primary bg-mariko-primary text-white"
+                          : "border-mariko-field text-mariko-dark hover:bg-mariko-field/30"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <label className="text-sm font-semibold text-mariko-dark/80">
                 Имя
                 <input
@@ -715,34 +775,37 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                   required
                 />
               </label>
-            <label className="text-sm font-semibold text-mariko-dark/80">
-              Телефон
-              <input
-                type="tel"
-                inputMode="numeric"
-                value={formattedPhone}
-                onChange={(event) => setPhoneDigits(parsePhoneInput(event.target.value))}
-                className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
-                placeholder="+7 (___) ___-__-__"
-                required
-              />
-              <span className="text-xs text-mariko-dark/60">
-                Введите 10 цифр. Формат: +7 (XXX) XXX-XX-XX
-              </span>
-            </label>
+
+              <label className="text-sm font-semibold text-mariko-dark/80">
+                Телефон
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  value={formattedPhone}
+                  onChange={(event) => setPhoneDigits(parsePhoneInput(event.target.value))}
+                  className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
+                  placeholder="+7 (___) ___-__-__"
+                  required
+                />
+                <span className="text-xs text-mariko-dark/60">
+                  Введите 10 цифр. Формат: +7 (XXX) XXX-XX-XX
+                </span>
+              </label>
+
               {orderType === "delivery" && (
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-mariko-dark/80 block">
-                    Адрес доставки
+                    Адрес доставки (поиск)
                     <div className="relative">
                       <input
                         type="text"
                         value={addressLine}
                         onChange={(event) => {
-                          setAddressLine(event.target.value);
-                          setAddressCity("");
-                          setAddressStreet(event.target.value);
-                          setAddressHouse("");
+                          const nextValue = event.target.value;
+                          const parsed = parseAddressLine(nextValue);
+                          setAddressLine(nextValue);
+                          setAddressStreet(parsed.street);
+                          setAddressHouse(parsed.house);
                         }}
                         onFocus={() => setIsSuggestOpen(true)}
                         onBlur={() => setTimeout(() => setIsSuggestOpen(false), 100)}
@@ -770,6 +833,32 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                       )}
                     </div>
                   </label>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="text-sm font-semibold text-mariko-dark/80">
+                      Улица
+                      <input
+                        type="text"
+                        value={addressStreet}
+                        onChange={(event) => setAddressStreet(event.target.value)}
+                        className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
+                        placeholder="Гагарина"
+                        required={orderType === "delivery"}
+                      />
+                    </label>
+                    <label className="text-sm font-semibold text-mariko-dark/80">
+                      Дом
+                      <input
+                        type="text"
+                        value={addressHouse}
+                        onChange={(event) => setAddressHouse(event.target.value)}
+                        className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
+                        placeholder="12"
+                        required={orderType === "delivery"}
+                      />
+                    </label>
+                  </div>
+
                   <label className="text-sm font-semibold text-mariko-dark/80">
                     Квартира / подъезд
                     <input
@@ -780,9 +869,16 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                       placeholder="Кв., подъезд, этаж"
                     />
                   </label>
+
+                  {!hasStreetAndHouse && (
+                    <p className="text-xs text-amber-700">
+                      Для отправки в iiko укажите отдельно улицу и дом.
+                    </p>
+                  )}
                   {suggestError && <p className="text-xs text-red-600">{suggestError}</p>}
                 </div>
               )}
+
               <label className="text-sm font-semibold text-mariko-dark/80">
                 Комментарий
                 <textarea
@@ -840,12 +936,18 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                 disabled={!isFormValid || isSubmitting || isCalculating}
                 className="flex-1 rounded-full bg-mariko-primary text-white py-3 font-el-messiri text-lg font-semibold disabled:bg-mariko-primary/40 disabled:cursor-not-allowed"
               >
-                {isSubmitting ? "Отправляем..." : isCalculating ? "Ждём расчёт…" : "Оплатить заказ"}
+                {isSubmitting
+                  ? "Отправляем..."
+                  : isCalculating
+                    ? "Ждём расчёт…"
+                    : paymentMethod === "online"
+                      ? "Перейти к оплате"
+                      : "Оформить заказ"}
               </button>
             </div>
             <p className="text-xs text-mariko-dark/60">
-              Заказ из меню будет передан в ресторан после подтверждения. После подключения iiko здесь
-              будет реальное оформление заказа.
+              Для оплаты онлайн заказ отправится в iiko после успешного платежа. При оплате наличными
+              или картой заказ отправляется сразу.
             </p>
             {lastSubmitStatus !== "idle" && (
               <p
