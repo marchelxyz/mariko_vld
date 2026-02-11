@@ -1,0 +1,22 @@
+{
+  "restaurants": [
+    {
+      "restaurantId": "zhukovsky",
+      "apiLogin": "YOUR_IIKO_API_LOGIN",
+      "organizationId": "77b29d06-560b-4917-9802-9cc86bb7abe9",
+      "terminalGroupId": "704f072f-bd4b-4e09-9cdd-277e288384e2",
+      "defaultPaymentType": "09322f46-578a-d210-add7-eec222a08871",
+      "sourceKey": "mariko-test",
+      "notes": {
+        "restaurantName": "Хачапури г. Жуковский",
+        "productsCount": 1540,
+        "categoriesCount": 87,
+        "paymentTypes": {
+          "cash": "09322f46-578a-d210-add7-eec222a08871",
+          "online": "e370eaff-62a4-4337-9192-3aedb2db608a",
+          "bonus": "e77df5ae-61e6-43e6-8a70-11b5eee9e6de"
+        }
+      }
+    }
+  ]
+}
