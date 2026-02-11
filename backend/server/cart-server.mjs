@@ -459,15 +459,8 @@ if (frontendStaticRoot) {
 
   // Express 5 использует path-to-regexp v6: строковый "*" может падать.
   // Regex-роут работает стабильно и нужен как SPA fallback.
-  app.get(/^(?!\/api).*/, (req, res) => {
-    return res.sendFile(path.join(frontendStaticRoot, "index.html"));
-  });
+  // ПЕРЕМЕЩЕНО В КОНЕЦ ФАЙЛА (перед app.listen)
 }
-
-app.use((req, res) => {
-  logger.warn("404 Not Found", { method: req.method, path: req.path });
-  res.status(404).json({ success: false, message: "Not Found" });
-});
 
 // Временный endpoint для настройки iiko интеграции
 // ВАЖНО: Удалить после настройки!
@@ -1295,6 +1288,23 @@ async function startServer() {
   } else {
     logger.warn("DATABASE_URL не задан – сохраняем только в лог");
   }
+
+  // ===================================================================
+  // ВАЖНО: Catch-all роуты должны быть ПОСЛЕДНИМИ (после всех API endpoints)
+  // ===================================================================
+
+  // SPA fallback - отдаём index.html для всех не-API запросов
+  if (frontendStaticRoot) {
+    app.get(/^(?!\/api).*/, (req, res) => {
+      return res.sendFile(path.join(frontendStaticRoot, "index.html"));
+    });
+  }
+
+  // 404 для всех остальных запросов (включая несуществующие API endpoints)
+  app.use((req, res) => {
+    logger.warn("404 Not Found", { method: req.method, path: req.path });
+    res.status(404).json({ success: false, message: "Not Found" });
+  });
 
   server = app.listen(PORT, CART_SERVER_HOST, () => {
     logger.info(
