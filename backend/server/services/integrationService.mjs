@@ -3,6 +3,11 @@ import { queryOne, query, db } from "../postgresClient.mjs";
 import { iikoClient } from "../integrations/iiko-client.mjs";
 
 const integrationConfigCache = new Map();
+const enqueueLockMap = new Map();
+const ENQUEUE_DEDUP_WINDOW_MS =
+  Number.parseInt(process.env.IIKO_ENQUEUE_DEDUP_WINDOW_MS ?? "", 10) || 90 * 1000;
+const PENDING_STALE_MS =
+  Number.parseInt(process.env.IIKO_PENDING_STALE_MS ?? "", 10) || 5 * 60 * 1000;
 
 const getCachedIntegrationConfig = (restaurantId) => {
   const entry = integrationConfigCache.get(restaurantId);
@@ -17,6 +22,65 @@ const setCachedIntegrationConfig = (restaurantId, value) => {
     value,
     expiresAt: Date.now() + INTEGRATION_CACHE_TTL_MS,
   });
+};
+
+const cleanupEnqueueLocks = () => {
+  const now = Date.now();
+  for (const [externalId, expiresAt] of enqueueLockMap.entries()) {
+    if (!Number.isFinite(expiresAt) || expiresAt <= now) {
+      enqueueLockMap.delete(externalId);
+    }
+  }
+};
+
+const hasActiveEnqueueLock = (externalId) => {
+  if (!externalId) {
+    return false;
+  }
+  cleanupEnqueueLocks();
+  const expiresAt = enqueueLockMap.get(externalId);
+  return Number.isFinite(expiresAt) && expiresAt > Date.now();
+};
+
+const setEnqueueLock = (externalId) => {
+  if (!externalId) {
+    return;
+  }
+  enqueueLockMap.set(externalId, Date.now() + ENQUEUE_DEDUP_WINDOW_MS);
+};
+
+const reserveOrderDispatch = async (externalId) => {
+  if (!db || !externalId) {
+    return false;
+  }
+  try {
+    const stalePendingBefore = new Date(Date.now() - PENDING_STALE_MS);
+    const reserved = await queryOne(
+      `UPDATE ${CART_ORDERS_TABLE}
+       SET
+         integration_provider = $1,
+         provider_status = 'pending',
+         provider_error = NULL,
+         provider_payload = NULL,
+         provider_synced_at = NOW()
+       WHERE external_id = $2
+         AND provider_order_id IS NULL
+         AND (
+           provider_status IS NULL
+           OR provider_status = 'error'
+           OR (
+             provider_status = 'pending'
+             AND (provider_synced_at IS NULL OR provider_synced_at <= $3)
+           )
+         )
+       RETURNING id`,
+      [INTEGRATION_PROVIDER, externalId, stalePendingBefore],
+    );
+    return Boolean(reserved?.id);
+  } catch (error) {
+    console.error("Ошибка reserveOrderDispatch:", error);
+    return false;
+  }
 };
 
 export const fetchRestaurantIntegrationConfig = async (restaurantId) => {
@@ -119,28 +183,59 @@ export const enqueueIikoOrder = (integrationConfig, orderRecord) => {
   if (!integrationConfig) {
     return;
   }
+  const externalId =
+    orderRecord?.external_id !== null && orderRecord?.external_id !== undefined
+      ? String(orderRecord.external_id).trim()
+      : "";
+  if (!externalId) {
+    return;
+  }
+  if (hasActiveEnqueueLock(externalId)) {
+    logIntegrationJob({
+      provider: INTEGRATION_PROVIDER,
+      restaurantId: integrationConfig.restaurant_id,
+      orderId: orderRecord?.id ?? null,
+      action: "create_order",
+      status: "skipped",
+      payload: { externalId, reason: "duplicate_enqueue_guard" },
+      error: "duplicate_enqueue_guard",
+    }).catch(() => {});
+    return;
+  }
+  setEnqueueLock(externalId);
+
   const safeOrderRecord = {
     ...orderRecord,
     items: orderRecord.items ?? [],
   };
-  logIntegrationJob({
-    provider: INTEGRATION_PROVIDER,
-    restaurantId: integrationConfig.restaurant_id,
-    orderId: orderRecord.id ?? null,
-    action: "create_order",
-    status: "pending",
-    payload: { externalId: orderRecord.external_id },
-  }).catch((error) => console.error("Ошибка логирования интеграции:", error));
-  updateOrderIntegrationStatus(orderRecord.external_id, {
-    provider_status: "pending",
-    provider_error: null,
-    provider_payload: null,
-  });
 
   (async () => {
+    const reserved = await reserveOrderDispatch(externalId);
+    if (!reserved) {
+      await logIntegrationJob({
+        provider: INTEGRATION_PROVIDER,
+        restaurantId: integrationConfig.restaurant_id,
+        orderId: orderRecord.id ?? null,
+        action: "create_order",
+        status: "skipped",
+        payload: { externalId, reason: "db_dispatch_guard" },
+        error: "db_dispatch_guard",
+      });
+      return;
+    }
+
+    await logIntegrationJob({
+      provider: INTEGRATION_PROVIDER,
+      restaurantId: integrationConfig.restaurant_id,
+      orderId: orderRecord.id ?? null,
+      action: "create_order",
+      status: "pending",
+      payload: { externalId },
+    });
+
     const result = await iikoClient.createOrder(integrationConfig, safeOrderRecord);
     if (result.success) {
-      await updateOrderIntegrationStatus(orderRecord.external_id, {
+      await updateOrderIntegrationStatus(externalId, {
         provider_status: result.status ?? "sent",
         provider_order_id: result.orderId ?? null,
         provider_payload: result.response ?? {},
@@ -154,7 +249,7 @@ export const enqueueIikoOrder = (integrationConfig, orderRecord) => {
         payload: result.response ?? {},
       });
     } else {
-      await updateOrderIntegrationStatus(orderRecord.external_id, {
+      await updateOrderIntegrationStatus(externalId, {
         provider_status: "error",
         provider_error: result.error ?? "iiko: неизвестная ошибка",
         provider_payload: result.response ?? null,
@@ -179,7 +274,7 @@ export const enqueueIikoOrder = (integrationConfig, orderRecord) => {
       status: "error",
       error: error.message,
     }).catch(() => {});
-    updateOrderIntegrationStatus(orderRecord.external_id, {
+    updateOrderIntegrationStatus(externalId, {
       provider_status: "error",
       provider_error: error.message,
     });

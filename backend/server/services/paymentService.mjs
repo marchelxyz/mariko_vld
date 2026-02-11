@@ -1,4 +1,4 @@
-import { queryOne, queryMany, db } from "../postgresClient.mjs";
+import { queryOne, queryMany, query, db } from "../postgresClient.mjs";
 import { CART_ORDERS_TABLE } from "../config.mjs";
 
 const PAYMENT_STATUS_VALUES = new Set(["created", "pending", "paid", "failed", "cancelled"]);

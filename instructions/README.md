@@ -63,6 +63,13 @@
 - [VK_KEYS_EXPLANATION.md](./integrations/VK_KEYS_EXPLANATION.md) — Объяснение ключей VK API
 - [VK_LOGS_EXPLANATION.md](./integrations/VK_LOGS_EXPLANATION.md) — Работа с логами VK
 
+#### iiko
+- [📘 iiko Cloud API Integration](./integrations/iiko/README.md) — **Полная интеграция с iiko**
+  - [IIKO_COMPLETE_GUIDE.md](./integrations/iiko/IIKO_COMPLETE_GUIDE.md) — Комплексное руководство от настройки до production
+  - [IIKO_MIGRATION_TO_TIMEWEB.md](./integrations/iiko/IIKO_MIGRATION_TO_TIMEWEB.md) — Миграция с Railway на TimeWeb
+  - [NETWORK_ONBOARDING.md](./integrations/iiko/NETWORK_ONBOARDING.md) — Автоматизация подключения сети ресторанов
+  - [NETWORK_ROLLOUT_3_RESTAURANTS_PLAYBOOK.md](./integrations/iiko/NETWORK_ROLLOUT_3_RESTAURANTS_PLAYBOOK.md) — Плейбук для запуска 3 ресторанов
+
 #### Yandex
 - [YANDEX_STORAGE_INTEGRATION_SUMMARY.md](./integrations/YANDEX_STORAGE_INTEGRATION_SUMMARY.md) — Интеграция Yandex Object Storage
 
