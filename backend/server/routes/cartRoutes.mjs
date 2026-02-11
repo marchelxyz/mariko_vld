@@ -336,12 +336,13 @@ export function registerCartRoutes(app) {
 
   app.post("/api/cart/submit", async (req, res) => {
     const orderPayload = req.body;
+    const rawOrderItems = Array.isArray(orderPayload?.items) ? orderPayload.items : [];
 
     if (!orderPayload?.customerName || !orderPayload?.customerPhone) {
       return res.status(400).json({ success: false, message: "Заполните имя и телефон" });
     }
 
-    if (!orderPayload?.items?.length) {
+    if (!rawOrderItems.length) {
       return res.status(400).json({ success: false, message: "Корзина пуста" });
     }
 
@@ -377,6 +378,8 @@ export function registerCartRoutes(app) {
       },
     };
 
+    let normalizedOrderItems = rawOrderItems;
+
     if (db) {
       const subtotal = Number(orderPayload.subtotal ?? orderPayload.totalSum ?? 0);
       const deliveryFee = Number(orderPayload.deliveryFee ?? 0);
@@ -384,6 +387,103 @@ export function registerCartRoutes(app) {
       const warnings = Array.isArray(orderPayload.warnings) ? orderPayload.warnings : [];
 
       try {
+        const restaurantId =
+          typeof orderPayload?.restaurantId === "string" && orderPayload.restaurantId.trim().length
+            ? orderPayload.restaurantId.trim()
+            : null;
+        const invalidOrderItems = rawOrderItems.filter(
+          (item) => !(typeof item?.id === "string" && item.id.trim().length),
+        );
+        if (invalidOrderItems.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: "В заказе есть некорректные позиции",
+          });
+        }
+
+        const menuItemIds = Array.from(
+          new Set(
+            rawOrderItems
+              .map((item) =>
+                typeof item?.id === "string" && item.id.trim().length ? item.id.trim() : null,
+              )
+              .filter(Boolean),
+          ),
+        );
+
+        const menuItems = await queryMany(
+          `SELECT
+              mi.id,
+              mi.name,
+              mc.restaurant_id,
+              COALESCE(NULLIF(TRIM(mi.iiko_product_id), ''), NULL) AS iiko_product_id
+           FROM menu_items mi
+           JOIN menu_categories mc ON mc.id = mi.category_id
+           WHERE mi.id = ANY($1::varchar[])`,
+          [menuItemIds],
+        );
+
+        const menuItemById = new Map(menuItems.map((menuItem) => [menuItem.id, menuItem]));
+        const unknownItemIds = menuItemIds.filter((itemId) => !menuItemById.has(itemId));
+
+        if (unknownItemIds.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: "В заказе есть несуществующие блюда",
+            details: {
+              unknownItemIds,
+            },
+          });
+        }
+
+        if (restaurantId) {
+          const foreignRestaurantItems = menuItems
+            .filter((menuItem) => menuItem.restaurant_id !== restaurantId)
+            .map((menuItem) => ({
+              id: menuItem.id,
+              name: menuItem.name,
+              restaurantId: menuItem.restaurant_id,
+            }));
+
+          if (foreignRestaurantItems.length > 0) {
+            return res.status(400).json({
+              success: false,
+              message: "В заказе есть блюда другого ресторана",
+              details: {
+                foreignRestaurantItems,
+              },
+            });
+          }
+        }
+
+        const itemsWithoutIikoId = menuItems
+          .filter((menuItem) => !menuItem.iiko_product_id)
+          .map((menuItem) => ({
+            id: menuItem.id,
+            name: menuItem.name,
+          }));
+
+        if (itemsWithoutIikoId.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: "Некоторые блюда недоступны для заказа. Обновите меню и попробуйте снова.",
+            details: {
+              reason: "missing_iiko_product_id",
+              items: itemsWithoutIikoId,
+            },
+          });
+        }
+
+        normalizedOrderItems = rawOrderItems.map((item) => {
+          const menuItem = menuItemById.get(String(item.id).trim());
+          const iikoProductId = menuItem?.iiko_product_id;
+          return {
+            ...item,
+            iiko_product_id: iikoProductId,
+            iikoProductId,
+          };
+        });
+
         console.log(`💾 Saving order ${orderId} to PostgreSQL`);
         const insertedOrder = await queryOne(
           `INSERT INTO ${CART_ORDERS_TABLE} 
@@ -404,7 +504,7 @@ export function registerCartRoutes(app) {
             deliveryFee,
             total,
             orderPayload?.status ?? "processing",
-            JSON.stringify(orderPayload.items ?? []),
+            JSON.stringify(normalizedOrderItems),
             JSON.stringify(warnings),
             JSON.stringify(composedMeta),
           ],
@@ -438,6 +538,14 @@ export function registerCartRoutes(app) {
 
         // ⚠️ Не отправляем в iiko до оплаты. Интеграция будет запущена после webhook оплаты.
       } catch (error) {
+        if (error?.code === "42703") {
+          console.error("Ошибка проверки iiko_product_id:", error);
+          return res.status(500).json({
+            success: false,
+            message:
+              "В БД не найдена колонка iiko_product_id. Выполните миграцию и повторите попытку.",
+          });
+        }
         console.error("Ошибка записи в PostgreSQL:", error);
         return res
           .status(500)

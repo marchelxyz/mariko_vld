@@ -72,10 +72,18 @@ export function createMenuRouter() {
       const itemsByCategory = new Map();
       itemsData.forEach((item) => {
         const imageUrl = item.image_url || undefined;
+        const iikoProductIdRaw =
+          item.iiko_product_id === null || item.iiko_product_id === undefined
+            ? ""
+            : String(item.iiko_product_id).trim();
+        const iikoProductId = iikoProductIdRaw || undefined;
+        const isOrderable = Boolean(iikoProductIdRaw);
         logger.debug('Загрузка блюда из БД', { 
           itemId: item.id, 
           name: item.name, 
           imageUrl,
+          iikoProductId,
+          isOrderable,
           hasImageUrl: !!item.image_url 
         });
         
@@ -85,6 +93,8 @@ export function createMenuRouter() {
           name: item.name,
           description: item.description || undefined,
           price: Number(item.price),
+          iikoProductId,
+          isOrderable,
           weight: item.weight || undefined,
           calories: item.calories || undefined,
           imageUrl,
