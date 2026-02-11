@@ -12,6 +12,7 @@ type MenuItemProps = {
   quantity?: number;
   showAddButton?: boolean;
   maxCartItemQuantity?: number;
+  disabled?: boolean;
   variant?: 'default' | 'compact' | 'mobile'; // добавляем мобильный вариант
   showMeta?: boolean;
   showPrice?: boolean;
@@ -26,6 +27,7 @@ function MenuItemComponentBase({
   quantity = 0,
   showAddButton = false,
   maxCartItemQuantity = 10,
+  disabled = false,
   variant = 'default',
   showMeta = true,
   showPrice = true,
@@ -80,10 +82,12 @@ function MenuItemComponentBase({
   
   return (
     <div
-      className={`bg-white rounded-[16px] overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer flex flex-col ${
+      className={`bg-white rounded-[16px] overflow-hidden shadow-sm border border-gray-100 transition-shadow flex flex-col ${
+        disabled ? "opacity-70 cursor-not-allowed" : "hover:shadow-md cursor-pointer"
+      } ${
         isCompact || isMobile ? 'h-full' : ''
       }`}
-      onClick={() => onClick?.(item)}
+      onClick={disabled ? undefined : () => onClick?.(item)}
     >
       {/* Фото/иконка блюда */}
       <div className={`${
@@ -182,9 +186,9 @@ function MenuItemComponentBase({
                     <button
                       type="button"
                       onClick={() => (onIncrease ?? onAdd)?.(item)}
-                      disabled={quantity >= maxCartItemQuantity}
+                      disabled={disabled || quantity >= maxCartItemQuantity}
                       className={`p-1 rounded-full transition-colors text-mariko-primary ${
-                        quantity >= maxCartItemQuantity
+                        disabled || quantity >= maxCartItemQuantity
                           ? 'opacity-50 cursor-not-allowed'
                           : 'hover:bg-gray-200'
                       }`}
@@ -197,7 +201,12 @@ function MenuItemComponentBase({
                   <button
                     type="button"
                     onClick={() => onAdd?.(item)}
-                    className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-mariko-primary text-white shadow-sm hover:bg-mariko-primary/90 transition-colors flex items-center justify-center"
+                    disabled={disabled}
+                    className={`w-7 h-7 md:w-8 md:h-8 rounded-full text-white shadow-sm transition-colors flex items-center justify-center ${
+                      disabled
+                        ? "bg-gray-300 cursor-not-allowed"
+                        : "bg-mariko-primary hover:bg-mariko-primary/90"
+                    }`}
                     aria-label="Добавить в корзину"
                   >
                     <Plus className="w-4 h-4 md:w-5 md:h-5" />
@@ -219,6 +228,7 @@ export const MenuItemComponent = memo(
     prev.quantity === next.quantity &&
     prev.showAddButton === next.showAddButton &&
     prev.maxCartItemQuantity === next.maxCartItemQuantity &&
+    prev.disabled === next.disabled &&
     prev.variant === next.variant &&
     prev.showMeta === next.showMeta &&
     prev.showPrice === next.showPrice &&

@@ -3,6 +3,8 @@ export interface MenuItem {
   name: string;
   description: string;
   price: number;
+  iikoProductId?: string;
+  isOrderable?: boolean;
   weight?: string;
   calories?: string;
   imageUrl?: string;

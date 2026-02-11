@@ -8,6 +8,7 @@ export type CartItem = {
   name: string;
   price: number;
   amount: number;
+  iikoProductId?: string;
   weight?: string;
   imageUrl?: string;
 };
@@ -21,6 +22,7 @@ type CartContextValue = {
     id: string;
     name: string;
     price: number;
+    iikoProductId?: string;
     weight?: string;
     imageUrl?: string;
   }) => void;
@@ -247,6 +249,7 @@ export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element
           name: item.name,
           price: item.price,
           amount: 1,
+          iikoProductId: item.iikoProductId,
           weight: item.weight,
           imageUrl: item.imageUrl,
         },

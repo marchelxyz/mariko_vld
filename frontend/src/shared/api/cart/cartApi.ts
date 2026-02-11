@@ -65,6 +65,19 @@ function resolveRecalcUrl(): string {
 
 const CART_RECALC_ENDPOINT = resolveRecalcUrl();
 
+function parseServerErrorText(payload: string | null): string | null {
+  if (!payload) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(payload) as { message?: string; error?: string };
+    return parsed?.message ?? parsed?.error ?? null;
+  } catch {
+    return payload;
+  }
+}
+
 export async function submitCartOrder(payload: CartOrderPayload): Promise<CartOrderResponse> {
   const response = await fetch(CART_SUBMIT_ENDPOINT, {
     method: "POST",
@@ -76,7 +89,7 @@ export async function submitCartOrder(payload: CartOrderPayload): Promise<CartOr
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => null);
-    throw new Error(errorText || "Ошибка отправки заказа");
+    throw new Error(parseServerErrorText(errorText) || "Ошибка отправки заказа");
   }
 
   const data = await response.json().catch(() => null);
@@ -101,7 +114,7 @@ export async function recalculateCart(
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => null);
-    throw new Error(errorText || "Ошибка расчёта корзины");
+    throw new Error(parseServerErrorText(errorText) || "Ошибка расчёта корзины");
   }
 
   const data = await response.json();

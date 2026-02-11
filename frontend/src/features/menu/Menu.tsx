@@ -23,6 +23,13 @@ const Menu = (): JSX.Element => {
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [isCartOpen, setIsCartOpen] = useState(false);
 
+  const isDishOrderable = useCallback((dish: MenuItem): boolean => {
+    if (dish.isOrderable !== undefined) {
+      return dish.isOrderable;
+    }
+    return Boolean(dish.iikoProductId);
+  }, []);
+
   useEffect(() => {
     setDishModalImageFailed(false);
   }, [activeDish]);
@@ -114,9 +121,15 @@ const Menu = (): JSX.Element => {
     }
   }, [visibleMenu, activeCategory]);
 
-  const handleDishClick = useCallback((dish: MenuItem) => {
-    setActiveDish((current) => (current?.id === dish.id ? null : dish));
-  }, []);
+  const handleDishClick = useCallback(
+    (dish: MenuItem) => {
+      if (!isDishOrderable(dish)) {
+        return;
+      }
+      setActiveDish((current) => (current?.id === dish.id ? null : dish));
+    },
+    [isDishOrderable],
+  );
 
   const handleCartButtonClick = useCallback(() => {
     setIsCartOpen(true);
@@ -128,6 +141,14 @@ const Menu = (): JSX.Element => {
 
   const handleAddToCart = useCallback(
     (dish: MenuItem) => {
+      if (!isDishOrderable(dish)) {
+        toast({
+          title: "Блюдо недоступно",
+          description: "Это блюдо пока нельзя заказать.",
+          variant: "destructive",
+        });
+        return;
+      }
       const currentCount = getItemCount(dish.id);
       if (currentCount >= maxCartItemQuantity) {
         toast({
@@ -143,7 +164,7 @@ const Menu = (): JSX.Element => {
         description: `${dish.name}${currentCount > 0 ? ` (${currentCount + 1} шт.)` : ""}`,
       });
     },
-    [addCartItem, getItemCount, maxCartItemQuantity],
+    [addCartItem, getItemCount, isDishOrderable, maxCartItemQuantity],
   );
 
   const handleRemoveFromCart = useCallback(
@@ -176,6 +197,10 @@ const Menu = (): JSX.Element => {
   );
 
   const itemsToRender = useMemo(() => currentCategory?.items ?? [], [currentCategory]);
+  const activeDishOrderable = useMemo(
+    () => (activeDish ? isDishOrderable(activeDish) : false),
+    [activeDish, isDishOrderable],
+  );
 
   // Индикатор загрузки - показываем скелетоны карточек блюд
   if (isLoading) {
@@ -351,6 +376,7 @@ const Menu = (): JSX.Element => {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
               {itemsToRender.map((item: MenuItem) => {
                 const quantity = getItemCount(item.id);
+                const isOrderable = isDishOrderable(item);
                 return (
                   <MenuItemComponent
                     key={item.id}
@@ -362,6 +388,7 @@ const Menu = (): JSX.Element => {
                     onDecrease={handleRemoveFromCart}
                     quantity={quantity}
                     showAddButton={true}
+                    disabled={!isOrderable}
                   />
                 );
               })}
@@ -428,7 +455,7 @@ const Menu = (): JSX.Element => {
                 </span>
                 {(activeDish.weight || activeDish.calories) && (
                   <span className="text-sm text-gray-600">
-                    {[activeDish.weight, activeDish.calories].filter(Boolean).join(' / ')}
+                    {[activeDish.weight, activeDish.calories].filter(Boolean).join(" / ")}
                   </span>
                 )}
               </div>
@@ -467,7 +494,9 @@ const Menu = (): JSX.Element => {
 
               <div className="space-y-3">
                 <p className="text-sm text-gray-600">
-                  Добавьте блюдо в корзину для оформления заказа.
+                  {activeDishOrderable
+                    ? "Добавьте блюдо в корзину для оформления заказа."
+                    : "Это блюдо пока нельзя заказать."}
                 </p>
                 <div className="flex items-center gap-3">
                   {getItemCount(activeDish.id) > 0 ? (
@@ -502,6 +531,9 @@ const Menu = (): JSX.Element => {
                           onClick={(e) => {
                             e.stopPropagation();
                             const currentCount = getItemCount(activeDish.id);
+                            if (!activeDishOrderable) {
+                              return;
+                            }
                             if (currentCount >= maxCartItemQuantity) {
                               toast({
                                 title: "Лимит достигнут",
@@ -514,7 +546,7 @@ const Menu = (): JSX.Element => {
                           }}
                           className="text-mariko-primary font-bold text-lg"
                           aria-label="Увеличить количество"
-                          disabled={getItemCount(activeDish.id) >= maxCartItemQuantity}
+                          disabled={!activeDishOrderable || getItemCount(activeDish.id) >= maxCartItemQuantity}
                         >
                           +
                         </button>
@@ -523,13 +555,18 @@ const Menu = (): JSX.Element => {
                   ) : (
                     <button
                       type="button"
-                      className="w-full rounded-xl bg-mariko-primary px-4 py-3 text-center font-semibold text-white shadow-lg transition hover:brightness-110 active:scale-[0.99]"
+                      className={`w-full rounded-xl px-4 py-3 text-center font-semibold text-white shadow-lg transition ${
+                        activeDishOrderable
+                          ? "bg-mariko-primary hover:brightness-110 active:scale-[0.99]"
+                          : "bg-gray-400 cursor-not-allowed"
+                      }`}
+                      disabled={!activeDishOrderable}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleAddToCart(activeDish);
                       }}
                     >
-                      Добавить в корзину
+                      {activeDishOrderable ? "Добавить в корзину" : "Недоступно"}
                     </button>
                   )}
                 </div>

@@ -119,7 +119,7 @@ const buildIikoOrderItems = (items) => {
 
   const missingMappings = [];
   const mappedItems = items.map((item, index) => {
-    const productId = normaliseIikoProductId(item?.iiko_product_id);
+    const productId = normaliseIikoProductId(item?.iiko_product_id ?? item?.iikoProductId);
     if (!productId) {
       missingMappings.push({
         index: index + 1,
