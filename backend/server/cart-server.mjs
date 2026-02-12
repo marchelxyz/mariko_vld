@@ -1413,6 +1413,121 @@ app.get("/api/db/iiko-debug", async (req, res) => {
   }
 });
 
+// Endpoint для попытки починить DNS внутри контейнера (переписывает /etc/resolv.conf)
+app.post("/api/db/fix-dns", async (req, res) => {
+  const SECRET_KEY = "mariko-iiko-setup-2024";
+
+  if (req.query.key !== SECRET_KEY) {
+    return res.status(403).json({ success: false, message: "Invalid key" });
+  }
+
+  const describeError = (error) => {
+    const chain = [];
+    let current = error;
+    for (let depth = 0; depth < 4 && current; depth++) {
+      chain.push({
+        name: current?.name ?? null,
+        message: current?.message ?? null,
+        code: current?.code ?? null,
+        errno: current?.errno ?? null,
+        address: current?.address ?? null,
+        port: current?.port ?? null,
+        host: current?.host ?? current?.hostname ?? null,
+      });
+      current = current?.cause;
+    }
+    return chain;
+  };
+
+  try {
+    const force = String(req.query.force ?? "").trim() === "true";
+    const raw =
+      req.body?.nameservers ??
+      req.query.nameservers ??
+      req.body?.nameServers ??
+      req.query.nameServers ??
+      null;
+
+    let nameservers = [];
+    if (Array.isArray(raw)) {
+      nameservers = raw.map((value) => String(value).trim()).filter(Boolean);
+    } else if (typeof raw === "string" && raw.trim()) {
+      nameservers = raw
+        .split(/[,\s]+/g)
+        .map((value) => value.trim())
+        .filter(Boolean);
+    }
+
+    if (nameservers.length === 0) {
+      // Сначала пробуем DNS Timeweb из комментария resolv.conf, затем публичные.
+      nameservers = ["92.53.116.104", "92.53.116.13", "1.1.1.1", "8.8.8.8", "77.88.8.8"];
+    }
+
+    let original = "";
+    try {
+      original = await fs.promises.readFile("/etc/resolv.conf", "utf8");
+    } catch (error) {
+      original = `error: ${error?.message || String(error)}`;
+    }
+
+    const shouldRewrite = force || original.includes("nameserver 127.0.0.11");
+    if (!shouldRewrite) {
+      return res.json({
+        success: true,
+        rewritten: false,
+        reason: "resolv.conf does not contain nameserver 127.0.0.11 (use force=true to override)",
+        nameservers,
+        original,
+      });
+    }
+
+    const content =
+      `# Rewritten by /api/db/fix-dns at ${new Date().toISOString()}\n` +
+      nameservers.map((ns) => `nameserver ${ns}`).join("\n") +
+      "\n";
+
+    await fs.promises.writeFile("/etc/resolv.conf", content, "utf8");
+
+    const dnsModule = await import("node:dns/promises");
+    const lookupSafe = async (hostname) => {
+      try {
+        const addresses = await dnsModule.lookup(hostname, { all: true });
+        return {
+          ok: true,
+          addresses: (addresses ?? []).map((entry) => ({
+            address: entry?.address ?? null,
+            family: entry?.family ?? null,
+          })),
+        };
+      } catch (error) {
+        return { ok: false, error: describeError(error) };
+      }
+    };
+
+    const tests = {
+      exampleCom: await lookupSafe("example.com"),
+      iiko: await lookupSafe("api-ru.iiko.services"),
+      timeweb: await lookupSafe("twc1.net"),
+    };
+
+    return res.json({
+      success: true,
+      rewritten: true,
+      nameservers,
+      original,
+      written: content,
+      tests,
+    });
+  } catch (error) {
+    logger.error("Ошибка fix-dns", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+      error: String(error),
+    });
+  }
+});
+
 // Endpoint для проверки статуса заказа в iiko
 app.get("/api/db/check-iiko-order-status", async (req, res) => {
   const SECRET_KEY = "mariko-iiko-setup-2024";
