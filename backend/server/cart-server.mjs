@@ -1151,6 +1151,238 @@ app.get("/api/db/check-terminal-groups", async (req, res) => {
   }
 });
 
+// Endpoint для диагностики доступа к iiko (DNS/TLS/access_token/terminal_groups)
+app.get("/api/db/iiko-debug", async (req, res) => {
+  const SECRET_KEY = "mariko-iiko-setup-2024";
+
+  if (req.query.key !== SECRET_KEY) {
+    return res.status(403).json({ success: false, message: "Invalid key" });
+  }
+
+  try {
+    if (!db) {
+      return res.status(503).json({ success: false, message: "DATABASE_URL не задан" });
+    }
+
+    const restaurantId = req.query.restaurantId || "nn-rozh";
+    const baseUrl = process.env.IIKO_BASE_URL || "https://api-ru.iiko.services";
+    let host = baseUrl;
+    try {
+      host = new URL(baseUrl).hostname;
+    } catch {
+      // ignore
+    }
+
+    const requestedTimeoutMs = Number.parseInt(req.query.timeoutMs ?? "", 10);
+    const timeoutMs =
+      Number.isFinite(requestedTimeoutMs) && requestedTimeoutMs > 0
+        ? Math.min(requestedTimeoutMs, 30000)
+        : 8000;
+
+    const describeError = (error) => {
+      const chain = [];
+      let current = error;
+      for (let depth = 0; depth < 4 && current; depth++) {
+        chain.push({
+          name: current?.name ?? null,
+          message: current?.message ?? null,
+          code: current?.code ?? null,
+          errno: current?.errno ?? null,
+          address: current?.address ?? null,
+          port: current?.port ?? null,
+          host: current?.host ?? current?.hostname ?? null,
+        });
+        current = current?.cause;
+      }
+      return chain;
+    };
+
+    const fetchWithTimeout = async (url, options) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        return await fetch(url, { ...options, signal: controller.signal });
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+
+    const parseJsonSafe = (text) => {
+      if (!text) return { ok: true, json: null, error: null };
+      try {
+        return { ok: true, json: JSON.parse(text), error: null };
+      } catch (error) {
+        return { ok: false, json: null, error: error?.message || "invalid json" };
+      }
+    };
+
+    const { fetchRestaurantIntegrationConfig } = await import("./services/integrationService.mjs");
+    const integrationConfig = await fetchRestaurantIntegrationConfig(restaurantId);
+
+    if (!integrationConfig) {
+      return res.status(400).json({
+        success: false,
+        message: `Интеграция iiko не настроена для ресторана ${restaurantId}`,
+      });
+    }
+
+    const diagnostics = {
+      timestamp: new Date().toISOString(),
+      restaurantId,
+      baseUrl,
+      host,
+      timeoutMs,
+      node: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      config: {
+        organizationId: integrationConfig.iiko_organization_id ?? null,
+        terminalGroupId: integrationConfig.iiko_terminal_group_id ?? null,
+        apiLogin: integrationConfig.api_login ? "✅ Установлен" : "❌ Отсутствует",
+      },
+      dnsLookup: null,
+      egress: null,
+      accessToken: null,
+      terminalGroups: null,
+    };
+
+    try {
+      const dnsModule = await import("node:dns/promises");
+      const addresses = await dnsModule.lookup(host, { all: true });
+      diagnostics.dnsLookup = {
+        ok: true,
+        addresses: (addresses ?? []).map((entry) => ({
+          address: entry?.address ?? null,
+          family: entry?.family ?? null,
+        })),
+      };
+    } catch (error) {
+      diagnostics.dnsLookup = {
+        ok: false,
+        error: describeError(error),
+      };
+    }
+
+    try {
+      const response = await fetchWithTimeout("https://example.com", { method: "GET" });
+      diagnostics.egress = {
+        ok: response.ok,
+        status: response.status,
+      };
+    } catch (error) {
+      diagnostics.egress = {
+        ok: false,
+        error: describeError(error),
+      };
+    }
+
+    let token = null;
+    try {
+      const url = `${baseUrl}/api/1/access_token`;
+      const response = await fetchWithTimeout(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiLogin: integrationConfig.api_login }),
+      });
+      const text = await response.text();
+      const parsed = parseJsonSafe(text);
+
+      if (!parsed.ok) {
+        diagnostics.accessToken = {
+          ok: false,
+          status: response.status,
+          statusText: response.statusText,
+          parseError: parsed.error,
+          bodySnippet: text.replace(/\s+/g, " ").slice(0, 200),
+        };
+      } else if (!response.ok) {
+        diagnostics.accessToken = {
+          ok: false,
+          status: response.status,
+          statusText: response.statusText,
+          errorDescription: parsed.json?.errorDescription ?? parsed.json?.message ?? null,
+          correlationId: parsed.json?.correlationId ?? null,
+          bodySnippet: text.replace(/\s+/g, " ").slice(0, 200),
+        };
+      } else {
+        token = parsed.json?.token ?? null;
+        diagnostics.accessToken = {
+          ok: true,
+          status: response.status,
+          tokenReceived: Boolean(token),
+          tokenLifetime: parsed.json?.token_lifetime ?? null,
+        };
+      }
+    } catch (error) {
+      diagnostics.accessToken = {
+        ok: false,
+        error: describeError(error),
+      };
+    }
+
+    if (token) {
+      try {
+        const url = `${baseUrl}/api/1/terminal_groups`;
+        const response = await fetchWithTimeout(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ organizationIds: [integrationConfig.iiko_organization_id] }),
+        });
+        const text = await response.text();
+        const parsed = parseJsonSafe(text);
+
+        if (!parsed.ok) {
+          diagnostics.terminalGroups = {
+            ok: false,
+            status: response.status,
+            statusText: response.statusText,
+            parseError: parsed.error,
+            bodySnippet: text.replace(/\s+/g, " ").slice(0, 200),
+          };
+        } else if (!response.ok) {
+          diagnostics.terminalGroups = {
+            ok: false,
+            status: response.status,
+            statusText: response.statusText,
+            body: parsed.json ?? null,
+          };
+        } else {
+          const terminalGroups = Array.isArray(parsed.json?.terminalGroups)
+            ? parsed.json.terminalGroups
+            : [];
+          diagnostics.terminalGroups = {
+            ok: true,
+            status: response.status,
+            count: terminalGroups.length,
+            sample: terminalGroups.slice(0, 10).map((group) => ({
+              id: group?.id ?? null,
+              name: group?.name ?? null,
+              address: group?.address ?? null,
+            })),
+          };
+        }
+      } catch (error) {
+        diagnostics.terminalGroups = {
+          ok: false,
+          error: describeError(error),
+        };
+      }
+    }
+
+    return res.json({ success: true, diagnostics });
+  } catch (error) {
+    logger.error("Ошибка iiko-debug", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+      error: String(error),
+    });
+  }
+});
+
 // Endpoint для проверки статуса заказа в iiko
 app.get("/api/db/check-iiko-order-status", async (req, res) => {
   const SECRET_KEY = "mariko-iiko-setup-2024";
