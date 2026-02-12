@@ -1240,11 +1240,26 @@ app.get("/api/db/iiko-debug", async (req, res) => {
         terminalGroupId: integrationConfig.iiko_terminal_group_id ?? null,
         apiLogin: integrationConfig.api_login ? "✅ Установлен" : "❌ Отсутствует",
       },
+      resolvConf: null,
+      etcHosts: null,
       dnsLookup: null,
       egress: null,
+      egressIpHttp: null,
       accessToken: null,
       terminalGroups: null,
     };
+
+    try {
+      diagnostics.resolvConf = await fs.promises.readFile("/etc/resolv.conf", "utf8");
+    } catch (error) {
+      diagnostics.resolvConf = `error: ${error?.message || String(error)}`;
+    }
+
+    try {
+      diagnostics.etcHosts = await fs.promises.readFile("/etc/hosts", "utf8");
+    } catch (error) {
+      diagnostics.etcHosts = `error: ${error?.message || String(error)}`;
+    }
 
     try {
       const dnsModule = await import("node:dns/promises");
@@ -1272,6 +1287,21 @@ app.get("/api/db/iiko-debug", async (req, res) => {
     } catch (error) {
       diagnostics.egress = {
         ok: false,
+        error: describeError(error),
+      };
+    }
+
+    try {
+      const response = await fetchWithTimeout("http://1.1.1.1", { method: "GET", redirect: "manual" });
+      diagnostics.egressIpHttp = {
+        fetched: true,
+        status: response.status,
+        ok: response.ok,
+        location: response.headers.get("location") ?? null,
+      };
+    } catch (error) {
+      diagnostics.egressIpHttp = {
+        fetched: false,
         error: describeError(error),
       };
     }
