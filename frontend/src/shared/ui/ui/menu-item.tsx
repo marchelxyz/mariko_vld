@@ -83,7 +83,7 @@ function MenuItemComponentBase({
   return (
     <div
       className={`bg-white rounded-[16px] overflow-hidden shadow-sm border border-gray-100 transition-shadow flex flex-col ${
-        disabled ? "opacity-70 cursor-not-allowed" : "hover:shadow-md cursor-pointer"
+        disabled ? "opacity-90 cursor-default" : "hover:shadow-md cursor-pointer"
       } ${
         isCompact || isMobile ? 'h-full' : ''
       }`}
@@ -183,34 +183,33 @@ function MenuItemComponentBase({
                     <span className="min-w-[16px] md:min-w-[20px] text-center font-semibold text-xs md:text-sm text-gray-900">
                       {quantity}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => (onIncrease ?? onAdd)?.(item)}
-                      disabled={disabled || quantity >= maxCartItemQuantity}
-                      className={`p-1 rounded-full transition-colors text-mariko-primary ${
-                        disabled || quantity >= maxCartItemQuantity
-                          ? 'opacity-50 cursor-not-allowed'
-                          : 'hover:bg-gray-200'
-                      }`}
-                      aria-label="Увеличить количество"
-                    >
-                      <Plus className="w-3 h-3 md:w-4 md:h-4" />
-                    </button>
+                    {!disabled && (
+                      <button
+                        type="button"
+                        onClick={() => (onIncrease ?? onAdd)?.(item)}
+                        disabled={quantity >= maxCartItemQuantity}
+                        className={`p-1 rounded-full transition-colors text-mariko-primary ${
+                          quantity >= maxCartItemQuantity
+                            ? 'opacity-50 cursor-not-allowed'
+                            : 'hover:bg-gray-200'
+                        }`}
+                        aria-label="Увеличить количество"
+                      >
+                        <Plus className="w-3 h-3 md:w-4 md:h-4" />
+                      </button>
+                    )}
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => onAdd?.(item)}
-                    disabled={disabled}
-                    className={`w-7 h-7 md:w-8 md:h-8 rounded-full text-white shadow-sm transition-colors flex items-center justify-center ${
-                      disabled
-                        ? "bg-gray-300 cursor-not-allowed"
-                        : "bg-mariko-primary hover:bg-mariko-primary/90"
-                    }`}
-                    aria-label="Добавить в корзину"
-                  >
-                    <Plus className="w-4 h-4 md:w-5 md:h-5" />
-                  </button>
+                  !disabled && (
+                    <button
+                      type="button"
+                      onClick={() => onAdd?.(item)}
+                      className="w-7 h-7 md:w-8 md:h-8 rounded-full text-white shadow-sm transition-colors flex items-center justify-center bg-mariko-primary hover:bg-mariko-primary/90"
+                      aria-label="Добавить в корзину"
+                    >
+                      <Plus className="w-4 h-4 md:w-5 md:h-5" />
+                    </button>
+                  )
                 )}
               </div>
             )}

@@ -192,7 +192,26 @@ const Menu = (): JSX.Element => {
     [activeCategoryId, visibleMenu?.categories],
   );
 
-  const itemsToRender = useMemo(() => currentCategory?.items ?? [], [currentCategory]);
+  const itemsToRender = useMemo(() => {
+    const items = currentCategory?.items ?? [];
+    if (!items.length) {
+      return [];
+    }
+
+    // Сохраняем текущий порядок внутри каждой группы, но поднимаем доступные блюда выше.
+    const orderableItems: MenuItem[] = [];
+    const unavailableItems: MenuItem[] = [];
+
+    for (const item of items) {
+      if (isDishOrderable(item)) {
+        orderableItems.push(item);
+      } else {
+        unavailableItems.push(item);
+      }
+    }
+
+    return [...orderableItems, ...unavailableItems];
+  }, [currentCategory, isDishOrderable]);
   const activeDishOrderable = useMemo(
     () => (activeDish ? isDishOrderable(activeDish) : false),
     [activeDish, isDishOrderable],
@@ -373,7 +392,7 @@ const Menu = (): JSX.Element => {
                     onIncrease={handleAddToCart}
                     onDecrease={handleRemoveFromCart}
                     quantity={quantity}
-                    showAddButton={true}
+                    showAddButton={isOrderable || quantity > 0}
                     disabled={!isOrderable}
                   />
                 );
@@ -396,7 +415,7 @@ const Menu = (): JSX.Element => {
         <button
           type="button"
           onClick={handleCartButtonClick}
-          className="fixed right-4 z-[60] inline-flex items-center gap-2 rounded-full border border-white/30 bg-mariko-primary px-4 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(131,14,14,0.45)] transition hover:brightness-110"
+          className="fixed left-1/2 z-[60] inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/30 bg-mariko-primary px-4 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(131,14,14,0.45)] transition hover:brightness-110 max-w-[calc(100vw-24px)]"
           style={{
             bottom: "calc(var(--app-bottom-bar-height) + var(--tg-safe-area-bottom, 0px) + 12px)",
           }}
