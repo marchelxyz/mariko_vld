@@ -74,6 +74,313 @@ const resolveIikoFrontStatus = (order) => {
   return null;
 };
 
+const PROFILE_DUPLICATE_INDEXES = [
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_user_profiles_telegram_id_not_null
+   ON user_profiles(telegram_id)
+   WHERE telegram_id IS NOT NULL`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_user_profiles_vk_id_not_null
+   ON user_profiles(vk_id)
+   WHERE vk_id IS NOT NULL`,
+];
+
+const toTimestampValue = (value) => {
+  if (!value) {
+    return Number.POSITIVE_INFINITY;
+  }
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : Number.POSITIVE_INFINITY;
+};
+
+const compareProfilesByCreatedAt = (left, right) => {
+  const leftTime = toTimestampValue(left?.created_at);
+  const rightTime = toTimestampValue(right?.created_at);
+  if (leftTime !== rightTime) {
+    return leftTime - rightTime;
+  }
+  return String(left?.id ?? "").localeCompare(String(right?.id ?? ""));
+};
+
+const collectDuplicateIdentifierGroups = (profiles, field) => {
+  const grouped = new Map();
+  for (const profile of profiles) {
+    const value = profile?.[field];
+    if (value === null || value === undefined) {
+      continue;
+    }
+    const key = String(value);
+    const bucket = grouped.get(key) ?? [];
+    bucket.push(profile);
+    grouped.set(key, bucket);
+  }
+
+  return Array.from(grouped.entries())
+    .filter(([, records]) => records.length > 1)
+    .map(([value, records]) => {
+      const sorted = [...records].sort(compareProfilesByCreatedAt);
+      return {
+        value,
+        keeperId: String(sorted[0]?.id ?? ""),
+        profileIds: sorted.map((record) => String(record.id)),
+        count: sorted.length,
+      };
+    })
+    .sort((left, right) => right.count - left.count || String(left.value).localeCompare(String(right.value)));
+};
+
+const buildUserProfileDuplicateReport = async () => {
+  if (!db) {
+    throw new Error("DATABASE_URL не задан");
+  }
+
+  const profilesResult = await db.query(
+    `SELECT id, telegram_id, vk_id, created_at, updated_at
+     FROM user_profiles
+     ORDER BY created_at ASC NULLS LAST, id ASC`,
+  );
+  const profiles = profilesResult.rows ?? [];
+
+  const parent = new Map();
+  const find = (id) => {
+    const current = parent.get(id);
+    if (!current) {
+      parent.set(id, id);
+      return id;
+    }
+    if (current === id) {
+      return id;
+    }
+    const root = find(current);
+    parent.set(id, root);
+    return root;
+  };
+  const union = (leftId, rightId) => {
+    const leftRoot = find(leftId);
+    const rightRoot = find(rightId);
+    if (leftRoot !== rightRoot) {
+      parent.set(rightRoot, leftRoot);
+    }
+  };
+
+  for (const profile of profiles) {
+    const profileId = String(profile.id);
+    if (!parent.has(profileId)) {
+      parent.set(profileId, profileId);
+    }
+  }
+
+  const firstByTelegram = new Map();
+  const firstByVk = new Map();
+  for (const profile of profiles) {
+    const profileId = String(profile.id);
+
+    if (profile.telegram_id !== null && profile.telegram_id !== undefined) {
+      const telegramKey = String(profile.telegram_id);
+      const existing = firstByTelegram.get(telegramKey);
+      if (existing) {
+        union(existing, profileId);
+      } else {
+        firstByTelegram.set(telegramKey, profileId);
+      }
+    }
+
+    if (profile.vk_id !== null && profile.vk_id !== undefined) {
+      const vkKey = String(profile.vk_id);
+      const existing = firstByVk.get(vkKey);
+      if (existing) {
+        union(existing, profileId);
+      } else {
+        firstByVk.set(vkKey, profileId);
+      }
+    }
+  }
+
+  const components = new Map();
+  for (const profile of profiles) {
+    const profileId = String(profile.id);
+    const root = find(profileId);
+    const bucket = components.get(root) ?? [];
+    bucket.push(profile);
+    components.set(root, bucket);
+  }
+
+  const duplicateComponents = [];
+  const duplicateMappings = [];
+  for (const records of components.values()) {
+    if (!Array.isArray(records) || records.length <= 1) {
+      continue;
+    }
+    const sorted = [...records].sort(compareProfilesByCreatedAt);
+    const keeper = sorted[0];
+    const duplicates = sorted.slice(1);
+    const telegramIds = Array.from(
+      new Set(
+        sorted
+          .map((record) => record.telegram_id)
+          .filter((value) => value !== null && value !== undefined)
+          .map((value) => String(value)),
+      ),
+    );
+    const vkIds = Array.from(
+      new Set(
+        sorted
+          .map((record) => record.vk_id)
+          .filter((value) => value !== null && value !== undefined)
+          .map((value) => String(value)),
+      ),
+    );
+
+    duplicateComponents.push({
+      keeperId: String(keeper.id),
+      duplicateIds: duplicates.map((record) => String(record.id)),
+      telegramIds,
+      vkIds,
+      size: sorted.length,
+    });
+
+    for (const duplicate of duplicates) {
+      duplicateMappings.push({
+        duplicateId: String(duplicate.id),
+        keeperId: String(keeper.id),
+        duplicateCreatedAt: duplicate.created_at ?? null,
+        keeperCreatedAt: keeper.created_at ?? null,
+      });
+    }
+  }
+
+  const duplicateIds = Array.from(new Set(duplicateMappings.map((entry) => entry.duplicateId)));
+  const duplicateGroupsByTelegram = collectDuplicateIdentifierGroups(profiles, "telegram_id");
+  const duplicateGroupsByVk = collectDuplicateIdentifierGroups(profiles, "vk_id");
+
+  return {
+    checkedAt: new Date().toISOString(),
+    totalProfiles: profiles.length,
+    duplicateProfilesCount: duplicateIds.length,
+    duplicateComponentsCount: duplicateComponents.length,
+    duplicateGroupsByTelegram,
+    duplicateGroupsByVk,
+    duplicateComponents,
+    duplicateMappings,
+  };
+};
+
+const tableExists = async (client, tableName) => {
+  const result = await client.query(`SELECT to_regclass($1) AS table_ref`, [`public.${tableName}`]);
+  return Boolean(result.rows?.[0]?.table_ref);
+};
+
+const ensureUserProfileUniqueIndexes = async (client) => {
+  for (const sql of PROFILE_DUPLICATE_INDEXES) {
+    await client.query(sql);
+  }
+};
+
+const cleanupUserProfileDuplicates = async () => {
+  if (!db) {
+    throw new Error("DATABASE_URL не задан");
+  }
+
+  const before = await buildUserProfileDuplicateReport();
+  const duplicateIds = Array.from(new Set(before.duplicateMappings.map((item) => item.duplicateId)));
+
+  if (!duplicateIds.length) {
+    const client = await db.connect();
+    try {
+      await ensureUserProfileUniqueIndexes(client);
+    } finally {
+      client.release();
+    }
+    return {
+      applied: true,
+      removedProfilesCount: 0,
+      movedReferences: {
+        userAddresses: 0,
+        userCarts: 0,
+        savedCarts: 0,
+      },
+      before,
+      after: before,
+    };
+  }
+
+  const client = await db.connect();
+  const movedReferences = {
+    userAddresses: 0,
+    userCarts: 0,
+    savedCarts: 0,
+  };
+
+  try {
+    await client.query("BEGIN");
+
+    const hasUserAddresses = await tableExists(client, "user_addresses");
+    const hasUserCarts = await tableExists(client, "user_carts");
+    const hasSavedCarts = await tableExists(client, "saved_carts");
+
+    for (const mapping of before.duplicateMappings) {
+      const keeperId = String(mapping.keeperId);
+      const duplicateId = String(mapping.duplicateId);
+
+      if (hasUserAddresses) {
+        const updateAddresses = await client.query(
+          `UPDATE user_addresses
+           SET user_id = $1
+           WHERE user_id = $2`,
+          [keeperId, duplicateId],
+        );
+        movedReferences.userAddresses += Number(updateAddresses.rowCount ?? 0);
+      }
+
+      if (hasUserCarts) {
+        const updateUserCarts = await client.query(
+          `UPDATE user_carts uc
+           SET user_id = $1
+           WHERE uc.user_id = $2
+             AND NOT EXISTS (
+               SELECT 1 FROM user_carts keeper
+               WHERE keeper.user_id = $1
+             )`,
+          [keeperId, duplicateId],
+        );
+        movedReferences.userCarts += Number(updateUserCarts.rowCount ?? 0);
+        await client.query(`DELETE FROM user_carts WHERE user_id = $1`, [duplicateId]);
+      }
+
+      if (hasSavedCarts) {
+        const updateSavedCarts = await client.query(
+          `UPDATE saved_carts sc
+           SET user_id = $1, updated_at = NOW()
+           WHERE sc.user_id = $2
+             AND NOT EXISTS (
+               SELECT 1 FROM saved_carts keeper
+               WHERE keeper.user_id = $1
+             )`,
+          [keeperId, duplicateId],
+        );
+        movedReferences.savedCarts += Number(updateSavedCarts.rowCount ?? 0);
+        await client.query(`DELETE FROM saved_carts WHERE user_id = $1`, [duplicateId]);
+      }
+    }
+
+    await client.query(`DELETE FROM user_profiles WHERE id = ANY($1::text[])`, [duplicateIds]);
+    await ensureUserProfileUniqueIndexes(client);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  const after = await buildUserProfileDuplicateReport();
+  return {
+    applied: true,
+    removedProfilesCount: duplicateIds.length,
+    movedReferences,
+    before,
+    after,
+  };
+};
+
 // Настройка CORS с поддержкой credentials
 // При использовании credentials: true нельзя использовать wildcard '*'
 // Поэтому возвращаем конкретный origin из запроса
@@ -207,6 +514,88 @@ app.get("/api/db/check", async (req, res) => {
       message: error.message,
       error: String(error),
       database: Boolean(db),
+    });
+  }
+});
+
+app.get("/api/db/check-profile-duplicates", async (req, res) => {
+  const SECRET_KEY = "mariko-iiko-setup-2024";
+
+  if (req.query.key !== SECRET_KEY) {
+    return res.status(403).json({ success: false, message: "Invalid key" });
+  }
+
+  try {
+    if (!db) {
+      return res.status(503).json({
+        success: false,
+        message: "DATABASE_URL не задан",
+        database: false,
+      });
+    }
+
+    const report = await buildUserProfileDuplicateReport();
+    return res.json({
+      success: true,
+      report,
+    });
+  } catch (error) {
+    logger.error("Ошибка проверки дублей user_profiles", error);
+    return res.status(500).json({
+      success: false,
+      message: error?.message || "Не удалось проверить дубли user_profiles",
+      error: String(error),
+    });
+  }
+});
+
+app.post("/api/db/fix-profile-duplicates", async (req, res) => {
+  const SECRET_KEY = "mariko-iiko-setup-2024";
+
+  if (req.query.key !== SECRET_KEY) {
+    return res.status(403).json({ success: false, message: "Invalid key" });
+  }
+
+  try {
+    if (!db) {
+      return res.status(503).json({
+        success: false,
+        message: "DATABASE_URL не задан",
+        database: false,
+      });
+    }
+
+    const applyFromQuery = String(req.query.apply ?? "").toLowerCase();
+    const apply =
+      req.body?.apply === true ||
+      applyFromQuery === "1" ||
+      applyFromQuery === "true" ||
+      applyFromQuery === "yes";
+
+    if (!apply) {
+      const report = await buildUserProfileDuplicateReport();
+      return res.json({
+        success: true,
+        applied: false,
+        dryRun: true,
+        message: "Проверка выполнена в dry-run режиме. Передайте apply=true для удаления дублей.",
+        report,
+      });
+    }
+
+    const result = await cleanupUserProfileDuplicates();
+    return res.json({
+      success: true,
+      applied: true,
+      message: "Очистка дублей профилей выполнена",
+      result,
+    });
+  } catch (error) {
+    logger.error("Ошибка очистки дублей user_profiles", error);
+    return res.status(500).json({
+      success: false,
+      message: error?.message || "Не удалось очистить дубли user_profiles",
+      error: String(error),
     });
   }
 });
