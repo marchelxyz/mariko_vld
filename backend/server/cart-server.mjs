@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { PORT, CART_SERVER_HOST } from "./config.mjs";
+import { PORT, CART_SERVER_HOST, MAX_ORDERS_LIMIT, CART_ORDERS_TABLE } from "./config.mjs";
 import { db } from "./postgresClient.mjs";
 import { initializeDatabase, checkDatabaseTables } from "./databaseInit.mjs";
 import { runAutoMigration } from "./autoMigration.mjs";
