@@ -436,6 +436,34 @@ curl "https://<your-domain>/api/db/setup-iiko?key=mariko-iiko-setup-2024"
 
 ## API Endpoints
 
+### ❌ Проблема: `Мои заказы` падают с "Нет связи" из-за `MAX_ORDERS_LIMIT is not defined`
+
+**Дата:** 2026-02-20
+**Симптомы:**
+- Экран `Мои заказы` показывает ошибку загрузки (`Нет связи` / `Не получилось загрузить заказы`).
+- В ответе backend на `/api/cart/user-orders` статус `500`.
+- Текст ошибки: `ReferenceError: MAX_ORDERS_LIMIT is not defined`.
+
+**Причина:**
+- В `backend/server/cart-server.mjs` endpoint `/api/cart/user-orders` использует
+  `MAX_ORDERS_LIMIT` и `CART_ORDERS_TABLE`, но эти константы не были импортированы из `config.mjs`.
+
+**Решение:**
+- Добавить импорты:
+```javascript
+import { PORT, CART_SERVER_HOST, MAX_ORDERS_LIMIT, CART_ORDERS_TABLE } from "./config.mjs";
+```
+- Задеплоить фикс.
+
+**Проверка:**
+```bash
+curl "https://<your-domain>/api/cart/user-orders?telegramId=<id>&limit=20"
+curl "https://<your-domain>/api/cart/user-orders?phone=<phone>&limit=20"
+```
+Оба запроса должны возвращать `200` и JSON с `success: true`.
+
+---
+
 ### 🔐 Защита setup endpoints секретным ключом
 
 Все setup endpoints защищены query параметром `?key=mariko-iiko-setup-2024`:
