@@ -115,6 +115,28 @@ const parseStreetAndHouse = (value) => {
   };
 };
 
+const resolveCanonicalProfileId = async ({ requestedId, telegramId, vkId }) => {
+  const normalizedTelegramId = normaliseNullableString(telegramId);
+  if (normalizedTelegramId) {
+    const existingByTelegram = await fetchUserProfile(normalizedTelegramId);
+    if (existingByTelegram?.id) {
+      return String(existingByTelegram.id);
+    }
+    return normalizedTelegramId;
+  }
+
+  const normalizedVkId = normaliseNullableString(vkId);
+  if (normalizedVkId) {
+    const existingByVk = await fetchUserProfile(normalizedVkId);
+    if (existingByVk?.id) {
+      return String(existingByVk.id);
+    }
+    return normalizedVkId;
+  }
+
+  return normaliseNullableString(requestedId) ?? "";
+};
+
 export function registerCartRoutes(app) {
   app.get("/health", (req, res) => {
     res.json(healthPayload());
@@ -183,18 +205,19 @@ export function registerCartRoutes(app) {
     const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getTelegramIdFromHeaders(req);
     const headerVkId = getVerifiedVkIdFromHeaders(req);
-    const resolvedId =
-      (typeof body.id === "string" && body.id.trim()) ||
-      headerUserId ||
-      (typeof body.telegramId === "string" && body.telegramId.trim()) ||
-      (typeof body.vkId === "string" && body.vkId.trim());
-
-    if (!resolvedId) {
-      return res.status(400).json({ success: false, message: "Не удалось определить пользователя" });
-    }
-
     try {
-      const effectiveId = resolvedId;
+      const effectiveId = await resolveCanonicalProfileId({
+        requestedId:
+          (typeof body.id === "string" && body.id.trim()) ||
+          headerUserId ||
+          (typeof body.telegramId === "string" && body.telegramId.trim()) ||
+          (typeof body.vkId === "string" && body.vkId.trim()),
+        telegramId: body.telegramId ?? headerTelegramId,
+        vkId: body.vkId ?? headerVkId,
+      });
+      if (!effectiveId) {
+        return res.status(400).json({ success: false, message: "Не удалось определить пользователя" });
+      }
       const row = await upsertUserProfileRecord({
         id: effectiveId,
         telegramId: body.telegramId ?? headerTelegramId ?? body.id,
@@ -273,17 +296,20 @@ export function registerCartRoutes(app) {
     const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getTelegramIdFromHeaders(req);
     const headerVkId = getVerifiedVkIdFromHeaders(req);
-    const resolvedId = normaliseNullableString(body.id) ?? headerUserId;
-    if (!resolvedId) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Передайте ID пользователя для обновления" });
-    }
     try {
-      const effectiveId = resolvedId;
+      const effectiveId = await resolveCanonicalProfileId({
+        requestedId: normaliseNullableString(body.id) ?? headerUserId,
+        telegramId: body.telegramId ?? headerTelegramId,
+        vkId: body.vkId ?? headerVkId,
+      });
+      if (!effectiveId) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Передайте ID пользователя для обновления" });
+      }
       const row = await upsertUserProfileRecord({
         id: effectiveId,
-        telegramId: body.telegramId ?? headerTelegramId ?? resolvedId,
+        telegramId: body.telegramId ?? headerTelegramId ?? effectiveId,
         name: body.name,
         phone: body.phone,
         primaryAddressId: body.primaryAddressId,
@@ -359,13 +385,20 @@ export function registerCartRoutes(app) {
     const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getTelegramIdFromHeaders(req);
     const headerVkId = getVkIdFromHeaders(req);
-    const resolvedId =
-      (typeof body.id === "string" && body.id.trim()) ||
-      (headerUserId ?? headerTelegramId ?? headerVkId ?? (typeof body.userId === "string" && body.userId.trim()));
-    if (!resolvedId) {
-      return res.status(400).json({ success: false, message: "Не удалось определить пользователя" });
-    }
     try {
+      const resolvedId = await resolveCanonicalProfileId({
+        requestedId:
+          (typeof body.id === "string" && body.id.trim()) ||
+          (headerUserId ??
+            headerTelegramId ??
+            headerVkId ??
+            (typeof body.userId === "string" && body.userId.trim())),
+        telegramId: body.telegramId ?? headerTelegramId,
+        vkId: body.vkId ?? headerVkId ?? headerUserId,
+      });
+      if (!resolvedId) {
+        return res.status(400).json({ success: false, message: "Не удалось определить пользователя" });
+      }
       const shown = body.shown === true;
       // Определяем telegramId и vkId для сохранения в профиле
       // Если есть VK ID в заголовках, это VK пользователь

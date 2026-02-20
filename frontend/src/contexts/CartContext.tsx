@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { logger } from "@/lib/logger";
-import { getUser } from "@/lib/telegram";
+import { getUser } from "@/lib/platform";
 import type { MenuItem } from "@/shared/data/menuTypes";
 
 export type CartItem = {

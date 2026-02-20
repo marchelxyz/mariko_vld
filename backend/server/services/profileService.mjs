@@ -218,16 +218,6 @@ export const fetchUserProfile = async (identifier) => {
       }
     }
 
-    if (asString) {
-      const idMatch = await queryOne(
-        `SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles WHERE id = $1 LIMIT 1`,
-        [asString],
-      );
-      if (idMatch) {
-        return idMatch;
-      }
-    }
-
     const numeric = Number(asString);
     if (Number.isFinite(numeric)) {
       // Сначала ищем по telegram_id
@@ -247,12 +237,15 @@ export const fetchUserProfile = async (identifier) => {
       if (vkResult) {
         return vkResult;
       }
-      const vkFallback = await queryOne(
-        `SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles WHERE vk_id = $1 LIMIT 1`,
-        [numeric],
+    }
+
+    if (asString) {
+      const idMatch = await queryOne(
+        `SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles WHERE id = $1 LIMIT 1`,
+        [asString],
       );
-      if (vkFallback) {
-        return vkFallback;
+      if (idMatch) {
+        return idMatch;
       }
     }
     return null;
