@@ -9,6 +9,7 @@ import {
 } from "../services/profileService.mjs";
 import { getAppSettings } from "../services/appSettingsService.mjs";
 import { fetchRestaurantIntegrationConfig, enqueueIikoOrder } from "../services/integrationService.mjs";
+import { iikoClient } from "../integrations/iiko-client.mjs";
 import { normaliseNullableString } from "../utils.mjs";
 import { addressService } from "../services/addressService.mjs";
 import { verifyVKInitData, getVKUserIdFromInitData } from "../utils/vkAuth.mjs";
@@ -67,6 +68,36 @@ const normalizePaymentMethod = (value) => {
     return normalized;
   }
   return "cash";
+};
+
+const normaliseIikoProductId = (value) => {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  return String(value).trim();
+};
+
+const collectStopListBlockedItems = (items, stopListProductIds) => {
+  if (!Array.isArray(items) || !(stopListProductIds instanceof Set) || stopListProductIds.size === 0) {
+    return [];
+  }
+  return items
+    .map((item, index) => {
+      const iikoProductId = normaliseIikoProductId(item?.iiko_product_id ?? item?.iikoProductId);
+      if (!iikoProductId) {
+        return null;
+      }
+      if (!stopListProductIds.has(iikoProductId.toLowerCase())) {
+        return null;
+      }
+      return {
+        index: index + 1,
+        itemId: item?.id ?? null,
+        name: item?.name ?? null,
+        iikoProductId,
+      };
+    })
+    .filter(Boolean);
 };
 
 const parseStreetAndHouse = (value) => {
@@ -532,6 +563,47 @@ export function registerCartRoutes(app) {
             iikoProductId,
           };
         });
+
+        if (restaurantId) {
+          const integrationConfig = await fetchRestaurantIntegrationConfig(restaurantId);
+          if (integrationConfig) {
+            const stopListResult = await iikoClient.getStopList(integrationConfig);
+            if (stopListResult.success) {
+              const stopListProductIds = new Set(
+                (Array.isArray(stopListResult.productIds) ? stopListResult.productIds : [])
+                  .map((id) => normaliseIikoProductId(id).toLowerCase())
+                  .filter(Boolean),
+              );
+              const blockedItems = collectStopListBlockedItems(normalizedOrderItems, stopListProductIds);
+              if (blockedItems.length > 0) {
+                const blockedNames = Array.from(
+                  new Set(
+                    blockedItems
+                      .map((item) => (typeof item?.name === "string" ? item.name.trim() : ""))
+                      .filter(Boolean),
+                  ),
+                );
+                const blockedSummary =
+                  blockedNames.length > 0
+                    ? `${blockedNames.slice(0, 3).join(", ")}${blockedNames.length > 3 ? " и другие" : ""}`
+                    : `${blockedItems.length} поз.`;
+                return res.status(409).json({
+                  success: false,
+                  code: "IIKO_STOP_LIST_BLOCK",
+                  message: `Некоторые блюда сейчас недоступны (стоп-лист): ${blockedSummary}. Удалите их из корзины и попробуйте снова.`,
+                  details: {
+                    blockedCount: blockedItems.length,
+                    blockedItems: blockedItems.slice(0, 20),
+                  },
+                });
+              }
+            } else {
+              console.warn(
+                `⚠️ Не удалось проверить стоп-лист iiko для ресторана ${restaurantId}: ${stopListResult.error}`,
+              );
+            }
+          }
+        }
 
         console.log(`💾 Saving order ${orderId} to PostgreSQL`);
         const insertValues = [

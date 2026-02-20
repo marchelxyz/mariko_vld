@@ -5,6 +5,8 @@ export interface MenuItem {
   price: number;
   iikoProductId?: string;
   isOrderable?: boolean;
+  isAvailable?: boolean;
+  unavailableReason?: string;
   weight?: string;
   calories?: string;
   imageUrl?: string;

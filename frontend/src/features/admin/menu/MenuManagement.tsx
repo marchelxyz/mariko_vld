@@ -2,14 +2,18 @@
  * Обновлённый интерфейс управления меню ресторанов
  */
 
-import { Plus, Edit, ArrowLeft, Copy, UtensilsCrossed } from 'lucide-react';
+import { Plus, Edit, ArrowLeft, Copy, UtensilsCrossed, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { 
   fetchRestaurantMenu,
+  fetchIikoReadiness,
   saveRestaurantMenu,
   uploadMenuImage,
   fetchMenuImageLibrary,
+  syncRestaurantMenuFromIiko,
   MenuImageAsset,
+  type IikoReadinessResponse,
+  type SyncIikoMenuResult,
 } from "@shared/api/menuApi";
 import { type MenuCategory, type MenuItem, type RestaurantMenu } from "@shared/data";
 import { useAdmin, useCities } from "@shared/hooks";
@@ -37,6 +41,11 @@ interface MenuManagementProps {
 
 const createClientId = (prefix: string): string =>
   `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+const formatIikoSyncSummary = (result: SyncIikoMenuResult): string => {
+  const summary = result.summary;
+  return `Категорий: ${summary.categoriesPrepared}, блюд: ${summary.itemsPrepared}, получено из iiko: ${summary.productsReceived}`;
+};
 
 type RestaurantEntry = {
   id: string;
@@ -129,6 +138,8 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
   const [menu, setMenu] = useState<RestaurantMenu | null>(null);
   const [isLoadingMenu, setIsLoadingMenu] = useState<boolean>(false);
   const [isSavingMenu, setIsSavingMenu] = useState<boolean>(false);
+  const [isSyncingIiko, setIsSyncingIiko] = useState<boolean>(false);
+  const [isCheckingIikoReadiness, setIsCheckingIikoReadiness] = useState<boolean>(false);
   const [activeCategoryId, setActiveCategoryId] = useState<string>('');
 
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
@@ -334,6 +345,87 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     },
     [menu, selectedRestaurantId],
   );
+
+  const runIikoSync = useCallback(
+    async (apply: boolean) => {
+      if (!selectedRestaurantId) {
+        return;
+      }
+
+      setIsSyncingIiko(true);
+      try {
+        const result = await syncRestaurantMenuFromIiko(selectedRestaurantId, {
+          apply,
+          includeInactive: false,
+          returnMenu: true,
+        });
+
+        if (result.menu) {
+          setMenu(result.menu);
+          setActiveCategoryId((prev) => {
+            if (prev && result.menu?.categories.some((category) => category.id === prev)) {
+              return prev;
+            }
+            return result.menu?.categories[0]?.id ?? '';
+          });
+        }
+
+        const warningsCount = Array.isArray(result.warnings) ? result.warnings.length : 0;
+        toast({
+          title: apply ? "✅ Синхронизация применена" : "👀 Предпросмотр синхронизации",
+          description: `${formatIikoSyncSummary(result)}${warningsCount ? ` • предупреждений: ${warningsCount}` : ''}`,
+        });
+      } catch (error) {
+        toast({
+          title: "❌ Не удалось синхронизировать меню",
+          description: error instanceof Error ? error.message : "Неожиданная ошибка синхронизации",
+          variant: "destructive",
+        });
+      } finally {
+        setIsSyncingIiko(false);
+      }
+    },
+    [selectedRestaurantId],
+  );
+
+  const runIikoReadinessCheck = useCallback(async () => {
+    if (!selectedRestaurantId) {
+      return;
+    }
+
+    setIsCheckingIikoReadiness(true);
+    try {
+      const result: IikoReadinessResponse = await fetchIikoReadiness(selectedRestaurantId);
+      const coverage = result.readiness.menuCoverage.activeCoveragePercent;
+      const missingMappings = result.readiness.menuCoverage.activeMissingIikoProductId;
+      const duplicatesCount = result.readiness.duplicateIikoProductIds.length;
+      const missingConfigCount = result.readiness.missingConfigFields.length;
+      const missingColumnsCount = result.readiness.missingOrderColumns.length;
+
+      const description = [
+        `Покрытие активного меню: ${coverage}%`,
+        `Без iiko ID: ${missingMappings}`,
+        `Дублей iiko ID: ${duplicatesCount}`,
+        `Проблем конфигурации: ${missingConfigCount + missingColumnsCount}`,
+      ].join(" • ");
+
+      toast({
+        title: result.readiness.readyForSendToIiko
+          ? "✅ Ресторан готов к отправке в iiko"
+          : "⚠️ Найдены проблемы readiness",
+        description,
+        variant: result.readiness.readyForSendToIiko ? "default" : "destructive",
+      });
+    } catch (error) {
+      toast({
+        title: "❌ Не удалось проверить readiness",
+        description: error instanceof Error ? error.message : "Неожиданная ошибка проверки",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCheckingIikoReadiness(false);
+    }
+  }, [selectedRestaurantId]);
 
   const handleSelectCity = (cityId: string) => {
     setSelectedCityId(cityId);
@@ -916,8 +1008,39 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
         <Button variant="ghost" className="text-white/80" onClick={handleBackToCities}>
           Изменить город
         </Button>
-          {canManage && (
+        {canManage && (
           <>
+            <Button
+              variant="outline"
+              disabled={isSyncingIiko || isSavingMenu || !selectedRestaurantId}
+              onClick={() => void runIikoSync(false)}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isSyncingIiko ? 'animate-spin' : ''}`} />
+              Предпросмотр синка iiko
+            </Button>
+            <Button
+              variant="outline"
+              disabled={isSyncingIiko || isSavingMenu || !selectedRestaurantId}
+              onClick={() => void runIikoSync(true)}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isSyncingIiko ? 'animate-spin' : ''}`} />
+              Применить синк iiko
+            </Button>
+            <Button
+              variant="outline"
+              disabled={
+                isCheckingIikoReadiness ||
+                isSyncingIiko ||
+                isSavingMenu ||
+                !selectedRestaurantId
+              }
+              onClick={() => void runIikoReadinessCheck()}
+            >
+              <RefreshCw
+                className={`w-4 h-4 mr-2 ${isCheckingIikoReadiness ? 'animate-spin' : ''}`}
+              />
+              Проверить readiness iiko
+            </Button>
             <Button variant="outline" onClick={() => handleStartEditCategory()}>
               <Plus className="w-4 h-4 mr-2" />
               Добавить категорию
@@ -929,6 +1052,11 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
           </>
         )}
       </div>
+      {canManage && (
+        <p className="text-white/60 text-xs">
+          Предпросмотр загружает меню из iiko только в текущий экран. В БД сохраняется только «Применить синк iiko».
+        </p>
+      )}
 
       <div className="bg-mariko-secondary/40 rounded-[24px] p-4">
         {isLoadingMenu ? (
