@@ -569,6 +569,25 @@ app.get("/api/db/setup-iiko", async (req, res) => {
     `);
     results.restaurant_integrations_table = "created/exists";
 
+    await query(`
+      CREATE TABLE IF NOT EXISTS integration_job_logs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        provider VARCHAR(50) NOT NULL,
+        restaurant_id VARCHAR(255),
+        order_id UUID,
+        action VARCHAR(100) NOT NULL,
+        status VARCHAR(50) NOT NULL,
+        payload JSONB DEFAULT '{}'::jsonb,
+        error TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_integration_job_logs_provider_order_created_at
+      ON integration_job_logs(provider, order_id, created_at DESC)
+    `);
+    results.integration_job_logs_table = "created/exists";
+
     // 4. Получаем список ресторанов
     const restaurantsList = await query("SELECT id, name, address FROM restaurants ORDER BY id");
     results.restaurants = restaurantsList.rows;

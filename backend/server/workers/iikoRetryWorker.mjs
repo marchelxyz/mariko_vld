@@ -13,6 +13,20 @@ const RETRY_BATCH_LIMIT = parseEnvInt("IIKO_RETRY_BATCH_LIMIT", 25);
 const RETRY_MAX_ATTEMPTS = parseEnvInt("IIKO_RETRY_MAX_ATTEMPTS", 5);
 const RETRY_ATTEMPT_WINDOW_HOURS = parseEnvInt("IIKO_RETRY_ATTEMPT_WINDOW_HOURS", 24);
 const RETRY_WORKER_ENABLED = process.env.IIKO_RETRY_WORKER_ENABLED !== "false";
+let integrationLogsTableMissingWarned = false;
+
+const isUndefinedTableError = (error, tableName) => {
+  const code = String(error?.code ?? "");
+  const message = String(error?.message ?? "").toLowerCase();
+  const table = String(tableName ?? "").toLowerCase();
+  if (code === "42P01") {
+    return true;
+  }
+  if (!table) {
+    return false;
+  }
+  return message.includes(table) && message.includes("does not exist");
+};
 
 const safeParseJsonField = (value, fallback) => {
   if (value === null || value === undefined) {
@@ -110,17 +124,28 @@ const fetchRetryCandidates = async () => {
 };
 
 const fetchRecentErrorAttempts = async (orderId) => {
-  const row = await queryOne(
-    `SELECT COUNT(*)::int AS attempts
-     FROM integration_job_logs
-     WHERE provider = $1
-       AND order_id = $2
-       AND action = 'create_order'
-       AND status = 'error'
-       AND created_at >= NOW() - make_interval(hours => $3)`,
-    [INTEGRATION_PROVIDER, orderId, RETRY_ATTEMPT_WINDOW_HOURS],
-  );
-  return Number(row?.attempts ?? 0);
+  try {
+    const row = await queryOne(
+      `SELECT COUNT(*)::int AS attempts
+       FROM integration_job_logs
+       WHERE provider = $1
+         AND order_id = $2
+         AND action = 'create_order'
+         AND status = 'error'
+         AND created_at >= NOW() - make_interval(hours => $3)`,
+      [INTEGRATION_PROVIDER, orderId, RETRY_ATTEMPT_WINDOW_HOURS],
+    );
+    return Number(row?.attempts ?? 0);
+  } catch (error) {
+    if (isUndefinedTableError(error, "integration_job_logs")) {
+      if (!integrationLogsTableMissingWarned) {
+        integrationLogsTableMissingWarned = true;
+        logger.warn("iiko-retry-worker: таблица integration_job_logs не найдена, лимит повторов по истории отключен до миграции");
+      }
+      return 0;
+    }
+    throw error;
+  }
 };
 
 const createRestaurantAlert = () => ({

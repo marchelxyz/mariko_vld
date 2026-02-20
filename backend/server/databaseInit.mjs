@@ -115,6 +115,38 @@ const SCHEMAS = {
     );
   `,
 
+  restaurant_integrations: `
+    CREATE TABLE IF NOT EXISTS restaurant_integrations (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      restaurant_id VARCHAR(255) NOT NULL,
+      provider VARCHAR(50) NOT NULL DEFAULT 'iiko',
+      is_enabled BOOLEAN DEFAULT true,
+      api_login VARCHAR(255),
+      iiko_organization_id VARCHAR(255),
+      iiko_terminal_group_id VARCHAR(255),
+      delivery_terminal_id VARCHAR(255),
+      default_payment_type VARCHAR(255),
+      source_key VARCHAR(255),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(restaurant_id, provider)
+    );
+  `,
+
+  integration_job_logs: `
+    CREATE TABLE IF NOT EXISTS integration_job_logs (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      provider VARCHAR(50) NOT NULL,
+      restaurant_id VARCHAR(255),
+      order_id UUID,
+      action VARCHAR(100) NOT NULL,
+      status VARCHAR(50) NOT NULL,
+      payload JSONB DEFAULT '{}'::jsonb,
+      error TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `,
+
   restaurant_payments: `
     CREATE TABLE IF NOT EXISTS restaurant_payments (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -315,6 +347,8 @@ const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_cart_orders_created_at ON ${CART_ORDERS_TABLE}(created_at DESC);`,
   `CREATE INDEX IF NOT EXISTS idx_cart_orders_meta_telegram_user ON ${CART_ORDERS_TABLE} USING GIN (meta jsonb_path_ops);`,
   `CREATE INDEX IF NOT EXISTS idx_admin_users_telegram_id ON admin_users(telegram_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_restaurant_integrations_restaurant_provider ON restaurant_integrations(restaurant_id, provider);`,
+  `CREATE INDEX IF NOT EXISTS idx_integration_job_logs_provider_order_created_at ON integration_job_logs(provider, order_id, created_at DESC);`,
   `CREATE INDEX IF NOT EXISTS idx_restaurant_payments_restaurant_id ON restaurant_payments(restaurant_id);`,
   `CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);`,
   `CREATE INDEX IF NOT EXISTS idx_payments_provider_payment_id ON payments(provider_payment_id);`,
@@ -437,6 +471,8 @@ export async function initializeDatabase() {
       "cart_orders",        // cart_orders независима
       "admin_users",        // admin_users независима
       "app_settings",       // app_settings независима
+      "restaurant_integrations", // restaurant_integrations независима
+      "integration_job_logs", // integration_job_logs независима
       "restaurant_payments", // restaurant_payments независима
       "payments",           // payments зависит от cart_orders
       "cities",             // cities независима
@@ -1053,6 +1089,8 @@ export async function checkDatabaseTables() {
       "user_carts",
       CART_ORDERS_TABLE,
       "admin_users",
+      "restaurant_integrations",
+      "integration_job_logs",
       "restaurant_payments",
       "payments",
       "cities",
