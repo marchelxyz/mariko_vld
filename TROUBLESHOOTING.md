@@ -3,7 +3,23 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-02-11
+**Последнее обновление:** 2026-02-20
+
+---
+
+## Обязательные правила использования
+
+1. Перед началом любой диагностики сначала открывайте этот файл и проверяйте совпадение симптомов.
+2. Если похожий кейс уже есть, сначала применяйте существующее решение из него.
+3. Если проблема новая, добавляйте новый кейс в этот файл сразу после фикса.
+4. Для каждого нового кейса фиксируйте:
+   - дату;
+   - симптомы;
+   - причину;
+   - решение;
+   - шаги проверки;
+   - commit hash (если есть).
+5. Все новые commit message в проекте пишутся только на русском языке (см. также `AGENTS.md`).
 
 ---
 
@@ -200,6 +216,51 @@ node export-from-prod.mjs YOUR_API_KEY
 
 ---
 
+### ❌ Проблема: DNS в Timeweb контейнере не резолвит домены (`EAI_AGAIN`) → iiko `fetch failed`
+
+**Дата:** 2026-02-20  
+**Симптомы:**
+- `/api/db/check-terminal-groups` и другие iiko endpoints возвращают `fetch failed`
+- Проверки по `api_login`/`organizationId`/`terminalGroupId` выглядят корректными
+- Диагностика показывает `getaddrinfo EAI_AGAIN api-ru.iiko.services`
+- Аналогично не резолвятся и другие домены (например `example.com`)
+
+**Причина:**
+- В контейнере использовался Docker DNS (`nameserver 127.0.0.11`), который периодически не отвечал.
+- Интернет по IP был доступен, но DNS-резолвинг доменных имён падал.
+
+**Решение (временное оперативное):**
+1. Использовать диагностику:
+```bash
+curl "https://<backend>/api/db/iiko-debug?key=mariko-iiko-setup-2024&restaurantId=<restaurantId>"
+```
+2. Выполнить DNS-фикс:
+```bash
+curl -X POST "https://<backend>/api/db/fix-dns?key=mariko-iiko-setup-2024"
+```
+3. После фикса повторно проверить:
+```bash
+curl "https://<backend>/api/db/iiko-debug?key=mariko-iiko-setup-2024&restaurantId=<restaurantId>"
+curl "https://<backend>/api/db/check-terminal-groups?key=mariko-iiko-setup-2024&restaurantId=<restaurantId>"
+```
+
+**Ожидаемый результат после фикса:**
+- `dnsLookup.ok = true`
+- `accessToken.ok = true`
+- `terminalGroups.success = true`
+- Заказы `cash/card` получают `providerStatus = sent`
+
+**Важно:**
+- Это оперативный runtime-фикс. После рестарта контейнера DNS может снова откатиться.
+- Нужен постоянный фикс на уровне старта контейнера/сети платформы Timeweb.
+
+**Связанные коммиты:**
+- `cf417dd` — расширенная диагностика сетевых ошибок iiko
+- `71f7ca3` — добавлен вывод `resolv.conf` и raw egress-проверки
+- `17d8415` — добавлен endpoint `/api/db/fix-dns`
+
+---
+
 ## Timeweb Deployment
 
 ### ⚠️ Проблема: Код не обновляется после git push
@@ -370,6 +431,8 @@ if (req.query.key !== SECRET_KEY) {
 - `/api/db/check-terminal-groups`
 - `/api/db/check-iiko-order-status`
 - `/api/db/get-iiko-payment-types`
+- `/api/db/iiko-debug`
+- `/api/db/fix-dns`
 
 ---
 
@@ -482,5 +545,5 @@ curl -X POST "https://api-ru.iiko.services/api/1/organizations" \
 
 ---
 
-**Последнее обновление:** 2026-02-11 20:45 UTC
-**Автор:** Claude Sonnet 4.5
+**Последнее обновление:** 2026-02-20 10:28 UTC
+**Автор:** Codex (GPT-5)
