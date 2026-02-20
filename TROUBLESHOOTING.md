@@ -399,6 +399,41 @@ curl https://your-backend.com/api/db/check
 
 ---
 
+### ❌ Проблема: `relation "integration_job_logs" does not exist` в `iiko-retry-worker`
+
+**Дата:** 2026-02-20
+**Симптомы:**
+- В логах циклически повторяется ошибка `42P01`:
+  - `Database query error: error: relation "integration_job_logs" does not exist`
+  - `iiko-retry-worker: ошибка повторной отправки`
+- Retry-воркер не может посчитать число прошлых попыток по заказу.
+
+**Причина:**
+- На части окружений таблица `integration_job_logs` не создавалась автоматически:
+  - `databaseInit` раньше не содержал эту схему;
+  - endpoint `/api/db/setup-iiko` создавал только `restaurant_integrations`.
+
+**Решение:**
+1. Добавить создание таблиц `restaurant_integrations` и `integration_job_logs` в `backend/server/databaseInit.mjs`.
+2. Добавить создание `integration_job_logs` (и индекс) в `/api/db/setup-iiko` в `backend/server/cart-server.mjs`.
+3. Добавить защиту в `backend/server/workers/iikoRetryWorker.mjs`:
+   при отсутствии таблицы временно считать `attempts=0` и писать один warn, без спама error.
+4. Применить setup endpoint на стенде:
+```bash
+curl "https://<your-domain>/api/db/setup-iiko?key=mariko-iiko-setup-2024"
+```
+
+**Проверка:**
+```bash
+# 1) Проверить setup
+curl "https://<your-domain>/api/db/setup-iiko?key=mariko-iiko-setup-2024"
+
+# 2) Убедиться, что в логах больше нет 42P01 по integration_job_logs
+# (через Timeweb API logs или панель логов)
+```
+
+---
+
 ## API Endpoints
 
 ### 🔐 Защита setup endpoints секретным ключом
