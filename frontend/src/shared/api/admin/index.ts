@@ -1,2 +1,8 @@
 export { adminApi } from './adminApi';
-export { adminServerApi, type AdminPanelUser, type AdminBooking } from './adminServerApi';
+export {
+  adminServerApi,
+  type AdminPanelUser,
+  type AdminBooking,
+  type AdminDeliveryAccessUser,
+  type DeliveryAccessMode,
+} from './adminServerApi';

@@ -2,7 +2,7 @@
  * Главная страница админ-панели
  */
 
-import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck, Megaphone, Sparkles, Grid3x3, Users, ClipboardList, Settings } from 'lucide-react';
+import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck, Megaphone, Sparkles, Grid3x3, Users, ClipboardList, Settings, ShieldCheck } from 'lucide-react';
 import { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNavigation, Header } from "@shared/ui/widgets";
@@ -29,6 +29,11 @@ const RolesManagementLazy = lazy(() =>
 const DeliveryManagementLazy = lazy(() =>
   import("@features/admin").then((module) => ({
     default: module.DeliveryManagement,
+  })),
+);
+const DeliveryAccessManagementLazy = lazy(() =>
+  import("@features/admin").then((module) => ({
+    default: module.DeliveryAccessManagement,
   })),
 );
 const PromotionsManagementLazy = lazy(() =>
@@ -58,6 +63,7 @@ type AdminSection =
   | 'menu'
   | 'roles'
   | 'deliveries'
+  | 'delivery-access'
   | 'promotions'
   | 'recommended-dishes'
   | 'guests'
@@ -105,6 +111,14 @@ export default function AdminPanel(): JSX.Element {
           permission: Permission.MANAGE_DELIVERIES,
         },
         {
+          key: 'delivery-access' as AdminSection,
+          icon: <ShieldCheck className="w-8 h-8" />,
+          title: "Доступ к доставке",
+          description: "Управляйте списком пользователей и глобальным доступом к доставке",
+          permission: Permission.MANAGE_DELIVERIES,
+          superAdminOnly: true,
+        },
+        {
           key: 'bookings' as AdminSection,
           icon: <ClipboardList className="w-8 h-8" />,
           title: "Управление бронированиями",
@@ -146,8 +160,12 @@ export default function AdminPanel(): JSX.Element {
           description: "Просматривайте и экспортируйте данные гостей по городам",
           permission: Permission.VIEW_USERS,
         },
-      ].filter((section) => hasPermission(section.permission)),
-    [hasPermission],
+      ].filter(
+        (section) =>
+          hasPermission(section.permission) &&
+          (!section.superAdminOnly || isSuperAdmin()),
+      ),
+    [hasPermission, isSuperAdmin],
   );
 
   useEffect(() => {
@@ -288,6 +306,11 @@ export default function AdminPanel(): JSX.Element {
             {activeSection === 'deliveries' && (
               <Suspense fallback={<SectionLoader />}>
                 <DeliveryManagementLazy />
+              </Suspense>
+            )}
+            {activeSection === 'delivery-access' && (
+              <Suspense fallback={<SectionLoader />}>
+                <DeliveryAccessManagementLazy />
               </Suspense>
             )}
             {activeSection === 'promotions' && (

@@ -116,6 +116,21 @@ export type AdminPanelUser = {
   permissions?: Permission[];
 };
 
+export type DeliveryAccessMode = "list" | "all_on" | "all_off";
+
+export type AdminDeliveryAccessUser = {
+  userId: string;
+  name: string;
+  phone: string | null;
+  telegramId: string | null;
+  vkId: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  accessUpdatedAt: string | null;
+  listEnabled: boolean;
+  hasAccess: boolean;
+};
+
 export type AdminOrdersResponse = {
   success: boolean;
   orders: CartOrderRecord[];
@@ -228,6 +243,12 @@ type AdminMeResponse = {
   role: UserRole;
   allowedRestaurants: string[];
   permissions?: Permission[];
+};
+
+type DeliveryAccessSnapshotResponse = {
+  success: boolean;
+  mode: DeliveryAccessMode;
+  users: AdminDeliveryAccessUser[];
 };
 
 type UpdateRolePayload = {
@@ -510,6 +531,51 @@ export const adminServerApi = {
     });
     const data = await handleResponse<{ success: boolean; users: AdminPanelUser[] }>(response);
     return data.users ?? [];
+  },
+
+  async getDeliveryAccessUsers(): Promise<{
+    mode: DeliveryAccessMode;
+    users: AdminDeliveryAccessUser[];
+  }> {
+    const response = await fetch(`${ADMIN_API_BASE}/delivery-access/users`, {
+      headers: buildHeaders(undefined, undefined),
+    });
+    const data = await handleResponse<DeliveryAccessSnapshotResponse>(response);
+    return {
+      mode: data.mode ?? "list",
+      users: data.users ?? [],
+    };
+  },
+
+  async setDeliveryAccessForUser(userId: string, enabled: boolean): Promise<DeliveryAccessMode> {
+    const response = await fetch(
+      `${ADMIN_API_BASE}/delivery-access/users/${encodeURIComponent(userId)}`,
+      {
+        method: "PATCH",
+        headers: buildHeaders(undefined, undefined),
+        body: JSON.stringify({ enabled }),
+      },
+    );
+    const data = await handleResponse<{ success: boolean; mode: DeliveryAccessMode }>(response);
+    return data.mode ?? "list";
+  },
+
+  async enableDeliveryForAll(): Promise<DeliveryAccessMode> {
+    const response = await fetch(`${ADMIN_API_BASE}/delivery-access/enable-all`, {
+      method: "POST",
+      headers: buildHeaders(undefined, undefined),
+    });
+    const data = await handleResponse<{ success: boolean; mode: DeliveryAccessMode }>(response);
+    return data.mode ?? "all_on";
+  },
+
+  async disableDeliveryForAll(): Promise<DeliveryAccessMode> {
+    const response = await fetch(`${ADMIN_API_BASE}/delivery-access/disable-all`, {
+      method: "POST",
+      headers: buildHeaders(undefined, undefined),
+    });
+    const data = await handleResponse<{ success: boolean; mode: DeliveryAccessMode }>(response);
+    return data.mode ?? "all_off";
   },
 
   async updateUserRole(userId: string, payload: UpdateRolePayload): Promise<AdminPanelUser> {

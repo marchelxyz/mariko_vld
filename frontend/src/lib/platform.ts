@@ -38,6 +38,19 @@ export type PlatformUser = {
 const TELEGRAM_INIT_DATA_STORAGE_KEY = "mariko_tg_init_data";
 const TELEGRAM_USER_ID_STORAGE_KEY = "mariko_tg_user_id";
 
+function isVkDesktopClient(): boolean {
+  const vk = getVk();
+  if (!vk) {
+    return false;
+  }
+  const platformCandidate = String(
+    (vk.initData && "vk_platform" in vk.initData ? vk.initData.vk_platform : "") || vk.platform || "",
+  )
+    .trim()
+    .toLowerCase();
+  return platformCandidate.includes("desktop");
+}
+
 /**
  * Определяет текущую платформу.
  */
@@ -160,6 +173,9 @@ export function markReady(): void {
 export function requestFullscreenMode(): void {
   const platform = getPlatform();
   if (platform === "vk") {
+    if (isVkDesktopClient()) {
+      return;
+    }
     const vk = getVk();
     if (vk) {
       try {

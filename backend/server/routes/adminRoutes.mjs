@@ -26,6 +26,13 @@ import {
   getBookingStatusMessageMap,
   setBookingStatusMessage,
 } from "../services/appSettingsService.mjs";
+import {
+  DELIVERY_ACCESS_MODE,
+  getDeliveryAccessSnapshot,
+  setDeliveryAccessMode,
+  setDeliveryAccessForAll,
+  setUserDeliveryAccess,
+} from "../services/deliveryAccessService.mjs";
 import { createLogger } from "../utils/logger.mjs";
 
 const BOOKING_STATUS_VALUES = new Set(["created", "confirmed", "closed", "cancelled"]);
@@ -225,6 +232,109 @@ export function createAdminRouter() {
       success: true,
       users: result,
     });
+  });
+
+  router.get("/delivery-access/users", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const admin = await authoriseSuperAdmin(req, res);
+    if (!admin) {
+      return;
+    }
+
+    try {
+      const snapshot = await getDeliveryAccessSnapshot();
+      return res.json({
+        success: true,
+        mode: snapshot.mode,
+        users: snapshot.users,
+      });
+    } catch (error) {
+      console.error("Ошибка получения доступа к доставке:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Не удалось получить список доступа к доставке",
+      });
+    }
+  });
+
+  router.patch("/delivery-access/users/:userId", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const admin = await authoriseSuperAdmin(req, res);
+    if (!admin) {
+      return;
+    }
+
+    const userId = req.params.userId;
+    const { enabled } = req.body ?? {};
+
+    if (!userId || typeof userId !== "string") {
+      return res.status(400).json({ success: false, message: "Не указан userId" });
+    }
+
+    if (typeof enabled !== "boolean") {
+      return res.status(400).json({ success: false, message: "Поле enabled должно быть boolean" });
+    }
+
+    try {
+      const updated = await setUserDeliveryAccess({
+        userId,
+        enabled,
+        grantedByTelegramId: admin.telegramId,
+      });
+      if (!updated) {
+        return res.status(404).json({ success: false, message: "Пользователь не найден" });
+      }
+
+      const mode = await setDeliveryAccessMode(DELIVERY_ACCESS_MODE.LIST);
+      return res.json({
+        success: true,
+        mode,
+        user: updated,
+      });
+    } catch (error) {
+      console.error("Ошибка обновления доступа к доставке:", error);
+      return res.status(500).json({ success: false, message: "Не удалось обновить доступ" });
+    }
+  });
+
+  router.post("/delivery-access/enable-all", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const admin = await authoriseSuperAdmin(req, res);
+    if (!admin) {
+      return;
+    }
+
+    try {
+      const mode = await setDeliveryAccessForAll(true);
+      return res.json({ success: true, mode });
+    } catch (error) {
+      console.error("Ошибка включения доставки для всех:", error);
+      return res.status(500).json({ success: false, message: "Не удалось включить доставку для всех" });
+    }
+  });
+
+  router.post("/delivery-access/disable-all", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const admin = await authoriseSuperAdmin(req, res);
+    if (!admin) {
+      return;
+    }
+
+    try {
+      const mode = await setDeliveryAccessForAll(false);
+      return res.json({ success: true, mode });
+    } catch (error) {
+      console.error("Ошибка отключения доставки для всех:", error);
+      return res.status(500).json({ success: false, message: "Не удалось отключить доставку для всех" });
+    }
   });
 
   router.get("/settings", async (req, res) => {
