@@ -339,6 +339,8 @@ const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_user_profiles_telegram_id ON user_profiles(telegram_id);`,
   `CREATE INDEX IF NOT EXISTS idx_user_profiles_vk_id ON user_profiles(vk_id);`,
   `CREATE INDEX IF NOT EXISTS idx_user_profiles_phone ON user_profiles(phone);`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_user_profiles_telegram_id_not_null ON user_profiles(telegram_id) WHERE telegram_id IS NOT NULL;`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_user_profiles_vk_id_not_null ON user_profiles(vk_id) WHERE vk_id IS NOT NULL;`,
   `CREATE INDEX IF NOT EXISTS idx_user_addresses_user_id ON user_addresses(user_id);`,
   `CREATE INDEX IF NOT EXISTS idx_user_addresses_primary ON user_addresses(user_id, is_primary) WHERE is_primary = true;`,
   `CREATE INDEX IF NOT EXISTS idx_cart_orders_external_id ON ${CART_ORDERS_TABLE}(external_id);`,

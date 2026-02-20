@@ -434,6 +434,37 @@ curl "https://<your-domain>/api/db/setup-iiko?key=mariko-iiko-setup-2024"
 
 ---
 
+### ⚠️ Проблема: дубли профилей одного пользователя (`user_profiles`) по `telegram_id`/`vk_id`
+
+**Дата:** 2026-02-20
+**Симптомы:**
+- Один и тот же пользователь в Telegram/VK может отображаться как разные профили на разных устройствах.
+- В истории заказов/профиле наблюдается рассинхрон.
+
+**Причина:**
+- Исторические данные могли содержать несколько строк `user_profiles` с одинаковым `telegram_id` или `vk_id`.
+- Ранние версии логики могли обновлять профиль по `id`, а не по каноническому идентификатору платформы.
+
+**Решение:**
+1. Добавлены endpoint'ы диагностики и очистки:
+```bash
+# Проверка (dry-run)
+curl "https://<your-domain>/api/db/check-profile-duplicates?key=mariko-iiko-setup-2024"
+
+# Очистка дублей (оставляет самую раннюю запись)
+curl -X POST "https://<your-domain>/api/db/fix-profile-duplicates?key=mariko-iiko-setup-2024&apply=1"
+```
+2. При очистке:
+- сохраняется самый ранний профиль (по `created_at`, затем `id`);
+- ссылки в `user_addresses`, `user_carts`, `saved_carts` переносятся на keeper-профиль;
+- дубли удаляются.
+3. На будущее включены уникальные partial-индексы:
+- `uq_user_profiles_telegram_id_not_null`
+- `uq_user_profiles_vk_id_not_null`
+4. Логика sync/update профиля приведена к каноническому `telegram_id`/`vk_id`.
+
+---
+
 ## API Endpoints
 
 ### ❌ Проблема: `Мои заказы` падают с "Нет связи" из-за `MAX_ORDERS_LIMIT is not defined`
