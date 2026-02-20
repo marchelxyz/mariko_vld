@@ -1,5 +1,5 @@
 import type { RestaurantMenu } from "@shared/data";
-import { getInitData, getPlatform } from "@/lib/platform";
+import { getInitData } from "@/lib/platform";
 
 const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
 const RAW_SERVER_API_BASE = rawServerEnv ? (rawServerEnv.endsWith("/") ? rawServerEnv.slice(0, -1) : rawServerEnv) : "/api";
@@ -151,6 +151,49 @@ export type MenuImageAsset = {
   updatedAt: string | null;
 };
 
+export type SyncIikoMenuSummary = {
+  groupsReceived: number;
+  categoriesReceived: number;
+  productsReceived: number;
+  categoriesPrepared: number;
+  itemsPrepared: number;
+};
+
+export type SyncIikoMenuResult = {
+  success: boolean;
+  applied: boolean;
+  source: "iiko_api" | "iiko_snapshot";
+  summary: SyncIikoMenuSummary;
+  warnings?: string[];
+  menu?: RestaurantMenu;
+};
+
+export type IikoReadinessResponse = {
+  success: boolean;
+  restaurant: {
+    id: string;
+    name: string;
+  };
+  readiness: {
+    readyForSendToIiko: boolean;
+    integrationEnabled: boolean;
+    missingConfigFields: string[];
+    missingOrderColumns: string[];
+    menuCoverage: {
+      totalItems: number;
+      activeItems: number;
+      inactiveItems: number;
+      activeMissingIikoProductId: number;
+      activeCoveragePercent: number;
+    };
+    duplicateIikoProductIds: Array<{
+      iikoProductId: string;
+      itemsCount: number;
+      itemIds: string[];
+    }>;
+  };
+};
+
 type UploadImageResult = {
   url: string;
 };
@@ -239,4 +282,54 @@ export async function fetchMenuImageLibrary(
     console.error('Ошибка получения библиотеки изображений меню:', error);
     return [];
   }
+}
+
+export async function syncRestaurantMenuFromIiko(
+  restaurantId: string,
+  options: {
+    apply?: boolean;
+    includeInactive?: boolean;
+    returnMenu?: boolean;
+  } = {},
+): Promise<SyncIikoMenuResult> {
+  if (!shouldUseServerApi()) {
+    throw new Error('Серверный API выключен');
+  }
+  if (!restaurantId) {
+    throw new Error('Не передан restaurantId');
+  }
+
+  const headers = buildAdminHeaders({
+    'Content-Type': 'application/json',
+  });
+
+  return fetchFromServer<SyncIikoMenuResult>(`/admin/menu/${encodeURIComponent(restaurantId)}/sync-iiko`, {
+    method: 'POST',
+    credentials: 'include',
+    headers,
+    body: JSON.stringify({
+      apply: options.apply ?? false,
+      includeInactive: options.includeInactive ?? false,
+      returnMenu: options.returnMenu ?? true,
+    }),
+  });
+}
+
+export async function fetchIikoReadiness(restaurantId: string): Promise<IikoReadinessResponse> {
+  if (!shouldUseServerApi()) {
+    throw new Error('Серверный API выключен');
+  }
+  if (!restaurantId) {
+    throw new Error('Не передан restaurantId');
+  }
+
+  const headers = buildAdminHeaders();
+  return fetchFromServer<IikoReadinessResponse>(
+    `/admin/menu/${encodeURIComponent(restaurantId)}/iiko-readiness`,
+    {
+      method: "GET",
+      credentials: "include",
+      headers,
+    },
+  );
 }

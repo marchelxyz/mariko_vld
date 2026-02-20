@@ -20,6 +20,43 @@ import { fetchRestaurantIntegrationConfig, enqueueIikoOrder } from "../services/
 
 const router = express.Router();
 const FINAL_PAYMENT_STATUSES = new Set(["paid", "succeeded", "failed", "cancelled", "canceled"]);
+const IIKO_RESEND_COOLDOWN_MS =
+  Number.parseInt(process.env.IIKO_RESEND_COOLDOWN_MS ?? "", 10) || 2 * 60 * 1000;
+const IIKO_PENDING_STALE_MS =
+  Number.parseInt(process.env.IIKO_PENDING_STALE_MS ?? "", 10) || 5 * 60 * 1000;
+
+const isRecentProviderSync = (value, cooldownMs = IIKO_RESEND_COOLDOWN_MS) => {
+  if (!value) {
+    return false;
+  }
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) {
+    return false;
+  }
+  return Date.now() - timestamp < cooldownMs;
+};
+
+const hasLockedProviderError = (value) => {
+  if (!value) {
+    return false;
+  }
+  const text = String(value).toLowerCase();
+  return text.includes("locked") || text.includes("apilogin has been blocked");
+};
+
+const isStalePendingStatus = (status, syncedAt, staleMs = IIKO_PENDING_STALE_MS) => {
+  if (status !== "pending") {
+    return false;
+  }
+  if (!syncedAt) {
+    return true;
+  }
+  const timestamp = new Date(syncedAt).getTime();
+  if (!Number.isFinite(timestamp)) {
+    return true;
+  }
+  return Date.now() - timestamp >= staleMs;
+};
 
 // Создание платежа ЮKassa (СБП)
 router.post("/yookassa/create", async (req, res) => {
@@ -208,8 +245,22 @@ router.get("/:paymentId", async (req, res) => {
 
     if (!isFinal && payment.provider_payment_id) {
       try {
-        const shopId = YOOKASSA_TEST_SHOP_ID;
-        const secretKey = YOOKASSA_TEST_SECRET_KEY;
+        let shopId = null;
+        let secretKey = null;
+
+        if (payment.restaurant_id) {
+          const paymentConfig = await findRestaurantPaymentConfig(payment.restaurant_id);
+          if (paymentConfig?.shop_id && paymentConfig?.secret_key) {
+            shopId = paymentConfig.shop_id;
+            secretKey = paymentConfig.secret_key;
+          }
+        }
+
+        if (!shopId || !secretKey) {
+          shopId = YOOKASSA_TEST_SHOP_ID;
+          secretKey = YOOKASSA_TEST_SECRET_KEY;
+        }
+
         if (shopId && secretKey) {
           const remote = await fetchYookassaPayment({
             shopId,
@@ -238,6 +289,45 @@ router.get("/:paymentId", async (req, res) => {
         }
       } catch (error) {
         console.warn("YuKassa sync failed", error);
+      }
+    }
+
+    // Если webhook был пропущен, синхронизируем статус заказа с оплатой
+    if (payment?.order_id && payment?.status) {
+      const order = await findOrderById(payment.order_id);
+      if (order && (order.payment_status !== payment.status || order.payment_id !== payment.id)) {
+        const updated = await updatePaymentStatus(payment.id, payment.status, {
+          providerPaymentId: payment.provider_payment_id,
+        });
+        if (updated?.status === "paid" && order.restaurant_id) {
+          const recentlySynced = isRecentProviderSync(order.provider_synced_at);
+          const isLockedError = hasLockedProviderError(order.provider_error);
+          const stalePending = isStalePendingStatus(order.provider_status, order.provider_synced_at);
+          const shouldSend =
+            !order.provider_order_id &&
+            !recentlySynced &&
+            !isLockedError &&
+            (order.provider_status !== "pending" || stalePending) &&
+            order.provider_status !== "sent" &&
+            order.provider_status !== "success";
+          if (shouldSend) {
+            const integrationConfig = await fetchRestaurantIntegrationConfig(order.restaurant_id);
+            if (integrationConfig) {
+              const orderRecord = {
+                ...order,
+                id: order.id,
+                external_id: order.external_id,
+                items: order.items ?? [],
+                meta: order.meta ?? {},
+              };
+              enqueueIikoOrder(integrationConfig, orderRecord);
+            }
+          }
+        }
+        const refreshed = await findPaymentById(paymentId);
+        if (refreshed) {
+          return res.json({ success: true, payment: refreshed, synced: true, source: "order-sync" });
+        }
       }
     }
 
