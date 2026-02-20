@@ -591,7 +591,7 @@ export function createAdminMenuRouter() {
     if (!admin) {
       const duration = Date.now() - startTime;
       logger.requestError('POST', '/:restaurantId', new Error('Не авторизован'), 401);
-      return res.status(401).json({ success: false, message: "Не авторизован" });
+      return;
     }
 
     if (!restaurantId) {
@@ -667,7 +667,7 @@ export function createAdminMenuRouter() {
 
     const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_MENU);
     if (!admin) {
-      return res.status(401).json({ success: false, message: "Не авторизован" });
+      return;
     }
     if (!restaurantId) {
       return res.status(400).json({ success: false, message: "Необходимо передать restaurantId" });
@@ -808,7 +808,7 @@ export function createAdminMenuRouter() {
 
     const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_MENU);
     if (!admin) {
-      return res.status(401).json({ success: false, message: "Не авторизован" });
+      return;
     }
     if (!restaurantId) {
       return res.status(400).json({ success: false, message: "Необходимо передать restaurantId" });
@@ -905,7 +905,7 @@ export function createAdminMenuRouter() {
 
     const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_MENU);
     if (!admin) {
-      return res.status(401).json({ success: false, message: "Не авторизован" });
+      return;
     }
     if (!restaurantId) {
       return res.status(400).json({ success: false, message: "Необходимо передать restaurantId" });
