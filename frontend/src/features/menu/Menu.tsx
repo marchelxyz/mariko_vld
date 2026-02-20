@@ -7,6 +7,7 @@ import { fetchRestaurantMenu } from "@/shared/api/menuApi";
 import { getMenuByRestaurantId, type MenuItem, type RestaurantMenu } from "@shared/data";
 import { MenuItemComponent, DishCardSkeleton } from "@shared/ui";
 import { toast } from "@/hooks/use-toast";
+import { getPlatform } from "@/lib/platform";
 
 /**
  * Отображает меню выбранного ресторана с навигацией по категориям и карточками блюд.
@@ -14,6 +15,8 @@ import { toast } from "@/hooks/use-toast";
 const Menu = (): JSX.Element => {
   const navigate = useNavigate();
   const { selectedRestaurant } = useCityContext();
+  const isVkPlatform = getPlatform() === "vk";
+  const isDeliveryOrderingEnabled = !isVkPlatform;
   const {
     addItem: addCartItem,
     removeItem: removeCartItem,
@@ -139,15 +142,29 @@ const Menu = (): JSX.Element => {
   );
 
   const handleCartButtonClick = useCallback(() => {
+    if (!isDeliveryOrderingEnabled) {
+      return;
+    }
     setIsCartOpen(true);
-  }, []);
+  }, [isDeliveryOrderingEnabled]);
 
   const handleOrdersButtonClick = useCallback(() => {
+    if (!isDeliveryOrderingEnabled) {
+      return;
+    }
     navigate("/orders");
-  }, [navigate]);
+  }, [isDeliveryOrderingEnabled, navigate]);
 
   const handleAddToCart = useCallback(
     (dish: MenuItem) => {
+      if (!isDeliveryOrderingEnabled) {
+        toast({
+          title: "Недоступно во VK",
+          description: "Доставка и оформление заказа во VK временно отключены.",
+          variant: "destructive",
+        });
+        return;
+      }
       if (!isDishOrderable(dish)) {
         toast({
           title: "Блюдо недоступно",
@@ -172,7 +189,7 @@ const Menu = (): JSX.Element => {
         duration: 1300,
       });
     },
-    [addCartItem, getItemCount, isDishOrderable, maxCartItemQuantity],
+    [addCartItem, getItemCount, isDeliveryOrderingEnabled, isDishOrderable, maxCartItemQuantity],
   );
 
   const handleRemoveFromCart = useCallback(
@@ -213,8 +230,8 @@ const Menu = (): JSX.Element => {
     return [...orderableItems, ...unavailableItems];
   }, [currentCategory, isDishOrderable]);
   const activeDishOrderable = useMemo(
-    () => (activeDish ? isDishOrderable(activeDish) : false),
-    [activeDish, isDishOrderable],
+    () => (activeDish ? isDeliveryOrderingEnabled && isDishOrderable(activeDish) : false),
+    [activeDish, isDeliveryOrderingEnabled, isDishOrderable],
   );
 
   // Индикатор загрузки - показываем скелетоны карточек блюд
@@ -327,14 +344,16 @@ const Menu = (): JSX.Element => {
           <h1 className="text-white font-el-messiri text-3xl md:text-4xl font-bold flex-1">
             Меню
           </h1>
-          <button
-            type="button"
-            onClick={handleOrdersButtonClick}
-            aria-label="Мои заказы"
-            className="p-2.5 rounded-full border border-white/20 text-white hover:bg-white/10 transition-colors"
-          >
-            <ListOrdered className="w-5 h-5" />
-          </button>
+          {isDeliveryOrderingEnabled && (
+            <button
+              type="button"
+              onClick={handleOrdersButtonClick}
+              aria-label="Мои заказы"
+              className="p-2.5 rounded-full border border-white/20 text-white hover:bg-white/10 transition-colors"
+            >
+              <ListOrdered className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         {/* Category Tabs */}
@@ -392,7 +411,7 @@ const Menu = (): JSX.Element => {
                     onIncrease={handleAddToCart}
                     onDecrease={handleRemoveFromCart}
                     quantity={quantity}
-                    showAddButton={isOrderable || quantity > 0}
+                    showAddButton={isDeliveryOrderingEnabled && (isOrderable || quantity > 0)}
                     disabled={!isOrderable}
                   />
                 );
@@ -411,7 +430,7 @@ const Menu = (): JSX.Element => {
       {/* Bottom Navigation */}
       <BottomNavigation currentPage="home" />
 
-      {totalCount > 0 && (
+      {isDeliveryOrderingEnabled && totalCount > 0 && (
         <button
           type="button"
           onClick={handleCartButtonClick}
@@ -428,7 +447,7 @@ const Menu = (): JSX.Element => {
       )}
 
       {/* Cart Drawer */}
-      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
+      {isDeliveryOrderingEnabled && <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />}
 
       {/* Dish Modal */}
       {activeDish && (

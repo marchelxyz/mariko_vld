@@ -7,7 +7,7 @@ import { AdminProvider, CartProvider, RestaurantProvider, DebugGridProvider, Onb
 import { useEnsureUserProfileSync } from "@/hooks";
 import { useProfile } from "@/entities/user";
 import { logger } from "@/lib/logger";
-import { isActive, onActivated, onDeactivated, requestFullscreenMode } from "@/lib/platform";
+import { getPlatform, isActive, onActivated, onDeactivated, requestFullscreenMode } from "@/lib/platform";
 import { Toaster as SonnerToaster } from "@shared/ui/sonner";
 import { Toaster } from "@shared/ui/toaster";
 import { TooltipProvider } from "@shared/ui/tooltip";
@@ -47,6 +47,7 @@ const queryClient = new QueryClient({
 function AppContent() {
   useEnsureUserProfileSync();
   const { profile, isInitialized } = useProfile();
+  const isVkPlatform = getPlatform() === "vk";
 
   useEffect(() => {
     logger.componentLifecycle('App', 'mount');
@@ -109,7 +110,10 @@ function AppContent() {
 
                         <Route path="/restaurants/:id" element={<Restaurants />} />
                         <Route path="/restaurants" element={<Restaurants />} />
-                        <Route path="/delivery" element={<Delivery />} />
+                        <Route
+                          path="/delivery"
+                          element={isVkPlatform ? <Navigate to="/" replace /> : <Delivery />}
+                        />
                         <Route path="/menu" element={<Menu />} />
                         <Route path="/orders" element={<Orders />} />
                         <Route path="/order-success" element={<OrderSuccess />} />
