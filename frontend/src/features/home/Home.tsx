@@ -19,7 +19,7 @@ import { toast } from "@/hooks/use-toast";
 import { safeOpenLink, storage } from "@/lib/telegram";
 import { fetchPromotions } from "@shared/api/promotionsApi";
 import { fetchRecommendedDishes } from "@shared/api/recommendedDishesApi";
-import { useBookingSlotsPrefetch, useAdmin } from "@shared/hooks";
+import { useBookingSlotsPrefetch, useDeliveryAccess } from "@shared/hooks";
 import { isMarikoDeliveryEnabledForCity } from "@/shared/config/marikoDelivery";
 import { FirstRunTour } from "@/features/onboarding";
 
@@ -72,9 +72,10 @@ const Index = () => {
   const location = useLocation();
   const { selectedRestaurant, selectedCity } = useCityContext();
   const { addItem, removeItem, getItemCount } = useCart();
-  const { isSuperAdmin, isAdmin } = useAdmin();
-  const canUseCartFeatures =
-    (isSuperAdmin() || isAdmin) && isMarikoDeliveryEnabledForCity(selectedCity?.id);
+  const { hasAccess: hasDeliveryAccess } = useDeliveryAccess();
+  const isMarikoDeliveryEnabled = isMarikoDeliveryEnabledForCity(selectedCity?.id);
+  const canShowDeliveryButton = Boolean(selectedRestaurant?.id);
+  const canUseCartFeatures = hasDeliveryAccess && isMarikoDeliveryEnabled;
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
   const [dishModalImageFailed, setDishModalImageFailed] = useState(false);
   const [cityChangedFlash, setCityChangedFlash] = useState(false);
@@ -368,9 +369,7 @@ const Index = () => {
             {/* Quick Action Buttons */}
               <div className="mt-6 md:mt-8 flex justify-center">
               <div className={`grid gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4 max-w-4xl w-full mx-auto ${
-                // На мобильных показываем 4 кнопки
-                // На средних (md) и больших экранах показываем 5 кнопок (4 + вакансии)
-                'grid-cols-4 md:grid-cols-5'
+                canShowDeliveryButton ? "grid-cols-4 md:grid-cols-5" : "grid-cols-3 md:grid-cols-4"
               } lg:max-w-[600px]`}>
                 <QuickActionButton
                   icon={<CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
@@ -383,13 +382,15 @@ const Index = () => {
                   }}
                 />
 
-                <QuickActionButton
-                  icon={<Truck className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
-                  title="Заказать доставку"
-                  onboardingId="delivery"
-                  highlighted={cityChangedFlash}
-                  onClick={() => navigate("/delivery")}
-                />
+                {canShowDeliveryButton && (
+                  <QuickActionButton
+                    icon={<Truck className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary" strokeWidth={2} />}
+                    title="Заказать доставку"
+                    onboardingId="delivery"
+                    highlighted={cityChangedFlash}
+                    onClick={() => navigate("/delivery")}
+                  />
+                )}
 
                 <QuickActionButton
                   icon={<StarIcon className="w-5 h-5 md:w-6 md:h-6 text-mariko-primary fill-none" strokeWidth={2} />}

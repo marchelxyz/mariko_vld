@@ -2,19 +2,17 @@ import { useNavigate } from "react-router-dom";
 import { useCityContext } from "@/contexts";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import { isMarikoDeliveryEnabledForCity } from "@/shared/config/marikoDelivery";
-import { useAdmin } from "@shared/hooks";
+import { useDeliveryAccess } from "@shared/hooks";
 import { ActionButton } from "@shared/ui";
 import { safeOpenLink } from "@/lib/platform";
 
 const Delivery = () => {
   const navigate = useNavigate();
   const { selectedCity, selectedRestaurant } = useCityContext();
-  const { isSuperAdmin, isAdmin } = useAdmin();
-  const canShowInternalDelivery =
-    (isSuperAdmin() || isAdmin) && isMarikoDeliveryEnabledForCity(selectedCity?.id);
-
-  // 🔧 ВРЕМЕННОЕ СКРЫТИЕ: измените на true чтобы показать кнопку "Самовывоз"
-  const showPickupOption = false;
+  const { hasAccess: hasDeliveryAccess } = useDeliveryAccess();
+  const isCitySupported = isMarikoDeliveryEnabledForCity(selectedCity?.id);
+  const canShowInternalDelivery = hasDeliveryAccess && isCitySupported;
+  const showPickupOption = canShowInternalDelivery;
 
   /**
    * Определяет путь к иконке агрегатора доставки по его названию.
@@ -66,7 +64,7 @@ const Delivery = () => {
       });
     }
 
-    // 2. Самовывоз – доступен всегда (временно скрыто)
+    // 2. Самовывоз в Mini App
     if (showPickupOption) {
       options.push({
         icon: (
@@ -77,10 +75,7 @@ const Delivery = () => {
           />
         ),
         title: "Самовывоз",
-        onClick: () => {
-          // Самовывоз из selectedRestaurant.address
-          console.log(`Самовывоз из: ${selectedRestaurant.address}`);
-        },
+        onClick: () => navigate("/menu"),
       });
     }
 
@@ -141,6 +136,11 @@ const Delivery = () => {
             className="relative z-20 mt-6 md:mt-8 space-y-6 md:space-y-8"
             style={{ paddingBottom: "calc(var(--app-bottom-inset) + 140px)" }}
           >
+            {!canShowInternalDelivery && isCitySupported && (
+              <div className="rounded-2xl border border-white/20 bg-white/10 p-4 text-sm text-white/80">
+                Доставка Марико доступна только пользователям с выданным доступом.
+              </div>
+            )}
             {getDeliveryOptions().map((option, index) => (
               <ActionButton
                 key={index}

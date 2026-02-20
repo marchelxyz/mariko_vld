@@ -7,3 +7,4 @@ export { RecommendedDishesManagement } from "./recommendedDishes";
 export { GuestDatabaseManagement } from "./guests";
 export { BookingsManagement } from "./bookings";
 export { AppSettingsManagement } from "./settings";
+export { DeliveryAccessManagement } from "./deliveryAccess";

@@ -23,6 +23,7 @@ import {
 import { useProfile } from "@entities/user";
 import { useAppSettings } from "@/hooks";
 import { useCityContext, useCart } from "@/contexts";
+import { usePhoneInput } from "@shared/hooks";
 import {
   getRemarkedReservesByPhone,
 } from "@shared/api/remarked";
@@ -150,14 +151,16 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
   const [guestsCount, setGuestsCount] = useState<number>(2);
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const [selectedTime, setSelectedTime] = useState<string>("");
-  // Инициализируем телефон только если он есть и не является дефолтным значением
-  const [phone, setPhone] = useState<string>(() => {
-    const profilePhone = profile.phone?.trim();
-    if (profilePhone && profilePhone !== "+7 (000) 000-00-00") {
-      return profilePhone;
-    }
-    return "";
-  });
+  const phoneInput = usePhoneInput(
+    (() => {
+      const profilePhone = profile.phone?.trim();
+      if (profilePhone && profilePhone !== "+7 (000) 000-00-00") {
+        return profilePhone;
+      }
+      return "";
+    })(),
+  );
+  const phone = phoneInput.value;
   const [name, setName] = useState<string>(profile.name || "");
   const [selectedEvent, setSelectedEvent] = useState<EventType | null>(null);
   const [comment, setComment] = useState<string>("");
@@ -692,24 +695,16 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
 
   // Автозаполнение из профиля
   useEffect(() => {
-    // Используем функциональное обновление состояния, чтобы избежать проблем с зависимостями
-    setPhone((prevPhone) => {
-      // Подтягиваем телефон из профиля, если он есть и не является дефолтным значением
-      const profilePhone = profile.phone?.trim();
-      if (profilePhone && profilePhone !== "+7 (000) 000-00-00") {
-        const trimmedPrev = prevPhone?.trim() || "";
-        // Обновляем только если поле пустое или содержит дефолтное значение
-        if (!trimmedPrev || trimmedPrev === "+7 (000) 000-00-00") {
-          return profilePhone;
-        }
+    const profilePhone = profile.phone?.trim();
+    const currentPhone = phoneInput.value?.trim() || "";
+
+    if (profilePhone && profilePhone !== "+7 (000) 000-00-00") {
+      if (!currentPhone || currentPhone === "+7 (000) 000-00-00") {
+        phoneInput.setValue(profilePhone);
       }
-      // Если в профиле дефолтное значение или его нет, очищаем поле (чтобы показать placeholder)
-      const trimmedPrev = prevPhone?.trim() || "";
-      if (trimmedPrev === "+7 (000) 000-00-00") {
-        return "";
-      }
-      return prevPhone;
-    });
+    } else if (currentPhone === "+7 (000) 000-00-00") {
+      phoneInput.setValue("");
+    }
     
     setName((prevName) => {
       // Подтягиваем имя из профиля, если оно есть и поле пустое или содержит дефолтное значение
@@ -728,7 +723,14 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     if (profile.personalDataPolicyConsentGiven) {
       setPolicyConsentGiven(true);
     }
-  }, [profile.phone, profile.name, profile.personalDataConsentGiven, profile.personalDataPolicyConsentGiven]);
+  }, [
+    profile.phone,
+    profile.name,
+    profile.personalDataConsentGiven,
+    profile.personalDataPolicyConsentGiven,
+    phoneInput.value,
+    phoneInput.setValue,
+  ]);
 
   useEffect(() => {
     if (!consentGiven || profile.personalDataConsentGiven || !profile.id) {
@@ -1200,8 +1202,8 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         </Label>
         <Input
           type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          value={phoneInput.value}
+          onChange={phoneInput.onChange}
           placeholder={phonePlaceholder}
           className="bg-white/10 border-white/20 text-white placeholder:text-white/50 h-12"
         />

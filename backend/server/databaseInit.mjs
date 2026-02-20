@@ -59,6 +59,18 @@ const SCHEMAS = {
     );
   `,
 
+  delivery_access_users: `
+    CREATE TABLE IF NOT EXISTS delivery_access_users (
+      user_id VARCHAR(255) PRIMARY KEY,
+      telegram_id BIGINT,
+      vk_id BIGINT,
+      enabled BOOLEAN DEFAULT true,
+      granted_by_telegram_id BIGINT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `,
+
   cart_orders: `
     CREATE TABLE IF NOT EXISTS ${CART_ORDERS_TABLE} (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -343,6 +355,9 @@ const INDEXES = [
   `CREATE UNIQUE INDEX IF NOT EXISTS uq_user_profiles_vk_id_not_null ON user_profiles(vk_id) WHERE vk_id IS NOT NULL;`,
   `CREATE INDEX IF NOT EXISTS idx_user_addresses_user_id ON user_addresses(user_id);`,
   `CREATE INDEX IF NOT EXISTS idx_user_addresses_primary ON user_addresses(user_id, is_primary) WHERE is_primary = true;`,
+  `CREATE INDEX IF NOT EXISTS idx_delivery_access_users_enabled ON delivery_access_users(enabled);`,
+  `CREATE INDEX IF NOT EXISTS idx_delivery_access_users_telegram_id ON delivery_access_users(telegram_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_delivery_access_users_vk_id ON delivery_access_users(vk_id);`,
   `CREATE INDEX IF NOT EXISTS idx_cart_orders_external_id ON ${CART_ORDERS_TABLE}(external_id);`,
   `CREATE INDEX IF NOT EXISTS idx_cart_orders_customer_phone ON ${CART_ORDERS_TABLE}(customer_phone);`,
   `CREATE INDEX IF NOT EXISTS idx_cart_orders_status ON ${CART_ORDERS_TABLE}(status);`,
@@ -468,6 +483,7 @@ export async function initializeDatabase() {
     // Определяем порядок создания таблиц (важно для foreign keys)
     const tableOrder = [
       "user_profiles",      // Сначала создаем user_profiles
+      "delivery_access_users",
       "user_addresses",     // Потом user_addresses (зависит от user_profiles)
       "user_carts",         // user_carts зависит от user_profiles
       "cart_orders",        // cart_orders независима
@@ -599,6 +615,13 @@ export async function initializeDatabase() {
     // Создаем foreign keys отдельно (после создания всех таблиц)
     console.log("🔗 Создаем foreign keys...");
     const foreignKeys = [
+      {
+        name: "fk_delivery_access_users_user",
+        table: "delivery_access_users",
+        sql: `ALTER TABLE delivery_access_users
+              ADD CONSTRAINT fk_delivery_access_users_user
+              FOREIGN KEY (user_id) REFERENCES user_profiles(id) ON DELETE CASCADE`,
+      },
       {
         name: "fk_user_addresses_user",
         table: "user_addresses",
@@ -918,7 +941,8 @@ export async function initializeDatabase() {
          VALUES
            ('support_telegram_url', ''),
            ('personal_data_consent_url', 'https://vhachapuri.ru/policy'),
-           ('personal_data_policy_url', 'https://vhachapuri.ru/policy')
+           ('personal_data_policy_url', 'https://vhachapuri.ru/policy'),
+           ('delivery_access_mode', 'list')
          ON CONFLICT (key) DO NOTHING`,
       );
       console.log("✅ Базовые настройки приложения добавлены");
@@ -1010,7 +1034,8 @@ export async function initializeDatabase() {
          VALUES
            ('support_telegram_url', ''),
            ('personal_data_consent_url', 'https://vhachapuri.ru/policy'),
-           ('personal_data_policy_url', 'https://vhachapuri.ru/policy')
+           ('personal_data_policy_url', 'https://vhachapuri.ru/policy'),
+           ('delivery_access_mode', 'list')
          ON CONFLICT (key) DO NOTHING`,
       );
       console.log("✅ Базовые настройки приложения добавлены");
@@ -1087,6 +1112,7 @@ export async function checkDatabaseTables() {
     // Получаем реальные имена таблиц (с учетом динамического имени cart_orders)
     const requiredTables = [
       "user_profiles",
+      "delivery_access_users",
       "user_addresses",
       "user_carts",
       CART_ORDERS_TABLE,

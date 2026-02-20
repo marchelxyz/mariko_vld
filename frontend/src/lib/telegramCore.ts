@@ -54,8 +54,17 @@ const memoryStorage = new Map<string, string>();
 
 const noop = () => {};
 const fullscreenRequestCooldownMs = 1200;
+const TELEGRAM_DESKTOP_PLATFORMS = new Set(["tdesktop", "macos", "web", "weba", "webk"]);
+
+function isDesktopTelegramClient(tg: TelegramWebApp): boolean {
+  const platform = String(tg?.platform ?? "").trim().toLowerCase();
+  return TELEGRAM_DESKTOP_PLATFORMS.has(platform);
+}
 
 function shouldRequestFullscreen(tg: TelegramWebApp, payload?: TelegramViewportChangedPayload): boolean {
+  if (isDesktopTelegramClient(tg)) {
+    return false;
+  }
   if (tg.isFullscreen === true) {
     return false;
   }
@@ -384,6 +393,9 @@ export const closeApp = () => {
 export const requestFullscreenMode = () => {
   const tg = getTg();
   if (!tg) return;
+  if (isDesktopTelegramClient(tg)) {
+    return;
+  }
 
   // Проверяем, не находимся ли мы уже в полноэкранном режиме
   if (tg.isFullscreen === true) {
@@ -428,6 +440,9 @@ export const requestFullscreenMode = () => {
 export const setupFullscreenHandlers = () => {
   const tg = getTg();
   if (!tg) return;
+  if (isDesktopTelegramClient(tg)) {
+    return;
+  }
 
   // Обработчик изменения полноэкранного режима
   // Автоматически возвращает в полноэкранный режим при выходе

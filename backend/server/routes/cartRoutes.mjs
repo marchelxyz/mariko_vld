@@ -9,6 +9,7 @@ import {
 } from "../services/profileService.mjs";
 import { getAppSettings } from "../services/appSettingsService.mjs";
 import { fetchRestaurantIntegrationConfig, enqueueIikoOrder } from "../services/integrationService.mjs";
+import { resolveDeliveryAccess } from "../services/deliveryAccessService.mjs";
 import { iikoClient } from "../integrations/iiko-client.mjs";
 import { normaliseNullableString } from "../utils.mjs";
 import { addressService } from "../services/addressService.mjs";
@@ -160,6 +161,42 @@ export function registerCartRoutes(app) {
     } catch (error) {
       console.error("Ошибка получения настроек приложения:", error);
       return res.status(500).json({ success: false, message: "Не удалось получить настройки" });
+    }
+  });
+
+  app.get("/api/cart/delivery-access/me", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+
+    const headerUserId = getUserIdFromHeaders(req);
+    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerVkId = getVerifiedVkIdFromHeaders(req);
+    const queryUserId =
+      normaliseNullableString(req.query?.userId) ?? normaliseNullableString(req.query?.id);
+    const queryTelegramId = normaliseNullableString(req.query?.telegramId);
+    const queryVkId = normaliseNullableString(req.query?.vkId);
+
+    try {
+      const access = await resolveDeliveryAccess({
+        userId: queryUserId ?? headerUserId,
+        telegramId: queryTelegramId ?? headerTelegramId,
+        vkId: queryVkId ?? headerVkId,
+      });
+
+      return res.json({
+        success: true,
+        mode: access.mode,
+        hasAccess: access.hasAccess,
+        source: access.source,
+        profileId: access.profile?.id ?? null,
+      });
+    } catch (error) {
+      console.error("Ошибка проверки доступа к доставке:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Не удалось проверить доступ к доставке",
+      });
     }
   });
 
@@ -426,6 +463,9 @@ export function registerCartRoutes(app) {
   app.post("/api/cart/submit", async (req, res) => {
     const orderPayload = req.body;
     const rawOrderItems = Array.isArray(orderPayload?.items) ? orderPayload.items : [];
+    const headerUserId = getUserIdFromHeaders(req);
+    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerVkId = getVerifiedVkIdFromHeaders(req);
 
     if (!orderPayload?.customerName || !orderPayload?.customerPhone) {
       return res.status(400).json({ success: false, message: "Заполните имя и телефон" });
@@ -442,6 +482,34 @@ export function registerCartRoutes(app) {
     const paymentMethod = normalizePaymentMethod(
       orderPayload?.paymentMethod ?? orderPayload?.payment_method,
     );
+
+    if (orderType === "delivery") {
+      const access = await resolveDeliveryAccess({
+        userId:
+          normaliseNullableString(orderPayload?.userId) ??
+          normaliseNullableString(orderPayload?.profileId) ??
+          normaliseNullableString(orderPayload?.customerTelegramId) ??
+          normaliseNullableString(orderPayload?.meta?.telegramUserId) ??
+          headerUserId,
+        telegramId:
+          normaliseNullableString(orderPayload?.customerTelegramId) ??
+          normaliseNullableString(orderPayload?.meta?.telegramUserId) ??
+          headerTelegramId,
+        vkId:
+          normaliseNullableString(orderPayload?.customerVkId) ??
+          normaliseNullableString(orderPayload?.meta?.vkUserId) ??
+          headerVkId,
+      });
+
+      if (!access.hasAccess) {
+        return res.status(403).json({
+          success: false,
+          code: "DELIVERY_ACCESS_DENIED",
+          message: "Доставка пока недоступна для вашего аккаунта",
+        });
+      }
+    }
+
     const parsedFromDeliveryAddress = parseStreetAndHouse(orderPayload?.deliveryAddress);
     const deliveryStreet =
       String(orderPayload?.deliveryStreet ?? orderPayload?.delivery_street ?? parsedFromDeliveryAddress.street ?? "").trim();
