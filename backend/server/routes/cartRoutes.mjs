@@ -1037,7 +1037,9 @@ export function registerCartRoutes(app) {
   });
 
   // ===== Сохранение корзины пользователя =====
-  app.post("/api/cart/save", async (req, res) => {
+  // Поддерживаем и новый путь (/save), и legacy путь (/cart),
+  // чтобы не ломать клиентов на старых сборках.
+  const handleSaveCart = async (req, res) => {
     if (!ensureDatabase(res)) {
       return;
     }
@@ -1101,9 +1103,9 @@ export function registerCartRoutes(app) {
       console.error("Ошибка сохранения корзины:", error);
       return res.status(500).json({ success: false, message: "Не удалось сохранить корзину" });
     }
-  });
+  };
 
-  app.get("/api/cart/save", async (req, res) => {
+  const handleGetSavedCart = async (req, res) => {
     if (!ensureDatabase(res)) {
       return;
     }
@@ -1158,9 +1160,9 @@ export function registerCartRoutes(app) {
       console.error("Ошибка получения корзины:", error);
       return res.status(500).json({ success: false, message: "Не удалось загрузить корзину" });
     }
-  });
+  };
 
-  app.delete("/api/cart/save", async (req, res) => {
+  const handleDeleteSavedCart = async (req, res) => {
     if (!ensureDatabase(res)) {
       return;
     }
@@ -1203,5 +1205,14 @@ export function registerCartRoutes(app) {
       console.error("Ошибка удаления корзины:", error);
       return res.status(500).json({ success: false, message: "Не удалось удалить корзину" });
     }
-  });
+  };
+
+  app.post("/api/cart/save", handleSaveCart);
+  app.get("/api/cart/save", handleGetSavedCart);
+  app.delete("/api/cart/save", handleDeleteSavedCart);
+
+  // Legacy aliases for older frontend bundles
+  app.post("/api/cart/cart", handleSaveCart);
+  app.get("/api/cart/cart", handleGetSavedCart);
+  app.delete("/api/cart/cart", handleDeleteSavedCart);
 }

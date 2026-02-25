@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-02-25 22:20
+**Последнее обновление:** 2026-02-25 22:55
 
 ---
 
@@ -501,6 +501,42 @@ curl -X POST "https://<your-domain>/api/db/fix-profile-duplicates?key=mariko-iik
 ---
 
 ## API Endpoints
+
+### ❌ Проблема: `POST /api/cart/cart` возвращает `404 Not Found`, корзина не сохраняется
+
+**Дата:** 2026-02-25  
+**Симптомы:**
+- В логах backend повторяются `404 Not Found` для `POST /api/cart/cart` и `GET /api/cart/cart`.
+- После добавления блюд корзина может не восстанавливаться между открытиями приложения.
+- На клиенте возникают ошибки при попытке синхронизации корзины.
+
+**Причина:**
+- В backend persisted-cart endpoint был стандартизирован на `/api/cart/save`.
+- Часть фронтенд-сборок (или кэш старого бандла) продолжала обращаться к legacy маршруту `/api/cart/cart`.
+- Из-за несовпадения путей backend отвечал `404`.
+
+**Решение:**
+- В `backend/server/routes/cartRoutes.mjs` вынести обработчики сохранения/чтения/удаления корзины в общие функции.
+- Зарегистрировать оба набора маршрутов:
+  - canonical: `/api/cart/save`
+  - legacy alias: `/api/cart/cart`
+- Это сохраняет обратную совместимость со старыми фронтенд-сборками без регрессии для новых.
+
+**Проверка:**
+```bash
+# Оба endpoint должны отвечать успешно
+curl -i -X POST "https://<your-domain>/api/cart/save" \
+  -H "Content-Type: application/json" \
+  -d '{"userId":"test-user","items":[]}'
+
+curl -i -X POST "https://<your-domain>/api/cart/cart" \
+  -H "Content-Type: application/json" \
+  -d '{"userId":"test-user","items":[]}'
+```
+
+**Связанный commit:** `N/A` (будет заполнен после коммита)
+
+---
 
 ### ❌ Проблема: `Мои заказы` падают с "Нет связи" из-за `MAX_ORDERS_LIMIT is not defined`
 
