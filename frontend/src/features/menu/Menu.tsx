@@ -196,6 +196,8 @@ const Menu = (): JSX.Element => {
         title: "В корзине",
         description: `${dish.name}${currentCount > 0 ? ` · ${currentCount + 1} шт.` : ""}`,
         duration: 1300,
+        className:
+          "!fixed !left-1/2 !right-auto !top-auto !bottom-[calc(var(--app-bottom-bar-height)+var(--tg-safe-area-bottom,0px)+12px)] !-translate-x-1/2 !w-auto !max-w-[calc(100vw-24px)]",
       });
     },
     [
