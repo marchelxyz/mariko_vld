@@ -336,12 +336,33 @@ const resolveTelegramId = (override?: string): string | undefined => {
 const TELEGRAM_INIT_DATA_STORAGE_KEY = "mariko_tg_init_data";
 const TELEGRAM_USER_ID_STORAGE_KEY = "mariko_tg_user_id";
 
+const getTelegramInitDataFromUrl = (): string | undefined => {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+  try {
+    const raw = new URLSearchParams(window.location.search).get("tgWebAppData");
+    if (!raw) {
+      return undefined;
+    }
+    cacheTelegramInitData(raw);
+    return raw;
+  } catch (error) {
+    logger.warn("admin-api", "Failed to parse Telegram init data from URL", { error });
+    return undefined;
+  }
+};
+
 const getTelegramInitData = (): string | undefined => {
   const tg = getTg();
   const initData = tg?.initData;
   if (initData && typeof initData === "string") {
     cacheTelegramInitData(initData);
     return initData;
+  }
+  const fromUrl = getTelegramInitDataFromUrl();
+  if (fromUrl) {
+    return fromUrl;
   }
   return getCachedTelegramInitData();
 };

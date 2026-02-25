@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Permission } from "@shared/types";
 import { UserRole } from "@shared/types/admin";
-import { getUserId } from "@/lib/platform";
+import { getPlatform, getUserId } from "@/lib/platform";
 import { adminServerApi } from "@shared/api/admin/adminServerApi";
 import { logger } from "@/lib/logger";
 
@@ -30,6 +30,8 @@ type AdminStorageData = {
 };
 
 const ADMIN_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 часа
+const TELEGRAM_ADMIN_RETRY_DELAYS_MS = [0, 350, 900, 1800];
+const DEFAULT_ADMIN_RETRY_DELAYS_MS = [0];
 
 const loadAdminFromStorage = (): AdminStorageData | null => {
   if (typeof window === "undefined") {
@@ -141,38 +143,57 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
     
     const loadAdminData = async () => {
       setIsLoading(true);
-      try {
-        const response = await adminServerApi.getCurrentAdmin();
-        
-        if (cancelled) return;
-        
-        const role = response.role || UserRole.USER;
-        const isAdminUser = role !== UserRole.USER;
-        
-        setIsAdmin(isAdminUser);
-        setUserRole(role);
-        setPermissions(response.permissions || []);
-        setAllowedRestaurants(response.allowedRestaurants || []);
-        
-        logger.debug('admin-context', 'Admin data loaded', {
-          role,
-          isAdmin: isAdminUser,
-          permissionsCount: response.permissions?.length || 0,
-          allowedRestaurantsCount: response.allowedRestaurants?.length || 0,
-        });
-      } catch (error) {
-        if (cancelled) return;
-        
+      const retryDelays =
+        getPlatform() === "telegram" ? TELEGRAM_ADMIN_RETRY_DELAYS_MS : DEFAULT_ADMIN_RETRY_DELAYS_MS;
+      let loaded = false;
+
+      for (let attempt = 0; attempt < retryDelays.length; attempt++) {
+        const delay = retryDelays[attempt] ?? 0;
+        if (delay > 0) {
+          await new Promise((resolve) => window.setTimeout(resolve, delay));
+        }
+
+        try {
+          const response = await adminServerApi.getCurrentAdmin();
+          if (cancelled) return;
+
+          const role = response.role || UserRole.USER;
+          const isAdminUser = role !== UserRole.USER;
+
+          setIsAdmin(isAdminUser);
+          setUserRole(role);
+          setPermissions(response.permissions || []);
+          setAllowedRestaurants(response.allowedRestaurants || []);
+
+          logger.debug('admin-context', 'Admin data loaded', {
+            role,
+            isAdmin: isAdminUser,
+            permissionsCount: response.permissions?.length || 0,
+            allowedRestaurantsCount: response.allowedRestaurants?.length || 0,
+            attempt: attempt + 1,
+          });
+
+          loaded = true;
+          break;
+        } catch (error) {
+          if (cancelled) return;
+          logger.warn('admin-context', 'Failed to load admin data attempt', {
+            error,
+            attempt: attempt + 1,
+            attemptsTotal: retryDelays.length,
+          });
+        }
+      }
+
+      if (!loaded && !cancelled) {
         // Если ошибка, считаем пользователя обычным пользователем
-        logger.warn('admin-context', 'Failed to load admin data', { error });
         setIsAdmin(false);
         setUserRole(UserRole.USER);
         setPermissions([]);
         setAllowedRestaurants([]);
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+      }
+      if (!cancelled) {
+        setIsLoading(false);
       }
     };
     

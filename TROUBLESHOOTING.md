@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-02-25 21:35
+**Последнее обновление:** 2026-02-25 22:20
 
 ---
 
@@ -828,6 +828,35 @@ curl -X PATCH "https://<domain>/api/admin/role-permissions/manager" \
 
 ---
 
+### ⚠️ Проблема: на Telegram Desktop (macOS) супер-админ иногда не видит вкладку админки после входа
+
+**Дата:** 2026-02-25  
+**Симптомы:**
+- Пользователь с ролью `super_admin` в БД открывает TG mini app с macOS и не видит вкладку `Админ-панель`.
+- При повторных открытиях/перезагрузках поведение может быть нестабильным.
+- В БД запись `admin_users` присутствует, но фронтенд остаётся в состоянии `role=user`.
+
+**Причина:**
+- `AdminProvider` делал только одну раннюю попытку `GET /api/admin/me` при монтировании.
+- На desktop-клиенте Telegram `initData`/`initDataUnsafe` могли быть недоступны в самый первый момент, поэтому запрос уходил без валидных TG-заголовков.
+- `adminServerApi` брал `initData` только из `window.Telegram.WebApp.initData` или session cache и не читал `tgWebAppData` из URL как fallback.
+
+**Решение:**
+- В `frontend/src/shared/api/admin/adminServerApi.ts` добавлен fallback чтения `tgWebAppData` из query-параметров URL.
+- В `frontend/src/contexts/AdminContext.tsx` добавлены короткие retry-попытки загрузки admin-контекста для Telegram на старте (с небольшими задержками), чтобы пережить ранний race инициализации WebApp.
+
+**Проверка:**
+```bash
+# 1) Открыть mini app в Telegram Desktop (macOS) супер-админом.
+# 2) Убедиться, что вкладка "Админ-панель" отображается после старта без ручных обходов.
+# 3) Проверить /api/admin/me в DevTools Network:
+#    запрос должен идти с X-Telegram-Init-Data и/или X-Telegram-Id.
+```
+
+**Связанный commit:** `N/A` (локальные изменения, commit ещё не создан)
+
+---
+
 ### 🔐 Защита setup endpoints секретным ключом
 
 Все setup endpoints защищены query параметром `?key=mariko-iiko-setup-2024`:
@@ -972,5 +1001,5 @@ curl -X POST "https://api-ru.iiko.services/api/1/organizations" \
 
 ---
 
-**Последнее обновление:** 2026-02-25 21:35
+**Последнее обновление:** 2026-02-25 22:20
 **Автор:** Codex (GPT-5)
