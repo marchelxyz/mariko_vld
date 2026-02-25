@@ -529,6 +529,45 @@ curl "https://<your-domain>/api/cart/delivery-access/me?userId=<id>&telegramId=<
 
 ---
 
+### ⚠️ Проблема: в админке меню кнопки синка iiko падают с `Требуется Telegram ID администратора`
+
+**Дата:** 2026-02-25
+**Симптомы:**
+- Во вкладке редактирования меню кнопки `Предпросмотр синка iiko`/`Синхронизировать` возвращают:
+  `Не удалось синхронизировать меню. Требуется Telegram ID администратора`.
+- Пользователь уже имеет роль `super_admin`, а остальные разделы админки могут работать.
+
+**Причина:**
+- `frontend/src/shared/api/menuApi.ts` отправлял только заголовок `X-VK-Init-Data`.
+- Backend-авторизация меню (`authoriseAdmin`) читает Telegram-идентификаторы из:
+  - `X-Telegram-Id`
+  - `X-Admin-Telegram`
+  - `X-Telegram-Init-Data`
+- Из-за отсутствия Telegram-заголовков backend не мог определить администратора для menu-sync endpoints.
+
+**Решение:**
+- Обновить `buildAdminHeaders` в `menuApi.ts`:
+  - для Telegram/Web отправлять `X-Telegram-Id` и `X-Telegram-Init-Data`;
+  - использовать fallback `VITE_ADMIN_TELEGRAM_IDS` при отсутствии platform user id;
+  - для VK оставить отправку `X-VK-Init-Data`/`X-VK-Id`.
+
+**Проверка:**
+```bash
+# В DevTools -> Network у запроса /admin/menu/<restaurantId>/sync-iiko
+# должны быть заголовки X-Telegram-Id и/или X-Telegram-Init-Data.
+
+curl -X POST "https://<your-domain>/admin/menu/<restaurantId>/sync-iiko" \
+  -H "Content-Type: application/json" \
+  -H "X-Telegram-Id: <admin_telegram_id>" \
+  -d '{"apply":false,"includeInactive":false,"returnMenu":true}'
+```
+
+Ожидаемо: ответ не содержит `Требуется Telegram ID администратора`, возвращается `success: true` или предметная ошибка iiko-конфига.
+
+**Связанный commit:** `c092449` - fix(menu-admin): исправлена передача TG ID для синка iiko
+
+---
+
 ### 🔐 Защита setup endpoints секретным ключом
 
 Все setup endpoints защищены query параметром `?key=mariko-iiko-setup-2024`:
