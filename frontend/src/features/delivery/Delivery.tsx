@@ -31,6 +31,10 @@ const Delivery = () => {
     if (nameLower.includes("delivery") || nameLower.includes("деливери")) {
       return "/images/action button/Logo.png";
     }
+
+    if (nameLower.includes("купер") || nameLower.includes("kuper")) {
+      return "/images/action button/Logo.png";
+    }
     
     // Иконка по умолчанию
     return "/images/action button/Vector.png";
