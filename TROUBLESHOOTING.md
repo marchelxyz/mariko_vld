@@ -625,7 +625,7 @@ curl -i "https://<domain>/api/admin/me" -H "X-Telegram-Id: <id>"
 # Ожидаемо без валидного initData: 401
 ```
 
-**Связанный commit:** `TBD`
+**Связанный commit:** `e3971f3` - fix(auth): включена строгая проверка tg initData без зависимости от NODE_ENV
 
 ---
 
