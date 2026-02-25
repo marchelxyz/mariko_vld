@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-02-25 17:20
+**Последнее обновление:** 2026-02-25 17:30
 
 ---
 
@@ -603,6 +603,32 @@ curl -i "https://<domain>/api/admin/me" -H "X-Telegram-Init-Data: <signed-init-d
 
 ---
 
+### ⚠️ Проблема: строгая TG-авторизация не срабатывает, если `NODE_ENV` не задан
+
+**Дата:** 2026-02-25
+**Симптомы:**
+- После фикса безопасности `GET /api/admin/me` всё ещё может отвечать `200` при одном только `X-Telegram-Id`.
+- В окружении Timeweb `NODE_ENV` может быть пустым, поэтому условие `NODE_ENV === "production"` не выполняется.
+
+**Причина:**
+- Флаг строгой проверки в `shouldRequireVerifiedTelegramInitData` зависел только от точного значения `NODE_ENV === "production"`.
+
+**Решение:**
+- Переключить логику на deny-by-default:
+  - строгая проверка включена всегда при наличии `TELEGRAM_BOT_TOKEN`,
+  - кроме явно development/test окружений,
+  - и кроме явного override `ALLOW_UNSAFE_ADMIN_TELEGRAM_ID_HEADER=true`.
+
+**Проверка:**
+```bash
+curl -i "https://<domain>/api/admin/me" -H "X-Telegram-Id: <id>"
+# Ожидаемо без валидного initData: 401
+```
+
+**Связанный commit:** `TBD`
+
+---
+
 ### ❌ Проблема: `cities` API открыт для записи без серверной роли + утечка `vkGroupToken` в публичном `/cities/active`
 
 **Дата:** 2026-02-25
@@ -804,5 +830,5 @@ curl -X POST "https://api-ru.iiko.services/api/1/organizations" \
 
 ---
 
-**Последнее обновление:** 2026-02-25 17:20
+**Последнее обновление:** 2026-02-25 17:30
 **Автор:** Codex (GPT-5)

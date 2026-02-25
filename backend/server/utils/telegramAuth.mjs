@@ -10,6 +10,8 @@ const TELEGRAM_INIT_DATA_MAX_AGE_SECONDS =
 
 const isUnsafeHeaderModeEnabled = () =>
   String(process.env.ALLOW_UNSAFE_ADMIN_TELEGRAM_ID_HEADER ?? "").trim().toLowerCase() === "true";
+const appEnv = String(process.env.NODE_ENV ?? "").trim().toLowerCase();
+const isDevelopmentLikeEnv = appEnv === "development" || appEnv === "test";
 
 const normaliseTelegramIdStrict = (value) => {
   if (value === null || value === undefined) {
@@ -114,4 +116,4 @@ export const verifyTelegramInitData = (rawInitData) => {
  * Небезопасный fallback по заголовку X-Telegram-Id можно включить явным флагом.
  */
 export const shouldRequireVerifiedTelegramInitData = () =>
-  process.env.NODE_ENV === "production" && Boolean(TELEGRAM_BOT_TOKEN) && !isUnsafeHeaderModeEnabled();
+  Boolean(TELEGRAM_BOT_TOKEN) && !isUnsafeHeaderModeEnabled() && !isDevelopmentLikeEnv;
