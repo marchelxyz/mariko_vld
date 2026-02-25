@@ -116,6 +116,29 @@ const parseStreetAndHouse = (value) => {
   };
 };
 
+const fetchRestaurantDeliveryState = async (restaurantId) => {
+  const normalizedRestaurantId = normaliseNullableString(restaurantId);
+  if (!normalizedRestaurantId) {
+    return null;
+  }
+  const row = await queryOne(
+    `SELECT id, city_id, is_active, is_delivery_enabled
+     FROM restaurants
+     WHERE id = $1
+     LIMIT 1`,
+    [normalizedRestaurantId],
+  );
+  if (!row?.id) {
+    return null;
+  }
+  return {
+    restaurantId: row.id,
+    cityId: row.city_id ?? null,
+    isActive: row.is_active !== false,
+    isDeliveryEnabled: row.is_delivery_enabled === true,
+  };
+};
+
 const resolveCanonicalProfileId = async ({ requestedId, telegramId, vkId }) => {
   const normalizedTelegramId = normaliseNullableString(telegramId);
   if (normalizedTelegramId) {
@@ -479,9 +502,31 @@ export function registerCartRoutes(app) {
       orderPayload?.orderType === "pickup" || orderPayload?.orderType === "delivery"
         ? orderPayload.orderType
         : "delivery";
+    const restaurantId = normaliseNullableString(orderPayload?.restaurantId);
     const paymentMethod = normalizePaymentMethod(
       orderPayload?.paymentMethod ?? orderPayload?.payment_method,
     );
+
+    if (!restaurantId) {
+      return res.status(400).json({ success: false, message: "Не указан restaurantId" });
+    }
+
+    if (db) {
+      const restaurantState = await fetchRestaurantDeliveryState(restaurantId);
+      if (!restaurantState?.restaurantId || !restaurantState.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: "Ресторан недоступен для оформления заказа",
+        });
+      }
+      if (!restaurantState.isDeliveryEnabled) {
+        return res.status(403).json({
+          success: false,
+          code: "DELIVERY_RESTAURANT_DISABLED",
+          message: "Доставка и самовывоз пока не доступны для выбранного ресторана",
+        });
+      }
+    }
 
     if (orderType === "delivery") {
       const access = await resolveDeliveryAccess({
@@ -568,10 +613,6 @@ export function registerCartRoutes(app) {
       const warnings = Array.isArray(orderPayload.warnings) ? orderPayload.warnings : [];
 
       try {
-        const restaurantId =
-          typeof orderPayload?.restaurantId === "string" && orderPayload.restaurantId.trim().length
-            ? orderPayload.restaurantId.trim()
-            : null;
         const invalidOrderItems = rawOrderItems.filter(
           (item) => !(typeof item?.id === "string" && item.id.trim().length),
         );
@@ -617,24 +658,22 @@ export function registerCartRoutes(app) {
           });
         }
 
-        if (restaurantId) {
-          const foreignRestaurantItems = menuItems
-            .filter((menuItem) => menuItem.restaurant_id !== restaurantId)
-            .map((menuItem) => ({
-              id: menuItem.id,
-              name: menuItem.name,
-              restaurantId: menuItem.restaurant_id,
-            }));
+        const foreignRestaurantItems = menuItems
+          .filter((menuItem) => menuItem.restaurant_id !== restaurantId)
+          .map((menuItem) => ({
+            id: menuItem.id,
+            name: menuItem.name,
+            restaurantId: menuItem.restaurant_id,
+          }));
 
-          if (foreignRestaurantItems.length > 0) {
-            return res.status(400).json({
-              success: false,
-              message: "В заказе есть блюда другого ресторана",
-              details: {
-                foreignRestaurantItems,
-              },
-            });
-          }
+        if (foreignRestaurantItems.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: "В заказе есть блюда другого ресторана",
+            details: {
+              foreignRestaurantItems,
+            },
+          });
         }
 
         const itemsWithoutIikoId = menuItems
@@ -665,51 +704,49 @@ export function registerCartRoutes(app) {
           };
         });
 
-        if (restaurantId) {
-          const integrationConfig = await fetchRestaurantIntegrationConfig(restaurantId);
-          if (integrationConfig) {
-            const stopListResult = await iikoClient.getStopList(integrationConfig);
-            if (stopListResult.success) {
-              const stopListProductIds = new Set(
-                (Array.isArray(stopListResult.productIds) ? stopListResult.productIds : [])
-                  .map((id) => normaliseIikoProductId(id).toLowerCase())
-                  .filter(Boolean),
+        const integrationConfig = await fetchRestaurantIntegrationConfig(restaurantId);
+        if (integrationConfig) {
+          const stopListResult = await iikoClient.getStopList(integrationConfig);
+          if (stopListResult.success) {
+            const stopListProductIds = new Set(
+              (Array.isArray(stopListResult.productIds) ? stopListResult.productIds : [])
+                .map((id) => normaliseIikoProductId(id).toLowerCase())
+                .filter(Boolean),
+            );
+            const blockedItems = collectStopListBlockedItems(normalizedOrderItems, stopListProductIds);
+            if (blockedItems.length > 0) {
+              const blockedNames = Array.from(
+                new Set(
+                  blockedItems
+                    .map((item) => (typeof item?.name === "string" ? item.name.trim() : ""))
+                    .filter(Boolean),
+                ),
               );
-              const blockedItems = collectStopListBlockedItems(normalizedOrderItems, stopListProductIds);
-              if (blockedItems.length > 0) {
-                const blockedNames = Array.from(
-                  new Set(
-                    blockedItems
-                      .map((item) => (typeof item?.name === "string" ? item.name.trim() : ""))
-                      .filter(Boolean),
-                  ),
-                );
-                const blockedSummary =
-                  blockedNames.length > 0
-                    ? `${blockedNames.slice(0, 3).join(", ")}${blockedNames.length > 3 ? " и другие" : ""}`
-                    : `${blockedItems.length} поз.`;
-                return res.status(409).json({
-                  success: false,
-                  code: "IIKO_STOP_LIST_BLOCK",
-                  message: `Некоторые блюда сейчас недоступны (стоп-лист): ${blockedSummary}. Удалите их из корзины и попробуйте снова.`,
-                  details: {
-                    blockedCount: blockedItems.length,
-                    blockedItems: blockedItems.slice(0, 20),
-                  },
-                });
-              }
-            } else {
-              console.warn(
-                `⚠️ Не удалось проверить стоп-лист iiko для ресторана ${restaurantId}: ${stopListResult.error}`,
-              );
+              const blockedSummary =
+                blockedNames.length > 0
+                  ? `${blockedNames.slice(0, 3).join(", ")}${blockedNames.length > 3 ? " и другие" : ""}`
+                  : `${blockedItems.length} поз.`;
+              return res.status(409).json({
+                success: false,
+                code: "IIKO_STOP_LIST_BLOCK",
+                message: `Некоторые блюда сейчас недоступны (стоп-лист): ${blockedSummary}. Удалите их из корзины и попробуйте снова.`,
+                details: {
+                  blockedCount: blockedItems.length,
+                  blockedItems: blockedItems.slice(0, 20),
+                },
+              });
             }
+          } else {
+            console.warn(
+              `⚠️ Не удалось проверить стоп-лист iiko для ресторана ${restaurantId}: ${stopListResult.error}`,
+            );
           }
         }
 
         console.log(`💾 Saving order ${orderId} to PostgreSQL`);
         const insertValues = [
           orderId,
-          orderPayload.restaurantId ?? null,
+          restaurantId,
           orderPayload.cityId ?? null,
           orderType,
           orderPayload.customerName,

@@ -75,7 +75,10 @@ const Index = () => {
   const { addItem, removeItem, getItemCount } = useCart();
   const { hasAccess: hasDeliveryAccess } = useDeliveryAccess();
   const isVkPlatform = getPlatform() === "vk";
-  const isMarikoDeliveryEnabled = isMarikoDeliveryEnabledForCity(selectedCity?.id);
+  const isMarikoDeliveryEnabled = isMarikoDeliveryEnabledForCity(
+    selectedCity?.id,
+    selectedRestaurant,
+  );
   const canShowDeliveryButton = Boolean(selectedRestaurant?.id) && !isVkPlatform;
   const canUseCartFeatures = hasDeliveryAccess && isMarikoDeliveryEnabled;
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);

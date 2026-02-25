@@ -19,7 +19,10 @@ const Menu = (): JSX.Element => {
   const { selectedRestaurant, selectedCity } = useCityContext();
   const { hasAccess: hasDeliveryAccess } = useDeliveryAccess();
   const isVkPlatform = getPlatform() === "vk";
-  const isMarikoDeliveryEnabled = isMarikoDeliveryEnabledForCity(selectedCity?.id);
+  const isMarikoDeliveryEnabled = isMarikoDeliveryEnabledForCity(
+    selectedCity?.id,
+    selectedRestaurant,
+  );
   const isDeliveryOrderingEnabled = !isVkPlatform && hasDeliveryAccess && isMarikoDeliveryEnabled;
   const {
     addItem: addCartItem,

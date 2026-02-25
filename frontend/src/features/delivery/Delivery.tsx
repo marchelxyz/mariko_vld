@@ -10,7 +10,7 @@ const Delivery = () => {
   const navigate = useNavigate();
   const { selectedCity, selectedRestaurant } = useCityContext();
   const { hasAccess: hasDeliveryAccess } = useDeliveryAccess();
-  const isCitySupported = isMarikoDeliveryEnabledForCity(selectedCity?.id);
+  const isCitySupported = isMarikoDeliveryEnabledForCity(selectedCity?.id, selectedRestaurant);
   const canShowInternalDelivery = hasDeliveryAccess && isCitySupported;
   const showPickupOption = canShowInternalDelivery;
 
