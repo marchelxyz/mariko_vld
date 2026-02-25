@@ -794,7 +794,7 @@ curl -X PATCH "https://<domain>/api/admin/role-permissions/manager" \
   -d '{"permissions":["manage_menu","manage_deliveries"]}'
 ```
 
-**Связанный commit:** `N/A` (локальные изменения, commit ещё не создан)
+**Связанный commit:** `9987b8c` - fix(admin): исправлена загрузка роли в tg desktop и добавлен кейс в troubleshooting
 
 ---
 
