@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-02-25
+**Последнее обновление:** 2026-02-25 17:20
 
 ---
 
@@ -568,6 +568,98 @@ curl -X POST "https://<your-domain>/admin/menu/<restaurantId>/sync-iiko" \
 
 ---
 
+### 🚨 Проблема: admin auth доверяет `X-Telegram-Id` без проверки подписи Telegram
+
+**Дата:** 2026-02-25
+**Симптомы:**
+- К админ-эндпоинтам можно обратиться, подставив только `X-Telegram-Id`.
+- `X-Telegram-Init-Data` парсится, но подпись (`hash`) не проверяется.
+
+**Причина:**
+- В `backend/server/services/adminService.mjs` `getTelegramIdFromRequest` принимал прямой `X-Telegram-Id` как основной источник.
+- Для `X-Telegram-Init-Data` выполнялся только парсинг `user.id`, без криптографической верификации Telegram WebApp данных.
+
+**Решение:**
+- Добавлен `backend/server/utils/telegramAuth.mjs` с проверкой подписи Telegram initData:
+  - HMAC-SHA256 по алгоритму Telegram (`WebAppData`);
+  - `timingSafeEqual` для сравнения hash;
+  - проверка TTL по `auth_date`.
+- Обновлён `getTelegramIdFromRequest`:
+  - при наличии `X-Telegram-Init-Data` используется только верифицированный `telegramId`;
+  - fallback по `X-Telegram-Id` в production отключён по умолчанию и разрешается только при явном флаге `ALLOW_UNSAFE_ADMIN_TELEGRAM_ID_HEADER=true`.
+
+**Проверка:**
+```bash
+# Без валидного Telegram initData (в production)
+curl -i "https://<domain>/api/admin/me" -H "X-Telegram-Id: <id>"
+# Ожидаемо: 401
+
+# С валидным X-Telegram-Init-Data
+curl -i "https://<domain>/api/admin/me" -H "X-Telegram-Init-Data: <signed-init-data>"
+# Ожидаемо: 200
+```
+
+**Связанный commit:** `f04bb5f` - fix(admin): усилена tg-авторизация и закрыты уязвимые API городов
+
+---
+
+### ❌ Проблема: `cities` API открыт для записи без серверной роли + утечка `vkGroupToken` в публичном `/cities/active`
+
+**Дата:** 2026-02-25
+**Симптомы:**
+- Запросы к `GET /cities/all`, `POST /cities`, `POST /cities/status`, `POST /cities/restaurants`, `PATCH /cities/restaurants/:id` выполняются без серверной проверки прав.
+- Публичный `GET /cities/active` возвращает `vkGroupToken` для ресторанов.
+
+**Причина:**
+- В `backend/server/routes/citiesRoutes.mjs` отсутствовала серверная авторизация для админских операций.
+- Поле `vk_group_token` включалось в публичный DTO активных городов.
+
+**Решение:**
+- Для админских endpoints `cities` добавлена проверка `authoriseAdmin(..., ADMIN_PERMISSION.MANAGE_RESTAURANTS)`.
+- Из публичного ответа `/cities/active` удалено поле `vkGroupToken`.
+
+**Проверка:**
+```bash
+# Без админской авторизации
+curl -i "https://<domain>/api/cities/all"
+# Ожидаемо: 401/403
+
+# Публичный active не должен содержать vkGroupToken
+curl "https://<domain>/api/cities/active" | jq
+```
+
+**Связанный commit:** `f04bb5f` - fix(admin): усилена tg-авторизация и закрыты уязвимые API городов
+
+---
+
+### ❌ Проблема: TG-админка отправляет неверные заголовки в `recommended/cities` и падает на `getTg is not defined`
+
+**Дата:** 2026-02-25
+**Симптомы:**
+- Сохранение рекомендуемых блюд в TG может возвращать ошибки авторизации.
+- Создание города из админки падает с runtime-ошибкой `getTg is not defined`.
+
+**Причина:**
+- `frontend/src/shared/api/recommendedDishesApi.ts` отправлял только `X-VK-Init-Data`, даже для Telegram.
+- `frontend/src/shared/api/cities/serverGateway.ts` использовал `getTg()` без импорта/объявления и смешивал VK/TG логику заголовков.
+
+**Решение:**
+- Для `recommendedDishesApi` добавлены платформенные заголовки:
+  - TG: `X-Telegram-Init-Data`, `X-Telegram-Id`
+  - VK: `X-VK-Init-Data`, `X-VK-Id`
+- В `cities/serverGateway.ts` добавлен общий `appendPlatformAuthHeaders`, устранён вызов `getTg`, выровнены заголовки для всех admin-запросов к cities API.
+
+**Проверка:**
+```bash
+# В TG DevTools у запросов /admin/recommended-dishes/* и /cities/*
+# должны быть X-Telegram-Init-Data и/или X-Telegram-Id.
+# Ошибка "getTg is not defined" больше не воспроизводится.
+```
+
+**Связанный commit:** `f04bb5f` - fix(admin): усилена tg-авторизация и закрыты уязвимые API городов
+
+---
+
 ### 🔐 Защита setup endpoints секретным ключом
 
 Все setup endpoints защищены query параметром `?key=mariko-iiko-setup-2024`:
@@ -712,5 +804,5 @@ curl -X POST "https://api-ru.iiko.services/api/1/organizations" \
 
 ---
 
-**Последнее обновление:** 2026-02-25
+**Последнее обновление:** 2026-02-25 17:20
 **Автор:** Codex (GPT-5)
