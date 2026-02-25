@@ -15,6 +15,29 @@ function parseErrorPayload(payload?: string): string | null {
   }
 }
 
+function appendPlatformAuthHeaders(headers: Record<string, string>): void {
+  const platform = getPlatform();
+  const initData = getInitData();
+  const user = getUser();
+
+  if (platform === "vk") {
+    if (initData) {
+      headers["X-VK-Init-Data"] = initData;
+    }
+    if (user?.id) {
+      headers["X-VK-Id"] = String(user.id);
+    }
+    return;
+  }
+
+  if (initData) {
+    headers["X-Telegram-Init-Data"] = initData;
+  }
+  if (user?.id) {
+    headers["X-Telegram-Id"] = String(user.id);
+  }
+}
+
 async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<T> {
   const method = options?.method || 'GET';
   const url = resolveServerUrl(path);
@@ -27,27 +50,17 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
     Accept: 'application/json',
     ...(options?.headers ?? {}),
   };
-
-  const initData = getInitData();
-  if (initData) {
-    headers['X-VK-Init-Data'] = initData;
-  }
-
-  // Также добавляем ID пользователя, если доступен
-  const user = getUser();
-  if (user?.id) {
-    headers['X-VK-Id'] = String(user.id);
-  }
+  appendPlatformAuthHeaders(headers);
   
   // Логируем заголовки для диагностики (только в режиме разработки)
-  if (import.meta.env.DEV && (initData || user?.id)) {
-    console.log('[API] Заголовки VK для запроса:', {
+  if (import.meta.env.DEV) {
+    const authHeaderNames = Object.keys(headers).filter((name) => name.toLowerCase().startsWith("x-"));
+    if (authHeaderNames.length > 0) {
+      console.log('[API] Заголовки авторизации для запроса:', {
       url,
-      hasInitData: !!initData,
-      hasUserId: !!user?.id,
-      userId: user?.id,
-      initDataPreview: initData ? initData.substring(0, 100) : undefined
+      headers: authHeaderNames,
     });
+    }
   }
   
   try {
@@ -93,12 +106,7 @@ export async function setCityStatusViaServer(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-
-  const platform = getPlatform();
-  const initData = getInitData();
-  if (initData && platform === "vk") {
-    headers['X-VK-Init-Data'] = initData;
-  }
+  appendPlatformAuthHeaders(headers);
 
   const response = await fetch(resolveServerUrl('/cities/status'), {
     method: 'POST',
@@ -136,20 +144,7 @@ export async function createCityViaServer(
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
-
-    const initData = getTg()?.initData;
-    if (initData) {
-      headers['X-Telegram-Init-Data'] = initData;
-      logger.debug('cities', 'VK initData добавлен в заголовки');
-    } else {
-      logger.warn('cities', 'VK initData не найден');
-    }
-
-    // Также добавляем прямой Telegram ID, если доступен
-    const user = getUser();
-    if (user?.id) {
-      headers['X-Telegram-Id'] = String(user.id);
-    }
+    appendPlatformAuthHeaders(headers);
 
     logger.debug('cities', 'Отправка запроса на создание города', { 
       url,
@@ -241,12 +236,7 @@ export async function createRestaurantViaServer(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-
-  const platform = getPlatform();
-  const initData = getInitData();
-  if (initData && platform === "vk") {
-    headers['X-VK-Init-Data'] = initData;
-  }
+  appendPlatformAuthHeaders(headers);
 
   const response = await fetch(resolveServerUrl('/cities/restaurants'), {
     method: 'POST',
@@ -288,12 +278,7 @@ export async function updateRestaurantViaServer(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-
-  const platform = getPlatform();
-  const initData = getInitData();
-  if (initData && platform === "vk") {
-    headers['X-VK-Init-Data'] = initData;
-  }
+  appendPlatformAuthHeaders(headers);
 
   const response = await fetch(resolveServerUrl(`/cities/restaurants/${restaurantId}`), {
     method: 'PATCH',

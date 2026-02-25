@@ -1,6 +1,10 @@
 import { queryOne, queryMany, db } from "../postgresClient.mjs";
 import { ADMIN_TELEGRAM_IDS, ADMIN_ROLE_VALUES } from "../config.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
+import {
+  verifyTelegramInitData,
+  shouldRequireVerifiedTelegramInitData,
+} from "../utils/telegramAuth.mjs";
 
 export const ADMIN_PERMISSION = {
   MANAGE_ROLES: "manage_roles",
@@ -113,41 +117,19 @@ export const resolveAllowedCitiesByRestaurants = async (restaurantIds = []) => {
   }
 };
 
-/**
- * Парсит Telegram Init Data и извлекает Telegram ID пользователя
- */
-const parseTelegramInitData = (rawData) => {
-  if (!rawData) {
-    return null;
-  }
-  try {
-    const params = new URLSearchParams(rawData);
-    const userData = params.get('user');
-    if (!userData) {
-      return null;
-    }
-    const user = JSON.parse(userData);
-    return user?.id ? String(user.id) : null;
-  } catch (error) {
-    console.error('Ошибка парсинга Telegram init data:', error);
-    return null;
-  }
-};
-
 export const getTelegramIdFromRequest = (req) => {
-  // Сначала проверяем прямые заголовки
-  const directId = req.get("x-telegram-id") || req.get("x-admin-telegram");
-  if (directId) {
-    return normaliseTelegramId(directId);
-  }
-  
-  // Затем пытаемся извлечь из X-Telegram-Init-Data
   const initData = req.get("x-telegram-init-data");
   if (initData) {
-    const telegramId = parseTelegramInitData(initData);
-    if (telegramId) {
-      return normaliseTelegramId(telegramId);
+    const verified = verifyTelegramInitData(initData);
+    if (verified?.telegramId) {
+      return verified.telegramId;
     }
+    return null;
+  }
+
+  const directId = req.get("x-telegram-id") || req.get("x-admin-telegram");
+  if (directId && !shouldRequireVerifiedTelegramInitData()) {
+    return normaliseTelegramId(directId);
   }
   
   return null;
@@ -257,7 +239,7 @@ export const authoriseSuperAdmin = async (req, res) => {
   const telegramId = getTelegramIdFromRequest(req);
 
   if (!telegramId) {
-    res.status(401).json({ success: false, message: "Требуется Telegram ID администратора" });
+    res.status(401).json({ success: false, message: "Требуется подтверждённая Telegram авторизация администратора" });
     return null;
   }
   const context = await resolveAdminContext(telegramId);
@@ -272,7 +254,7 @@ export const authoriseAdmin = async (req, res, requiredPermission = null) => {
   const telegramId = getTelegramIdFromRequest(req);
 
   if (!telegramId) {
-    res.status(401).json({ success: false, message: "Требуется Telegram ID администратора" });
+    res.status(401).json({ success: false, message: "Требуется подтверждённая Telegram авторизация администратора" });
     return null;
   }
   const context = await resolveAdminContext(telegramId);
@@ -297,7 +279,7 @@ export const authoriseAnyAdmin = async (req, res, requiredPermission = null) => 
   const telegramId = getTelegramIdFromRequest(req);
 
   if (!telegramId) {
-    res.status(401).json({ success: false, message: "Требуется Telegram ID администратора" });
+    res.status(401).json({ success: false, message: "Требуется подтверждённая Telegram авторизация администратора" });
     return null;
   }
   const context = await resolveAdminContext(telegramId);

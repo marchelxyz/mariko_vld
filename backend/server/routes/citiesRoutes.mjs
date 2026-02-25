@@ -1,11 +1,20 @@
 import express from "express";
 import { db, ensureDatabase, queryMany, queryOne, query } from "../postgresClient.mjs";
 import { createLogger } from "../utils/logger.mjs";
+import { ADMIN_PERMISSION, authoriseAdmin } from "../services/adminService.mjs";
 
 const logger = createLogger('cities');
 
 export function createCitiesRouter() {
   const router = express.Router();
+
+  const requireRestaurantsAdmin = async (req, res) => {
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_RESTAURANTS);
+    if (!admin) {
+      return null;
+    }
+    return admin;
+  };
 
   router.use((req, res, next) => {
     logger.request(req.method, req.path, {
@@ -57,7 +66,6 @@ export function createCitiesRouter() {
             address: r.address,
             city: cityRow.name,
             isDeliveryEnabled: r.is_delivery_enabled ?? true,
-            vkGroupToken: r.vk_group_token || undefined,
             phoneNumber: r.phone_number || undefined,
             deliveryAggregators: r.delivery_aggregators 
               ? (typeof r.delivery_aggregators === 'string' 
@@ -93,6 +101,9 @@ export function createCitiesRouter() {
    */
   router.get("/all", async (req, res) => {
     const startTime = Date.now();
+    if (!(await requireRestaurantsAdmin(req, res))) {
+      return;
+    }
     try {
       logger.info('Получение всех городов для админ-панели');
       
@@ -157,6 +168,9 @@ export function createCitiesRouter() {
    */
   router.post("/", async (req, res) => {
     const startTime = Date.now();
+    if (!(await requireRestaurantsAdmin(req, res))) {
+      return;
+    }
     logger.info('Запрос на создание города', {
       body: req.body,
       headers: {
@@ -232,6 +246,9 @@ export function createCitiesRouter() {
    */
   router.post("/status", async (req, res) => {
     const startTime = Date.now();
+    if (!(await requireRestaurantsAdmin(req, res))) {
+      return;
+    }
     const { cityId, isActive } = req.body ?? {};
     logger.info('Изменение статуса города', { cityId, isActive });
     
@@ -268,6 +285,9 @@ export function createCitiesRouter() {
    * Права уже проверены при входе в админ-панель
    */
   router.post("/restaurants", async (req, res) => {
+    if (!(await requireRestaurantsAdmin(req, res))) {
+      return;
+    }
     const {
       cityId,
       name,
@@ -350,6 +370,9 @@ export function createCitiesRouter() {
    * Права уже проверены при входе в админ-панель
    */
   router.patch("/restaurants/:restaurantId", async (req, res) => {
+    if (!(await requireRestaurantsAdmin(req, res))) {
+      return;
+    }
     const restaurantId = req.params.restaurantId;
     const {
       name,
