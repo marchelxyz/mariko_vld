@@ -6,7 +6,7 @@ type ToasterProps = React.ComponentProps<typeof Sonner>;
 const Toaster = ({
   position = "top-right",
   offset = {
-    top: "calc(var(--tg-safe-area-top, 0px) + 56px)",
+    top: "calc(var(--tg-safe-area-top, 0px) + 72px)",
     right: "calc(var(--tg-safe-area-right, 0px) + 12px)",
   },
   ...props
