@@ -22,7 +22,7 @@ import {
 } from "@shared/ui/popover";
 import { useProfile } from "@entities/user";
 import { useAppSettings } from "@/hooks";
-import { useCityContext, useCart } from "@/contexts";
+import { useCityContext } from "@/contexts";
 import { usePhoneInput } from "@shared/hooks";
 import {
   getRemarkedReservesByPhone,
@@ -36,10 +36,9 @@ import {
 } from "@shared/api/bookingApi";
 import { profileApi } from "@shared/api/profile";
 import { toast } from "@/hooks/use-toast";
-import { CalendarIcon, Loader2, RefreshCw, ShoppingCart, Info, Pencil } from "lucide-react";
+import { CalendarIcon, Loader2, RefreshCw, Pencil } from "lucide-react";
 import { cn } from "@shared/utils";
 import { getCachedBookingSlots, cacheBookingSlots } from "@shared/utils/bookingSlotsCache";
-import { Alert, AlertDescription } from "@shared/ui/alert";
 
 type EventType = {
   id: string;
@@ -117,29 +116,10 @@ function isValidRemarkedId(id: number | undefined): boolean {
   return /^\d{6}$/.test(idStr);
 }
 
-/**
- * Форматирует корзину в текст для комментария
- */
-function formatCartForComment(items: Array<{ name: string; amount: number; price: number }>): string {
-  if (!items || items.length === 0) {
-    return "";
-  }
-  
-  const lines = items.map((item) => {
-    const totalPrice = item.amount * item.price;
-    return `${item.name} × ${item.amount} = ${totalPrice} ₽`;
-  });
-  
-  const total = items.reduce((sum, item) => sum + item.amount * item.price, 0);
-  
-  return `Заказ:\n${lines.join("\n")}\nИтого: ${total} ₽`;
-}
-
 export function BookingForm({ onSuccess }: BookingFormProps) {
   const { selectedRestaurant } = useCityContext();
   const { profile } = useProfile();
   const { settings } = useAppSettings();
-  const { items: cartItems, totalPrice: cartTotalPrice } = useCart();
 
   // Используем useMemo для today, чтобы избежать пересоздания при каждом рендере
   const today = useMemo(() => {
@@ -926,10 +906,8 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
 
       const dateStr = format(selectedDate, "yyyy-MM-dd");
       
-      // Формируем комментарий: корзина + событие + другие пожелания
-      const cartComment = cartItems.length > 0 ? formatCartForComment(cartItems) : "";
+      // Формируем комментарий: событие + другие пожелания
       const fullComment = [
-        cartComment,
         selectedEvent?.comment,
         comment.trim(),
       ]
@@ -1057,7 +1035,6 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     guestsCount,
     selectedEvent,
     comment,
-    cartItems,
     profile,
     today,
     tokenError,
@@ -1342,40 +1319,6 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         )}
       </Button>
 
-      {/* Уведомление о передаче меню в ресторан */}
-      {cartItems.length > 0 && (
-        <Alert className="bg-mariko-primary/20 border-mariko-primary/40 rounded-[16px] shadow-lg">
-          <Info className="h-5 w-5 text-mariko-primary flex-shrink-0" />
-          <AlertDescription className="text-white/95 pl-7">
-            <span className="font-semibold text-white font-el-messiri">Ваше собранное меню будет передано в ресторан</span> при подтверждении брони столика.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Отображение корзины */}
-      {cartItems.length > 0 && (
-        <div className="rounded-[16px] border border-white/20 bg-white/5 p-4">
-          <h4 className="text-white font-el-messiri text-base font-semibold mb-3">
-            Ваш заказ
-          </h4>
-          <div className="space-y-2">
-            {cartItems.map((item) => (
-              <div key={item.id} className="flex justify-between items-center py-2 border-b border-white/10 last:border-0">
-                <div>
-                  <p className="text-white font-medium">{item.name}</p>
-                  <p className="text-white/70 text-sm">Количество: {item.amount}</p>
-                  <p className="text-white/50 text-xs">Цена за единицу: {item.price}₽</p>
-                </div>
-                <p className="text-white font-semibold">{item.price * item.amount}₽</p>
-              </div>
-            ))}
-            <div className="flex justify-between items-center pt-2 mt-2 border-t border-white/20">
-              <span className="text-white font-semibold">Итого:</span>
-              <span className="text-white font-el-messiri text-lg font-bold">{cartTotalPrice}₽</span>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

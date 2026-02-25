@@ -15,7 +15,9 @@ import {
   fetchAdminRecordByTelegram,
   resolveAdminContext,
   ADMIN_PERMISSION,
-  canAssignRole,
+  listRolePermissionsMatrix,
+  listKnownAdminPermissions,
+  upsertRolePermissions,
 } from "../services/adminService.mjs";
 import { listUserProfiles, fetchUserProfile } from "../services/profileService.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
@@ -234,6 +236,81 @@ export function createAdminRouter() {
     });
   });
 
+  router.get("/role-permissions", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+
+    if (!(await authoriseSuperAdmin(req, res))) {
+      return;
+    }
+
+    try {
+      const roles = await listRolePermissionsMatrix();
+      return res.json({
+        success: true,
+        roles,
+        availablePermissions: listKnownAdminPermissions(),
+      });
+    } catch (error) {
+      console.error("Ошибка получения матрицы прав ролей:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Не удалось получить матрицу прав ролей",
+      });
+    }
+  });
+
+  router.patch("/role-permissions/:role", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+
+    if (!(await authoriseSuperAdmin(req, res))) {
+      return;
+    }
+
+    const role = typeof req.params?.role === "string" ? req.params.role.trim() : "";
+    if (!role || !ADMIN_ROLE_VALUES.has(role)) {
+      return res.status(400).json({ success: false, message: "Некорректная роль" });
+    }
+
+    const rawPermissions = req.body?.permissions;
+    if (!Array.isArray(rawPermissions)) {
+      return res.status(400).json({ success: false, message: "Поле permissions должно быть массивом" });
+    }
+
+    const normalisedPermissions = Array.from(
+      new Set(rawPermissions.filter((permission) => typeof permission === "string")),
+    );
+
+    const knownPermissions = new Set(listKnownAdminPermissions());
+    const invalidPermissions = normalisedPermissions.filter(
+      (permission) => !knownPermissions.has(permission),
+    );
+    if (invalidPermissions.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Некорректные permissions: ${invalidPermissions.join(", ")}`,
+      });
+    }
+
+    try {
+      const permissions = await upsertRolePermissions(role, normalisedPermissions);
+      return res.json({
+        success: true,
+        role,
+        permissions,
+      });
+    } catch (error) {
+      console.error("Ошибка обновления матрицы прав ролей:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Не удалось обновить права роли",
+      });
+    }
+  });
+
   router.get("/delivery-access/users", async (req, res) => {
     if (!ensureDatabase(res)) {
       return;
@@ -401,7 +478,7 @@ export function createAdminRouter() {
     if (!ensureDatabase(res)) {
       return;
     }
-    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_ROLES);
+    const admin = await authoriseSuperAdmin(req, res);
     if (!admin) {
       return;
     }
@@ -409,9 +486,6 @@ export function createAdminRouter() {
     const { role: incomingRole, allowedRestaurants = [], name: overrideName } = req.body ?? {};
     if (!incomingRole || !ADMIN_ROLE_VALUES.has(incomingRole)) {
       return res.status(400).json({ success: false, message: "Некорректная роль" });
-    }
-    if (!canAssignRole(admin.role, incomingRole)) {
-      return res.status(403).json({ success: false, message: "Недостаточно прав для назначения роли" });
     }
     const profile = await fetchUserProfile(userIdentifier);
     const telegramId = profile?.telegram_id ? String(profile.telegram_id) : normaliseTelegramId(userIdentifier);

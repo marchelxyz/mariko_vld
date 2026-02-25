@@ -1,5 +1,6 @@
 import { db, query, checkConnection } from "./postgresClient.mjs";
 import { CART_ORDERS_TABLE } from "./config.mjs";
+import { seedDefaultRolePermissions } from "./services/adminService.mjs";
 
 /**
  * SQL схемы для создания всех необходимых таблиц
@@ -114,6 +115,25 @@ const SCHEMAS = {
         )
       ),
       permissions JSONB DEFAULT '{}'::jsonb,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `,
+
+  admin_role_permissions: `
+    CREATE TABLE IF NOT EXISTS admin_role_permissions (
+      role VARCHAR(50) PRIMARY KEY CHECK (
+        role IN (
+          'super_admin',
+          'admin',
+          'manager',
+          'restaurant_manager',
+          'marketer',
+          'delivery_manager',
+          'user'
+        )
+      ),
+      permissions JSONB NOT NULL DEFAULT '[]'::jsonb,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
@@ -488,6 +508,7 @@ export async function initializeDatabase() {
       "user_carts",         // user_carts зависит от user_profiles
       "cart_orders",        // cart_orders независима
       "admin_users",        // admin_users независима
+      "admin_role_permissions", // матрица прав ролей
       "app_settings",       // app_settings независима
       "restaurant_integrations", // restaurant_integrations независима
       "integration_job_logs", // integration_job_logs независима
@@ -551,6 +572,14 @@ export async function initializeDatabase() {
       );
     } catch (error) {
       console.warn("⚠️  Не удалось обновить constraint ролей админов:", error?.message || error);
+    }
+
+    // Миграция: сидируем матрицу прав ролей по умолчанию
+    try {
+      await seedDefaultRolePermissions();
+      console.log("✅ Матрица прав ролей инициализирована");
+    } catch (error) {
+      console.warn("⚠️  Не удалось инициализировать матрицу прав ролей:", error?.message || error);
     }
 
     // Убеждаемся, что все таблицы имеют PRIMARY KEY constraints перед созданием foreign keys
@@ -1117,6 +1146,7 @@ export async function checkDatabaseTables() {
       "user_carts",
       CART_ORDERS_TABLE,
       "admin_users",
+      "admin_role_permissions",
       "restaurant_integrations",
       "integration_job_logs",
       "restaurant_payments",

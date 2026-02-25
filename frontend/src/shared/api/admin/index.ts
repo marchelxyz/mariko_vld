@@ -5,4 +5,5 @@ export {
   type AdminBooking,
   type AdminDeliveryAccessUser,
   type DeliveryAccessMode,
+  type RolePermissionsMatrixItem,
 } from './adminServerApi';

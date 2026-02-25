@@ -145,6 +145,7 @@ export default function AdminPanel(): JSX.Element {
           title: "Управление ролями",
           description: "Выдавайте админ-права сотрудникам ресторана",
           permission: Permission.MANAGE_ROLES,
+          superAdminOnly: true,
         },
         {
           key: 'settings' as AdminSection,

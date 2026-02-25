@@ -116,6 +116,11 @@ export type AdminPanelUser = {
   permissions?: Permission[];
 };
 
+export type RolePermissionsMatrixItem = {
+  role: UserRole;
+  permissions: Permission[];
+};
+
 export type DeliveryAccessMode = "list" | "all_on" | "all_off";
 
 export type AdminDeliveryAccessUser = {
@@ -249,6 +254,12 @@ type DeliveryAccessSnapshotResponse = {
   success: boolean;
   mode: DeliveryAccessMode;
   users: AdminDeliveryAccessUser[];
+};
+
+type RolePermissionsMatrixResponse = {
+  success: boolean;
+  roles: RolePermissionsMatrixItem[];
+  availablePermissions: Permission[];
 };
 
 type UpdateRolePayload = {
@@ -531,6 +542,33 @@ export const adminServerApi = {
     });
     const data = await handleResponse<{ success: boolean; users: AdminPanelUser[] }>(response);
     return data.users ?? [];
+  },
+
+  async getRolePermissionsMatrix(): Promise<{
+    roles: RolePermissionsMatrixItem[];
+    availablePermissions: Permission[];
+  }> {
+    const response = await fetch(`${ADMIN_API_BASE}/role-permissions`, {
+      headers: buildHeaders(),
+    });
+    const data = await handleResponse<RolePermissionsMatrixResponse>(response);
+    return {
+      roles: data.roles ?? [],
+      availablePermissions: data.availablePermissions ?? [],
+    };
+  },
+
+  async updateRolePermissions(role: UserRole, permissions: Permission[]): Promise<RolePermissionsMatrixItem> {
+    const response = await fetch(`${ADMIN_API_BASE}/role-permissions/${encodeURIComponent(role)}`, {
+      method: "PATCH",
+      headers: buildHeaders(),
+      body: JSON.stringify({ permissions }),
+    });
+    const data = await handleResponse<{ success: boolean; role: UserRole; permissions: Permission[] }>(response);
+    return {
+      role: data.role,
+      permissions: data.permissions ?? [],
+    };
   },
 
   async getDeliveryAccessUsers(): Promise<{
