@@ -1,5 +1,5 @@
 import { type MenuItem } from "@shared/data";
-import { getInitData, getPlatform } from "@/lib/platform";
+import { getInitData, getPlatform, getUser } from "@/lib/platform";
 
 const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
 const RAW_SERVER_API_BASE = normalizeBaseUrl(rawServerEnv || "/api");
@@ -45,9 +45,25 @@ function buildAdminHeaders(initial?: Record<string, string>): Record<string, str
     ...(initial ?? {}),
   };
 
+  const platform = getPlatform();
   const initData = getInitData();
+  const user = getUser();
+
+  if (platform === "vk") {
+    if (initData) {
+      headers["X-VK-Init-Data"] = initData;
+    }
+    if (user?.id) {
+      headers["X-VK-Id"] = String(user.id);
+    }
+    return headers;
+  }
+
   if (initData) {
-    headers["X-VK-Init-Data"] = initData;
+    headers["X-Telegram-Init-Data"] = initData;
+  }
+  if (user?.id) {
+    headers["X-Telegram-Id"] = String(user.id);
   }
 
   return headers;
