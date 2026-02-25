@@ -1,5 +1,6 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getUserId } from "@/lib/platform";
+import { getUserId, onActivated } from "@/lib/platform";
 import {
   fetchDeliveryAccessStatus,
   type DeliveryAccessMode,
@@ -7,13 +8,29 @@ import {
 
 export function useDeliveryAccess() {
   const userId = getUserId();
+  const queryKey = ["delivery-access", userId ?? "anonymous"] as const;
 
   const query = useQuery({
-    queryKey: ["delivery-access", userId ?? "anonymous"],
+    queryKey,
     queryFn: () => fetchDeliveryAccessStatus(userId),
-    staleTime: 60_000,
+    staleTime: 5_000,
     retry: 1,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchOnMount: "always",
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: false,
   });
+
+  useEffect(() => {
+    const unsubscribe = onActivated(() => {
+      void query.refetch();
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [query.refetch]);
 
   return {
     hasAccess: query.data?.hasAccess === true,
