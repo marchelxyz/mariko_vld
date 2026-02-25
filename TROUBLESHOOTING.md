@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-02-25 20:55
+**Последнее обновление:** 2026-02-25 21:35
 
 ---
 
@@ -396,6 +396,41 @@ curl -X PATCH \
 curl https://your-backend.com/api/db/check
 # Должно вернуть: {"database": true, ...}
 ```
+
+---
+
+### ❌ Проблема: после обновления env в TimeWeb TG-прод теряет `DATABASE_URL` (503 в админке/доставке)
+
+**Дата:** 2026-02-25  
+**Симптомы:**
+- `GET /tg/api/health` возвращает `{"status":"ok","database":false}`.
+- `GET /tg/api/db/check` возвращает `{"success":false,"message":"DATABASE_URL не задан"}`.
+- Админ-API (`/tg/api/admin/*`) отвечает `503` из-за отсутствия подключения к БД.
+- В логах старта: `DATABASE_URL env var not found`.
+
+**Причина:**
+- `PATCH /api/v1/apps/{app_id}` в TimeWeb при передаче поля `envs` **заменяет весь набор переменных окружения**, а не делает merge.
+- При точечном обновлении только `YOOKASSA_TEST_*` были стерты остальные ключи (включая `DATABASE_URL`, `ADMIN_TELEGRAM_IDS`, storage env и т.д.).
+
+**Решение:**
+1. Считать текущие env из рабочего приложения (или из бэкапа), чтобы не потерять секреты.
+2. Сформировать полный объект `envs` для TG-приложения (включая `DATABASE_URL`, пути `/tg`, storage, `YOOKASSA_TEST_*`).
+3. Выполнить `PATCH` с **полным** набором env.
+4. Дождаться завершения деплоя (`deploys.status = success`).
+
+**Проверка:**
+```bash
+curl "https://tg.marikorest.ru/tg/api/health"
+curl "https://tg.marikorest.ru/tg/api/db/check"
+curl -H "X-Telegram-Id: 577222108" \
+  "https://tg.marikorest.ru/tg/api/admin/role-permissions"
+```
+Ожидаемо:
+- `health.database = true`
+- `db.check.success = true`
+- `role-permissions` отвечает `200` для супер-админа (или `401` без авторизации).
+
+**Связанный commit:** `N/A` (операционные изменения env/deploy в TimeWeb)
 
 ---
 
@@ -937,5 +972,5 @@ curl -X POST "https://api-ru.iiko.services/api/1/organizations" \
 
 ---
 
-**Последнее обновление:** 2026-02-25 20:55
+**Последнее обновление:** 2026-02-25 21:35
 **Автор:** Codex (GPT-5)
