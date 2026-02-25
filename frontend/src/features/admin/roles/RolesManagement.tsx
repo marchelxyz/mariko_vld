@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Shield, UserCheck, UserX, Search, ChevronRight, Loader2, Truck, Megaphone } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { adminServerApi, type AdminPanelUser } from "@shared/api/admin";
+import { adminServerApi, type AdminPanelUser, type RolePermissionsMatrixItem } from "@shared/api/admin";
 import { getAllCitiesAsync, type City } from "@shared/data";
 import { useAdmin } from "@shared/hooks";
 import { Permission, UserRole } from "@shared/types";
@@ -25,6 +25,16 @@ import {
   Checkbox,
 } from "@shared/ui";
 
+const ROLE_ORDER: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.ADMIN,
+  UserRole.MANAGER,
+  UserRole.RESTAURANT_MANAGER,
+  UserRole.MARKETER,
+  UserRole.DELIVERY_MANAGER,
+  UserRole.USER,
+];
+
 export function RolesManagement(): JSX.Element {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<AdminPanelUser | null>(null);
@@ -33,17 +43,30 @@ export function RolesManagement(): JSX.Element {
   const [restaurantSearch, setRestaurantSearch] = useState("");
   const [showDialog, setShowDialog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [rolePermissionsDrafts, setRolePermissionsDrafts] = useState<Record<string, Permission[]>>({});
+  const [roleSaveState, setRoleSaveState] = useState<Record<string, boolean>>({});
   const [restaurantOptions, setRestaurantOptions] = useState<
     { id: string; label: string; cityName: string; address: string }[]
   >([]);
 
   const { isSuperAdmin, allowedRestaurants: myAllowedRestaurants, hasPermission, userRole } = useAdmin();
   const canManageRoles = hasPermission(Permission.MANAGE_ROLES);
+  const isSuperAdminUser = isSuperAdmin();
 
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ["admin-users"],
     queryFn: () => adminServerApi.getUsers(),
     enabled: canManageRoles,
+  });
+
+  const {
+    data: rolePermissionsMatrixData,
+    isLoading: isRolePermissionsLoading,
+    refetch: refetchRolePermissionsMatrix,
+  } = useQuery({
+    queryKey: ["admin-role-permissions-matrix"],
+    queryFn: () => adminServerApi.getRolePermissionsMatrix(),
+    enabled: canManageRoles && isSuperAdminUser,
   });
 
   type RestaurantOption = { id: string; label: string; cityName: string; address: string };
@@ -88,7 +111,7 @@ export function RolesManagement(): JSX.Element {
   }, [users, searchQuery]);
 
   const scopedRestaurantOptions = useMemo(() => {
-    if (isSuperAdmin() || userRole === UserRole.ADMIN) {
+    if (isSuperAdminUser || userRole === UserRole.ADMIN) {
       return restaurantOptions;
     }
     if (!myAllowedRestaurants?.length) {
@@ -96,7 +119,7 @@ export function RolesManagement(): JSX.Element {
     }
     const allowed = new Set(myAllowedRestaurants);
     return restaurantOptions.filter((restaurant) => allowed.has(restaurant.id));
-  }, [isSuperAdmin, myAllowedRestaurants, restaurantOptions, userRole]);
+  }, [isSuperAdminUser, myAllowedRestaurants, restaurantOptions, userRole]);
 
   const filteredRestaurants = useMemo(() => {
     const source = scopedRestaurantOptions;
@@ -116,6 +139,115 @@ export function RolesManagement(): JSX.Element {
 
   const roleRequiresRestaurants = (role: UserRole): boolean => {
     return ![UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.USER].includes(role);
+  };
+
+  const rolePermissionRows = useMemo<RolePermissionsMatrixItem[]>(() => {
+    if (!rolePermissionsMatrixData?.roles?.length) {
+      return [];
+    }
+
+    const mapByRole = new Map(
+      rolePermissionsMatrixData.roles.map((row) => [row.role, row]),
+    );
+
+    const orderedRows: RolePermissionsMatrixItem[] = [];
+    ROLE_ORDER.forEach((role) => {
+      const row = mapByRole.get(role);
+      if (row) {
+        orderedRows.push(row);
+      }
+    });
+
+    rolePermissionsMatrixData.roles.forEach((row) => {
+      if (!orderedRows.some((orderedRow) => orderedRow.role === row.role)) {
+        orderedRows.push(row);
+      }
+    });
+
+    return orderedRows;
+  }, [rolePermissionsMatrixData]);
+
+  useEffect(() => {
+    if (!rolePermissionRows.length) {
+      return;
+    }
+    setRolePermissionsDrafts(() => {
+      const next: Record<string, Permission[]> = {};
+      rolePermissionRows.forEach((row) => {
+        next[row.role] = row.permissions ?? [];
+      });
+      return next;
+    });
+  }, [rolePermissionRows]);
+
+  const permissionLabels: Record<string, string> = {
+    [Permission.MANAGE_ROLES]: "Управление ролями",
+    [Permission.MANAGE_RESTAURANTS]: "Управление ресторанами",
+    [Permission.MANAGE_MENU]: "Управление меню",
+    [Permission.MANAGE_PROMOTIONS]: "Управление акциями",
+    [Permission.MANAGE_DELIVERIES]: "Управление доставками",
+    [Permission.MANAGE_BOOKINGS]: "Управление бронированиями",
+    [Permission.MANAGE_USERS]: "Управление гостями",
+    [Permission.VIEW_USERS]: "Просмотр гостевой базы",
+  };
+
+  const getPermissionLabel = (permission: Permission): string => {
+    return permissionLabels[permission] ?? permission;
+  };
+
+  const getDraftPermissionsForRole = (role: UserRole, fallback: Permission[]): Permission[] => {
+    const fromDraft = rolePermissionsDrafts[role];
+    return Array.isArray(fromDraft) ? fromDraft : fallback;
+  };
+
+  const rolePermissionsChanged = (role: UserRole, initialPermissions: Permission[]): boolean => {
+    const draftPermissions = getDraftPermissionsForRole(role, initialPermissions);
+    const initialSet = new Set(initialPermissions);
+    const draftSet = new Set(draftPermissions);
+    if (initialSet.size !== draftSet.size) {
+      return true;
+    }
+    for (const permission of draftSet) {
+      if (!initialSet.has(permission)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const toggleRolePermission = (role: UserRole, permission: Permission) => {
+    if (role === UserRole.SUPER_ADMIN) {
+      return;
+    }
+    setRolePermissionsDrafts((previous) => {
+      const current = previous[role] ?? [];
+      const next = current.includes(permission)
+        ? current.filter((value) => value !== permission)
+        : [...current, permission];
+      return {
+        ...previous,
+        [role]: next,
+      };
+    });
+  };
+
+  const handleSaveRolePermissions = async (role: UserRole, initialPermissions: Permission[]) => {
+    if (role === UserRole.SUPER_ADMIN) {
+      return;
+    }
+
+    const draftPermissions = getDraftPermissionsForRole(role, initialPermissions);
+    setRoleSaveState((previous) => ({ ...previous, [role]: true }));
+    try {
+      await adminServerApi.updateRolePermissions(role, draftPermissions);
+      alert("Права роли обновлены");
+      await Promise.all([refetchRolePermissionsMatrix(), refetch()]);
+    } catch (error) {
+      console.error(error);
+      alert("Не удалось обновить права роли");
+    } finally {
+      setRoleSaveState((previous) => ({ ...previous, [role]: false }));
+    }
   };
 
   const getRoleLabel = (role: UserRole): string => {
@@ -147,12 +279,12 @@ export function RolesManagement(): JSX.Element {
         { value: UserRole.DELIVERY_MANAGER, label: getRoleLabel(UserRole.DELIVERY_MANAGER) },
         { value: UserRole.USER, label: getRoleLabel(UserRole.USER) },
       ];
-      if (isSuperAdmin()) {
+      if (isSuperAdminUser) {
         return [{ value: UserRole.SUPER_ADMIN, label: getRoleLabel(UserRole.SUPER_ADMIN) }, ...base];
       }
       return base;
     },
-    [isSuperAdmin],
+    [isSuperAdminUser],
   );
 
   useEffect(() => {
@@ -285,6 +417,86 @@ export function RolesManagement(): JSX.Element {
           </div>
         )}
       </div>
+
+      {isSuperAdminUser && (
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 md:p-6 space-y-4">
+          <div>
+            <h3 className="text-white font-el-messiri text-xl font-bold">Матрица прав ролей</h3>
+            <p className="text-white/70 text-sm mt-1">
+              Права применяются автоматически для всех пользователей выбранной роли.
+            </p>
+          </div>
+
+          {isRolePermissionsLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-6 h-6 text-white animate-spin" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {rolePermissionRows.map((roleRow) => {
+                const role = roleRow.role;
+                const isLockedRole = role === UserRole.SUPER_ADMIN;
+                const availablePermissions = rolePermissionsMatrixData?.availablePermissions ?? [];
+                const currentPermissions = getDraftPermissionsForRole(role, roleRow.permissions ?? []);
+                const isChanged = rolePermissionsChanged(role, roleRow.permissions ?? []);
+                const isRoleSaving = roleSaveState[role] === true;
+
+                return (
+                  <div key={role} className="rounded-2xl border border-white/15 bg-white/5 p-4 space-y-3">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <p className="text-white font-semibold">{getRoleLabel(role)}</p>
+                        <p className="text-white/60 text-xs">
+                          Активных прав: {currentPermissions.length}
+                        </p>
+                      </div>
+                      {isLockedRole ? (
+                        <span className="text-xs text-white/70">
+                          Супер-админ всегда имеет полный доступ
+                        </span>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          onClick={() => handleSaveRolePermissions(role, roleRow.permissions ?? [])}
+                          disabled={isRoleSaving || !isChanged}
+                        >
+                          {isRoleSaving ? "Сохраняем..." : "Сохранить права"}
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {availablePermissions.map((permission) => {
+                        const checked = currentPermissions.includes(permission);
+                        return (
+                          <label
+                            key={`${role}-${permission}`}
+                            className="flex items-center gap-3 rounded-xl border border-white/10 px-3 py-2 text-white/85 text-sm"
+                          >
+                            <Checkbox
+                              checked={checked}
+                              disabled={isLockedRole || isRoleSaving}
+                              onCheckedChange={() => toggleRolePermission(role, permission)}
+                              className="border-white/40 data-[state=checked]:bg-mariko-primary data-[state=checked]:border-mariko-primary"
+                            />
+                            <span>{getPermissionLabel(permission)}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {!rolePermissionRows.length && (
+                <div className="text-white/70 text-sm text-center py-4">
+                  Матрица прав ролей пока недоступна
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <AlertDialog open={showDialog} onOpenChange={setShowDialog}>
         <AlertDialogContent className="max-h-[90vh] overflow-y-auto text-mariko-dark">

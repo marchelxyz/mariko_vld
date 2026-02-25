@@ -1,4 +1,4 @@
-import { queryOne, queryMany, db } from "../postgresClient.mjs";
+import { queryOne, queryMany, query, db } from "../postgresClient.mjs";
 import { ADMIN_TELEGRAM_IDS, ADMIN_ROLE_VALUES } from "../config.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
 import {
@@ -17,8 +17,13 @@ export const ADMIN_PERMISSION = {
   VIEW_USERS: "view_users",
 };
 
-const ROLE_PERMISSIONS = {
-  super_admin: new Set([
+const ROLE_PERMISSIONS_TABLE = "admin_role_permissions";
+const ADMIN_PERMISSION_VALUES = new Set(Object.values(ADMIN_PERMISSION));
+const ROLE_PERMISSIONS_CACHE_TTL_MS =
+  Number.parseInt(process.env.ADMIN_ROLE_PERMISSIONS_CACHE_TTL_MS ?? "", 10) || 5_000;
+
+export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
+  super_admin: [
     ADMIN_PERMISSION.MANAGE_ROLES,
     ADMIN_PERMISSION.MANAGE_RESTAURANTS,
     ADMIN_PERMISSION.MANAGE_MENU,
@@ -27,9 +32,8 @@ const ROLE_PERMISSIONS = {
     ADMIN_PERMISSION.MANAGE_BOOKINGS,
     ADMIN_PERMISSION.MANAGE_USERS,
     ADMIN_PERMISSION.VIEW_USERS,
-  ]),
-  admin: new Set([
-    ADMIN_PERMISSION.MANAGE_ROLES,
+  ],
+  admin: [
     ADMIN_PERMISSION.MANAGE_RESTAURANTS,
     ADMIN_PERMISSION.MANAGE_MENU,
     ADMIN_PERMISSION.MANAGE_PROMOTIONS,
@@ -37,44 +41,180 @@ const ROLE_PERMISSIONS = {
     ADMIN_PERMISSION.MANAGE_BOOKINGS,
     ADMIN_PERMISSION.MANAGE_USERS,
     ADMIN_PERMISSION.VIEW_USERS,
-  ]),
-  manager: new Set([
+  ],
+  manager: [
     ADMIN_PERMISSION.MANAGE_RESTAURANTS,
     ADMIN_PERMISSION.MANAGE_MENU,
     ADMIN_PERMISSION.MANAGE_PROMOTIONS,
     ADMIN_PERMISSION.MANAGE_DELIVERIES,
     ADMIN_PERMISSION.MANAGE_BOOKINGS,
     ADMIN_PERMISSION.VIEW_USERS,
-  ]),
-  restaurant_manager: new Set([
+  ],
+  restaurant_manager: [
     ADMIN_PERMISSION.MANAGE_MENU,
     ADMIN_PERMISSION.MANAGE_DELIVERIES,
     ADMIN_PERMISSION.MANAGE_BOOKINGS,
     ADMIN_PERMISSION.VIEW_USERS,
-  ]),
-  marketer: new Set([
+  ],
+  marketer: [
     ADMIN_PERMISSION.MANAGE_PROMOTIONS,
     ADMIN_PERMISSION.VIEW_USERS,
-  ]),
-  delivery_manager: new Set([
+  ],
+  delivery_manager: [
     ADMIN_PERMISSION.MANAGE_DELIVERIES,
     ADMIN_PERMISSION.VIEW_USERS,
-  ]),
-  user: new Set(),
+  ],
+  user: [],
+});
+
+const normaliseRole = (role) =>
+  typeof role === "string" && ADMIN_ROLE_VALUES.has(role) ? role : "user";
+
+const parsePermissionList = (permissions) => {
+  if (!permissions) {
+    return [];
+  }
+
+  let source = permissions;
+  if (typeof source === "string") {
+    try {
+      source = JSON.parse(source);
+    } catch {
+      source = [];
+    }
+  }
+
+  if (!Array.isArray(source)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      source.filter(
+        (permission) =>
+          typeof permission === "string" && ADMIN_PERMISSION_VALUES.has(permission),
+      ),
+    ),
+  );
 };
 
-export const getPermissionsForRole = (role) => Array.from(ROLE_PERMISSIONS[role] ?? []);
+const buildRolePermissionsMap = () => {
+  const map = new Map();
+  ADMIN_ROLE_VALUES.forEach((role) => {
+    map.set(role, new Set(parsePermissionList(DEFAULT_ROLE_PERMISSIONS[role] ?? [])));
+  });
+  return map;
+};
 
-export const hasPermissionForRole = (role, permission) => ROLE_PERMISSIONS[role]?.has(permission) ?? false;
+let rolePermissionsCache = buildRolePermissionsMap();
+let rolePermissionsCacheExpiresAt = 0;
 
-export const canAssignRole = (actorRole, targetRole) => {
-  if (actorRole === "super_admin") {
-    return true;
+export const invalidateRolePermissionsCache = () => {
+  rolePermissionsCacheExpiresAt = 0;
+};
+
+const updateRolePermissionsInCache = (role, permissions) => {
+  const roleKey = normaliseRole(role);
+  rolePermissionsCache.set(roleKey, new Set(parsePermissionList(permissions)));
+};
+
+const loadRolePermissionsFromDatabase = async () => {
+  if (!db) {
+    return null;
   }
-  if (actorRole === "admin") {
-    return targetRole !== "super_admin";
+
+  try {
+    const rows = await queryMany(`SELECT role, permissions FROM ${ROLE_PERMISSIONS_TABLE}`);
+    const nextCache = buildRolePermissionsMap();
+
+    rows.forEach((row) => {
+      const role = normaliseRole(row?.role);
+      nextCache.set(role, new Set(parsePermissionList(row?.permissions)));
+    });
+
+    return nextCache;
+  } catch (error) {
+    const message = error?.message || String(error);
+    if (!message.includes("does not exist")) {
+      console.error("Ошибка загрузки матрицы прав ролей:", error);
+    }
+    return null;
   }
-  return false;
+};
+
+const ensureRolePermissionsCache = async (force = false) => {
+  const now = Date.now();
+  if (!force && now < rolePermissionsCacheExpiresAt) {
+    return rolePermissionsCache;
+  }
+
+  const fromDatabase = await loadRolePermissionsFromDatabase();
+  if (fromDatabase) {
+    rolePermissionsCache = fromDatabase;
+  }
+  rolePermissionsCacheExpiresAt = now + ROLE_PERMISSIONS_CACHE_TTL_MS;
+  return rolePermissionsCache;
+};
+
+export const getPermissionsForRole = (role) =>
+  Array.from(rolePermissionsCache.get(normaliseRole(role)) ?? []);
+
+export const hasPermissionForRole = (role, permission) =>
+  rolePermissionsCache.get(normaliseRole(role))?.has(permission) ?? false;
+
+export const listKnownAdminPermissions = () => Array.from(ADMIN_PERMISSION_VALUES);
+
+export const listRolePermissionsMatrix = async () => {
+  await ensureRolePermissionsCache();
+  return Array.from(ADMIN_ROLE_VALUES).map((role) => ({
+    role,
+    permissions: getPermissionsForRole(role),
+  }));
+};
+
+export const upsertRolePermissions = async (role, permissions) => {
+  const roleKey = normaliseRole(role);
+  const normalizedPermissions =
+    roleKey === "super_admin"
+      ? parsePermissionList(DEFAULT_ROLE_PERMISSIONS.super_admin)
+      : parsePermissionList(permissions);
+
+  if (!db) {
+    updateRolePermissionsInCache(roleKey, normalizedPermissions);
+    return normalizedPermissions;
+  }
+
+  await query(
+    `INSERT INTO ${ROLE_PERMISSIONS_TABLE} (role, permissions, created_at, updated_at)
+     VALUES ($1, $2::jsonb, NOW(), NOW())
+     ON CONFLICT (role)
+     DO UPDATE SET permissions = EXCLUDED.permissions, updated_at = NOW()`,
+    [roleKey, JSON.stringify(normalizedPermissions)],
+  );
+
+  await ensureRolePermissionsCache(true);
+  return getPermissionsForRole(roleKey);
+};
+
+export const seedDefaultRolePermissions = async () => {
+  if (!db) {
+    return;
+  }
+
+  try {
+    for (const role of ADMIN_ROLE_VALUES) {
+      const permissions = parsePermissionList(DEFAULT_ROLE_PERMISSIONS[role] ?? []);
+      await query(
+        `INSERT INTO ${ROLE_PERMISSIONS_TABLE} (role, permissions, created_at, updated_at)
+         VALUES ($1, $2::jsonb, NOW(), NOW())
+         ON CONFLICT (role) DO NOTHING`,
+        [role, JSON.stringify(permissions)],
+      );
+    }
+    await ensureRolePermissionsCache(true);
+  } catch (error) {
+    console.error("Ошибка сидирования матрицы прав ролей:", error);
+  }
 };
 
 export const parseRestaurantPermissions = (permissions) => {
@@ -195,6 +335,9 @@ export const resolveAdminContext = async (telegramId) => {
   if (!telegramId) {
     return { role: "user", allowedRestaurants: [], permissions: [] };
   }
+
+  await ensureRolePermissionsCache();
+
   // Проверяем, есть ли Telegram ID в списке администраторов из переменной окружения
   const normalizedId = normaliseTelegramId(telegramId);
   if (normalizedId && ADMIN_TELEGRAM_IDS.has(normalizedId)) {
@@ -258,13 +401,12 @@ export const authoriseAdmin = async (req, res, requiredPermission = null) => {
     return null;
   }
   const context = await resolveAdminContext(telegramId);
-  const hasRoleAccess =
-    context.role !== "user" && (ADMIN_ROLE_VALUES.has(context.role) || ROLE_PERMISSIONS[context.role]);
+  const hasRoleAccess = context.role !== "user";
   if (!hasRoleAccess) {
     res.status(403).json({ success: false, message: "Нет прав администратора" });
     return null;
   }
-  if (requiredPermission && !hasPermissionForRole(context.role, requiredPermission)) {
+  if (requiredPermission && !context.permissions?.includes(requiredPermission)) {
     res.status(403).json({ success: false, message: "Недостаточно прав для операции" });
     return null;
   }
@@ -285,12 +427,11 @@ export const authoriseAnyAdmin = async (req, res, requiredPermission = null) => 
   const context = await resolveAdminContext(telegramId);
   // Если пользователь не имеет административных прав, возвращаем null без ошибки
   // (предполагается, что доступ к админ-панели уже проверен на фронтенде)
-  const hasRoleAccess =
-    context.role !== "user" && (ADMIN_ROLE_VALUES.has(context.role) || ROLE_PERMISSIONS[context.role]);
+  const hasRoleAccess = context.role !== "user";
   if (!hasRoleAccess) {
     return null;
   }
-  if (requiredPermission && !hasPermissionForRole(context.role, requiredPermission)) {
+  if (requiredPermission && !context.permissions?.includes(requiredPermission)) {
     return null;
   }
   return { ...context, telegramId, vkId: null };

@@ -30,7 +30,7 @@ const STEPS: TourStep[] = [
     id: "booking",
     selector: '[data-onboarding="booking"]',
     title: "Бронь столика",
-    description: "Здесь можно быстро забронировать стол и собрать меню — заказ передадим в ресторан.",
+    description: "Здесь можно быстро забронировать столик на удобную дату и время.",
     preferredPlacement: "top",
     highlightRadius: 16,
     highlightPadding: 10,
