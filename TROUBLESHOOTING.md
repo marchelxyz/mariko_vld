@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-02-25 17:30
+**Последнее обновление:** 2026-02-25 17:35
 
 ---
 
@@ -686,6 +686,47 @@ curl "https://<domain>/api/cities/active" | jq
 
 ---
 
+### ⚠️ Проблема: в TG проде меню Жуковского без `iikoProductId` (`with_iiko=0`, `orderable=0`), кнопки `+` не отображаются
+
+**Дата:** 2026-02-25
+**Симптомы:**
+- При выданном доступе к доставке в меню Жуковского не отображаются `+` для добавления блюд.
+- Диагностика меню показывает:
+  - `items_total = 99`
+  - `with_iiko = 0`
+  - `orderable = 0`
+- Readiness/sync iiko в проде частично падал из-за отсутствующих схемных полей.
+
+**Причина:**
+- Продовая БД отставала от тестовой:
+  - не было `menu_items.iiko_product_id`;
+  - не было части integration-полей в таблице заказов;
+  - отсутствовал `restaurant_integrations` конфиг для `zhukovsky-хачапури-марико`.
+- Прямой `sync-iiko` после добавления конфига блокировался из-за дублей в номенклатуре iiko (`duplicate iikoProductId`).
+
+**Решение:**
+1. Выполнить setup/миграции на проде:
+```bash
+curl -X GET  "https://tg.marikorest.ru/tg/api/db/setup-iiko?key=mariko-iiko-setup-2024"
+curl -X POST "https://tg.marikorest.ru/tg/api/db/migrate-iiko-product-id?key=mariko-iiko-setup-2024"
+curl -X POST "https://tg.marikorest.ru/tg/api/db/migrate-integration-fields?key=mariko-iiko-setup-2024"
+```
+2. Перенести iiko-конфиг ресторана из test DB в prod через `add-iiko-config`.
+3. Так как `sync-iiko` остановился на дублях, временно скопировать `iiko_product_id` из тестовой БД в продовую по совпадающим `menu_items.id` для ресторана Жуковского.
+
+**Проверка:**
+```bash
+curl "https://tg.marikorest.ru/tg/api/menu/zhukovsky-%D1%85%D0%B0%D1%87%D0%B0%D0%BF%D1%83%D1%80%D0%B8-%D0%BC%D0%B0%D1%80%D0%B8%D0%BA%D0%BE"
+```
+Ожидаемо после фикса:
+- `total = 99`
+- `with_iiko = 44`
+- `orderable = 44`
+
+**Связанный commit:** `N/A` (операционные действия в продовой БД + deploy)
+
+---
+
 ### 🔐 Защита setup endpoints секретным ключом
 
 Все setup endpoints защищены query параметром `?key=mariko-iiko-setup-2024`:
@@ -830,5 +871,5 @@ curl -X POST "https://api-ru.iiko.services/api/1/organizations" \
 
 ---
 
-**Последнее обновление:** 2026-02-25 17:30
+**Последнее обновление:** 2026-02-25 17:35
 **Автор:** Codex (GPT-5)
