@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Search, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 import {
   adminServerApi,
@@ -19,6 +19,7 @@ const modeLabel: Record<DeliveryAccessMode, string> = {
 export function DeliveryAccessManagement(): JSX.Element {
   const { hasPermission } = useAdmin();
   const canManage = hasPermission(Permission.MANAGE_DELIVERIES);
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [isUpdatingAll, setIsUpdatingAll] = useState<boolean>(false);
@@ -59,7 +60,10 @@ export function DeliveryAccessManagement(): JSX.Element {
     setIsUpdatingAll(true);
     try {
       await adminServerApi.enableDeliveryForAll();
-      await refetch();
+      await Promise.all([
+        refetch(),
+        queryClient.invalidateQueries({ queryKey: ["delivery-access"] }),
+      ]);
     } catch (error) {
       console.error(error);
       alert("Не удалось включить доставку для всех");
@@ -72,7 +76,10 @@ export function DeliveryAccessManagement(): JSX.Element {
     setIsUpdatingAll(true);
     try {
       await adminServerApi.disableDeliveryForAll();
-      await refetch();
+      await Promise.all([
+        refetch(),
+        queryClient.invalidateQueries({ queryKey: ["delivery-access"] }),
+      ]);
     } catch (error) {
       console.error(error);
       alert("Не удалось отключить доставку для всех");
@@ -85,7 +92,10 @@ export function DeliveryAccessManagement(): JSX.Element {
     setUpdatingUserId(user.userId);
     try {
       await adminServerApi.setDeliveryAccessForUser(user.userId, enabled);
-      await refetch();
+      await Promise.all([
+        refetch(),
+        queryClient.invalidateQueries({ queryKey: ["delivery-access"] }),
+      ]);
     } catch (error) {
       console.error(error);
       alert("Не удалось обновить доступ пользователя");
