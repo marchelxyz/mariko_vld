@@ -138,19 +138,30 @@ export const setUserDeliveryAccess = async ({ userId, enabled, grantedByTelegram
   };
 };
 
-const resolveListAccessForProfile = async (profileId) => {
+const resolveListAccessForIdentifiers = async ({ profileId, telegramId, vkId }) => {
+  const normalizedProfileId = normaliseNullableString(profileId);
+  const numericTelegramId = normaliseNumericId(telegramId);
+  const numericVkId = normaliseNumericId(vkId);
+
+  if (!normalizedProfileId && numericTelegramId === null && numericVkId === null) {
+    return false;
+  }
+
   const row = await queryOne(
-    `SELECT enabled
+    `SELECT COALESCE(BOOL_OR(enabled), FALSE) AS enabled
      FROM delivery_access_users
-     WHERE user_id = $1
-     LIMIT 1`,
-    [profileId],
+     WHERE ($1::text IS NOT NULL AND user_id = $1::text)
+        OR ($2::bigint IS NOT NULL AND telegram_id = $2::bigint)
+        OR ($3::bigint IS NOT NULL AND vk_id = $3::bigint)`,
+    [normalizedProfileId ?? null, numericTelegramId, numericVkId],
   );
   return row?.enabled === true;
 };
 
 export const resolveDeliveryAccess = async ({ userId, telegramId, vkId }) => {
   const mode = await getDeliveryAccessMode();
+  const normalizedTelegramId = normaliseNullableString(telegramId);
+  const normalizedVkId = normaliseNullableString(vkId);
 
   if (mode === DELIVERY_ACCESS_MODE.ALL_ON) {
     return {
@@ -172,15 +183,24 @@ export const resolveDeliveryAccess = async ({ userId, telegramId, vkId }) => {
 
   const profile = await resolveProfileByIdentifiers({ userId, telegramId, vkId });
   if (!profile?.id) {
+    const hasAccessByIdentifiers = await resolveListAccessForIdentifiers({
+      profileId: null,
+      telegramId: normalizedTelegramId,
+      vkId: normalizedVkId,
+    });
     return {
       mode,
-      hasAccess: false,
+      hasAccess: hasAccessByIdentifiers,
       profile: null,
-      source: "profile_not_found",
+      source: hasAccessByIdentifiers ? "list_allow_by_identifier" : "profile_not_found",
     };
   }
 
-  const hasAccess = await resolveListAccessForProfile(profile.id);
+  const hasAccess = await resolveListAccessForIdentifiers({
+    profileId: profile.id,
+    telegramId: profile.telegram_id ?? normalizedTelegramId,
+    vkId: profile.vk_id ?? normalizedVkId,
+  });
   return {
     mode,
     hasAccess,

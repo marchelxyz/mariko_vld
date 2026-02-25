@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { useCart, useCityContext } from "@/contexts";
 import { BottomNavigation, CartDrawer, Header } from "@shared/ui/widgets";
 import { fetchRestaurantMenu } from "@/shared/api/menuApi";
+import { isMarikoDeliveryEnabledForCity } from "@/shared/config/marikoDelivery";
+import { useDeliveryAccess } from "@shared/hooks";
 import { getMenuByRestaurantId, type MenuItem, type RestaurantMenu } from "@shared/data";
 import { MenuItemComponent, DishCardSkeleton } from "@shared/ui";
 import { toast } from "@/hooks/use-toast";
@@ -14,9 +16,11 @@ import { getPlatform } from "@/lib/platform";
  */
 const Menu = (): JSX.Element => {
   const navigate = useNavigate();
-  const { selectedRestaurant } = useCityContext();
+  const { selectedRestaurant, selectedCity } = useCityContext();
+  const { hasAccess: hasDeliveryAccess } = useDeliveryAccess();
   const isVkPlatform = getPlatform() === "vk";
-  const isDeliveryOrderingEnabled = !isVkPlatform;
+  const isMarikoDeliveryEnabled = isMarikoDeliveryEnabledForCity(selectedCity?.id);
+  const isDeliveryOrderingEnabled = !isVkPlatform && hasDeliveryAccess && isMarikoDeliveryEnabled;
   const {
     addItem: addCartItem,
     removeItem: removeCartItem,
@@ -159,8 +163,10 @@ const Menu = (): JSX.Element => {
     (dish: MenuItem) => {
       if (!isDeliveryOrderingEnabled) {
         toast({
-          title: "Недоступно во VK",
-          description: "Доставка и оформление заказа во VK временно отключены.",
+          title: isVkPlatform ? "Недоступно во VK" : "Доставка недоступна",
+          description: isVkPlatform
+            ? "Доставка и оформление заказа во VK временно отключены."
+            : "Оформление заказа доступно только пользователям с выданным доступом к доставке.",
           variant: "destructive",
         });
         return;
@@ -189,7 +195,14 @@ const Menu = (): JSX.Element => {
         duration: 1300,
       });
     },
-    [addCartItem, getItemCount, isDeliveryOrderingEnabled, isDishOrderable, maxCartItemQuantity],
+    [
+      addCartItem,
+      getItemCount,
+      isDeliveryOrderingEnabled,
+      isDishOrderable,
+      isVkPlatform,
+      maxCartItemQuantity,
+    ],
   );
 
   const handleRemoveFromCart = useCallback(

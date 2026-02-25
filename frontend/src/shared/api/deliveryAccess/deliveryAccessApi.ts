@@ -1,5 +1,5 @@
 import { getCartApiBaseUrl } from "@shared/api/cart";
-import { getUserId } from "@/lib/platform";
+import { getInitData, getPlatform, getUser, getUserId } from "@/lib/platform";
 
 export type DeliveryAccessMode = "list" | "all_on" | "all_off";
 
@@ -25,21 +25,42 @@ function parseErrorMessage(payload: string | null): string {
 }
 
 export async function fetchDeliveryAccessStatus(userIdOverride?: string): Promise<DeliveryAccessStatus> {
+  const platform = getPlatform();
+  const platformUser = getUser();
+  const platformUserId = platformUser?.id ? String(platformUser.id) : undefined;
   const fallbackUserId = getUserId();
-  const userId = userIdOverride || fallbackUserId;
+  const userId = userIdOverride || fallbackUserId || platformUserId;
 
   const search = new URLSearchParams();
   if (userId) {
     search.set("userId", userId);
+  }
+  if (platform === "telegram" && platformUserId) {
+    search.set("telegramId", platformUserId);
+  }
+  if (platform === "vk" && platformUserId) {
+    search.set("vkId", platformUserId);
+  }
+
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+  };
+  if (platform === "vk") {
+    const initData = getInitData();
+    if (initData) {
+      headers["X-VK-Init-Data"] = initData;
+    }
+    if (platformUserId) {
+      headers["X-VK-Id"] = platformUserId;
+    }
   }
 
   const response = await fetch(
     `${DELIVERY_ACCESS_ENDPOINT}${search.toString() ? `?${search.toString()}` : ""}`,
     {
       method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
+      credentials: "include",
+      headers,
     },
   );
 
