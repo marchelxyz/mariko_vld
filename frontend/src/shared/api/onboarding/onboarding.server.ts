@@ -1,4 +1,4 @@
-import { getInitData, getPlatform } from "@/lib/platform";
+import { getInitData, getPlatform, getUser, getUserId } from "@/lib/platform";
 
 function getOnboardingApiBaseUrl(): string {
   // Используем VITE_SERVER_API_URL если он установлен (предпочтительный вариант)
@@ -13,6 +13,39 @@ function getOnboardingApiBaseUrl(): string {
 }
 
 const ONBOARDING_ENDPOINT = `${getOnboardingApiBaseUrl()}/cart/profile/onboarding-tour-shown`;
+const PLACEHOLDER_PROFILE_IDS = new Set([
+  "",
+  "default",
+  "demo_user",
+  "anonymous",
+  "null",
+  "undefined",
+]);
+
+const normaliseId = (value: unknown): string => String(value ?? "").trim();
+
+const isPlaceholderProfileId = (value: unknown): boolean =>
+  PLACEHOLDER_PROFILE_IDS.has(normaliseId(value).toLowerCase());
+
+const resolveEffectiveUserId = (candidate?: string): string | null => {
+  const direct = normaliseId(candidate);
+  if (direct && !isPlaceholderProfileId(direct)) {
+    return direct;
+  }
+
+  const fromPlatform = normaliseId(getUserId());
+  if (fromPlatform && !isPlaceholderProfileId(fromPlatform)) {
+    return fromPlatform;
+  }
+
+  const platformUser = getUser();
+  const fromUser = normaliseId(platformUser?.id);
+  if (fromUser && !isPlaceholderProfileId(fromUser)) {
+    return fromUser;
+  }
+
+  return null;
+};
 
 type OnboardingTourShownResponse = {
   success: boolean;
@@ -34,8 +67,11 @@ const buildHeaders = (userId: string): Record<string, string> => {
       headers["X-VK-Init-Data"] = initData;
     }
   } else {
-    // Fallback для web платформы
+    // Для Telegram и web fallback отправляем Telegram ID.
     headers["X-Telegram-Id"] = userId;
+    if (platform === "telegram" && initData) {
+      headers["X-Telegram-Init-Data"] = initData;
+    }
   }
 
   return headers;
@@ -52,18 +88,28 @@ const handleResponse = async (response: Response): Promise<OnboardingTourShownRe
 
 export const onboardingServerApi = {
   async getOnboardingTourShown(userId: string): Promise<boolean> {
-    const response = await fetch(`${ONBOARDING_ENDPOINT}?id=${encodeURIComponent(userId)}`, {
-      headers: buildHeaders(userId),
+    const effectiveUserId = resolveEffectiveUserId(userId);
+    if (!effectiveUserId) {
+      throw new Error("Не удалось определить пользователя");
+    }
+
+    const response = await fetch(`${ONBOARDING_ENDPOINT}?id=${encodeURIComponent(effectiveUserId)}`, {
+      headers: buildHeaders(effectiveUserId),
     });
     const data = await handleResponse(response);
     return data.shown === true;
   },
 
   async setOnboardingTourShown(userId: string, shown: boolean): Promise<boolean> {
+    const effectiveUserId = resolveEffectiveUserId(userId);
+    if (!effectiveUserId) {
+      throw new Error("Не удалось определить пользователя");
+    }
+
     const response = await fetch(ONBOARDING_ENDPOINT, {
       method: "POST",
-      headers: buildHeaders(userId),
-      body: JSON.stringify({ id: userId, shown }),
+      headers: buildHeaders(effectiveUserId),
+      body: JSON.stringify({ id: effectiveUserId, shown }),
     });
     await handleResponse(response);
     return true;
