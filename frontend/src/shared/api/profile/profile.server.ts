@@ -1,5 +1,5 @@
 import type { UserProfile } from "@shared/types";
-import { getInitData, getPlatform } from "@/lib/platform";
+import { getInitData, getPlatform, getUser, getUserId } from "@/lib/platform";
 
 function getProfileApiBaseUrl(): string {
   // Используем VITE_SERVER_API_URL если он установлен (предпочтительный вариант)
@@ -14,6 +14,39 @@ function getProfileApiBaseUrl(): string {
 }
 
 const PROFILE_ENDPOINT = `${getProfileApiBaseUrl()}/cart/profile/me`;
+const PLACEHOLDER_PROFILE_IDS = new Set([
+  "",
+  "default",
+  "demo_user",
+  "anonymous",
+  "null",
+  "undefined",
+]);
+
+const normaliseId = (value: unknown): string => String(value ?? "").trim();
+
+const isPlaceholderProfileId = (value: unknown): boolean =>
+  PLACEHOLDER_PROFILE_IDS.has(normaliseId(value).toLowerCase());
+
+const resolveEffectiveUserId = (candidate?: string): string | null => {
+  const direct = normaliseId(candidate);
+  if (direct && !isPlaceholderProfileId(direct)) {
+    return direct;
+  }
+
+  const fromPlatform = normaliseId(getUserId());
+  if (fromPlatform && !isPlaceholderProfileId(fromPlatform)) {
+    return fromPlatform;
+  }
+
+  const platformUser = getUser();
+  const fromUser = normaliseId(platformUser?.id);
+  if (fromUser && !isPlaceholderProfileId(fromUser)) {
+    return fromUser;
+  }
+
+  return null;
+};
 
 type ProfileResponse = {
   success: boolean;
@@ -35,8 +68,11 @@ const buildHeaders = (userId: string): Record<string, string> => {
       headers["X-VK-Init-Data"] = initData;
     }
   } else {
-    // Fallback для web платформы
+    // Для Telegram и web fallback отправляем Telegram ID.
     headers["X-Telegram-Id"] = userId;
+    if (platform === "telegram" && initData) {
+      headers["X-Telegram-Init-Data"] = initData;
+    }
   }
 
   return headers;
@@ -77,18 +113,28 @@ const buildEmptyProfile = (userId: string): UserProfile => ({
 
 export const profileServerApi = {
   async getUserProfile(userId: string): Promise<UserProfile> {
-    const response = await fetch(`${PROFILE_ENDPOINT}?id=${encodeURIComponent(userId)}`, {
-      headers: buildHeaders(userId),
+    const effectiveUserId = resolveEffectiveUserId(userId);
+    if (!effectiveUserId) {
+      throw new Error("Не удалось определить пользователя");
+    }
+
+    const response = await fetch(`${PROFILE_ENDPOINT}?id=${encodeURIComponent(effectiveUserId)}`, {
+      headers: buildHeaders(effectiveUserId),
     });
     const data = await handleResponse(response);
-    return data.profile ?? buildEmptyProfile(userId);
+    return data.profile ?? buildEmptyProfile(effectiveUserId);
   },
 
   async updateUserProfile(userId: string, profile: Partial<UserProfile>): Promise<boolean> {
+    const effectiveUserId = resolveEffectiveUserId(userId);
+    if (!effectiveUserId) {
+      throw new Error("Не удалось определить пользователя");
+    }
+
     const response = await fetch(PROFILE_ENDPOINT, {
       method: "PATCH",
-      headers: buildHeaders(userId),
-      body: JSON.stringify({ ...profile, id: userId }),
+      headers: buildHeaders(effectiveUserId),
+      body: JSON.stringify({ ...profile, id: effectiveUserId }),
     });
     await handleResponse(response);
     return true;

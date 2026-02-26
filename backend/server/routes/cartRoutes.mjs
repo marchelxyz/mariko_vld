@@ -284,10 +284,19 @@ export function registerCartRoutes(app) {
         name: body.name,
         phone: body.phone ?? body.customerPhone,
         primaryAddressId: body.primaryAddressId,
-        lastAddressText: body.lastAddressText ?? body.deliveryAddress ?? null,
-        lastAddressLat: body.lastAddressLat ?? body.deliveryLatitude ?? null,
-        lastAddressLon: body.lastAddressLon ?? body.deliveryLongitude ?? null,
-        lastAddressUpdatedAt: body.lastAddressUpdatedAt ?? new Date().toISOString(),
+        lastAddressText: body.lastAddressText ?? body.deliveryAddress,
+        lastAddressLat: body.lastAddressLat ?? body.deliveryLatitude,
+        lastAddressLon: body.lastAddressLon ?? body.deliveryLongitude,
+        lastAddressUpdatedAt:
+          body.lastAddressUpdatedAt ??
+          (body.lastAddressText !== undefined ||
+          body.deliveryAddress !== undefined ||
+          body.lastAddressLat !== undefined ||
+          body.deliveryLatitude !== undefined ||
+          body.lastAddressLon !== undefined ||
+          body.deliveryLongitude !== undefined
+            ? new Date().toISOString()
+            : undefined),
         birthDate: body.birthDate,
         gender: body.gender,
         photo: body.photo,
@@ -373,10 +382,19 @@ export function registerCartRoutes(app) {
         name: body.name,
         phone: body.phone,
         primaryAddressId: body.primaryAddressId,
-        lastAddressText: body.lastAddressText ?? body.deliveryAddress ?? null,
-        lastAddressLat: body.lastAddressLat ?? body.deliveryLatitude ?? null,
-        lastAddressLon: body.lastAddressLon ?? body.deliveryLongitude ?? null,
-        lastAddressUpdatedAt: body.lastAddressUpdatedAt ?? new Date().toISOString(),
+        lastAddressText: body.lastAddressText ?? body.deliveryAddress,
+        lastAddressLat: body.lastAddressLat ?? body.deliveryLatitude,
+        lastAddressLon: body.lastAddressLon ?? body.deliveryLongitude,
+        lastAddressUpdatedAt:
+          body.lastAddressUpdatedAt ??
+          (body.lastAddressText !== undefined ||
+          body.deliveryAddress !== undefined ||
+          body.lastAddressLat !== undefined ||
+          body.deliveryLatitude !== undefined ||
+          body.lastAddressLon !== undefined ||
+          body.deliveryLongitude !== undefined
+            ? new Date().toISOString()
+            : undefined),
         birthDate: body.birthDate,
         gender: body.gender,
         photo: body.photo,
