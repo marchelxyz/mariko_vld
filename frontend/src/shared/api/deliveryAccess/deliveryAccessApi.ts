@@ -53,6 +53,15 @@ export async function fetchDeliveryAccessStatus(userIdOverride?: string): Promis
     if (platformUserId) {
       headers["X-VK-Id"] = platformUserId;
     }
+  } else if (platform === "telegram") {
+    const initData = getInitData();
+    if (initData) {
+      headers["X-Telegram-Init-Data"] = initData;
+    }
+    const telegramId = platformUserId || userId;
+    if (telegramId) {
+      headers["X-Telegram-Id"] = telegramId;
+    }
   }
 
   const response = await fetch(

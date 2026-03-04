@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { logger } from "@/lib/logger";
-import { getUser } from "@/lib/platform";
+import { getInitData, getPlatform, getUser } from "@/lib/platform";
 import type { MenuItem } from "@/shared/data/menuTypes";
 
 export type CartItem = {
@@ -44,6 +44,22 @@ function getCartApiBaseUrl(): string {
   return cartApiUrl.replace(/\/cart\/submit\/?$/, "");
 }
 
+function buildCartHeaders(userId: string, initial?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = {
+    ...(initial ?? {}),
+    "X-Telegram-Id": userId,
+  };
+
+  if (getPlatform() === "telegram") {
+    const initData = getInitData();
+    if (initData) {
+      headers["X-Telegram-Init-Data"] = initData;
+    }
+  }
+
+  return headers;
+}
+
 /**
  * Загружает корзину из базы данных
  */
@@ -52,9 +68,7 @@ async function loadCartFromDb(userId: string): Promise<CartItem[]> {
     const baseUrl = getCartApiBaseUrl();
     const response = await fetch(`${baseUrl}/cart/cart?userId=${encodeURIComponent(userId)}`, {
       method: "GET",
-      headers: {
-        "X-Telegram-Id": userId,
-      },
+      headers: buildCartHeaders(userId),
     });
 
     if (!response.ok) {
@@ -87,10 +101,9 @@ async function saveCartToDb(userId: string, items: CartItem[]): Promise<void> {
     const baseUrl = getCartApiBaseUrl();
     const response = await fetch(`${baseUrl}/cart/cart`, {
       method: "POST",
-      headers: {
+      headers: buildCartHeaders(userId, {
         "Content-Type": "application/json",
-        "X-Telegram-Id": userId,
-      },
+      }),
       body: JSON.stringify({
         userId,
         items,
@@ -113,9 +126,7 @@ async function clearCartInDb(userId: string): Promise<void> {
     const baseUrl = getCartApiBaseUrl();
     const response = await fetch(`${baseUrl}/cart/cart?userId=${encodeURIComponent(userId)}`, {
       method: "DELETE",
-      headers: {
-        "X-Telegram-Id": userId,
-      },
+      headers: buildCartHeaders(userId),
     });
 
     if (!response.ok) {
