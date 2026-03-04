@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-04 21:25
+**Последнее обновление:** 2026-03-04 23:25
 
 ---
 
@@ -999,7 +999,7 @@ curl -X PATCH "https://<domain>/api/admin/role-permissions/manager" \
 # 3) На форме брони нет блоков о передаче меню и списка блюд.
 ```
 
-**Связанный commit:** `N/A` (локальные изменения, commit ещё не создан)
+**Связанный commit:** `f3fb47f` - fix(webapp): исправлена загрузка динамических чанков после деплоя
 
 ---
 
@@ -1084,6 +1084,46 @@ curl -X PATCH "https://<domain>/api/admin/role-permissions/manager" \
 # 1) Открыть чат с ботом и выполнить /start.
 # 2) Нажать "🍽️ Начать" — Mini App должен открыться без 404.
 # 3) Сравнить поведение с кнопками "Покушать"/"Открыть" — должен открываться тот же Mini App.
+```
+
+**Связанный commit:** `N/A` (локальные изменения, commit ещё не создан)
+
+---
+
+### ❌ Проблема: в Telegram Mini App ошибки `Failed to fetch dynamically imported module` / `Importing a module script failed`
+
+**Дата:** 2026-03-04  
+**Симптомы:**
+- При переходе по разделам (меню, доставка, брони и др.) всплывает ошибка:
+  - `Failed to fetch dynamically imported module`
+  - `Importing a module script failed`
+- В тексте ошибки фигурируют старые hash-файлы из `/tg/assets/...` (например `index-C5V7H2c...`), которые уже отсутствуют на сервере.
+
+**Причина:**
+- У части клиентов (особенно Telegram WebView) кэшировался старый `index.html`/entry-скрипт.
+- После деплоя старые хэш-чанки удалялись, и динамический импорт пытался загрузить уже несуществующий файл (404).
+- На nginx не были заданы явные cache headers для SPA:
+  - `index.html` не помечался как `no-cache/no-store`;
+  - ассеты не разделялись по стратегии кеширования.
+
+**Решение:**
+- В `Dockerfile` (nginx template) добавлены cache headers:
+  - для `/index.html` и SPA fallback: `Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0`;
+  - для `/assets/*` и `${APP_BASE_PATH}/assets/*`: `Cache-Control: public, max-age=31536000, immutable`.
+- Во `frontend/src/main.tsx` добавлен recovery-механизм:
+  - если поймана ошибка загрузки чанка (`failed to fetch dynamically imported module` / `importing a module script failed`), выполняется одно автоматическое обновление страницы (guard через `sessionStorage`), чтобы подтянуть свежий `index`.
+
+**Проверка:**
+```bash
+# Проверка "старого" чанка (ожидаемо 404):
+curl -I https://tg.marikorest.ru/tg/assets/index-C5V7H2c.js
+
+# Проверка актуального entry-чанка (ожидаемо 200):
+curl -I https://tg.marikorest.ru/tg/assets/index-<current-hash>.js
+
+# Проверка cache headers:
+curl -I https://tg.marikorest.ru/tg/index.html
+curl -I https://tg.marikorest.ru/tg/assets/index-<current-hash>.js
 ```
 
 **Связанный commit:** `N/A` (локальные изменения, commit ещё не создан)
@@ -1234,5 +1274,5 @@ curl -X POST "https://api-ru.iiko.services/api/1/organizations" \
 
 ---
 
-**Последнее обновление:** 2026-03-04 21:25
+**Последнее обновление:** 2026-03-04 23:25
 **Автор:** Codex (GPT-5)
