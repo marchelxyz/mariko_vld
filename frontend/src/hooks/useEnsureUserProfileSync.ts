@@ -110,8 +110,13 @@ function syncProfile(
     } else {
       body.telegramId = user.id;
       headers["X-Telegram-Id"] = userId;
+      const initData = getInitData();
+      if (initData) {
+        headers["X-Telegram-Init-Data"] = initData;
+      }
       console.log("[profile-sync] Отправка Telegram запроса синхронизации профиля", {
         userId,
+        hasInitData: !!initData,
         endpoint,
       });
     }
