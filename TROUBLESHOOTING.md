@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-04 20:41
+**Последнее обновление:** 2026-03-04 20:56
 
 ---
 
@@ -345,6 +345,40 @@ CMD ["node", "/app/backend/server/cart-server.mjs"]
 ```
 
 Но тогда нужно отдельное решение для nginx (использовать Caddy или отдельный контейнер).
+
+---
+
+### ⚠️ Проблема: бот перестал отвечать на `/start` после прод-деплоя
+
+**Дата:** 2026-03-04  
+**Симптомы:**
+- В Telegram команда `/start` не даёт ответа.
+- Health API приложения работает (`/tg/api/health` возвращает `status: ok`).
+- В логах видно: `BOT_POLLING_ENABLED=false — Telegram polling отключен (standby режим)`.
+
+**Причина:**
+- На продовом TG-приложении в TimeWeb переменная `BOT_POLLING_ENABLED` была установлена в `false`, поэтому polling-бот не запускался.
+
+**Решение:**
+1. Через TimeWeb API получить полный набор env приложения.
+2. Обновить `BOT_POLLING_ENABLED` на `true`.
+3. Отправить `PATCH /api/v1/apps/{app_id}` с полным `envs` (не частично, чтобы не потерять ключи).
+4. Перезапустить деплой приложения.
+
+**Проверка:**
+```bash
+# 1) Проверка env в TimeWeb
+curl -H "Authorization: Bearer ${TIMEWEB_TOKEN}" \
+  "https://api.timeweb.cloud/api/v1/apps/<app_id>"
+
+# 2) Проверка, что бот не в webhook-режиме
+curl "https://api.telegram.org/bot<token>/getWebhookInfo"
+
+# 3) Проверка работы в Telegram
+# Отправить /start в @marikoapp_bot и убедиться, что приходит приветственное сообщение.
+```
+
+**Связанный commit:** `N/A` (операционная правка env + деплой в TimeWeb)
 
 ---
 
@@ -1135,5 +1169,5 @@ curl -X POST "https://api-ru.iiko.services/api/1/organizations" \
 
 ---
 
-**Последнее обновление:** 2026-03-04 20:41
+**Последнее обновление:** 2026-03-04 20:56
 **Автор:** Codex (GPT-5)

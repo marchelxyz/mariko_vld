@@ -126,9 +126,8 @@ async function sendWelcome(bot, chatId, firstName) {
     disable_web_page_preview: true,
   };
 
-  const supportUrl = await getSupportUrl();
   const webAppUrl = await resolveWebAppUrl(bot);
-  const webAppMarkup = buildOpenWebAppMarkup({ mode: "web_app", supportUrl, webAppUrl });
+  const webAppMarkup = buildOpenWebAppMarkup({ mode: "web_app", webAppUrl });
   if (webAppMarkup) {
     try {
       return await bot.telegram.sendMessage(chatId, messageText, { ...baseOptions, ...webAppMarkup });
@@ -137,7 +136,7 @@ async function sendWelcome(bot, chatId, firstName) {
     }
   }
 
-  const urlMarkup = buildOpenWebAppMarkup({ mode: "url", supportUrl, webAppUrl });
+  const urlMarkup = buildOpenWebAppMarkup({ mode: "url", webAppUrl });
   if (urlMarkup) {
     try {
       return await bot.telegram.sendMessage(chatId, messageText, { ...baseOptions, ...urlMarkup });
@@ -152,7 +151,7 @@ async function sendWelcome(bot, chatId, firstName) {
 /**
  * Собирает inline-клавиатуру для приветственного сообщения.
  */
-function buildOpenWebAppMarkup({ mode = "web_app", supportUrl, webAppUrl } = {}) {
+function buildOpenWebAppMarkup({ mode = "web_app", webAppUrl } = {}) {
   if (!webAppUrl) {
     return null;
   }
@@ -160,14 +159,9 @@ function buildOpenWebAppMarkup({ mode = "web_app", supportUrl, webAppUrl } = {})
     mode === "url"
       ? { text: "🍽️ Начать", url: webAppUrl }
       : { text: "🍽️ Начать", web_app: { url: webAppUrl } };
-  const normalizedSupportUrl = normalizeSupportUrl(supportUrl);
-  const keyboard = [[button]];
-  if (normalizedSupportUrl) {
-    keyboard.push([{ text: "🆘 Поддержка", url: normalizedSupportUrl }]);
-  }
   return {
     reply_markup: {
-      inline_keyboard: keyboard,
+      inline_keyboard: [[button]],
     },
   };
 }
