@@ -30,8 +30,9 @@ type AdminStorageData = {
 };
 
 const ADMIN_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 часа
-const TELEGRAM_ADMIN_RETRY_DELAYS_MS = [0, 350, 900, 1800];
+const TELEGRAM_ADMIN_RETRY_DELAYS_MS = [0, 350, 900, 1800, 3200, 5000, 7500];
 const DEFAULT_ADMIN_RETRY_DELAYS_MS = [0];
+const TELEGRAM_ADMIN_SYNC_INTERVAL_MS = 30_000;
 
 const loadAdminFromStorage = (): AdminStorageData | null => {
   if (typeof window === "undefined") {
@@ -140,11 +141,23 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
   // Загружаем данные администратора при монтировании компонента
   useEffect(() => {
     let cancelled = false;
-    
-    const loadAdminData = async () => {
-      setIsLoading(true);
-      const retryDelays =
-        getPlatform() === "telegram" ? TELEGRAM_ADMIN_RETRY_DELAYS_MS : DEFAULT_ADMIN_RETRY_DELAYS_MS;
+    const platform = getPlatform();
+    const isTelegramPlatform = platform === "telegram";
+
+    const loadAdminData = async ({
+      silent = false,
+      resetOnFailure = true,
+    }: {
+      silent?: boolean;
+      resetOnFailure?: boolean;
+    } = {}): Promise<boolean> => {
+      if (!silent) {
+        setIsLoading(true);
+      }
+
+      const retryDelays = isTelegramPlatform
+        ? TELEGRAM_ADMIN_RETRY_DELAYS_MS
+        : DEFAULT_ADMIN_RETRY_DELAYS_MS;
       let loaded = false;
 
       for (let attempt = 0; attempt < retryDelays.length; attempt++) {
@@ -164,6 +177,13 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
           setUserRole(role);
           setPermissions(response.permissions || []);
           setAllowedRestaurants(response.allowedRestaurants || []);
+          saveAdminToStorage({
+            isAdmin: isAdminUser,
+            userRole: role,
+            permissions: response.permissions || [],
+            userId,
+            allowedRestaurants: response.allowedRestaurants || [],
+          });
 
           logger.debug('admin-context', 'Admin data loaded', {
             role,
@@ -185,24 +205,61 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
         }
       }
 
-      if (!loaded && !cancelled) {
+      if (!loaded && !cancelled && resetOnFailure) {
         // Если ошибка, считаем пользователя обычным пользователем
         setIsAdmin(false);
         setUserRole(UserRole.USER);
         setPermissions([]);
         setAllowedRestaurants([]);
       }
-      if (!cancelled) {
+      if (!cancelled && !silent) {
         setIsLoading(false);
       }
+      return loaded;
     };
-    
-    loadAdminData();
-    
+
+    const cachedAdmin = loadAdminFromStorage();
+    if (cachedAdmin) {
+      setIsAdmin(cachedAdmin.isAdmin);
+      setUserRole(cachedAdmin.userRole);
+      setPermissions(cachedAdmin.permissions || []);
+      setAllowedRestaurants(cachedAdmin.allowedRestaurants || []);
+      setIsLoading(false);
+    }
+
+    void loadAdminData();
+
+    const refreshAdminDataSilently = () => {
+      void loadAdminData({ silent: true, resetOnFailure: false });
+    };
+
+    let intervalId: number | null = null;
+    const hasDom = typeof window !== "undefined" && typeof document !== "undefined";
+    if (isTelegramPlatform && hasDom) {
+      intervalId = window.setInterval(refreshAdminDataSilently, TELEGRAM_ADMIN_SYNC_INTERVAL_MS);
+      const handleFocus = () => refreshAdminDataSilently();
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === "visible") {
+          refreshAdminDataSilently();
+        }
+      };
+      window.addEventListener("focus", handleFocus);
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+
+      return () => {
+        cancelled = true;
+        if (intervalId !== null) {
+          window.clearInterval(intervalId);
+        }
+        window.removeEventListener("focus", handleFocus);
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      };
+    }
+
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [userId]);
 
   /**
    * Проверить, имеет ли пользователь определенное право
