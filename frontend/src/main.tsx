@@ -6,6 +6,50 @@ import { logger } from "@/lib/logger";
 import bridge from "@vkontakte/vk-bridge";
 import { isInVk } from "@/lib/vkCore";
 
+const CHUNK_RECOVERY_STORAGE_KEY = "mariko_chunk_recovery_once_v1";
+const CHUNK_ERROR_PATTERNS = [
+  /failed to fetch dynamically imported module/i,
+  /importing a module script failed/i,
+  /loading chunk [\w-]+ failed/i,
+];
+
+function extractErrorMessage(value: unknown): string {
+  if (value instanceof Error) {
+    return value.message || String(value);
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value && typeof value === "object") {
+    const maybeMessage = (value as { message?: unknown }).message;
+    if (typeof maybeMessage === "string") {
+      return maybeMessage;
+    }
+  }
+  return String(value ?? "");
+}
+
+function isChunkLoadError(value: unknown): boolean {
+  const message = extractErrorMessage(value);
+  return CHUNK_ERROR_PATTERNS.some((pattern) => pattern.test(message));
+}
+
+function recoverFromChunkLoadError(value: unknown): boolean {
+  if (typeof window === "undefined" || !isChunkLoadError(value)) {
+    return false;
+  }
+
+  const marker = window.sessionStorage.getItem(CHUNK_RECOVERY_STORAGE_KEY);
+  if (marker === "1") {
+    return false;
+  }
+
+  window.sessionStorage.setItem(CHUNK_RECOVERY_STORAGE_KEY, "1");
+  logger.warn("global", "Обнаружена ошибка загрузки чанка, выполняю авто-обновление страницы");
+  window.location.reload();
+  return true;
+}
+
 function hideInitialSpinner(): void {
   const spinner = document.getElementById("loading-spinner");
   if (spinner) {
@@ -194,6 +238,10 @@ if (typeof document !== "undefined" && document.readyState === "complete") {
 if (typeof window !== "undefined") {
   window.addEventListener("error", (event) => {
     try {
+      if (recoverFromChunkLoadError(event.error ?? event.message)) {
+        event.preventDefault();
+        return;
+      }
       const message = `Ошибка приложения: ${event.error?.message || event.message}`;
       // Убеждаемся, что передаем Error объект
       const error = event.error instanceof Error 
@@ -217,6 +265,10 @@ if (typeof window !== "undefined") {
   window.addEventListener("unhandledrejection", (event: PromiseRejectionEvent) => {
     try {
       const reason = event?.reason;
+      if (recoverFromChunkLoadError(reason)) {
+        event.preventDefault();
+        return;
+      }
       const message = `Необработанная ошибка: ${reason?.message || String(reason)}`;
       // Убеждаемся, что передаем Error объект
       const error = reason instanceof Error 
@@ -239,6 +291,9 @@ if (typeof window !== "undefined") {
 try {
   logger.info('app', 'Инициализация приложения VK');
   createRoot(document.getElementById("root")!).render(<App />);
+  if (typeof window !== "undefined") {
+    window.sessionStorage.removeItem(CHUNK_RECOVERY_STORAGE_KEY);
+  }
   hideInitialSpinner();
   logger.info('app', 'Приложение успешно инициализировано');
 } catch (err: unknown) {

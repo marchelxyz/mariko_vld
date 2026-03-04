@@ -71,6 +71,7 @@ RUN mkdir -p /etc/nginx/templates && \
     echo '' >> /etc/nginx/templates/default.conf.template && \
     echo '    location ^~ /assets/ {' >> /etc/nginx/templates/default.conf.template && \
     echo '        try_files $uri =404;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        add_header Cache-Control "public, max-age=31536000, immutable" always;' >> /etc/nginx/templates/default.conf.template && \
     echo '    }' >> /etc/nginx/templates/default.conf.template && \
     echo '' >> /etc/nginx/templates/default.conf.template && \
     echo '    location ^~ /images/ {' >> /etc/nginx/templates/default.conf.template && \
@@ -80,6 +81,7 @@ RUN mkdir -p /etc/nginx/templates && \
     echo '    location ^~ ${APP_BASE_PATH}/assets/ {' >> /etc/nginx/templates/default.conf.template && \
     echo '        rewrite ^${APP_BASE_PATH}/assets/(.*)$ /assets/$1 break;' >> /etc/nginx/templates/default.conf.template && \
     echo '        try_files /assets/$1 =404;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        add_header Cache-Control "public, max-age=31536000, immutable" always;' >> /etc/nginx/templates/default.conf.template && \
     echo '    }' >> /etc/nginx/templates/default.conf.template && \
     echo '' >> /etc/nginx/templates/default.conf.template && \
     echo '    location ^~ ${APP_BASE_PATH}/images/ {' >> /etc/nginx/templates/default.conf.template && \
@@ -89,6 +91,17 @@ RUN mkdir -p /etc/nginx/templates && \
     echo '' >> /etc/nginx/templates/default.conf.template && \
     echo '    location = ${APP_BASE_PATH} {' >> /etc/nginx/templates/default.conf.template && \
     echo '        return 301 ${APP_BASE_PATH}/$is_args$args;' >> /etc/nginx/templates/default.conf.template && \
+    echo '    }' >> /etc/nginx/templates/default.conf.template && \
+    echo '' >> /etc/nginx/templates/default.conf.template && \
+    echo '    location = /index.html {' >> /etc/nginx/templates/default.conf.template && \
+    echo '        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0" always;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        try_files /index.html =404;' >> /etc/nginx/templates/default.conf.template && \
+    echo '    }' >> /etc/nginx/templates/default.conf.template && \
+    echo '' >> /etc/nginx/templates/default.conf.template && \
+    echo '    location = ${APP_BASE_PATH}/index.html {' >> /etc/nginx/templates/default.conf.template && \
+    echo '        rewrite ^${APP_BASE_PATH}/index.html$ /index.html break;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0" always;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        try_files /index.html =404;' >> /etc/nginx/templates/default.conf.template && \
     echo '    }' >> /etc/nginx/templates/default.conf.template && \
     echo '' >> /etc/nginx/templates/default.conf.template && \
     echo '    # Проксирование API запросов на backend' >> /etc/nginx/templates/default.conf.template && \
@@ -118,6 +131,7 @@ RUN mkdir -p /etc/nginx/templates && \
     echo '    # SPA routing - все остальные запросы на index.html' >> /etc/nginx/templates/default.conf.template && \
     echo '    location ${APP_BASE_PATH}/ {' >> /etc/nginx/templates/default.conf.template && \
     echo '        rewrite ^${APP_BASE_PATH}/(.*)$ /$1 break;' >> /etc/nginx/templates/default.conf.template && \
+    echo '        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0" always;' >> /etc/nginx/templates/default.conf.template && \
     echo '        try_files $uri $uri/ /index.html;' >> /etc/nginx/templates/default.conf.template && \
     echo '    }' >> /etc/nginx/templates/default.conf.template && \
     echo '}' >> /etc/nginx/templates/default.conf.template
