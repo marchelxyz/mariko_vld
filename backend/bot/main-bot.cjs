@@ -210,20 +210,15 @@ if (!BOT_POLLING_ENABLED) {
 /**
  * Собирает inline-клавиатуру для приветственного сообщения.
  */
-const buildOpenWebAppMarkup = ({ mode = 'web_app', supportUrl, webAppUrl } = {}) => {
+const buildOpenWebAppMarkup = ({ mode = 'web_app', webAppUrl } = {}) => {
   if (!webAppUrl) return null;
   const button =
     mode === 'url'
       ? { text: "🍽️ Начать", url: webAppUrl }
       : { text: "🍽️ Начать", web_app: { url: webAppUrl } };
-  const normalizedSupportUrl = normalizeSupportUrl(supportUrl);
-  const keyboard = [[button]];
-  if (normalizedSupportUrl) {
-    keyboard.push([{ text: "🆘 Поддержка", url: normalizedSupportUrl }]);
-  }
   return {
     reply_markup: {
-      inline_keyboard: keyboard,
+      inline_keyboard: [[button]],
     },
   };
 };
@@ -246,9 +241,8 @@ const sendWelcome = async (chatId, firstName) => {
     disable_web_page_preview: true,
   };
 
-  const supportUrl = await getSupportUrl();
   const webAppUrl = await resolveWebAppUrl();
-  const webAppMarkup = buildOpenWebAppMarkup({ mode: 'web_app', supportUrl, webAppUrl });
+  const webAppMarkup = buildOpenWebAppMarkup({ mode: 'web_app', webAppUrl });
   if (webAppMarkup) {
     try {
       return await bot.telegram.sendMessage(chatId, message, { ...baseOptions, ...webAppMarkup });
@@ -260,7 +254,7 @@ const sendWelcome = async (chatId, firstName) => {
     }
   }
 
-  const urlMarkup = buildOpenWebAppMarkup({ mode: 'url', supportUrl, webAppUrl });
+  const urlMarkup = buildOpenWebAppMarkup({ mode: 'url', webAppUrl });
   if (urlMarkup) {
     try {
       return await bot.telegram.sendMessage(chatId, message, { ...baseOptions, ...urlMarkup });
