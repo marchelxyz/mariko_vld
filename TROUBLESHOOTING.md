@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-04 23:25
+**Последнее обновление:** 2026-03-05 01:58
 
 ---
 
@@ -829,6 +829,45 @@ curl "https://<domain>/api/cities/active" | jq
 ```
 
 **Связанный commit:** `f04bb5f` - fix(admin): усилена tg-авторизация и закрыты уязвимые API городов
+
+---
+
+### ⚠️ Проблема: обход ограничений `allowedRestaurants` через прямые запросы к `cities` API
+
+**Дата:** 2026-03-05
+**Симптомы:**
+- Пользователь с ролью `manager` (и правом `manage_restaurants`) может вручную отправить запрос на чужой `cityId`/`restaurantId` через DevTools или скрипт.
+- Ограничение доступа действовало только на фронтенде (фильтрация списка), но не на сервере для части операций.
+
+**Причина:**
+- В `backend/server/routes/citiesRoutes.mjs` проверялось наличие права `manage_restaurants`, но не проверялся доступ к конкретному `restaurantId`.
+- Операции верхнего уровня по городам (`POST /cities`, `POST /cities/status`, `POST /cities/restaurants`) не ограничивались только full-admin ролями.
+- `GET /cities/all` возвращал полный набор ресторанов, а фильтрация делалась в UI.
+
+**Решение:**
+- Добавлены серверные проверки в `citiesRoutes`:
+  - full-access для `super_admin`/`admin`;
+  - scoped-access по `allowedRestaurants` для операций с конкретным рестораном.
+- `GET /cities/all` для scoped-ролей теперь возвращает только их рестораны и соответствующие города.
+- `POST /cities`, `POST /cities/status`, `POST /cities/restaurants` теперь доступны только `super_admin`/`admin`.
+- `PATCH /cities/restaurants/:restaurantId` теперь возвращает `403`, если `restaurantId` не входит в `allowedRestaurants`.
+
+**Проверка:**
+```bash
+# Менеджер с доступом только к restaurant-A пытается изменить restaurant-B
+curl -i -X PATCH "https://<domain>/api/cities/restaurants/restaurant-B" \
+  -H "X-Telegram-Init-Data: <valid-init-data>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"test"}'
+# Ожидаемо: 403
+
+# Тот же менеджер получает только доступные ему точки
+curl -s "https://<domain>/api/cities/all" \
+  -H "X-Telegram-Init-Data: <valid-init-data>" | jq
+# Ожидаемо: в ответе нет чужих ресторанов
+```
+
+**Связанный commit:** `60949a1` - fix(cities): закрыт обход доступа к чужим ресторанам через API
 
 ---
 
