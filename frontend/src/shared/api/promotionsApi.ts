@@ -69,6 +69,9 @@ function buildAdminHeaders(initial?: Record<string, string>): Record<string, str
   if (initData && platform === "vk") {
     headers["X-VK-Init-Data"] = initData;
   }
+  if (initData && platform === "telegram") {
+    headers["X-Telegram-Init-Data"] = initData;
+  }
 
   return headers;
 }
