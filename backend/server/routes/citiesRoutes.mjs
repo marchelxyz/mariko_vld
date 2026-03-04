@@ -1,7 +1,10 @@
 import express from "express";
 import { db, ensureDatabase, queryMany, queryOne, query } from "../postgresClient.mjs";
 import { createLogger } from "../utils/logger.mjs";
-import { ADMIN_PERMISSION, authoriseAdmin } from "../services/adminService.mjs";
+import {
+  ADMIN_PERMISSION,
+  authoriseAdmin,
+} from "../services/adminService.mjs";
 
 const logger = createLogger('cities');
 
@@ -14,6 +17,21 @@ export function createCitiesRouter() {
       return null;
     }
     return admin;
+  };
+
+  const hasGlobalRestaurantsAccess = (admin) =>
+    admin?.role === "super_admin" || admin?.role === "admin";
+
+  const hasRestaurantAccess = (admin, restaurantId) =>
+    hasGlobalRestaurantsAccess(admin) ||
+    (Array.isArray(admin?.allowedRestaurants) && admin.allowedRestaurants.includes(restaurantId));
+
+  const requireGlobalRestaurantsAccess = (admin, res) => {
+    if (hasGlobalRestaurantsAccess(admin)) {
+      return true;
+    }
+    res.status(403).json({ success: false, message: "Недостаточно прав для операции" });
+    return false;
   };
 
   router.use((req, res, next) => {
@@ -101,9 +119,12 @@ export function createCitiesRouter() {
    */
   router.get("/all", async (req, res) => {
     const startTime = Date.now();
-    if (!(await requireRestaurantsAdmin(req, res))) {
+    const admin = await requireRestaurantsAdmin(req, res);
+    if (!admin) {
       return;
     }
+    const canAccessAll = hasGlobalRestaurantsAccess(admin);
+
     try {
       logger.info('Получение всех городов для админ-панели');
       
@@ -113,44 +134,51 @@ export function createCitiesRouter() {
 
       logger.debug(`Найдено городов: ${citiesData.length}`);
 
-      const restaurantsData = await queryMany(
-        `SELECT * FROM restaurants ORDER BY display_order ASC, name ASC`
-      );
+      const restaurantsData = canAccessAll
+        ? await queryMany(`SELECT * FROM restaurants ORDER BY display_order ASC, name ASC`)
+        : admin.allowedRestaurants?.length
+          ? await queryMany(
+              `SELECT * FROM restaurants WHERE id = ANY($1) ORDER BY display_order ASC, name ASC`,
+              [admin.allowedRestaurants],
+            )
+          : [];
 
       logger.debug(`Найдено ресторанов: ${restaurantsData.length}`);
 
-      const cities = citiesData.map((cityRow) => ({
-        id: cityRow.id,
-        name: cityRow.name,
-        is_active: cityRow.is_active,
-        restaurants: restaurantsData
-          .filter((r) => r.city_id === cityRow.id)
-          .map((r) => ({
-            id: r.id,
-            name: r.name,
-            address: r.address,
-            city: cityRow.name,
-            isActive: r.is_active,
-            isDeliveryEnabled: r.is_delivery_enabled ?? true,
-            vkGroupToken: r.vk_group_token || undefined,
-            phoneNumber: r.phone_number || undefined,
-            deliveryAggregators: r.delivery_aggregators
-              ? (typeof r.delivery_aggregators === 'string'
-                  ? JSON.parse(r.delivery_aggregators)
-                  : r.delivery_aggregators)
-              : undefined,
-            yandexMapsUrl: r.yandex_maps_url || undefined,
-            twoGisUrl: r.two_gis_url || undefined,
-            socialNetworks: r.social_networks
-              ? (typeof r.social_networks === 'string'
-                  ? JSON.parse(r.social_networks)
-                  : r.social_networks)
-              : undefined,
-            remarkedRestaurantId: r.remarked_restaurant_id || undefined,
-            reviewLink: r.review_link || undefined,
-            maxCartItemQuantity: r.max_cart_item_quantity ?? 10,
-          })),
-      }));
+      const cities = citiesData
+        .map((cityRow) => ({
+          id: cityRow.id,
+          name: cityRow.name,
+          is_active: cityRow.is_active,
+          restaurants: restaurantsData
+            .filter((r) => r.city_id === cityRow.id)
+            .map((r) => ({
+              id: r.id,
+              name: r.name,
+              address: r.address,
+              city: cityRow.name,
+              isActive: r.is_active,
+              isDeliveryEnabled: r.is_delivery_enabled ?? true,
+              vkGroupToken: r.vk_group_token || undefined,
+              phoneNumber: r.phone_number || undefined,
+              deliveryAggregators: r.delivery_aggregators
+                ? (typeof r.delivery_aggregators === 'string'
+                    ? JSON.parse(r.delivery_aggregators)
+                    : r.delivery_aggregators)
+                : undefined,
+              yandexMapsUrl: r.yandex_maps_url || undefined,
+              twoGisUrl: r.two_gis_url || undefined,
+              socialNetworks: r.social_networks
+                ? (typeof r.social_networks === 'string'
+                    ? JSON.parse(r.social_networks)
+                    : r.social_networks)
+                : undefined,
+              remarkedRestaurantId: r.remarked_restaurant_id || undefined,
+              reviewLink: r.review_link || undefined,
+              maxCartItemQuantity: r.max_cart_item_quantity ?? 10,
+            })),
+        }))
+        .filter((city) => canAccessAll || city.restaurants.length > 0);
 
       const duration = Date.now() - startTime;
       logger.requestSuccess('GET', '/all', duration, 200);
@@ -168,7 +196,11 @@ export function createCitiesRouter() {
    */
   router.post("/", async (req, res) => {
     const startTime = Date.now();
-    if (!(await requireRestaurantsAdmin(req, res))) {
+    const admin = await requireRestaurantsAdmin(req, res);
+    if (!admin) {
+      return;
+    }
+    if (!requireGlobalRestaurantsAccess(admin, res)) {
       return;
     }
     logger.info('Запрос на создание города', {
@@ -246,7 +278,11 @@ export function createCitiesRouter() {
    */
   router.post("/status", async (req, res) => {
     const startTime = Date.now();
-    if (!(await requireRestaurantsAdmin(req, res))) {
+    const admin = await requireRestaurantsAdmin(req, res);
+    if (!admin) {
+      return;
+    }
+    if (!requireGlobalRestaurantsAccess(admin, res)) {
       return;
     }
     const { cityId, isActive } = req.body ?? {};
@@ -285,7 +321,11 @@ export function createCitiesRouter() {
    * Права уже проверены при входе в админ-панель
    */
   router.post("/restaurants", async (req, res) => {
-    if (!(await requireRestaurantsAdmin(req, res))) {
+    const admin = await requireRestaurantsAdmin(req, res);
+    if (!admin) {
+      return;
+    }
+    if (!requireGlobalRestaurantsAccess(admin, res)) {
       return;
     }
     const {
@@ -370,10 +410,17 @@ export function createCitiesRouter() {
    * Права уже проверены при входе в админ-панель
    */
   router.patch("/restaurants/:restaurantId", async (req, res) => {
-    if (!(await requireRestaurantsAdmin(req, res))) {
+    const admin = await requireRestaurantsAdmin(req, res);
+    if (!admin) {
       return;
     }
-    const restaurantId = req.params.restaurantId;
+    const restaurantId = String(req.params.restaurantId || "").trim();
+    if (!restaurantId) {
+      return res.status(400).json({ success: false, message: "Некорректный restaurantId" });
+    }
+    if (!hasRestaurantAccess(admin, restaurantId)) {
+      return res.status(403).json({ success: false, message: "Нет доступа к этому ресторану" });
+    }
     const {
       name,
       address,
