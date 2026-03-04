@@ -110,9 +110,11 @@ const normalizeHttpUrl = (rawUrl) => {
   }
 };
 
-const NORMALIZED_WEBAPP_URL = normalizeHttpUrl(WEBAPP_URL);
-if (!NORMALIZED_WEBAPP_URL) {
-  console.warn('⚠️ WEBAPP_URL не задан или некорректен — кнопка открытия Mini App будет отключена');
+let resolvedWebAppUrl = normalizeHttpUrl(WEBAPP_URL);
+let webAppUrlLookupPromise = null;
+let hasCheckedMenuButtonWebAppUrl = false;
+if (!resolvedWebAppUrl) {
+  console.warn('⚠️ WEBAPP_URL не задан или некорректен — попробую взять URL Mini App из menu button');
 }
 
 // ============================ TELEGRAM WEBAPP AUTH ============================
@@ -208,12 +210,12 @@ if (!BOT_POLLING_ENABLED) {
 /**
  * Собирает inline-клавиатуру для приветственного сообщения.
  */
-const buildOpenWebAppMarkup = ({ mode = 'web_app', supportUrl } = {}) => {
-  if (!NORMALIZED_WEBAPP_URL) return null;
+const buildOpenWebAppMarkup = ({ mode = 'web_app', supportUrl, webAppUrl } = {}) => {
+  if (!webAppUrl) return null;
   const button =
     mode === 'url'
-      ? { text: "🍽️ Начать", url: NORMALIZED_WEBAPP_URL }
-      : { text: "🍽️ Начать", web_app: { url: NORMALIZED_WEBAPP_URL } };
+      ? { text: "🍽️ Начать", url: webAppUrl }
+      : { text: "🍽️ Начать", web_app: { url: webAppUrl } };
   const normalizedSupportUrl = normalizeSupportUrl(supportUrl);
   const keyboard = [[button]];
   if (normalizedSupportUrl) {
@@ -245,7 +247,8 @@ const sendWelcome = async (chatId, firstName) => {
   };
 
   const supportUrl = await getSupportUrl();
-  const webAppMarkup = buildOpenWebAppMarkup({ mode: 'web_app', supportUrl });
+  const webAppUrl = await resolveWebAppUrl();
+  const webAppMarkup = buildOpenWebAppMarkup({ mode: 'web_app', supportUrl, webAppUrl });
   if (webAppMarkup) {
     try {
       return await bot.telegram.sendMessage(chatId, message, { ...baseOptions, ...webAppMarkup });
@@ -257,7 +260,7 @@ const sendWelcome = async (chatId, firstName) => {
     }
   }
 
-  const urlMarkup = buildOpenWebAppMarkup({ mode: 'url', supportUrl });
+  const urlMarkup = buildOpenWebAppMarkup({ mode: 'url', supportUrl, webAppUrl });
   if (urlMarkup) {
     try {
       return await bot.telegram.sendMessage(chatId, message, { ...baseOptions, ...urlMarkup });
@@ -321,6 +324,7 @@ const launchBot = async () => {
     try {
       await bot.launch({ dropPendingUpdates: true });
       const me = await bot.telegram.getMe();
+      await resolveWebAppUrl();
       console.log(`✅ Подключен как: @${me.username} (${me.first_name})`);
       console.log("✅ Бот успешно запущен в polling режиме!");
       return;
@@ -432,6 +436,53 @@ async function getSupportUrl() {
     expiresAt: now + SUPPORT_URL_CACHE_TTL_MS,
   };
   return nextValue;
+}
+
+/**
+ * Возвращает URL Mini App, синхронизированный с menu button в Telegram.
+ */
+async function resolveWebAppUrl() {
+  if (hasCheckedMenuButtonWebAppUrl) {
+    return resolvedWebAppUrl;
+  }
+  if (webAppUrlLookupPromise) {
+    return webAppUrlLookupPromise;
+  }
+
+  webAppUrlLookupPromise = (async () => {
+    const menuButtonWebAppUrl = await fetchWebAppUrlFromMenuButton();
+    hasCheckedMenuButtonWebAppUrl = true;
+
+    if (menuButtonWebAppUrl) {
+      if (resolvedWebAppUrl && resolvedWebAppUrl !== menuButtonWebAppUrl) {
+        console.warn('⚠️ WEBAPP_URL отличается от menu button — использую URL из menu button');
+      }
+      resolvedWebAppUrl = menuButtonWebAppUrl;
+      return resolvedWebAppUrl;
+    }
+
+    if (!resolvedWebAppUrl) {
+      console.warn('⚠️ Не удалось определить URL Mini App ни из WEBAPP_URL, ни из menu button');
+    }
+    return resolvedWebAppUrl;
+  })().finally(() => {
+    webAppUrlLookupPromise = null;
+  });
+
+  return webAppUrlLookupPromise;
+}
+
+/**
+ * Получает URL Mini App из menu button Telegram-бота.
+ */
+async function fetchWebAppUrlFromMenuButton() {
+  try {
+    const menuButton = await bot.telegram.callApi('getChatMenuButton', {});
+    return normalizeHttpUrl(menuButton?.web_app?.url);
+  } catch (error) {
+    console.warn('⚠️ Не удалось получить menu button Telegram-бота:', error?.description || error?.message || error);
+    return null;
+  }
 }
 const parseRestaurantPermissions = (permissions) => {
   if (!permissions) {

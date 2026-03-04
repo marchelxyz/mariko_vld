@@ -9,14 +9,16 @@ const logger = createLogger("telegram-bot");
 const BOT_POLLING_ENABLED = parseBooleanEnv(process.env.BOT_POLLING_ENABLED, true);
 const WEBAPP_URL = process.env.WEBAPP_URL;
 const SUPPORT_URL_CACHE_TTL_MS = parseNumberEnv(process.env.SUPPORT_URL_CACHE_TTL_MS, 300_000);
-const NORMALIZED_WEBAPP_URL = normalizeHttpUrl(WEBAPP_URL);
+let resolvedWebAppUrl = normalizeHttpUrl(WEBAPP_URL);
 
 let botInstance = null;
 let supportUrlCache = { value: null, expiresAt: 0 };
+let webAppUrlLookupPromise = null;
+let hasCheckedMenuButtonWebAppUrl = false;
 let isStopping = false;
 
-if (!NORMALIZED_WEBAPP_URL) {
-  logger.warn("WEBAPP_URL не задан или некорректен — кнопка открытия Mini App будет отключена");
+if (!resolvedWebAppUrl) {
+  logger.warn("WEBAPP_URL не задан или некорректен — попробую взять URL Mini App из menu button");
 }
 
 /**
@@ -125,7 +127,8 @@ async function sendWelcome(bot, chatId, firstName) {
   };
 
   const supportUrl = await getSupportUrl();
-  const webAppMarkup = buildOpenWebAppMarkup({ mode: "web_app", supportUrl });
+  const webAppUrl = await resolveWebAppUrl(bot);
+  const webAppMarkup = buildOpenWebAppMarkup({ mode: "web_app", supportUrl, webAppUrl });
   if (webAppMarkup) {
     try {
       return await bot.telegram.sendMessage(chatId, messageText, { ...baseOptions, ...webAppMarkup });
@@ -134,7 +137,7 @@ async function sendWelcome(bot, chatId, firstName) {
     }
   }
 
-  const urlMarkup = buildOpenWebAppMarkup({ mode: "url", supportUrl });
+  const urlMarkup = buildOpenWebAppMarkup({ mode: "url", supportUrl, webAppUrl });
   if (urlMarkup) {
     try {
       return await bot.telegram.sendMessage(chatId, messageText, { ...baseOptions, ...urlMarkup });
@@ -149,14 +152,14 @@ async function sendWelcome(bot, chatId, firstName) {
 /**
  * Собирает inline-клавиатуру для приветственного сообщения.
  */
-function buildOpenWebAppMarkup({ mode = "web_app", supportUrl } = {}) {
-  if (!NORMALIZED_WEBAPP_URL) {
+function buildOpenWebAppMarkup({ mode = "web_app", supportUrl, webAppUrl } = {}) {
+  if (!webAppUrl) {
     return null;
   }
   const button =
     mode === "url"
-      ? { text: "🍽️ Начать", url: NORMALIZED_WEBAPP_URL }
-      : { text: "🍽️ Начать", web_app: { url: NORMALIZED_WEBAPP_URL } };
+      ? { text: "🍽️ Начать", url: webAppUrl }
+      : { text: "🍽️ Начать", web_app: { url: webAppUrl } };
   const normalizedSupportUrl = normalizeSupportUrl(supportUrl);
   const keyboard = [[button]];
   if (normalizedSupportUrl) {
@@ -185,6 +188,7 @@ async function launchBotWithRetry(bot) {
     try {
       await bot.launch({ dropPendingUpdates: true });
       const me = await bot.telegram.getMe();
+      await resolveWebAppUrl(bot);
       logger.info(`Подключен как: @${me.username} (${me.first_name})`);
       logger.info("Бот успешно запущен в polling режиме");
       return;
@@ -234,6 +238,56 @@ async function fetchSupportUrlFromSettings() {
     return normalizeSupportUrl(settings?.supportTelegramUrl);
   } catch (error) {
     logger.warn("Не удалось получить ссылку поддержки", error);
+    return null;
+  }
+}
+
+/**
+ * Возвращает URL Mini App, синхронизированный с menu button в Telegram.
+ */
+async function resolveWebAppUrl(bot) {
+  if (hasCheckedMenuButtonWebAppUrl) {
+    return resolvedWebAppUrl;
+  }
+  if (!bot?.telegram) {
+    return resolvedWebAppUrl;
+  }
+  if (webAppUrlLookupPromise) {
+    return webAppUrlLookupPromise;
+  }
+
+  webAppUrlLookupPromise = (async () => {
+    const menuButtonWebAppUrl = await fetchWebAppUrlFromMenuButton(bot);
+    hasCheckedMenuButtonWebAppUrl = true;
+
+    if (menuButtonWebAppUrl) {
+      if (resolvedWebAppUrl && resolvedWebAppUrl !== menuButtonWebAppUrl) {
+        logger.warn("WEBAPP_URL отличается от menu button — использую URL из menu button");
+      }
+      resolvedWebAppUrl = menuButtonWebAppUrl;
+      return resolvedWebAppUrl;
+    }
+
+    if (!resolvedWebAppUrl) {
+      logger.warn("Не удалось определить URL Mini App ни из WEBAPP_URL, ни из menu button");
+    }
+    return resolvedWebAppUrl;
+  })().finally(() => {
+    webAppUrlLookupPromise = null;
+  });
+
+  return webAppUrlLookupPromise;
+}
+
+/**
+ * Получает URL Mini App из menu button Telegram-бота.
+ */
+async function fetchWebAppUrlFromMenuButton(bot) {
+  try {
+    const menuButton = await bot.telegram.callApi("getChatMenuButton", {});
+    return normalizeHttpUrl(menuButton?.web_app?.url);
+  } catch (error) {
+    logger.warn("Не удалось получить menu button Telegram-бота", error);
     return null;
   }
 }
