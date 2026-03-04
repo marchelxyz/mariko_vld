@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-04 21:19
+**Последнее обновление:** 2026-03-04 21:24
 
 ---
 
@@ -860,6 +860,42 @@ curl "https://<domain>/api/cities/active" | jq
 
 ---
 
+### ❌ Проблема: TG-админка акций не проходит авторизацию и не загружает изображения (роль `marketer`, город `zhukovsky`)
+
+**Дата:** 2026-03-04
+**Симптомы:**
+- В разделе `Управление акциями` при сохранении появляется ошибка `Требуется подтверждённая Telegram авторизация администратора`.
+- При загрузке изображения для акции появляется ошибка `Не удалось загрузить изображение`.
+- Роль у пользователя назначена корректно (`marketer`), но запросы всё равно отклоняются.
+
+**Причина:**
+- `frontend/src/shared/api/promotionsApi.ts` в `buildAdminHeaders` для Telegram отправлял только `X-Telegram-Id`.
+- Заголовок `X-Telegram-Init-Data` не передавался для запросов:
+  - `POST /api/admin/promotions/:cityId`
+  - `POST /api/storage/promotions/:cityId`
+  - `GET /api/storage/promotions/:cityId`
+- На backend включена строгая проверка Telegram (`authoriseAdmin` + `verifyTelegramInitData`), поэтому одного `X-Telegram-Id` недостаточно.
+
+**Решение:**
+- В `frontend/src/shared/api/promotionsApi.ts` добавлена передача `X-Telegram-Init-Data` для платформы Telegram.
+- Сохранена текущая логика:
+  - TG: `X-Telegram-Id` + `X-Telegram-Init-Data`
+  - VK: `X-VK-Id` + `X-VK-Init-Data`
+
+**Проверка:**
+```bash
+# В TG DevTools -> Network проверить запросы:
+# 1) POST /api/admin/promotions/<cityId>
+# 2) POST /api/storage/promotions/<cityId>
+# 3) GET  /api/storage/promotions/<cityId>?scope=...
+# Ожидаемо: в headers есть X-Telegram-Init-Data.
+# После этого сохранение акции и загрузка изображения проходят без ошибок авторизации.
+```
+
+**Связанный commit:** `N/A` (локальные изменения, commit ещё не создан)
+
+---
+
 ### ⚠️ Проблема: в TG проде меню Жуковского без `iikoProductId` (`with_iiko=0`, `orderable=0`), кнопки `+` не отображаются
 
 **Дата:** 2026-02-25
@@ -1198,5 +1234,5 @@ curl -X POST "https://api-ru.iiko.services/api/1/organizations" \
 
 ---
 
-**Последнее обновление:** 2026-03-04 21:19
+**Последнее обновление:** 2026-03-04 21:24
 **Автор:** Codex (GPT-5)
