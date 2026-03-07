@@ -227,7 +227,8 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
       setIsLoading(false);
     }
 
-    void loadAdminData();
+    const shouldResetOnInitialFailure = !isTelegramPlatform || !cachedAdmin;
+    void loadAdminData({ resetOnFailure: shouldResetOnInitialFailure });
 
     const refreshAdminDataSilently = () => {
       void loadAdminData({ silent: true, resetOnFailure: false });
