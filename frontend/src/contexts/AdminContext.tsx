@@ -116,6 +116,9 @@ const derivePermissions = (role: UserRole): Permission[] => {
 const isPermissionValue = (value: unknown): value is Permission =>
   Object.values(Permission).includes(value as Permission);
 
+const areStringArraysEqual = (left: string[], right: string[]): boolean =>
+  left.length === right.length && left.every((value, index) => value === right[index]);
+
 const mapRole = (value: string): UserRole => {
   switch (value) {
     case UserRole.SUPER_ADMIN:
@@ -172,24 +175,28 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
 
           const role = response.role || UserRole.USER;
           const isAdminUser = role !== UserRole.USER;
+          const nextPermissions = response.permissions || [];
+          const nextAllowedRestaurants = response.allowedRestaurants || [];
 
-          setIsAdmin(isAdminUser);
-          setUserRole(role);
-          setPermissions(response.permissions || []);
-          setAllowedRestaurants(response.allowedRestaurants || []);
+          setIsAdmin((prev) => (prev === isAdminUser ? prev : isAdminUser));
+          setUserRole((prev) => (prev === role ? prev : role));
+          setPermissions((prev) => (areStringArraysEqual(prev, nextPermissions) ? prev : nextPermissions));
+          setAllowedRestaurants((prev) =>
+            areStringArraysEqual(prev, nextAllowedRestaurants) ? prev : nextAllowedRestaurants,
+          );
           saveAdminToStorage({
             isAdmin: isAdminUser,
             userRole: role,
-            permissions: response.permissions || [],
+            permissions: nextPermissions,
             userId,
-            allowedRestaurants: response.allowedRestaurants || [],
+            allowedRestaurants: nextAllowedRestaurants,
           });
 
           logger.debug('admin-context', 'Admin data loaded', {
             role,
             isAdmin: isAdminUser,
-            permissionsCount: response.permissions?.length || 0,
-            allowedRestaurantsCount: response.allowedRestaurants?.length || 0,
+            permissionsCount: nextPermissions.length,
+            allowedRestaurantsCount: nextAllowedRestaurants.length,
             attempt: attempt + 1,
           });
 

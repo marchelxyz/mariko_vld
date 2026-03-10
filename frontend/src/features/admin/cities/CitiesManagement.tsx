@@ -61,17 +61,24 @@ export function CitiesManagement(): JSX.Element {
   const [isLoading, setIsLoading] = useState(true);
   const [restaurantToEdit, setRestaurantToEdit] = useState<Restaurant | null>(null);
   const [isCreateCityModalOpen, setIsCreateCityModalOpen] = useState(false);
-  const canManageCities = isSuperAdmin() || userRole === UserRole.ADMIN;
+  const isSuperAdminUser = isSuperAdmin();
+  const canManageRestaurants = hasPermission(Permission.MANAGE_RESTAURANTS);
+  const canManageCities = isSuperAdminUser || userRole === UserRole.ADMIN;
+  const shouldPauseLiveUpdates = isCreateCityModalOpen || !!restaurantToEdit;
+  const allowedRestaurantsKey = useMemo(
+    () => [...(allowedRestaurants ?? [])].sort().join('|'),
+    [allowedRestaurants],
+  );
 
   const filterCitiesByAccess = useCallback(
     (cities: CityWithStatus[]): CityWithStatus[] => {
-      if (isSuperAdmin() || userRole === UserRole.ADMIN) {
+      if (canManageCities) {
         return cities;
       }
-      if (!allowedRestaurants?.length) {
+      if (!allowedRestaurantsKey) {
         return [];
       }
-      const allowed = new Set(allowedRestaurants);
+      const allowed = new Set(allowedRestaurantsKey.split('|'));
       return cities
         .map((city) => ({
           ...city,
@@ -79,67 +86,72 @@ export function CitiesManagement(): JSX.Element {
         }))
         .filter((city) => city.restaurants.length > 0);
     },
-    [allowedRestaurants, isSuperAdmin, userRole],
+    [allowedRestaurantsKey, canManageCities],
   );
 
-  // Загрузка городов из базы данных
-  useEffect(() => {
-    const loadCities = async () => {
-      if (isAdminLoading || !hasPermission(Permission.MANAGE_RESTAURANTS)) {
+  const loadCities = useCallback(
+    async ({ showLoader = false }: { showLoader?: boolean } = {}) => {
+      if (isAdminLoading || !canManageRestaurants) {
         return;
       }
-      setIsLoading(true);
+
+      if (showLoader) {
+        setIsLoading(true);
+      }
+
       logger.info('cities', 'Начало загрузки городов');
       try {
         const cities = await getAllCitiesAsync();
-        const citiesWithStatus = filterCitiesByAccess(
+        const nextCitiesWithStatus = filterCitiesByAccess(
           cities.map((city) => normalizeCity(city as City & { is_active?: boolean })),
         );
 
         logger.info('cities', 'Города загружены', {
-          total: citiesWithStatus.length,
-          active: citiesWithStatus.filter(c => c.isActive).length,
+          total: nextCitiesWithStatus.length,
+          active: nextCitiesWithStatus.filter((city) => city.isActive).length,
         });
-        
-        setCitiesWithStatus(citiesWithStatus);
+
+        setCitiesWithStatus(nextCitiesWithStatus);
       } catch (error) {
         logger.error('cities', error instanceof Error ? error : new Error('Ошибка загрузки городов'));
-        // Показываем сообщение об ошибке пользователю
         alert('❌ Не удалось загрузить города. Проверьте подключение к серверу.');
       } finally {
-        setIsLoading(false);
+        if (showLoader) {
+          setIsLoading(false);
+        }
       }
-    };
+    },
+    [canManageRestaurants, filterCitiesByAccess, isAdminLoading],
+  );
 
-    loadCities();
-  }, [filterCitiesByAccess, hasPermission, isAdminLoading]);
+  // Загрузка городов из базы данных
+  useEffect(() => {
+    void loadCities({ showLoader: true });
+  }, [loadCities]);
 
   // Real-time подписка на изменения
   useEffect(() => {
-    if (isAdminLoading || !hasPermission(Permission.MANAGE_RESTAURANTS)) {
+    if (isAdminLoading || !canManageRestaurants) {
       return;
     }
+
+    if (shouldPauseLiveUpdates) {
+      logger.info('cities', 'Live-обновление городов приостановлено: открыта форма редактирования');
+      return;
+    }
+
     logger.info('cities', 'Подписка на изменения городов активирована');
 
-    const unsubscribe = citiesApi.subscribeToCitiesChanges(async () => {
-      // Перезагружаем все города при любом изменении
+    const unsubscribe = citiesApi.subscribeToCitiesChanges(() => {
       logger.debug('cities', 'Обновление городов через подписку');
-      const cities = await getAllCitiesAsync();
-      const citiesWithStatus = filterCitiesByAccess(
-        cities.map((city) => normalizeCity(city as City & { is_active?: boolean })),
-      );
-      
-      setCitiesWithStatus(citiesWithStatus);
-      logger.info('cities', 'Города обновлены в реальном времени', {
-        total: citiesWithStatus.length,
-      });
+      void loadCities();
     });
 
     return () => {
       logger.info('cities', 'Отписка от изменений городов');
       unsubscribe();
     };
-  }, [filterCitiesByAccess, hasPermission, isAdminLoading]);
+  }, [canManageRestaurants, isAdminLoading, loadCities, shouldPauseLiveUpdates]);
 
   // Фильтрация городов
   const filteredCities = useMemo(() => {
@@ -152,7 +164,7 @@ export function CitiesManagement(): JSX.Element {
     );
   }, [citiesWithStatus, searchQuery]);
 
-  if (!hasPermission(Permission.MANAGE_RESTAURANTS)) {
+  if (!canManageRestaurants) {
     return null;
   }
 
@@ -290,10 +302,7 @@ export function CitiesManagement(): JSX.Element {
     });
 
     if (result) {
-      // Перезагружаем города для обновления данных
-      const cities = await getAllCitiesAsync();
-      const citiesWithStatus = cities.map((city) => normalizeCity(city as City & { is_active?: boolean }));
-      setCitiesWithStatus(citiesWithStatus);
+      await loadCities();
       alert('✅ Ресторан успешно обновлен');
       setRestaurantToEdit(null);
     } else {
@@ -364,11 +373,8 @@ export function CitiesManagement(): JSX.Element {
           }
         }
 
-        // Перезагружаем города для обновления данных
         logger.debug('cities', 'Перезагружаем список городов');
-        const cities = await getAllCitiesAsync();
-        const citiesWithStatus = cities.map((city) => normalizeCity(city as City & { is_active?: boolean }));
-        setCitiesWithStatus(citiesWithStatus);
+        await loadCities();
         logger.info('cities', 'Список городов обновлен');
         alert(`✅ Город "${city.name}" успешно создан${city.restaurant ? ' с рестораном' : ''}`);
         setIsCreateCityModalOpen(false);
@@ -450,7 +456,7 @@ export function CitiesManagement(): JSX.Element {
   };
 
   // Индикатор загрузки
-  if (isLoading) {
+  if (isLoading && citiesWithStatus.length === 0 && !shouldPauseLiveUpdates) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="w-12 h-12 border-4 border-mariko-primary border-t-transparent rounded-full animate-spin"></div>
@@ -461,13 +467,28 @@ export function CitiesManagement(): JSX.Element {
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Компактная информационная панель */}
-      <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-3">
+      <div
+        className={`rounded-2xl border p-3 ${
+          shouldPauseLiveUpdates
+            ? 'border-amber-500/30 bg-amber-500/10'
+            : 'border-green-500/30 bg-green-500/10'
+        }`}
+      >
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-          <p className="text-green-200 text-sm font-medium">
-            Real-time режим активен
+          <div
+            className={`h-2 w-2 rounded-full ${
+              shouldPauseLiveUpdates ? 'bg-amber-300' : 'bg-green-400 animate-pulse'
+            }`}
+          ></div>
+          <p className={`text-sm font-medium ${shouldPauseLiveUpdates ? 'text-amber-100' : 'text-green-200'}`}>
+            {shouldPauseLiveUpdates ? 'Real-time режим на паузе' : 'Real-time режим активен'}
           </p>
         </div>
+        <p className={`mt-1 text-xs ${shouldPauseLiveUpdates ? 'text-amber-100/80' : 'text-green-100/80'}`}>
+          {shouldPauseLiveUpdates
+            ? 'Автообновление временно остановлено, пока открыта форма создания или редактирования.'
+            : 'Список городов синхронизируется автоматически.'}
+        </p>
       </div>
 
       {/* Заголовок и поиск */}
