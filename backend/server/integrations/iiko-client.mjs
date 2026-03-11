@@ -8,6 +8,9 @@ const IIKO_PAYMENT_TYPES_CACHE_TTL_MS =
 const IIKO_PAYMENT_MODE = String(process.env.IIKO_PAYMENT_MODE ?? "legacy")
   .trim()
   .toLowerCase();
+const IIKO_MENU_SOURCE_MODE = String(process.env.IIKO_MENU_SOURCE_MODE ?? "auto")
+  .trim()
+  .toLowerCase();
 
 const tokenCache = new Map();
 const stopListCache = new Map();
@@ -89,51 +92,112 @@ const extractStopListItemProductId = (item) => {
   return normaliseIikoProductId(directCandidate);
 };
 
-const collectStopListProductIds = (payload, terminalGroupIdRaw) => {
-  const terminalGroupId = normaliseIikoProductId(terminalGroupIdRaw);
-  const stopListBlocks = [
+const collectStructuredStopListItems = (payload, terminalGroupIdRaw) => {
+  const requestedTerminalGroupId = normaliseIikoProductId(terminalGroupIdRaw);
+  const roots = [
     ...asArray(payload?.terminalGroupStopLists),
     ...asArray(payload?.stopLists),
     ...asArray(payload?.terminalGroups),
+    ...asArray(payload?.items),
+    ...asArray(payload?.products),
   ];
+  const collected = [];
 
-  const filteredBlocks = terminalGroupId
-    ? stopListBlocks.filter((block) => {
-        const blockTerminalId = normaliseIikoProductId(
-          block?.terminalGroupId ?? block?.terminalId ?? block?.id,
-        );
-        return blockTerminalId && blockTerminalId === terminalGroupId;
-      })
-    : [];
+  const visit = (node, inheritedTerminalGroupId = "") => {
+    if (Array.isArray(node)) {
+      node.forEach((entry) => visit(entry, inheritedTerminalGroupId));
+      return;
+    }
+    if (!node || typeof node !== "object") {
+      return;
+    }
 
-  const relevantBlocks = filteredBlocks.length > 0 ? filteredBlocks : stopListBlocks;
+    const nodeTerminalGroupId = normaliseIikoProductId(
+      node?.terminalGroupId ?? node?.terminalId ?? inheritedTerminalGroupId,
+    );
+    const productId = extractStopListItemProductId(node);
+    const looksLikeStopItem =
+      Boolean(productId) ||
+      Object.prototype.hasOwnProperty.call(node, "balance") ||
+      Object.prototype.hasOwnProperty.call(node, "sku") ||
+      Object.prototype.hasOwnProperty.call(node, "dateAdd") ||
+      Object.prototype.hasOwnProperty.call(node, "dateAdded");
+
+    if (looksLikeStopItem) {
+      collected.push({
+        item: node,
+        terminalGroupId: nodeTerminalGroupId || null,
+      });
+      return;
+    }
+
+    visit(node?.items, nodeTerminalGroupId);
+    visit(node?.stopListItems, nodeTerminalGroupId);
+    visit(node?.products, nodeTerminalGroupId);
+  };
+
+  roots.forEach((root) => visit(root, ""));
+
+  if (!requestedTerminalGroupId) {
+    return collected;
+  }
+
+  const matched = collected.filter(
+    (entry) => normaliseIikoProductId(entry?.terminalGroupId) === requestedTerminalGroupId,
+  );
+  return matched.length > 0 ? matched : collected;
+};
+
+const collectStopListProductIds = (payload, terminalGroupIdRaw) => {
   const productIds = new Set();
-
-  for (const block of relevantBlocks) {
-    const items = [
-      ...asArray(block?.items),
-      ...asArray(block?.stopListItems),
-      ...asArray(block?.products),
-    ];
-    for (const item of items) {
-      const productId = extractStopListItemProductId(item);
-      if (productId) {
-        productIds.add(productId);
-      }
+  const structuredItems = collectStructuredStopListItems(payload, terminalGroupIdRaw);
+  for (const entry of structuredItems) {
+    const productId = extractStopListItemProductId(entry?.item);
+    if (productId) {
+      productIds.add(productId);
     }
   }
-
-  if (productIds.size === 0) {
-    const fallbackItems = [...asArray(payload?.items), ...asArray(payload?.products)];
-    for (const item of fallbackItems) {
-      const productId = extractStopListItemProductId(item);
-      if (productId) {
-        productIds.add(productId);
-      }
-    }
-  }
-
   return Array.from(productIds);
+};
+
+const collectStopListEntries = (payload, terminalGroupIdRaw) =>
+  collectStructuredStopListItems(payload, terminalGroupIdRaw).map(({ item, terminalGroupId }) => {
+    const productId = extractStopListItemProductId(item);
+    const rawBalance = item?.balance ?? item?.amount ?? item?.productBalance ?? item?.quantity ?? null;
+    const balance = Number(rawBalance);
+    return {
+      productId: productId || null,
+      balance: Number.isFinite(balance) ? balance : null,
+      dateAdd: item?.dateAdd ?? item?.dateAdded ?? null,
+      terminalGroupId: terminalGroupId || null,
+      name: item?.name ?? item?.product?.name ?? item?.itemName ?? null,
+      sku: item?.sku ?? null,
+    };
+  });
+
+const summarizeStopListEntries = (entries) => {
+  const uniqueTerminalGroups = new Set();
+  let withPositiveBalance = 0;
+  let withZeroOrMissingBalance = 0;
+
+  for (const entry of entries) {
+    const terminalGroupId = normaliseIikoProductId(entry?.terminalGroupId);
+    if (terminalGroupId) {
+      uniqueTerminalGroups.add(terminalGroupId);
+    }
+    if (Number.isFinite(entry?.balance) && entry.balance > 0) {
+      withPositiveBalance += 1;
+    } else {
+      withZeroOrMissingBalance += 1;
+    }
+  }
+
+  return {
+    entriesCount: entries.length,
+    uniqueTerminalGroups: uniqueTerminalGroups.size,
+    withPositiveBalance,
+    withZeroOrMissingBalance,
+  };
 };
 
 const buildIikoOrderItems = (items) => {
@@ -270,6 +334,235 @@ const ensureAccessToken = async (apiLogin) => {
   tokenCache.set(cacheKey, fresh);
   return fresh.token;
 };
+
+const getAccessTokenForRequest = async (apiLogin, options = {}) => {
+  if (options?.forceFreshToken === true) {
+    const fresh = await fetchAccessToken(apiLogin);
+    tokenCache.set(getTokenCacheKey(apiLogin), fresh);
+    return fresh.token;
+  }
+  return ensureAccessToken(apiLogin);
+};
+
+const postIikoJson = async (path, token, body) =>
+  requestJson(`${IIKO_BASE_URL}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+const isRetryableBodyMismatchError = (error) => {
+  const status = Number(error?.status ?? 0);
+  if (status === 400) {
+    return true;
+  }
+  const message = String(error?.message ?? "");
+  return /organizationid|organizationids|required|validation|invalid/i.test(message);
+};
+
+const tryIikoBodies = async (path, token, bodies) => {
+  let lastError = null;
+  for (const body of bodies) {
+    try {
+      const payload = await postIikoJson(path, token, body);
+      return { payload, requestBody: body };
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableBodyMismatchError(error)) {
+        throw error;
+      }
+    }
+  }
+  throw lastError ?? new Error(`iiko: Не удалось выполнить запрос ${path}`);
+};
+
+const resolveMenuSourcePreference = (value) => {
+  const normalized = String(value ?? IIKO_MENU_SOURCE_MODE ?? "auto")
+    .trim()
+    .toLowerCase();
+  if (normalized === "external_menu" || normalized === "nomenclature") {
+    return normalized;
+  }
+  return "auto";
+};
+
+const firstArray = (...candidates) => {
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate;
+    }
+  }
+  return [];
+};
+
+const getEntityIdentity = (entity, prefix, index) => {
+  const candidates = [
+    entity?.id,
+    entity?.productId,
+    entity?.groupId,
+    entity?.categoryId,
+    entity?.externalMenuId,
+    entity?.menuId,
+    entity?.code,
+    entity?.name,
+  ];
+  for (const candidate of candidates) {
+    const normalized = normaliseIikoProductId(candidate);
+    if (normalized) {
+      return `${prefix}:${normalized}`;
+    }
+  }
+  return `${prefix}:fallback:${index}`;
+};
+
+const dedupeEntities = (items, prefix) => {
+  const result = [];
+  const seen = new Set();
+  let fallbackIndex = 0;
+  for (const item of items) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+    const identity = getEntityIdentity(item, prefix, fallbackIndex++);
+    if (seen.has(identity)) {
+      continue;
+    }
+    seen.add(identity);
+    result.push(item);
+  }
+  return result;
+};
+
+const buildCatalogChunk = (candidate, label) => {
+  if (!candidate || typeof candidate !== "object") {
+    return null;
+  }
+
+  const products = firstArray(candidate.products, candidate.items, candidate.menuItems);
+  const groups = firstArray(candidate.groups, candidate.productGroups);
+  const categories = firstArray(candidate.productCategories, candidate.categories);
+
+  const hasCatalogArrays =
+    Array.isArray(candidate.products) ||
+    Array.isArray(candidate.items) ||
+    Array.isArray(candidate.menuItems) ||
+    Array.isArray(candidate.groups) ||
+    Array.isArray(candidate.productGroups) ||
+    Array.isArray(candidate.productCategories) ||
+    Array.isArray(candidate.categories);
+
+  if (!hasCatalogArrays) {
+    return null;
+  }
+
+  return {
+    label,
+    products,
+    groups,
+    categories,
+  };
+};
+
+const collectCatalogChunks = (payload) => {
+  const chunks = [];
+  const seen = new Set();
+
+  const visit = (candidate, label, depth) => {
+    if (!candidate || typeof candidate !== "object") {
+      return;
+    }
+    if (seen.has(candidate)) {
+      return;
+    }
+    seen.add(candidate);
+
+    const chunk = buildCatalogChunk(candidate, label);
+    if (chunk) {
+      chunks.push(chunk);
+    }
+
+    if (depth >= 2) {
+      return;
+    }
+
+    for (const [key, value] of Object.entries(candidate)) {
+      if (Array.isArray(value)) {
+        value.forEach((entry, index) => visit(entry, `${label}.${key}[${index}]`, depth + 1));
+        continue;
+      }
+      if (value && typeof value === "object") {
+        visit(value, `${label}.${key}`, depth + 1);
+      }
+    }
+  };
+
+  visit(payload, "root", 0);
+  return chunks;
+};
+
+const normaliseCatalogPayload = (payload) => {
+  const chunks = collectCatalogChunks(payload);
+  if (chunks.length === 0) {
+    return null;
+  }
+
+  return {
+    products: dedupeEntities(chunks.flatMap((chunk) => chunk.products), "product"),
+    groups: dedupeEntities(chunks.flatMap((chunk) => chunk.groups), "group"),
+    categories: dedupeEntities(chunks.flatMap((chunk) => chunk.categories), "category"),
+    detectedFrom: chunks.map((chunk) => chunk.label),
+    rawKeys: payload && typeof payload === "object" ? Object.keys(payload) : [],
+  };
+};
+
+const extractExternalMenuIds = (payload) => {
+  const candidates = [
+    ...asArray(payload?.externalMenus),
+    ...asArray(payload?.menus),
+    ...asArray(payload?.items),
+  ];
+  const ids = new Set();
+  for (const entry of candidates) {
+    for (const rawValue of [entry?.externalMenuId, entry?.menuId, entry?.id]) {
+      const normalized = normaliseIikoProductId(rawValue);
+      if (normalized) {
+        ids.add(normalized);
+      }
+    }
+  }
+  return Array.from(ids);
+};
+
+const buildErrorResponseMeta = (error, extra = {}) => ({
+  status: error?.status,
+  url: error?.url,
+  body: error?.response ?? null,
+  network: error?.network ?? null,
+  ...extra,
+});
+
+const buildProbeSummary = (response, extra = {}) => ({
+  ok: response?.ok ?? true,
+  status: response?.status ?? 200,
+  requestBody: response?.requestBody ?? null,
+  rawKeys:
+    response?.payload && typeof response.payload === "object" ? Object.keys(response.payload) : [],
+  error: null,
+  ...extra,
+});
+
+const buildProbeErrorSummary = (error, extra = {}) => ({
+  ok: false,
+  status: error?.status ?? null,
+  requestBody: extra?.requestBody ?? null,
+  rawKeys:
+    error?.response && typeof error.response === "object" ? Object.keys(error.response) : [],
+  error: error?.message || "iiko: Ошибка запроса",
+  ...extra,
+});
 
 const normalisePaymentMethod = (value) => {
   const normalized = String(value ?? "")
@@ -571,13 +864,13 @@ export const iikoClient = {
   /**
    * Получает номенклатуру (меню) из iiko
    */
-  async getNomenclature(config) {
+  async getNomenclature(config, options = {}) {
     if (!config?.iiko_organization_id || !config?.api_login) {
       return { success: false, error: "iiko: Не указаны organization_id или api_login" };
     }
 
     try {
-      const token = await ensureAccessToken(config.api_login);
+      const token = await getAccessTokenForRequest(config.api_login, options);
       const url = `${IIKO_BASE_URL}/api/1/nomenclature`;
       const response = await requestJson(url, {
         method: "POST",
@@ -590,9 +883,15 @@ export const iikoClient = {
 
       return {
         success: true,
+        source: "nomenclature",
         products: response?.products ?? [],
         groups: response?.groups ?? [],
         categories: response?.productCategories ?? [],
+        diagnostics: {
+          endpoint: "/api/1/nomenclature",
+          requestBody: { organizationId: config.iiko_organization_id },
+          rawKeys: response && typeof response === "object" ? Object.keys(response) : [],
+        },
       };
     } catch (error) {
       return {
@@ -604,6 +903,271 @@ export const iikoClient = {
           body: error?.response ?? null,
           network: error?.network ?? null,
         },
+      };
+    }
+  },
+
+  /**
+   * Пытается получить состав внешнего меню через dedicated endpoints Cloud API.
+   * Если логин не имеет прав или ответ не содержит пригодной номенклатуры, возвращает success=false.
+   */
+  async getExternalMenuCatalog(config, options = {}) {
+    if (!config?.iiko_organization_id || !config?.api_login) {
+      return { success: false, error: "iiko: Не указаны organization_id или api_login" };
+    }
+
+    try {
+      const token = await getAccessTokenForRequest(config.api_login, options);
+      const organizationId = config.iiko_organization_id;
+
+      const listResult = await tryIikoBodies("/api/1/external_menus", token, [
+        { organizationIds: [organizationId] },
+        { organizationId },
+      ]);
+
+      const directCatalog = normaliseCatalogPayload(listResult.payload);
+      if (directCatalog) {
+        return {
+          success: true,
+          source: "external_menu",
+          products: directCatalog.products,
+          groups: directCatalog.groups,
+          categories: directCatalog.categories,
+          diagnostics: {
+            endpoint: "/api/1/external_menus",
+            requestBody: listResult.requestBody,
+            detectedFrom: directCatalog.detectedFrom,
+            rawKeys: directCatalog.rawKeys,
+          },
+        };
+      }
+
+      const externalMenuIds = extractExternalMenuIds(listResult.payload);
+      if (externalMenuIds.length === 0) {
+        return {
+          success: false,
+          error: "iiko: external_menus доступен, но ответ не содержит состав меню или идентификаторы меню",
+          response: {
+            status: 200,
+            url: `${IIKO_BASE_URL}/api/1/external_menus`,
+            body: listResult.payload ?? null,
+            network: null,
+            request: listResult.requestBody,
+          },
+        };
+      }
+
+      const catalogChunks = [];
+      const requestAttempts = [];
+
+      for (const menuId of externalMenuIds) {
+        try {
+          const detailResult = await tryIikoBodies("/api/1/external_menu", token, [
+            { organizationId, externalMenuId: menuId },
+            { organizationIds: [organizationId], externalMenuId: menuId },
+            { organizationId, menuId },
+            { organizationIds: [organizationId], menuId },
+            { organizationId, id: menuId },
+            { organizationIds: [organizationId], id: menuId },
+          ]);
+          requestAttempts.push({
+            endpoint: "/api/1/external_menu",
+            requestBody: detailResult.requestBody,
+            menuId,
+          });
+
+          const detailCatalog = normaliseCatalogPayload(detailResult.payload);
+          if (detailCatalog) {
+            catalogChunks.push(detailCatalog);
+          }
+        } catch (detailError) {
+          requestAttempts.push({
+            endpoint: "/api/1/external_menu",
+            requestBody: null,
+            menuId,
+            error: detailError?.message || "iiko: Ошибка чтения external_menu",
+            status: detailError?.status ?? null,
+          });
+        }
+      }
+
+      if (catalogChunks.length === 0) {
+        return {
+          success: false,
+          error: "iiko: Не удалось извлечь состав внешнего меню из external_menu endpoints",
+          response: {
+            status: 200,
+            url: `${IIKO_BASE_URL}/api/1/external_menu`,
+            body: {
+              externalMenuIds,
+              requestAttempts,
+            },
+            network: null,
+            request: listResult.requestBody,
+          },
+        };
+      }
+
+      return {
+        success: true,
+        source: "external_menu",
+        products: dedupeEntities(catalogChunks.flatMap((chunk) => chunk.products), "product"),
+        groups: dedupeEntities(catalogChunks.flatMap((chunk) => chunk.groups), "group"),
+        categories: dedupeEntities(catalogChunks.flatMap((chunk) => chunk.categories), "category"),
+        diagnostics: {
+          endpoint: "/api/1/external_menu",
+          requestBody: listResult.requestBody,
+          externalMenuIds,
+          requestAttempts,
+          detectedFrom: catalogChunks.flatMap((chunk) => chunk.detectedFrom),
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error?.message || "iiko: Ошибка получения внешнего меню",
+        response: buildErrorResponseMeta(error),
+      };
+    }
+  },
+
+  /**
+   * Возвращает меню из лучшего доступного источника:
+   * - external_menu, если явно запрошен или включен auto и права доступны
+   * - nomenclature как fallback
+   */
+  async getMenuCatalog(config, options = {}) {
+    const sourcePreference = resolveMenuSourcePreference(options?.sourcePreference);
+    let externalMenuResult = null;
+
+    if (sourcePreference !== "nomenclature") {
+      externalMenuResult = await this.getExternalMenuCatalog(config, options);
+      if (externalMenuResult?.success) {
+        return {
+          ...externalMenuResult,
+          diagnostics: {
+            sourcePreference,
+            fallbackUsed: false,
+            externalMenu: externalMenuResult.diagnostics ?? null,
+          },
+        };
+      }
+      if (sourcePreference === "external_menu") {
+        return externalMenuResult;
+      }
+    }
+
+    const nomenclatureResult = await this.getNomenclature(config, options);
+    if (!nomenclatureResult?.success) {
+      return nomenclatureResult;
+    }
+
+    return {
+      ...nomenclatureResult,
+      diagnostics: {
+        sourcePreference,
+        fallbackUsed: sourcePreference !== "nomenclature",
+        fallbackReason: externalMenuResult?.error || null,
+        externalMenu: externalMenuResult?.response
+          ? {
+              status: externalMenuResult.response.status ?? null,
+              url: externalMenuResult.response.url ?? null,
+            }
+          : null,
+        nomenclature: nomenclatureResult.diagnostics ?? null,
+      },
+    };
+  },
+
+  /**
+   * Диагностика доступности источников меню для конкретной интеграции.
+   */
+  async getMenuSourceDiagnostics(config, options = {}) {
+    if (!config?.iiko_organization_id || !config?.api_login) {
+      return { success: false, error: "iiko: Не указаны organization_id или api_login" };
+    }
+
+    try {
+      const token = await getAccessTokenForRequest(config.api_login, options);
+      const organizationId = config.iiko_organization_id;
+
+      const runProbe = async (path, bodies, summaryBuilder) => {
+        try {
+          const probe = await tryIikoBodies(path, token, bodies);
+          return buildProbeSummary(
+            probe,
+            summaryBuilder ? summaryBuilder(probe.payload, probe.requestBody) : {},
+          );
+        } catch (error) {
+          return buildProbeErrorSummary(error);
+        }
+      };
+
+      const nomenclature = await runProbe(
+        "/api/1/nomenclature",
+        [{ organizationId }],
+        (payload) => ({
+          products: Array.isArray(payload?.products) ? payload.products.length : 0,
+          groups: Array.isArray(payload?.groups) ? payload.groups.length : 0,
+          revision: payload?.revision ?? null,
+        }),
+      );
+      const externalMenus = await runProbe("/api/1/external_menus", [
+        { organizationIds: [organizationId] },
+        { organizationId },
+      ]);
+      const priceCategories = await runProbe("/api/1/price_categories", [
+        { organizationIds: [organizationId] },
+        { organizationId },
+      ]);
+      const priceLists = await runProbe("/api/1/pricelists", [
+        { organizationIds: [organizationId] },
+        { organizationId },
+      ]);
+
+      return {
+        success: true,
+        organizationId,
+        sourcePreference: resolveMenuSourcePreference(options?.sourcePreference),
+        nomenclature,
+        externalMenus,
+        priceCategories,
+        priceLists,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error?.message || "iiko: Ошибка диагностики источника меню",
+        response: buildErrorResponseMeta(error),
+      };
+    }
+  },
+
+  /**
+   * Получает список организаций, доступных по api_login.
+   */
+  async getOrganizations(config, options = {}) {
+    if (!config?.api_login) {
+      return { success: false, error: "iiko: Не указан api_login" };
+    }
+
+    try {
+      const token = await getAccessTokenForRequest(config.api_login, options);
+      const response = await postIikoJson("/api/1/organizations", token, {
+        organizationIds: null,
+        returnAdditionalInfo: true,
+        includeDisabled: false,
+      });
+
+      return {
+        success: true,
+        organizations: Array.isArray(response?.organizations) ? response.organizations : [],
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error?.message || "iiko: Ошибка получения списка организаций",
+        response: buildErrorResponseMeta(error),
       };
     }
   },
@@ -705,36 +1269,14 @@ export const iikoClient = {
     }
 
     try {
-      const token = await ensureAccessToken(config.api_login);
-      const url = `${IIKO_BASE_URL}/api/1/stop_lists`;
-      const requestWithBody = (body) =>
-        requestJson(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(body),
-        });
-
-      let response;
-      try {
-        response = await requestWithBody({
-          organizationIds: [config.iiko_organization_id],
-        });
-      } catch (primaryError) {
-        const primaryMessage = String(primaryError?.message ?? "");
-        const shouldRetryWithSingular =
-          /organizationid/i.test(primaryMessage) || primaryError?.status === 400;
-        if (!shouldRetryWithSingular) {
-          throw primaryError;
-        }
-        response = await requestWithBody({
-          organizationId: config.iiko_organization_id,
-        });
+      const details = await this.getStopListDetails(config, {
+        ...options,
+        bypassProductCache: true,
+      });
+      if (!details?.success) {
+        return details;
       }
-
-      const productIds = collectStopListProductIds(response, config.iiko_terminal_group_id);
+      const productIds = Array.isArray(details.productIds) ? details.productIds : [];
       stopListCache.set(cacheKey, {
         productIds,
         expiresAt: Date.now() + IIKO_STOP_LIST_CACHE_TTL_MS,
@@ -755,6 +1297,43 @@ export const iikoClient = {
           body: error?.response ?? null,
           network: error?.network ?? null,
         },
+      };
+    }
+  },
+
+  /**
+   * Возвращает расширенную информацию по stop-list, включая сырой payload и сводку.
+   */
+  async getStopListDetails(config, options = {}) {
+    if (!config?.iiko_organization_id || !config?.api_login) {
+      return { success: false, error: "iiko: Не указаны organization_id или api_login" };
+    }
+
+    try {
+      const token = await getAccessTokenForRequest(config.api_login, options);
+      const organizationId = config.iiko_organization_id;
+      const result = await tryIikoBodies("/api/1/stop_lists", token, [
+        { organizationIds: [organizationId] },
+        { organizationId },
+      ]);
+
+      const productIds = collectStopListProductIds(result.payload, config.iiko_terminal_group_id);
+      const entries = collectStopListEntries(result.payload, config.iiko_terminal_group_id);
+
+      return {
+        success: true,
+        source: "api",
+        requestBody: result.requestBody,
+        productIds,
+        entries,
+        summary: summarizeStopListEntries(entries),
+        payload: result.payload ?? null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error?.message || "iiko: Ошибка получения расширенного стоп-листа",
+        response: buildErrorResponseMeta(error),
       };
     }
   },
