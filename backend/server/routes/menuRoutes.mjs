@@ -25,6 +25,8 @@ const normaliseIikoProductId = (value) => {
   return String(value).trim();
 };
 
+const normaliseLowerText = (value) => normaliseText(value).toLowerCase();
+
 const toSlug = (value) =>
   String(value ?? "")
     .toLowerCase()
@@ -71,12 +73,86 @@ const extractProductPrice = (product) => {
   return 0;
 };
 
+const extractProductDescription = (product) =>
+  normaliseText(product?.description) ||
+  normaliseText(product?.seoDescription) ||
+  normaliseText(product?.additionalInfo) ||
+  "";
+
+const extractProductImageUrl = (product) => {
+  const imageLinks = Array.isArray(product?.imageLinks) ? product.imageLinks : [];
+  for (const entry of imageLinks) {
+    if (typeof entry === "string" && entry.trim()) {
+      return entry.trim();
+    }
+    if (entry && typeof entry === "object") {
+      const candidate =
+        entry.imageUrl ??
+        entry.url ??
+        entry.href ??
+        entry.link ??
+        entry.previewUrl;
+      if (typeof candidate === "string" && candidate.trim()) {
+        return candidate.trim();
+      }
+    }
+  }
+  return undefined;
+};
+
+const formatIikoWeight = (product) => {
+  const numericWeight = Number(product?.weight);
+  if (Number.isFinite(numericWeight) && numericWeight > 0) {
+    const grams = numericWeight <= 10 ? Math.round(numericWeight * 1000) : Math.round(numericWeight);
+    if (grams > 0) {
+      return `${grams} г`;
+    }
+  }
+
+  const measureUnit = normaliseText(product?.measureUnit);
+  if (!measureUnit || measureUnit.toLowerCase() === "порц") {
+    return undefined;
+  }
+  return measureUnit;
+};
+
+const formatIikoCalories = (product) => {
+  const fullAmount = Number(product?.energyFullAmount);
+  if (Number.isFinite(fullAmount) && fullAmount > 0) {
+    return `${Math.round(fullAmount)} ккал`;
+  }
+
+  const singleAmount = Number(product?.energyAmount);
+  if (Number.isFinite(singleAmount) && singleAmount > 0) {
+    return `${Math.round(singleAmount)} ккал`;
+  }
+
+  return undefined;
+};
+
 const resolveProductGroupId = (product) =>
   normaliseText(product?.parentGroup) ||
   normaliseText(product?.groupId) ||
   normaliseText(product?.productCategoryId) ||
   normaliseText(product?.categoryId) ||
   "";
+
+const isSupportedIikoMenuProduct = (product) => {
+  const type = normaliseLowerText(product?.type);
+  const orderItemType = normaliseLowerText(product?.orderItemType);
+
+  // Keep only regular sellable dishes. This excludes modifiers, services,
+  // combos, and other nomenclature noise that should not become menu cards.
+  if (type && type !== "dish") {
+    return false;
+  }
+
+  if (orderItemType && orderItemType !== "product") {
+    return false;
+  }
+
+  return true;
+};
 
 const buildMenuFromIikoNomenclature = ({ restaurantId, nomenclature, includeInactive = false }) => {
   const groups = Array.isArray(nomenclature?.groups) ? nomenclature.groups : [];
@@ -101,6 +177,7 @@ const buildMenuFromIikoNomenclature = ({ restaurantId, nomenclature, includeInac
   const warnings = [];
   let fallbackCategoryIndex = 0;
   let fallbackItemIndex = 0;
+  let skippedUnsupportedProducts = 0;
 
   const ensureCategory = (groupId, fallbackLabel = "Без категории") => {
     const key = groupId || `fallback-${fallbackCategoryIndex++}`;
@@ -129,6 +206,11 @@ const buildMenuFromIikoNomenclature = ({ restaurantId, nomenclature, includeInac
       continue;
     }
 
+    if (!isSupportedIikoMenuProduct(product)) {
+      skippedUnsupportedProducts += 1;
+      continue;
+    }
+
     const isDeleted = Boolean(product?.isDeleted);
     const isIncludedInMenu = product?.isIncludedInMenu !== false;
     if (!includeInactive && (isDeleted || !isIncludedInMenu)) {
@@ -147,11 +229,11 @@ const buildMenuFromIikoNomenclature = ({ restaurantId, nomenclature, includeInac
     const item = {
       id: localItemId,
       name: productName,
-      description: normaliseText(product?.description),
+      description: extractProductDescription(product),
       price: Number.isFinite(price) && price > 0 ? price : 0,
-      weight: normaliseText(product?.measureUnit) || undefined,
-      calories: undefined,
-      imageUrl: undefined,
+      weight: formatIikoWeight(product),
+      calories: formatIikoCalories(product),
+      imageUrl: extractProductImageUrl(product),
       iikoProductId: productId || undefined,
       isVegetarian: false,
       isSpicy: false,
@@ -184,6 +266,7 @@ const buildMenuFromIikoNomenclature = ({ restaurantId, nomenclature, includeInac
       groupsReceived: groups.length,
       categoriesReceived: categories.length,
       productsReceived: products.length,
+      productsSkippedAsUnsupported: skippedUnsupportedProducts,
       categoriesPrepared: categoriesResult.length,
       itemsPrepared: categoriesResult.reduce((acc, category) => acc + category.items.length, 0),
     },
@@ -659,6 +742,139 @@ export function createAdminMenuRouter() {
   });
 
   /**
+   * Список организаций, доступных по api_login ресторана
+   * GET /admin/menu/:restaurantId/iiko-organizations
+   */
+  router.get("/:restaurantId/iiko-organizations", async (req, res) => {
+    const startTime = Date.now();
+    const restaurantId = req.params.restaurantId;
+
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_MENU);
+    if (!admin) {
+      return;
+    }
+    if (!restaurantId) {
+      return res.status(400).json({ success: false, message: "Необходимо передать restaurantId" });
+    }
+
+    try {
+      const restaurant = await queryOne(`SELECT id FROM restaurants WHERE id = $1`, [restaurantId]);
+      if (!restaurant) {
+        return res.status(404).json({ success: false, message: "Ресторан не найден" });
+      }
+      if (admin.role !== "super_admin" && admin.role !== "admin" && !admin.allowedRestaurants?.includes(restaurantId)) {
+        return res.status(403).json({ success: false, message: "Нет доступа к этому ресторану" });
+      }
+
+      const integrationConfig = await fetchRestaurantIntegrationConfig(restaurantId);
+      if (!integrationConfig) {
+        return res.status(400).json({
+          success: false,
+          message: "Для ресторана не настроена активная iiko интеграция",
+        });
+      }
+
+      const organizationsResult = await iikoClient.getOrganizations(integrationConfig, {
+        forceFreshToken: req.query?.forceFreshToken === "true",
+      });
+
+      if (!organizationsResult?.success) {
+        return res.status(502).json({
+          success: false,
+          message: "Не удалось получить список организаций из iiko",
+          error: organizationsResult?.error || "iiko: неизвестная ошибка",
+          response: organizationsResult?.response ?? null,
+        });
+      }
+
+      const duration = Date.now() - startTime;
+      logger.requestSuccess('GET', '/:restaurantId/iiko-organizations', duration, 200);
+      return res.json({
+        success: true,
+        restaurantId,
+        organizations: organizationsResult.organizations ?? [],
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.requestError('GET', '/:restaurantId/iiko-organizations', error, 500);
+      return res.status(500).json({
+        success: false,
+        message: "Не удалось получить список организаций из iiko",
+        error: error?.message || "Неизвестная ошибка",
+      });
+    }
+  });
+
+  /**
+   * Расширенная диагностика stop-list для ресторана
+   * GET /admin/menu/:restaurantId/iiko-stop-list
+   */
+  router.get("/:restaurantId/iiko-stop-list", async (req, res) => {
+    const startTime = Date.now();
+    const restaurantId = req.params.restaurantId;
+
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_MENU);
+    if (!admin) {
+      return;
+    }
+    if (!restaurantId) {
+      return res.status(400).json({ success: false, message: "Необходимо передать restaurantId" });
+    }
+
+    try {
+      const restaurant = await queryOne(`SELECT id FROM restaurants WHERE id = $1`, [restaurantId]);
+      if (!restaurant) {
+        return res.status(404).json({ success: false, message: "Ресторан не найден" });
+      }
+      if (admin.role !== "super_admin" && admin.role !== "admin" && !admin.allowedRestaurants?.includes(restaurantId)) {
+        return res.status(403).json({ success: false, message: "Нет доступа к этому ресторану" });
+      }
+
+      const integrationConfig = await fetchRestaurantIntegrationConfig(restaurantId);
+      if (!integrationConfig) {
+        return res.status(400).json({
+          success: false,
+          message: "Для ресторана не настроена активная iiko интеграция",
+        });
+      }
+
+      const stopListResult = await iikoClient.getStopListDetails(integrationConfig, {
+        forceFreshToken: req.query?.forceFreshToken === "true",
+      });
+
+      if (!stopListResult?.success) {
+        return res.status(502).json({
+          success: false,
+          message: "Не удалось получить stop-list из iiko",
+          error: stopListResult?.error || "iiko: неизвестная ошибка",
+          response: stopListResult?.response ?? null,
+        });
+      }
+
+      const duration = Date.now() - startTime;
+      logger.requestSuccess('GET', '/:restaurantId/iiko-stop-list', duration, 200);
+      return res.json({
+        success: true,
+        restaurantId,
+        source: stopListResult.source ?? "api",
+        requestBody: stopListResult.requestBody ?? null,
+        summary: stopListResult.summary ?? null,
+        productIds: stopListResult.productIds ?? [],
+        entries: stopListResult.entries ?? [],
+        payload: req.query?.raw === "true" ? stopListResult.payload ?? null : undefined,
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.requestError('GET', '/:restaurantId/iiko-stop-list', error, 500);
+      return res.status(500).json({
+        success: false,
+        message: "Не удалось получить stop-list из iiko",
+        error: error?.message || "Неизвестная ошибка",
+      });
+    }
+  });
+
+  /**
    * Диагностика готовности ресторана к iiko-интеграции
    * GET /admin/menu/:restaurantId/iiko-readiness
    */
@@ -794,17 +1010,12 @@ export function createAdminMenuRouter() {
   });
 
   /**
-   * Синхронизировать меню ресторана из iiko Cloud API
-   * POST /admin/menu/:restaurantId/sync-iiko
-   * body: { apply?: boolean, includeInactive?: boolean, returnMenu?: boolean }
+   * Диагностика доступности источников меню iiko для ресторана
+   * GET /admin/menu/:restaurantId/iiko-source-diagnostics
    */
-  router.post("/:restaurantId/sync-iiko", async (req, res) => {
+  router.get("/:restaurantId/iiko-source-diagnostics", async (req, res) => {
     const startTime = Date.now();
     const restaurantId = req.params.restaurantId;
-    const body = req.body ?? {};
-    const apply = body.apply !== false;
-    const includeInactive = body.includeInactive === true;
-    const returnMenu = body.returnMenu === true || !apply;
 
     const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_MENU);
     if (!admin) {
@@ -831,18 +1042,94 @@ export function createAdminMenuRouter() {
         });
       }
 
-      const nomenclatureResult = await iikoClient.getNomenclature(integrationConfig);
-      if (!nomenclatureResult?.success) {
+      const diagnostics = await iikoClient.getMenuSourceDiagnostics(integrationConfig, {
+        forceFreshToken: req.query?.forceFreshToken === "false" ? false : true,
+        sourcePreference: normaliseText(req.query?.menuSource),
+      });
+
+      if (!diagnostics?.success) {
         return res.status(502).json({
           success: false,
-          message: "Не удалось получить номенклатуру из iiko",
-          error: nomenclatureResult?.error || "iiko: неизвестная ошибка",
+          message: "Не удалось получить диагностику источников меню из iiko",
+          error: diagnostics?.error || "iiko: неизвестная ошибка",
+          response: diagnostics?.response ?? null,
+        });
+      }
+
+      const duration = Date.now() - startTime;
+      logger.requestSuccess('GET', '/:restaurantId/iiko-source-diagnostics', duration, 200);
+      return res.json({
+        success: true,
+        restaurantId,
+        diagnostics,
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.requestError('GET', '/:restaurantId/iiko-source-diagnostics', error, 500);
+      return res.status(500).json({
+        success: false,
+        message: "Не удалось получить диагностику источников меню",
+        error: error?.message || "Неизвестная ошибка",
+      });
+    }
+  });
+
+  /**
+   * Синхронизировать меню ресторана из iiko Cloud API
+   * POST /admin/menu/:restaurantId/sync-iiko
+   * body: { apply?: boolean, includeInactive?: boolean, returnMenu?: boolean, menuSource?: "auto"|"external_menu"|"nomenclature", forceFreshToken?: boolean }
+   */
+  router.post("/:restaurantId/sync-iiko", async (req, res) => {
+    const startTime = Date.now();
+    const restaurantId = req.params.restaurantId;
+    const body = req.body ?? {};
+    const apply = body.apply !== false;
+    const includeInactive = body.includeInactive === true;
+    const returnMenu = body.returnMenu === true || !apply;
+    const menuSource = normaliseText(body.menuSource);
+    const forceFreshToken = body.forceFreshToken === true;
+
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_MENU);
+    if (!admin) {
+      return;
+    }
+    if (!restaurantId) {
+      return res.status(400).json({ success: false, message: "Необходимо передать restaurantId" });
+    }
+
+    try {
+      const restaurant = await queryOne(`SELECT id FROM restaurants WHERE id = $1`, [restaurantId]);
+      if (!restaurant) {
+        return res.status(404).json({ success: false, message: "Ресторан не найден" });
+      }
+      if (admin.role !== "super_admin" && admin.role !== "admin" && !admin.allowedRestaurants?.includes(restaurantId)) {
+        return res.status(403).json({ success: false, message: "Нет доступа к этому ресторану" });
+      }
+
+      const integrationConfig = await fetchRestaurantIntegrationConfig(restaurantId);
+      if (!integrationConfig) {
+        return res.status(400).json({
+          success: false,
+          message: "Для ресторана не настроена активная iiko интеграция",
+        });
+      }
+
+      const menuSourceResult = await iikoClient.getMenuCatalog(integrationConfig, {
+        sourcePreference: menuSource,
+        forceFreshToken,
+      });
+      if (!menuSourceResult?.success) {
+        return res.status(502).json({
+          success: false,
+          message: "Не удалось получить меню из iiko",
+          error: menuSourceResult?.error || "iiko: неизвестная ошибка",
+          response: menuSourceResult?.response ?? null,
         });
       }
 
       const prepared = buildMenuFromIikoNomenclature({
         restaurantId,
-        nomenclature: nomenclatureResult,
+        nomenclature: menuSourceResult,
         includeInactive,
       });
       const existingByIikoId = await fetchExistingItemsByIikoId(restaurantId);
@@ -873,7 +1160,8 @@ export function createAdminMenuRouter() {
       return res.json({
         success: true,
         applied: apply,
-        source: "iiko_api",
+        source: menuSourceResult?.source || "iiko_api",
+        sourceDiagnostics: menuSourceResult?.diagnostics ?? null,
         summary: prepared.summary,
         warnings: prepared.warnings.slice(0, 50),
         ...(returnMenu ? { menu: mergedMenu } : {}),
