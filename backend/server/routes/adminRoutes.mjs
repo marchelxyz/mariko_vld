@@ -35,6 +35,11 @@ import {
   setUserDeliveryAccess,
 } from "../services/deliveryAccessService.mjs";
 import { createLogger } from "../utils/logger.mjs";
+import {
+  createAppErrorLog,
+  listAppErrorLogs,
+  updateAppErrorLogStatus,
+} from "../services/appErrorLogService.mjs";
 
 const BOOKING_STATUS_VALUES = new Set(["created", "confirmed", "closed", "cancelled"]);
 const logger = createLogger("booking-status");
@@ -256,6 +261,73 @@ export function createAdminRouter() {
       return res.status(500).json({
         success: false,
         message: "Не удалось получить матрицу прав ролей",
+      });
+    }
+  });
+
+  router.get("/error-logs", async (req, res) => {
+    if (!(await authoriseSuperAdmin(req, res))) {
+      return;
+    }
+
+    try {
+      const result = await listAppErrorLogs({
+        status: typeof req.query.status === "string" ? req.query.status : null,
+        search: typeof req.query.search === "string" ? req.query.search : null,
+        limit: typeof req.query.limit === "string" ? Number.parseInt(req.query.limit, 10) : 200,
+      });
+
+      return res.json({
+        success: true,
+        logs: result.logs,
+        counts: result.counts,
+      });
+    } catch (error) {
+      console.error("Ошибка получения app_error_logs:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Не удалось получить журнал ошибок приложения",
+      });
+    }
+  });
+
+  router.patch("/error-logs/:logId/status", async (req, res) => {
+    const admin = await authoriseSuperAdmin(req, res);
+    if (!admin) {
+      return;
+    }
+
+    const { status } = req.body ?? {};
+    if (status !== "new" && status !== "resolved") {
+      return res.status(400).json({
+        success: false,
+        message: "Некорректный статус ошибки",
+      });
+    }
+
+    try {
+      const updatedLog = await updateAppErrorLogStatus({
+        id: req.params.logId,
+        status,
+        resolvedByTelegramId: admin.telegramId,
+      });
+
+      if (!updatedLog) {
+        return res.status(404).json({
+          success: false,
+          message: "Ошибка не найдена",
+        });
+      }
+
+      return res.json({
+        success: true,
+        log: updatedLog,
+      });
+    } catch (error) {
+      console.error("Ошибка обновления статуса app_error_log:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Не удалось обновить статус ошибки",
       });
     }
   });
@@ -1092,7 +1164,7 @@ export function createAdminRouter() {
     // чтобы не блокировать отправку ошибок
     try {
       const logEntry = req.body;
-      console.log("[client-log]", JSON.stringify(logEntry));
+      await createAppErrorLog(req, logEntry);
       return res.json({ success: true });
     } catch (error) {
       console.error("Ошибка обработки лога", error);

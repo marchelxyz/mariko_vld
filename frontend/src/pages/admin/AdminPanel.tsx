@@ -2,7 +2,7 @@
  * Главная страница админ-панели
  */
 
-import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck, Megaphone, Sparkles, Grid3x3, Users, ClipboardList, Settings, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Building2, UtensilsCrossed, Shield, ChevronRight, Truck, Megaphone, Sparkles, Grid3x3, Users, ClipboardList, Settings, ShieldCheck, Bug } from 'lucide-react';
 import { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNavigation, Header } from "@shared/ui/widgets";
@@ -56,6 +56,11 @@ const AppSettingsManagementLazy = lazy(() =>
     default: module.AppSettingsManagement,
   })),
 );
+const ErrorLogsManagementLazy = lazy(() =>
+  import("@features/admin").then((module) => ({
+    default: module.ErrorLogsManagement,
+  })),
+);
 const BookingsManagementLazy = lazy(() => import("@features/admin/bookings/BookingsManagement"));
 
 type AdminSection =
@@ -69,6 +74,7 @@ type AdminSection =
   | 'guests'
   | 'bookings'
   | 'settings'
+  | 'error-logs'
   | null;
 
 const SectionLoader = () => (
@@ -153,6 +159,14 @@ export default function AdminPanel(): JSX.Element {
           title: "Настройки приложения",
           description: "Контакты поддержки и ссылки на документы",
           permission: Permission.MANAGE_ROLES,
+        },
+        {
+          key: 'error-logs' as AdminSection,
+          icon: <Bug className="w-8 h-8" />,
+          title: "Ошибки приложения",
+          description: "Просматривайте входящие ошибки пользователей и отмечайте решённые инциденты",
+          permission: Permission.MANAGE_ROLES,
+          superAdminOnly: true,
         },
         {
           key: 'guests' as AdminSection,
@@ -339,6 +353,11 @@ export default function AdminPanel(): JSX.Element {
               <AppSettingsManagementLazy />
             </Suspense>
           )}
+            {activeSection === 'error-logs' && (
+              <Suspense fallback={<SectionLoader />}>
+                <ErrorLogsManagementLazy />
+              </Suspense>
+            )}
             {activeSection === 'bookings' && (
               <Suspense fallback={<SectionLoader />}>
                 <BookingsManagementLazy />
