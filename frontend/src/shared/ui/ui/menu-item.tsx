@@ -61,9 +61,7 @@ function MenuItemComponentBase({
   const isMobile = variant === 'mobile';
   
   // Формируем текст с приставками
-  const weightText = item.weight ? `${item.weight} гр` : '';
-  const caloriesText = item.calories ? `${item.calories} ккал` : '';
-  const metaText = [weightText, caloriesText].filter(Boolean).join(' / ');
+  const metaText = [item.weight, item.calories].filter(Boolean).join(' / ');
   const shouldShowMeta = showMeta && Boolean(metaText);
   const imageBadges = [
     item.isVegetarian

@@ -38,4 +38,5 @@ export * from "./editable-field";
 export * from "./quick-action-button";
 export * from "./menu-item";
 export * from "./dish-card-skeleton";
+export * from "./dish-details-facts";
 export * from "./service-card";

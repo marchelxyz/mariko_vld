@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-14 13:40
+**Последнее обновление:** 2026-03-14 14:20
 
 ---
 
@@ -278,6 +278,43 @@ curl -X POST "https://ineedaglokk-marikotest-3474.twc1.net/api/db/sync-external-
     "force_fresh_token": true
   }'
 ```
+
+**Коммит:** будет добавлен после фиксации изменений
+
+### ✅ Решение: БЖУ и аллергены из iiko нужно хранить в `menu_items`, иначе они теряются после sync
+
+**Дата:** 2026-03-14
+**Симптомы:**
+- iiko `api/2/menu/by_id` возвращает `nutritionPerHundredGrams` и `allergens`
+- Но в приложении у блюда были только `weight` и `calories`
+- После sync БЖУ и аллергены не сохранялись в БД и не доходили до guest UI
+
+**Причина:**
+- В таблице `menu_items` не было отдельных полей для `proteins`, `fats`, `carbs`, `allergens`
+- Backend sync и публичный `GET /api/menu/:restaurantId` их не обрабатывали
+
+**Решение:**
+- Расширить `menu_items` колонками:
+  - `proteins`
+  - `fats`
+  - `carbs`
+  - `allergens`
+- Для новых и существующих БД добавлять поля через `databaseInit.mjs`
+- При sync из iiko:
+  - для `nomenclature` брать `proteinsFullAmount / fatFullAmount / carbohydratesFullAmount`
+  - для `external menu` считать БЖУ и калории на порцию через `portionWeightGrams`
+  - нормализовать `allergens` в массив строк
+- Отдавать новые поля в публичное меню и показывать их в модалке блюда отдельным компактным блоком
+
+**Проверка:**
+- `node --check backend/server/routes/menuRoutes.mjs`
+- `node --check backend/server/databaseInit.mjs`
+- `npm exec tsc --noEmit --pretty false` в `frontend/`
+- В результате объект блюда теперь содержит:
+  - `proteins`
+  - `fats`
+  - `carbs`
+  - `allergens`
 
 **Коммит:** будет добавлен после фиксации изменений
 
