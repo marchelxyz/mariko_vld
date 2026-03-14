@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-15 00:35
+**Последнее обновление:** 2026-03-15 00:55
 
 ---
 
@@ -65,6 +65,42 @@
 3. Заполнить несколько полей и подождать минимум 30 секунд
 4. Убедиться, что введённые данные не сбросились
 5. Закрыть форму и проверить, что список городов продолжает обновляться после сохранения
+
+**Коммит:** нет
+
+### ❌ Проблема: iiko developer tools в админке видны обычным администраторам
+
+**Дата:** 2026-03-15
+**Симптомы:**
+- В разделе управления меню обычные админы видят кнопки:
+  - `Предпросмотр синка iiko`
+  - `Применить синк iiko`
+  - `Проверить readiness iiko`
+- Эти действия предназначены только для разработчиков/супер-админа
+- Скрытие только на UI недостаточно, потому что admin мог бы вызвать iiko endpoints напрямую
+
+**Причина:**
+- Во frontend [`frontend/src/features/admin/menu/MenuManagement.tsx`](frontend/src/features/admin/menu/MenuManagement.tsx) dev-кнопки рендерились по общему `canManage`
+- На backend iiko/dev routes в [`backend/server/routes/menuRoutes.mjs`](backend/server/routes/menuRoutes.mjs) были доступны не только `super_admin`, но и обычным `admin`
+
+**Решение:**
+- Во frontend показывать iiko/dev controls только при `isSuperAdmin()`
+- На backend дополнительно ограничить super-admin-only доступ для маршрутов:
+  - `GET /admin/menu/:restaurantId/iiko-organizations`
+  - `GET /admin/menu/:restaurantId/iiko-stop-list`
+  - `GET /admin/menu/:restaurantId/iiko-readiness`
+  - `GET /admin/menu/:restaurantId/iiko-source-diagnostics`
+  - `POST /admin/menu/:restaurantId/sync-iiko`
+  - `POST /admin/menu/:restaurantId/sync-iiko-snapshot`
+
+**Проверка:**
+1. Зайти в админку под обычным админом
+2. Открыть раздел управления меню
+3. Убедиться, что iiko/dev-кнопки не отображаются
+4. Попробовать вызвать один из iiko/dev endpoints не под `super_admin` и получить `403`
+5. Прогнать:
+   - `node --check backend/server/routes/menuRoutes.mjs`
+   - `cd frontend && npm exec tsc --noEmit --pretty false`
 
 **Коммит:** нет
 

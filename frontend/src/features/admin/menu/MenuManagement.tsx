@@ -68,6 +68,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
   const { cities: allCities, isLoading: isCitiesLoading } = useCities();
   const canManage = hasPermission(Permission.MANAGE_MENU);
   const superAdmin = isSuperAdmin();
+  const canUseIikoDeveloperTools = canManage && superAdmin;
 
   const findCityIdByRestaurantId = useCallback((restaurantId?: string): string | null => {
     if (!restaurantId) {
@@ -1008,7 +1009,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
         <Button variant="ghost" className="text-white/80" onClick={handleBackToCities}>
           Изменить город
         </Button>
-        {canManage && (
+        {canUseIikoDeveloperTools && (
           <>
             <Button
               variant="outline"
@@ -1041,6 +1042,10 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
               />
               Проверить readiness iiko
             </Button>
+          </>
+        )}
+        {canManage && (
+          <>
             <Button variant="outline" onClick={() => handleStartEditCategory()}>
               <Plus className="w-4 h-4 mr-2" />
               Добавить категорию
@@ -1052,7 +1057,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
           </>
         )}
       </div>
-      {canManage && (
+      {canUseIikoDeveloperTools && (
         <p className="text-white/60 text-xs">
           Предпросмотр загружает меню из iiko только в текущий экран. В БД сохраняется только «Применить синк iiko».
         </p>
