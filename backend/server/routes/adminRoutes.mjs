@@ -2,7 +2,6 @@ import express from "express";
 import { ensureDatabase, queryMany, queryOne, query } from "../postgresClient.mjs";
 import {
   CART_ORDERS_TABLE,
-  ORDER_STATUS_VALUES,
   ADMIN_ROLE_VALUES,
 } from "../config.mjs";
 import {
@@ -708,34 +707,10 @@ export function createAdminRouter() {
     if (!admin) {
       return;
     }
-    const orderId = req.params.orderId;
-    const { status } = req.body ?? {};
-    if (!status || !ORDER_STATUS_VALUES.has(status)) {
-      return res.status(400).json({ success: false, message: "Некорректный статус" });
-    }
-    const order = await queryOne(
-      `SELECT id, restaurant_id FROM ${CART_ORDERS_TABLE} WHERE id = $1 LIMIT 1`,
-      [orderId],
-    );
-    if (!order) {
-      return res.status(404).json({ success: false, message: "Заказ не найден" });
-    }
-    if (admin.role !== "super_admin" && admin.role !== "admin") {
-      if (!admin.allowedRestaurants.includes(order.restaurant_id)) {
-        return res.status(403).json({ success: false, message: "Нет доступа к ресторану заказа" });
-      }
-    }
-
-    try {
-      await query(`UPDATE ${CART_ORDERS_TABLE} SET status = $1, updated_at = NOW() WHERE id = $2`, [
-        status,
-        orderId,
-      ]);
-    } catch (error) {
-      console.error("Ошибка обновления статуса:", error);
-      return res.status(500).json({ success: false, message: "Не удалось обновить статус" });
-    }
-    return res.json({ success: true });
+    return res.status(403).json({
+      success: false,
+      message: "Ручное изменение статусов отключено. Источник истины по статусам заказов — iiko.",
+    });
   });
 
   router.get("/bookings", async (req, res) => {

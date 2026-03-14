@@ -16,10 +16,19 @@ const resolveStatus = (order: CartOrderRecord): string => {
   return String(resolved ?? "processing").toLowerCase();
 };
 
-const statusLabel = (status: string): string => {
-  if (["completed", "delivered", "closed"].includes(status)) return "Доставлен";
-  if (["delivery", "ontheway", "courier"].includes(status)) return "В пути";
-  if (["kitchen", "cooking", "packed"].includes(status)) return "Готовится";
+const statusLabel = (order: CartOrderRecord, status: string): string => {
+  const isPickup = order.order_type === "pickup";
+
+  if (["completed", "delivered", "closed"].includes(status)) {
+    return isPickup ? "Выдан" : "Доставлен";
+  }
+  if (["delivery", "ontheway", "courier"].includes(status)) {
+    return isPickup ? "Готов к выдаче" : "В пути";
+  }
+  if (status === "packed") {
+    return isPickup ? "Готов к выдаче" : "Готовится";
+  }
+  if (["kitchen", "cooking"].includes(status)) return "Готовится";
   if (["failed", "cancelled", "canceled", "rejected", "error"].includes(status)) return "Отменён";
   return "Принят";
 };
@@ -120,7 +129,7 @@ const OrderCard = ({
         </div>
         <div className="flex flex-col items-end gap-1">
           <span className={cn("text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap", statusClassName(status))}>
-            {statusLabel(status)}
+            {statusLabel(order, status)}
           </span>
           <span className="text-sm font-semibold text-mariko-dark">{total}₽</span>
         </div>

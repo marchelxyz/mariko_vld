@@ -14,14 +14,6 @@ import {
   SelectItem,
   SelectValue,
   Badge,
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogAction,
-  AlertDialogCancel,
 } from "@shared/ui";
 
 const statusLabels: Record<string, string> = {
@@ -37,7 +29,6 @@ const statusLabels: Record<string, string> = {
 
 const activeStatuses = ["processing", "kitchen", "packed", "delivery"];
 const historyStatuses = ["completed", "cancelled", "failed"];
-const editableStatuses = ["processing", "kitchen", "packed", "delivery", "completed", "cancelled"];
 
 const formatDate = (value: string) => {
   const date = new Date(value);
@@ -59,6 +50,25 @@ const formatPrice = (value?: number | null) => {
   return `${value.toLocaleString("ru-RU")} ₽`;
 };
 
+const getOrderStatusLabel = (order: CartOrderRecord): string => {
+  const normalized = String(order.status ?? "processing").toLowerCase();
+  const isPickup = order.order_type === "pickup";
+
+  if (["completed", "delivered", "closed"].includes(normalized)) {
+    return isPickup ? "Выдан" : "Завершён";
+  }
+
+  if (["delivery", "ontheway", "courier"].includes(normalized)) {
+    return isPickup ? "Готов к выдаче" : "В пути";
+  }
+
+  if (isPickup && normalized === "packed") {
+    return "Готов к выдаче";
+  }
+
+  return statusLabels[normalized] || normalized;
+};
+
 type RestaurantOption = { id: string; label: string; cityName: string };
 
 const mapCitiesToRestaurantOptions = (cities: City[]): RestaurantOption[] =>
@@ -73,9 +83,6 @@ const mapCitiesToRestaurantOptions = (cities: City[]): RestaurantOption[] =>
 export function DeliveryManagement(): JSX.Element {
   const { isSuperAdmin, allowedRestaurants, hasPermission, userRole } = useAdmin();
   const canManageDeliveries = hasPermission(Permission.MANAGE_DELIVERIES);
-  const [pendingChange, setPendingChange] = useState<{ orderId: string; status: string } | null>(
-    null,
-  );
   const [restaurantOptions, setRestaurantOptions] = useState<RestaurantOption[]>([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"active" | "history">("active");
@@ -130,22 +137,6 @@ export function DeliveryManagement(): JSX.Element {
     enabled: canManageDeliveries,
   });
 
-  const handleStatusChange = async (orderId: string, status: string) => {
-    try {
-      await adminServerApi.updateOrderStatus(orderId, status);
-      await Promise.all([refetchActive(), refetchHistory()]);
-    } catch (error) {
-      console.error(error);
-      alert("Не удалось обновить статус заказа");
-    }
-  };
-
-  const confirmPendingChange = async () => {
-    if (!pendingChange) return;
-    await handleStatusChange(pendingChange.orderId, pendingChange.status);
-    setPendingChange(null);
-  };
-
   if (!canManageDeliveries) {
     return null;
   }
@@ -158,7 +149,7 @@ export function DeliveryManagement(): JSX.Element {
             Управление доставками
           </h2>
           <p className="text-white/70 text-sm md:text-base">
-            Активные заказы в реальном времени
+            Статусы заказов синхронизируются только из iiko
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
@@ -217,9 +208,6 @@ export function DeliveryManagement(): JSX.Element {
                 <OrderCard
                   key={order.id}
                   order={order}
-                  onRequestStatusChange={(orderId, status) =>
-                    setPendingChange({ orderId, status })
-                  }
                 />
               ))}
               {!activeOrders.length && (
@@ -247,31 +235,11 @@ export function DeliveryManagement(): JSX.Element {
               )}
             </div>
             )}
-
-      <AlertDialog open={Boolean(pendingChange)} onOpenChange={(open) => !open && setPendingChange(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Изменить статус заказа?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingChange ? `Вы уверены, что хотите установить статус «${statusLabels[pendingChange.status] || pendingChange.status}»?` : ""}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPendingChange(null)}>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmPendingChange}>Подтвердить</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
 
-type OrderCardProps = {
-  order: CartOrderRecord;
-  onRequestStatusChange: (orderId: string, status: string) => void;
-};
-
-function OrderCard({ order, onRequestStatusChange }: OrderCardProps) {
+function OrderCard({ order }: { order: CartOrderRecord }) {
   const icon =
     order.status === "delivery" ? (
       <Truck className="w-5 h-5" />
@@ -296,7 +264,7 @@ function OrderCard({ order, onRequestStatusChange }: OrderCardProps) {
           className="bg-mariko-primary/20 text-white inline-flex items-center gap-2 w-fit"
         >
           {icon}
-          {statusLabels[order.status] || order.status}
+          {getOrderStatusLabel(order)}
         </Badge>
       </div>
 
@@ -317,19 +285,6 @@ function OrderCard({ order, onRequestStatusChange }: OrderCardProps) {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {editableStatuses.map((status) => (
-          <Button
-            key={status}
-            variant={order.status === status ? "default" : "outline"}
-            size="sm"
-            onClick={() => onRequestStatusChange(order.id, status)}
-            disabled={order.status === status}
-          >
-            {statusLabels[status] || status}
-          </Button>
-        ))}
-      </div>
     </div>
   );
 }
@@ -350,7 +305,7 @@ function HistoryCard({ order }: { order: CartOrderRecord }) {
           <p className="text-white/70 text-sm">{formatDate(order.created_at)}</p>
         </div>
         <Badge className="bg-white/10 text-white">
-          {statusLabels[order.status] || order.status}
+          {getOrderStatusLabel(order)}
         </Badge>
       </div>
 
