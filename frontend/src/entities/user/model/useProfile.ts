@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { profileApi } from "@shared/api";
 import type { UserProfile } from "@shared/types";
-import { getUser, getUserAsync, storage, getPlatform } from "@/lib/platform";
+import { getUser, getUserAsync, getUserId, storage, getPlatform } from "@/lib/platform";
 
 const inflightProfileRequests = new Map<string, Promise<UserProfile>>();
 
@@ -21,6 +21,10 @@ const resolveUserId = (): string => {
   const user = getUser();
   if (user?.id) {
     return user.id.toString();
+  }
+  const resolvedPlatformUserId = getUserId();
+  if (resolvedPlatformUserId) {
+    return resolvedPlatformUserId;
   }
   const platform = getPlatform();
   if (platform === "telegram") {
