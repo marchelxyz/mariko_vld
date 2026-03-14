@@ -8,11 +8,13 @@ import bridge from "@vkontakte/vk-bridge";
 import { isInVk } from "@/lib/vkCore";
 
 const CHUNK_RECOVERY_STORAGE_KEY = "mariko_chunk_recovery_once_v1";
+const CONSOLE_ERROR_DEDUPLICATION_MS = 15_000;
 const CHUNK_ERROR_PATTERNS = [
   /failed to fetch dynamically imported module/i,
   /importing a module script failed/i,
   /loading chunk [\w-]+ failed/i,
 ];
+const recentConsoleErrors = new Map<string, number>();
 
 function extractErrorMessage(value: unknown): string {
   if (value instanceof Error) {
@@ -56,6 +58,69 @@ function hideInitialSpinner(): void {
   if (spinner) {
     spinner.style.display = "none";
   }
+}
+
+function serializeConsoleArg(value: unknown): unknown {
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: value.message,
+      stack: value.stack,
+    };
+  }
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+  if (value === null || value === undefined) {
+    return null;
+  }
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return String(value);
+  }
+}
+
+function setupConsoleErrorCapture(): void {
+  if (typeof window === "undefined" || !import.meta.env.PROD) {
+    return;
+  }
+
+  const patchedWindow = window as Window & { __marikoConsoleErrorPatched?: boolean };
+  if (patchedWindow.__marikoConsoleErrorPatched) {
+    return;
+  }
+
+  patchedWindow.__marikoConsoleErrorPatched = true;
+  const originalConsoleError = console.error.bind(console);
+
+  console.error = (...args: unknown[]) => {
+    originalConsoleError(...args);
+
+    try {
+      const fingerprint = args
+        .map((arg) => extractErrorMessage(arg))
+        .filter(Boolean)
+        .join(" | ")
+        .slice(0, 500);
+
+      const dedupeKey = fingerprint || "console.error";
+      const now = Date.now();
+      const lastTimestamp = recentConsoleErrors.get(dedupeKey) ?? 0;
+      if (now - lastTimestamp < CONSOLE_ERROR_DEDUPLICATION_MS) {
+        return;
+      }
+      recentConsoleErrors.set(dedupeKey, now);
+
+      const message = extractErrorMessage(args[0]) || "Зафиксирован console.error";
+      logger.error("console", new Error(message), {
+        source: "console",
+        args: args.map((arg) => serializeConsoleArg(arg)),
+      });
+    } catch {
+      // ignore console interception errors
+    }
+  };
 }
 
 function initTelegramApp(): void {
@@ -237,6 +302,8 @@ if (typeof document !== "undefined" && document.readyState === "complete") {
 
 // Глобальный перехват ошибок для диагностики в WebView
 if (typeof window !== "undefined") {
+  setupConsoleErrorCapture();
+
   window.addEventListener("error", (event) => {
     try {
       if (recoverFromChunkLoadError(event.error ?? event.message)) {

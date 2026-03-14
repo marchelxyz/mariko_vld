@@ -170,6 +170,44 @@ export type AdminBookingsResponse = {
   bookings: AdminBooking[];
 };
 
+export type AppErrorLogStatus = "new" | "resolved";
+
+export type AppErrorLogRecord = {
+  id: string;
+  status: AppErrorLogStatus;
+  source: string;
+  level: "debug" | "info" | "warn" | "error";
+  category: string;
+  message: string;
+  errorName: string | null;
+  errorStack: string | null;
+  payload: Record<string, unknown>;
+  userId: string | null;
+  userName: string | null;
+  telegramId: string | null;
+  vkId: string | null;
+  role: string;
+  platform: string | null;
+  pathname: string | null;
+  pageUrl: string | null;
+  sessionId: string | null;
+  userAgent: string | null;
+  resolvedAt: string | null;
+  resolvedByTelegramId: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+type AppErrorLogsResponse = {
+  success: boolean;
+  logs: AppErrorLogRecord[];
+  counts: {
+    total: number;
+    new: number;
+    resolved: number;
+  };
+};
+
 type AdminSettingsResponse = {
   success: boolean;
   settings: AppSettings;
@@ -815,5 +853,51 @@ export const adminServerApi = {
     });
     const data = await handleResponse<AdminSettingsResponse>(response);
     return data.settings;
+  },
+
+  async getErrorLogs(params: {
+    status?: AppErrorLogStatus;
+    search?: string;
+    limit?: number;
+  } = {}): Promise<{
+    logs: AppErrorLogRecord[];
+    counts: {
+      total: number;
+      new: number;
+      resolved: number;
+    };
+  }> {
+    const search = new URLSearchParams();
+    if (params.status) {
+      search.set("status", params.status);
+    }
+    if (params.search) {
+      search.set("search", params.search);
+    }
+    if (params.limit) {
+      search.set("limit", String(params.limit));
+    }
+
+    const response = await fetch(
+      `${ADMIN_API_BASE}/error-logs${search.toString() ? `?${search.toString()}` : ""}`,
+      {
+        headers: buildHeaders(),
+      },
+    );
+    const data = await handleResponse<AppErrorLogsResponse>(response);
+    return {
+      logs: data.logs ?? [],
+      counts: data.counts ?? { total: 0, new: 0, resolved: 0 },
+    };
+  },
+
+  async updateErrorLogStatus(logId: string, status: AppErrorLogStatus): Promise<AppErrorLogRecord> {
+    const response = await fetch(`${ADMIN_API_BASE}/error-logs/${encodeURIComponent(logId)}/status`, {
+      method: "PATCH",
+      headers: buildHeaders(),
+      body: JSON.stringify({ status }),
+    });
+    const data = await handleResponse<{ success: boolean; log: AppErrorLogRecord }>(response);
+    return data.log;
   },
 };

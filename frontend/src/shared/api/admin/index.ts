@@ -6,4 +6,6 @@ export {
   type AdminDeliveryAccessUser,
   type DeliveryAccessMode,
   type RolePermissionsMatrixItem,
+  type AppErrorLogRecord,
+  type AppErrorLogStatus,
 } from './adminServerApi';

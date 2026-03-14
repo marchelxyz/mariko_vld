@@ -31,6 +31,7 @@ import { startIikoRetryWorker } from "./workers/iikoRetryWorker.mjs";
 import { startTelegramBot, stopTelegramBot } from "./services/telegramBotService.mjs";
 import { applyIikoOrderStatusUpdate, fetchRestaurantIntegrationConfig } from "./services/integrationService.mjs";
 import { syncRestaurantExternalMenu } from "./services/iikoMenuSyncService.mjs";
+import { createAppErrorLog } from "./services/appErrorLogService.mjs";
 import { iikoClient } from "./integrations/iiko-client.mjs";
 import {
   isFinalCartOrderStatus,
@@ -788,7 +789,7 @@ app.use("/api/cart/admin", adminRouter);
 app.post("/api/logs", async (req, res) => {
   try {
     const logEntry = req.body;
-    console.log("[client-log]", JSON.stringify(logEntry));
+    await createAppErrorLog(req, logEntry);
     return res.json({ success: true });
   } catch (error) {
     console.error("Ошибка обработки лога", error);

@@ -8,3 +8,4 @@ export { GuestDatabaseManagement } from "./guests";
 export { BookingsManagement } from "./bookings";
 export { AppSettingsManagement } from "./settings";
 export { DeliveryAccessManagement } from "./deliveryAccess";
+export { ErrorLogsManagement } from "./errorLogs";

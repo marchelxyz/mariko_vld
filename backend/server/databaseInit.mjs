@@ -201,6 +201,34 @@ const SCHEMAS = {
     );
   `,
 
+  app_error_logs: `
+    CREATE TABLE IF NOT EXISTS app_error_logs (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      status VARCHAR(20) NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'resolved')),
+      source VARCHAR(50) NOT NULL DEFAULT 'frontend',
+      level VARCHAR(20) NOT NULL DEFAULT 'error',
+      category VARCHAR(100) NOT NULL DEFAULT 'app',
+      message TEXT NOT NULL,
+      error_name VARCHAR(255),
+      error_stack TEXT,
+      payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+      user_id VARCHAR(255),
+      user_name VARCHAR(255),
+      telegram_id BIGINT,
+      vk_id BIGINT,
+      role VARCHAR(50) NOT NULL DEFAULT 'user',
+      platform VARCHAR(20),
+      pathname TEXT,
+      page_url TEXT,
+      session_id VARCHAR(255),
+      user_agent TEXT,
+      resolved_at TIMESTAMP,
+      resolved_by_telegram_id BIGINT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `,
+
   restaurant_payments: `
     CREATE TABLE IF NOT EXISTS restaurant_payments (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -415,6 +443,10 @@ const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_admin_users_telegram_id ON admin_users(telegram_id);`,
   `CREATE INDEX IF NOT EXISTS idx_restaurant_integrations_restaurant_provider ON restaurant_integrations(restaurant_id, provider);`,
   `CREATE INDEX IF NOT EXISTS idx_integration_job_logs_provider_order_created_at ON integration_job_logs(provider, order_id, created_at DESC);`,
+  `CREATE INDEX IF NOT EXISTS idx_app_error_logs_status_created_at ON app_error_logs(status, created_at DESC);`,
+  `CREATE INDEX IF NOT EXISTS idx_app_error_logs_role_created_at ON app_error_logs(role, created_at DESC);`,
+  `CREATE INDEX IF NOT EXISTS idx_app_error_logs_telegram_id ON app_error_logs(telegram_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_app_error_logs_category_created_at ON app_error_logs(category, created_at DESC);`,
   `CREATE INDEX IF NOT EXISTS idx_restaurant_payments_restaurant_id ON restaurant_payments(restaurant_id);`,
   `CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);`,
   `CREATE INDEX IF NOT EXISTS idx_payments_provider_payment_id ON payments(provider_payment_id);`,
@@ -541,6 +573,7 @@ export async function initializeDatabase() {
       "app_settings",       // app_settings независима
       "restaurant_integrations", // restaurant_integrations независима
       "integration_job_logs", // integration_job_logs независима
+      "app_error_logs", // app_error_logs независима
       "restaurant_payments", // restaurant_payments независима
       "payments",           // payments зависит от cart_orders
       "cities",             // cities независима
@@ -1164,6 +1197,72 @@ export async function initializeDatabase() {
       console.warn("⚠️  Предупреждение при добавлении payment mappings в restaurant_integrations:", error?.message || error);
     }
 
+    // Миграция: таблица ошибок приложения и недостающие поля
+    try {
+      const errorLogColumns = await query(`
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'app_error_logs'
+      `);
+      const existingColumns = new Set(errorLogColumns.rows.map((row) => row.column_name));
+
+      const requiredColumns = [
+        ["status", "VARCHAR(20) NOT NULL DEFAULT 'new'"],
+        ["source", "VARCHAR(50) NOT NULL DEFAULT 'frontend'"],
+        ["level", "VARCHAR(20) NOT NULL DEFAULT 'error'"],
+        ["category", "VARCHAR(100) NOT NULL DEFAULT 'app'"],
+        ["message", "TEXT"],
+        ["error_name", "VARCHAR(255)"],
+        ["error_stack", "TEXT"],
+        ["payload", "JSONB NOT NULL DEFAULT '{}'::jsonb"],
+        ["user_id", "VARCHAR(255)"],
+        ["user_name", "VARCHAR(255)"],
+        ["telegram_id", "BIGINT"],
+        ["vk_id", "BIGINT"],
+        ["role", "VARCHAR(50) NOT NULL DEFAULT 'user'"],
+        ["platform", "VARCHAR(20)"],
+        ["pathname", "TEXT"],
+        ["page_url", "TEXT"],
+        ["session_id", "VARCHAR(255)"],
+        ["user_agent", "TEXT"],
+        ["resolved_at", "TIMESTAMP"],
+        ["resolved_by_telegram_id", "BIGINT"],
+        ["updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"],
+      ];
+
+      for (const [columnName, columnType] of requiredColumns) {
+        if (existingColumns.has(columnName)) {
+          continue;
+        }
+        await query(`ALTER TABLE app_error_logs ADD COLUMN ${columnName} ${columnType}`);
+        console.log(`✅ Поле ${columnName} добавлено в таблицу app_error_logs`);
+      }
+
+      try {
+        await query(`ALTER TABLE app_error_logs DROP CONSTRAINT IF EXISTS app_error_logs_status_check`);
+      } catch (constraintDropError) {
+        console.warn("⚠️  Предупреждение при удалении старого constraint app_error_logs_status_check:", constraintDropError?.message || constraintDropError);
+      }
+
+      try {
+        await query(
+          `ALTER TABLE app_error_logs
+           ADD CONSTRAINT app_error_logs_status_check CHECK (status IN ('new', 'resolved'))`,
+        );
+      } catch (constraintAddError) {
+        const errorMessage = constraintAddError?.message || String(constraintAddError);
+        if (!errorMessage.includes("already exists")) {
+          throw constraintAddError;
+        }
+      }
+
+      if (requiredColumns.every(([columnName]) => existingColumns.has(columnName))) {
+        console.log("ℹ️  Поля app_error_logs уже существуют");
+      }
+    } catch (error) {
+      console.warn("⚠️  Предупреждение при миграции app_error_logs:", error?.message || error);
+    }
+
     // Миграция: добавляем поля блокировки пользователя
     try {
       const banColumns = await query(`
@@ -1292,6 +1391,7 @@ export async function checkDatabaseTables() {
       "admin_role_permissions",
       "restaurant_integrations",
       "integration_job_logs",
+      "app_error_logs",
       "restaurant_payments",
       "payments",
       "cities",
