@@ -18,12 +18,22 @@ import { createCitiesRouter } from "./routes/citiesRoutes.mjs";
 import { createBookingRouter } from "./routes/bookingRoutes.mjs";
 import { createPromotionsRouter, createAdminPromotionsRouter } from "./routes/promotionsRoutes.mjs";
 import { createRecommendedDishesRouter, createAdminRecommendedDishesRouter } from "./routes/recommendedDishesRoutes.mjs";
-import { createMenuRouter, createAdminMenuRouter } from "./routes/menuRoutes.mjs";
+import {
+  createMenuRouter,
+  createAdminMenuRouter,
+  buildMenuFromIikoExternalMenu,
+  fetchExistingItemsByIikoId,
+  mergePreparedMenuWithExisting,
+  persistRestaurantMenu,
+  validateIikoMapping,
+} from "./routes/menuRoutes.mjs";
 import { createStorageRouter } from "./routes/storageRoutes.mjs";
 import { logger } from "./utils/logger.mjs";
 import { startBookingNotificationWorker } from "./workers/bookingNotificationWorker.mjs";
 import { startIikoRetryWorker } from "./workers/iikoRetryWorker.mjs";
 import { startTelegramBot, stopTelegramBot } from "./services/telegramBotService.mjs";
+import { fetchRestaurantIntegrationConfig } from "./services/integrationService.mjs";
+import { iikoClient } from "./integrations/iiko-client.mjs";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -1072,6 +1082,114 @@ app.post("/api/db/add-iiko-config", async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
+      error: String(error),
+    });
+  }
+});
+
+app.post("/api/db/sync-external-menu", async (req, res) => {
+  const SECRET_KEY = "mariko-iiko-setup-2024";
+
+  if (req.query.key !== SECRET_KEY) {
+    return res.status(403).json({ success: false, message: "Invalid key" });
+  }
+
+  try {
+    if (!db) {
+      return res.status(503).json({ success: false, message: "DATABASE_URL не задан" });
+    }
+
+    const restaurantId = String(req.body?.restaurant_id ?? req.body?.restaurantId ?? "").trim();
+    if (!restaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: "Обязательное поле: restaurant_id",
+      });
+    }
+
+    const integrationConfig = await fetchRestaurantIntegrationConfig(restaurantId);
+    if (!integrationConfig) {
+      return res.status(404).json({
+        success: false,
+        message: "Для ресторана не найдена активная iiko интеграция",
+      });
+    }
+
+    const externalMenuResult = await iikoClient.getExternalMenuV2(integrationConfig, {
+      externalMenuId: req.body?.external_menu_id ?? req.body?.externalMenuId,
+      externalMenuName: req.body?.external_menu_name ?? req.body?.externalMenuName,
+      language: req.body?.language ?? "ru",
+      version: req.body?.version ?? 2,
+      forceFreshToken: req.body?.force_fresh_token === true || req.body?.forceFreshToken === true,
+    });
+
+    if (!externalMenuResult?.success) {
+      return res.status(502).json({
+        success: false,
+        message: "Не удалось получить внешнее меню из iiko",
+        error: externalMenuResult?.error || "iiko: неизвестная ошибка",
+        response: externalMenuResult?.response ?? null,
+      });
+    }
+
+    const prepared = buildMenuFromIikoExternalMenu({
+      restaurantId,
+      externalMenu: externalMenuResult.externalMenu,
+      organizationId: integrationConfig.iiko_organization_id,
+      options: {
+        filterProfile:
+          req.body?.filter_profile ??
+          req.body?.filterProfile ??
+          "zhukovsky_delivery_food",
+        keepCategoryNames: req.body?.keep_category_names ?? req.body?.keepCategoryNames,
+        excludeCategoryPatterns:
+          req.body?.exclude_category_patterns ?? req.body?.excludeCategoryPatterns,
+        excludeItemNamePatterns:
+          req.body?.exclude_item_name_patterns ?? req.body?.excludeItemNamePatterns,
+        skipHiddenCategories:
+          req.body?.skip_hidden_categories ?? req.body?.skipHiddenCategories,
+        skipHiddenItems: req.body?.skip_hidden_items ?? req.body?.skipHiddenItems,
+        requirePositivePrice:
+          req.body?.require_positive_price ?? req.body?.requirePositivePrice,
+      },
+    });
+
+    const existingByIikoId = await fetchExistingItemsByIikoId(restaurantId);
+    const mergedMenu = mergePreparedMenuWithExisting(prepared.menu, existingByIikoId);
+    const mappingValidation = validateIikoMapping(mergedMenu, { requireIikoProductId: true });
+
+    if (!mappingValidation.ok) {
+      return res.status(400).json({
+        success: false,
+        message: "Внешнее меню содержит конфликтующие или неполные iikoProductId",
+        details: {
+          duplicateCount: mappingValidation.duplicates.length,
+          missingCount: mappingValidation.missing.length,
+          duplicates: mappingValidation.duplicates.slice(0, 20),
+          missing: mappingValidation.missing.slice(0, 20),
+        },
+        summary: prepared.summary,
+        warnings: prepared.warnings.slice(0, 50),
+      });
+    }
+
+    await persistRestaurantMenu(restaurantId, mergedMenu);
+
+    return res.json({
+      success: true,
+      restaurantId,
+      source: externalMenuResult.source,
+      externalMenuId: externalMenuResult.externalMenuId,
+      externalMenuName: externalMenuResult.externalMenuName,
+      summary: prepared.summary,
+      warnings: prepared.warnings.slice(0, 50),
+      menu: mergedMenu,
+    });
+  } catch (error) {
+    logger.error("Ошибка sync-external-menu", error);
+    return res.status(500).json({
+      success: false,
+      message: error?.message || "Не удалось синхронизировать внешнее меню",
       error: String(error),
     });
   }

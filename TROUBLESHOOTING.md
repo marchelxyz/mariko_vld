@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-11 16:08
+**Последнее обновление:** 2026-03-14 13:40
 
 ---
 
@@ -177,6 +177,109 @@ node scripts/iiko/check-menu-source.mjs YOUR_API_LOGIN 77b29d06-560b-4917-9802-9
 - значит логин читает общую номенклатуру, но не имеет доступа к внешнему меню как к отдельному API-ресурсу
 
 **Коммит:** нет
+
+### ✅ Решение: внешнее меню читается через `api/2/menu` и `api/2/menu/by_id`, а не через `api/1/external_menus`
+
+**Дата:** 2026-03-12
+**Симптомы:**
+- По `api/1/external_menus` и `api/1/external_menu*` логин может возвращать `401 not allowed`
+- При этом в интерфейсе Cloud API внешнее меню настроено корректно
+- Кажется, что внешнее меню недоступно вообще
+
+**Причина:**
+- Для данного ApiLogin рабочий путь чтения внешнего меню оказался не через старые `api/1/*` ручки, а через:
+  - `POST /api/2/menu`
+  - `POST /api/2/menu/by_id`
+- У `api/2/menu/by_id` есть важный нюанс: без поля `language` сервер iiko может отвечать `500 Internal Server Error`, даже если `externalMenuId` и `organizationIds` переданы правильно
+
+**Решение:**
+- Сначала получить список внешних меню:
+```bash
+curl -X POST "https://api-ru.iiko.services/api/2/menu" \
+  -H "Authorization: Bearer <token>" \
+  -H "Accept: application/json"
+```
+
+- Затем получить конкретное меню по его id:
+```bash
+curl -X POST "https://api-ru.iiko.services/api/2/menu/by_id" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -d '{
+    "externalMenuId": "75118",
+    "organizationIds": ["77b29d06-560b-4917-9802-9cc86bb7abe9"],
+    "language": "ru",
+    "version": 2
+  }'
+```
+
+**Проверка:**
+- `POST /api/2/menu` вернул `200` и список:
+  - `externalMenus: [{ "id": "75118", "name": "1234" }]`
+- `POST /api/2/menu/by_id` с `language: "ru"` вернул `200`
+- Для меню `1234` получена живая структура:
+  - `formatVersion: 2`
+  - `revision: 1773254996`
+  - `productCategories: 50`
+  - `itemCategories: 43`
+  - `items: 268`
+
+**Важно:**
+- Без `language` тот же `api/2/menu/by_id` у этого меню падал в `500`
+- Старый вывод "внешнее меню недоступно" был верен только для `api/1`-маршрута и не означал, что меню нельзя получить вообще
+
+**Коммит:** нет
+
+### ✅ Решение: для delivery-sync из внешнего меню Жуковского нужен whitelist food-категорий, иначе подтягиваются бар и служебные позиции
+
+**Дата:** 2026-03-14
+**Симптомы:**
+- Внешнее меню `1234` читается успешно через `api/2/menu/by_id`
+- Но в нём вместе с кухней присутствуют алкоголь, бар, кофе, вода, лимонады, комплименты и служебные позиции
+- Если импортировать меню целиком, в mini app попадает лишний ассортимент, который не должен отображаться в доставке
+
+**Причина:**
+- Внешнее меню `1234` оказалось шире, чем food-only delivery-срез
+- Внутри него есть отдельные item categories для бара/напитков и служебные позиции вроде `Доп блюдо бар`
+
+**Решение:**
+- Для синка использовать whitelist-профиль `zhukovsky_delivery_food`
+- Оставлять только категории:
+  - `Холодные закуски`
+  - `Салаты`
+  - `Супы`
+  - `Горячие закуски`
+  - `Горячее`
+  - `Выпечка`
+  - `Соуса`
+  - `Десерты`
+  - `Детское`
+- Дополнительно исключать позиции по названиям:
+  - `комплимент`
+  - `доп блюдо`
+  - `модификатор`
+- Игнорировать hidden categories/items и позиции без положительной цены
+
+**Проверка:**
+- Dry-run по меню `1234` даёт:
+  - `9` категорий
+  - `91` блюдо
+  - `0` дублей `iikoProductId`
+  - `0` отсутствующих `iikoProductId`
+- Для server-side перезаливки в test добавлен setup-key endpoint:
+```bash
+curl -X POST "https://ineedaglokk-marikotest-3474.twc1.net/api/db/sync-external-menu?key=mariko-iiko-setup-2024" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "restaurant_id": "zhukovsky-хачапури-марико",
+    "external_menu_name": "1234",
+    "filter_profile": "zhukovsky_delivery_food",
+    "force_fresh_token": true
+  }'
+```
+
+**Коммит:** будет добавлен после фиксации изменений
 
 ### ⚠️ Проблема: Кириллица в restaurant_id ломает URL-запросы
 
@@ -1170,6 +1273,58 @@ curl -X PATCH "https://<domain>/api/admin/role-permissions/manager" \
 ```
 
 **Связанный commit:** `N/A` (локальные изменения, commit ещё не создан)
+
+---
+
+### ❌ Проблема: `onboard-network.mjs` не может вызвать test `sync-iiko`, хотя `x-telegram-id` передан
+
+**Дата:** 2026-03-11
+**Симптомы:**
+- Test Timeweb backend отвечает `401 Требуется подтверждённая Telegram авторизация администратора` на:
+  - `POST /api/admin/menu/:restaurantId/sync-iiko`
+  - `GET /api/admin/menu/:restaurantId/iiko-readiness`
+- Старые `/api/db/*` маршруты по `setup-key` продолжают работать:
+  - `setup-iiko`
+  - `add-iiko-config`
+  - `check-terminal-groups`
+  - `get-iiko-payment-types`
+- CLI-скрипт `scripts/iiko/onboard-network.mjs` отправляет только `x-telegram-id`, поэтому config upsert/checks можно сделать через legacy mode, а admin sync на защищённом backend не проходит.
+
+**Причина:**
+- На test backend уже включена строгая Telegram-авторизация:
+  - при наличии `TELEGRAM_BOT_TOKEN` backend требует валидный `X-Telegram-Init-Data`;
+  - одного `X-Telegram-Id` недостаточно, если явно не включён `ALLOW_UNSAFE_ADMIN_TELEGRAM_ID_HEADER=true`.
+- `scripts/iiko/onboard-network.mjs` изначально не умел принимать и проксировать подписанный `X-Telegram-Init-Data`.
+
+**Решение:**
+- Обновить `scripts/iiko/onboard-network.mjs`:
+  - добавить `--telegram-init-data` и `--telegram-init-data-file`;
+  - передавать `X-Telegram-Init-Data` в admin endpoints;
+  - автоматически вытаскивать `telegramId` из initData при необходимости;
+  - добавить параметры `--menu-source` и `--force-fresh-token` для нового sync-iiko.
+- Для реального вызова test `sync-iiko` использовать либо:
+  - валидный `X-Telegram-Init-Data` из Telegram Mini App;
+  - либо временно включать `ALLOW_UNSAFE_ADMIN_TELEGRAM_ID_HEADER=true` только на test.
+
+**Проверка:**
+```bash
+# Без signed initData test backend ожидаемо отвечает 401
+curl -i -X POST "https://ineedaglokk-marikotest-3474.twc1.net/api/admin/menu/<restaurantId>/sync-iiko" \
+  -H "Content-Type: application/json" \
+  -H "X-Telegram-Id: <admin_id>" \
+  -d '{"apply":false,"menuSource":"auto","forceFreshToken":true}'
+
+# С signed initData можно использовать onboarding-скрипт
+node scripts/iiko/onboard-network.mjs \
+  --file ./manifest.json \
+  --backend-url "https://ineedaglokk-marikotest-3474.twc1.net" \
+  --telegram-init-data-file ./telegram-init-data.txt \
+  --apply-menu-sync \
+  --menu-source auto \
+  --force-fresh-token
+```
+
+**Связанный commit:** нет
 
 ---
 

@@ -16,6 +16,8 @@ Required:
 
 Authentication (choose one mode):
   --admin-telegram-id <id>   Recommended: use protected /api/admin/* endpoints
+  --telegram-init-data <raw> Signed Telegram WebApp initData for strict admin auth
+  --telegram-init-data-file  Path to file with signed Telegram WebApp initData
   --setup-key <key>          Legacy: use /api/db/* temporary endpoints (non-production)
 
 Optional:
@@ -25,11 +27,15 @@ Optional:
   --strict                   Exit with code 1 if any restaurant has errors
   --report-file <path>       Save JSON report to file
   --timeout-ms <number>      HTTP timeout in ms (default: 30000)
+  --menu-source <mode>       auto | external_menu | nomenclature (default: auto)
+  --force-fresh-token        Force fresh iiko access_token for menu sync
 
 Env fallbacks:
-  BACKEND_URL, ADMIN_TELEGRAM_ID, IIKO_SETUP_KEY
+  BACKEND_URL, ADMIN_TELEGRAM_ID, TELEGRAM_INIT_DATA, IIKO_SETUP_KEY, IIKO_MENU_SOURCE
 `);
 };
+
+const ALLOWED_MENU_SOURCES = new Set(["auto", "external_menu", "nomenclature"]);
 
 const parseArgs = (argv) => {
   const options = {
@@ -37,12 +43,16 @@ const parseArgs = (argv) => {
     backendUrl: process.env.BACKEND_URL || "",
     setupKey: process.env.IIKO_SETUP_KEY || "",
     adminTelegramId: process.env.ADMIN_TELEGRAM_ID || "",
+    telegramInitData: process.env.TELEGRAM_INIT_DATA || "",
+    telegramInitDataFile: "",
     applyMenuSync: false,
     skipMenuSync: false,
     dryRun: false,
     strict: false,
     reportFile: "",
     timeoutMs: DEFAULT_TIMEOUT_MS,
+    menuSource: process.env.IIKO_MENU_SOURCE || "auto",
+    forceFreshToken: false,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -65,6 +75,10 @@ const parseArgs = (argv) => {
     }
     if (arg === "--strict") {
       options.strict = true;
+      continue;
+    }
+    if (arg === "--force-fresh-token") {
+      options.forceFreshToken = true;
       continue;
     }
 
@@ -93,8 +107,23 @@ const parseArgs = (argv) => {
       i += 1;
       continue;
     }
+    if (arg === "--telegram-init-data") {
+      options.telegramInitData = next;
+      i += 1;
+      continue;
+    }
+    if (arg === "--telegram-init-data-file") {
+      options.telegramInitDataFile = next;
+      i += 1;
+      continue;
+    }
     if (arg === "--report-file") {
       options.reportFile = next;
+      i += 1;
+      continue;
+    }
+    if (arg === "--menu-source") {
+      options.menuSource = next;
       i += 1;
       continue;
     }
@@ -115,6 +144,39 @@ const parseArgs = (argv) => {
 };
 
 const normalizeBaseUrl = (value) => String(value || "").replace(/\/+$/, "");
+
+const parseTelegramIdFromInitData = (rawInitData) => {
+  if (!rawInitData) {
+    return "";
+  }
+  try {
+    const params = new URLSearchParams(rawInitData);
+    const userRaw = params.get("user");
+    if (!userRaw) {
+      return "";
+    }
+    const user = JSON.parse(userRaw);
+    return user?.id ? String(user.id).trim() : "";
+  } catch {
+    return "";
+  }
+};
+
+const buildAdminHeaders = ({ adminTelegramId, telegramInitData, contentType = null } = {}) => {
+  const headers = {
+    Accept: "application/json",
+  };
+  if (contentType) {
+    headers["Content-Type"] = contentType;
+  }
+  if (adminTelegramId) {
+    headers["x-telegram-id"] = String(adminTelegramId);
+  }
+  if (telegramInitData) {
+    headers["x-telegram-init-data"] = String(telegramInitData);
+  }
+  return headers;
+};
 
 const requestJson = async (url, { method = "GET", headers = {}, body, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) => {
   const controller = new AbortController();
@@ -236,16 +298,22 @@ const upsertIikoConfig = async ({ backendUrl, setupKey, restaurant, timeoutMs })
   });
 };
 
-const upsertIikoConfigAdmin = async ({ backendUrl, adminTelegramId, restaurant, timeoutMs }) => {
+const upsertIikoConfigAdmin = async ({
+  backendUrl,
+  adminTelegramId,
+  telegramInitData,
+  restaurant,
+  timeoutMs,
+}) => {
   const url = `${backendUrl}/api/admin/integrations/iiko/config`;
   return requestJson(url, {
     method: "POST",
     timeoutMs,
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      "x-telegram-id": String(adminTelegramId),
-    },
+    headers: buildAdminHeaders({
+      adminTelegramId,
+      telegramInitData,
+      contentType: "application/json",
+    }),
     body: JSON.stringify({
       restaurantId: restaurant.restaurantId,
       apiLogin: restaurant.apiLogin,
@@ -264,15 +332,18 @@ const checkTerminalGroups = async ({ backendUrl, setupKey, restaurantId, timeout
   return requestJson(url, { method: "GET", timeoutMs });
 };
 
-const checkTerminalGroupsAdmin = async ({ backendUrl, adminTelegramId, restaurantId, timeoutMs }) => {
+const checkTerminalGroupsAdmin = async ({
+  backendUrl,
+  adminTelegramId,
+  telegramInitData,
+  restaurantId,
+  timeoutMs,
+}) => {
   const url = `${backendUrl}/api/admin/integrations/iiko/${encodeURIComponent(restaurantId)}/terminal-groups`;
   return requestJson(url, {
     method: "GET",
     timeoutMs,
-    headers: {
-      Accept: "application/json",
-      "x-telegram-id": String(adminTelegramId),
-    },
+    headers: buildAdminHeaders({ adminTelegramId, telegramInitData }),
   });
 };
 
@@ -281,15 +352,18 @@ const checkPaymentTypes = async ({ backendUrl, setupKey, restaurantId, timeoutMs
   return requestJson(url, { method: "GET", timeoutMs });
 };
 
-const checkPaymentTypesAdmin = async ({ backendUrl, adminTelegramId, restaurantId, timeoutMs }) => {
+const checkPaymentTypesAdmin = async ({
+  backendUrl,
+  adminTelegramId,
+  telegramInitData,
+  restaurantId,
+  timeoutMs,
+}) => {
   const url = `${backendUrl}/api/admin/integrations/iiko/${encodeURIComponent(restaurantId)}/payment-types`;
   return requestJson(url, {
     method: "GET",
     timeoutMs,
-    headers: {
-      Accept: "application/json",
-      "x-telegram-id": String(adminTelegramId),
-    },
+    headers: buildAdminHeaders({ adminTelegramId, telegramInitData }),
   });
 };
 
@@ -297,22 +371,27 @@ const syncMenu = async ({
   backendUrl,
   restaurantId,
   adminTelegramId,
+  telegramInitData,
   applyMenuSync,
   timeoutMs,
+  menuSource,
+  forceFreshToken,
 }) => {
   const url = `${backendUrl}/api/admin/menu/${encodeURIComponent(restaurantId)}/sync-iiko`;
   return requestJson(url, {
     method: "POST",
     timeoutMs,
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      ...(adminTelegramId ? { "x-telegram-id": String(adminTelegramId) } : {}),
-    },
+    headers: buildAdminHeaders({
+      adminTelegramId,
+      telegramInitData,
+      contentType: "application/json",
+    }),
     body: JSON.stringify({
       apply: Boolean(applyMenuSync),
       includeInactive: false,
       returnMenu: false,
+      menuSource,
+      forceFreshToken: Boolean(forceFreshToken),
     }),
   });
 };
@@ -321,6 +400,7 @@ const processRestaurant = async ({
   options,
   restaurant,
 }) => {
+  const hasAdminAuth = Boolean(options.adminTelegramId || options.telegramInitData);
   const result = {
     restaurantId: restaurant.restaurantId,
     configUpserted: false,
@@ -331,10 +411,11 @@ const processRestaurant = async ({
   };
 
   try {
-    if (options.adminTelegramId) {
+    if (hasAdminAuth) {
       await upsertIikoConfigAdmin({
         backendUrl: options.backendUrl,
         adminTelegramId: options.adminTelegramId,
+        telegramInitData: options.telegramInitData,
         restaurant,
         timeoutMs: options.timeoutMs,
       });
@@ -353,10 +434,11 @@ const processRestaurant = async ({
   }
 
   try {
-    const terminalCheck = options.adminTelegramId
+    const terminalCheck = hasAdminAuth
       ? await checkTerminalGroupsAdmin({
           backendUrl: options.backendUrl,
           adminTelegramId: options.adminTelegramId,
+          telegramInitData: options.telegramInitData,
           restaurantId: restaurant.restaurantId,
           timeoutMs: options.timeoutMs,
         })
@@ -377,10 +459,11 @@ const processRestaurant = async ({
   }
 
   try {
-    const paymentCheck = options.adminTelegramId
+    const paymentCheck = hasAdminAuth
       ? await checkPaymentTypesAdmin({
           backendUrl: options.backendUrl,
           adminTelegramId: options.adminTelegramId,
+          telegramInitData: options.telegramInitData,
           restaurantId: restaurant.restaurantId,
           timeoutMs: options.timeoutMs,
         })
@@ -401,11 +484,11 @@ const processRestaurant = async ({
   }
 
   if (!options.skipMenuSync) {
-    if (!options.adminTelegramId) {
+    if (!hasAdminAuth) {
       result.menuSync = {
         mode: options.applyMenuSync ? "apply" : "preview",
         skipped: true,
-        reason: "adminTelegramId was not provided",
+        reason: "admin auth was not provided",
       };
     } else {
       try {
@@ -413,14 +496,19 @@ const processRestaurant = async ({
           backendUrl: options.backendUrl,
           restaurantId: restaurant.restaurantId,
           adminTelegramId: options.adminTelegramId,
+          telegramInitData: options.telegramInitData,
           applyMenuSync: options.applyMenuSync,
           timeoutMs: options.timeoutMs,
+          menuSource: options.menuSource,
+          forceFreshToken: options.forceFreshToken,
         });
         result.menuSync = {
           mode: options.applyMenuSync ? "apply" : "preview",
           success: Boolean(syncResult?.success),
           summary: syncResult?.summary ?? null,
           warningsCount: Array.isArray(syncResult?.warnings) ? syncResult.warnings.length : 0,
+          source: syncResult?.source ?? null,
+          sourceDiagnostics: syncResult?.sourceDiagnostics ?? null,
         };
       } catch (error) {
         result.menuSync = {
@@ -443,6 +531,16 @@ const main = async () => {
   if (!options.file) {
     throw new Error("--file is required");
   }
+  if (options.telegramInitDataFile) {
+    const filePath = path.resolve(process.cwd(), options.telegramInitDataFile);
+    options.telegramInitData = (await fs.readFile(filePath, "utf8")).trim();
+  }
+  if (!ALLOWED_MENU_SOURCES.has(options.menuSource)) {
+    throw new Error(`Unsupported --menu-source value: ${options.menuSource}`);
+  }
+  if (!options.adminTelegramId && options.telegramInitData) {
+    options.adminTelegramId = parseTelegramIdFromInitData(options.telegramInitData);
+  }
 
   const manifest = await loadManifest(options.file);
   if (manifest.validationErrors.length > 0) {
@@ -462,11 +560,17 @@ const main = async () => {
   if (!options.backendUrl) {
     throw new Error("--backend-url is required (or set BACKEND_URL)");
   }
-  if (!options.adminTelegramId && !options.setupKey) {
-    throw new Error("Provide --admin-telegram-id (recommended) or --setup-key (legacy)");
+  if (!options.adminTelegramId && !options.telegramInitData && !options.setupKey) {
+    throw new Error("Provide --telegram-init-data / --admin-telegram-id (admin mode) or --setup-key (legacy)");
   }
 
-  console.log(`Start network onboarding: restaurants=${manifest.restaurants.length}, menuSync=${options.skipMenuSync ? "skip" : options.applyMenuSync ? "apply" : "preview"}`);
+  console.log(
+    `Start network onboarding: restaurants=${manifest.restaurants.length}, menuSync=${
+      options.skipMenuSync ? "skip" : options.applyMenuSync ? "apply" : "preview"
+    }, menuSource=${options.menuSource}, auth=${
+      options.telegramInitData ? "telegram-init-data" : options.adminTelegramId ? "telegram-id" : "setup-key"
+    }`,
+  );
 
   const report = {
     startedAt: new Date().toISOString(),

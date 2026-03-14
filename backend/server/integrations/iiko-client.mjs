@@ -1032,6 +1032,100 @@ export const iikoClient = {
   },
 
   /**
+   * Получает внешнее меню через рабочие endpoints api/2/menu и api/2/menu/by_id.
+   */
+  async getExternalMenuV2(config, options = {}) {
+    if (!config?.iiko_organization_id || !config?.api_login) {
+      return { success: false, error: "iiko: Не указаны organization_id или api_login" };
+    }
+
+    try {
+      const token = await getAccessTokenForRequest(config.api_login, options);
+      const organizationId = config.iiko_organization_id;
+      const listPayload = await requestJson(`${IIKO_BASE_URL}/api/2/menu`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const externalMenus = Array.isArray(listPayload?.externalMenus) ? listPayload.externalMenus : [];
+      const requestedMenuId = normaliseIikoProductId(
+        options?.externalMenuId ?? options?.menuId ?? options?.id,
+      );
+      const requestedMenuName = normaliseIikoProductId(options?.externalMenuName ?? options?.menuName);
+
+      let selectedMenu = null;
+      if (requestedMenuId) {
+        selectedMenu =
+          externalMenus.find((menu) => normaliseIikoProductId(menu?.id) === requestedMenuId) ?? null;
+      }
+      if (!selectedMenu && requestedMenuName) {
+        selectedMenu =
+          externalMenus.find(
+            (menu) => normaliseIikoProductId(menu?.name).toLowerCase() === requestedMenuName.toLowerCase(),
+          ) ?? null;
+      }
+      if (!selectedMenu && externalMenus.length === 1) {
+        selectedMenu = externalMenus[0];
+      }
+      if (!selectedMenu) {
+        return {
+          success: false,
+          error: "iiko: Не удалось определить внешнее меню для синхронизации",
+          response: {
+            status: 200,
+            url: `${IIKO_BASE_URL}/api/2/menu`,
+            body: {
+              requestedMenuId: requestedMenuId || null,
+              requestedMenuName: requestedMenuName || null,
+              externalMenus,
+            },
+            network: null,
+          },
+        };
+      }
+
+      const detailRequestBody = {
+        externalMenuId: normaliseIikoProductId(selectedMenu?.id),
+        organizationIds: [organizationId],
+        language: normaliseIikoProductId(options?.language) || "ru",
+        version: Number.isFinite(Number(options?.version)) ? Number(options.version) : 2,
+      };
+      const externalMenu = await postIikoJson("/api/2/menu/by_id", token, detailRequestBody);
+
+      return {
+        success: true,
+        source: "external_menu_v2",
+        externalMenu,
+        externalMenuId: detailRequestBody.externalMenuId,
+        externalMenuName: normaliseIikoProductId(selectedMenu?.name) || null,
+        externalMenus,
+        diagnostics: {
+          listEndpoint: "/api/2/menu",
+          detailEndpoint: "/api/2/menu/by_id",
+          detailRequestBody,
+          availableMenus: externalMenus.map((menu) => ({
+            id: normaliseIikoProductId(menu?.id) || null,
+            name: normaliseIikoProductId(menu?.name) || null,
+          })),
+          revision: externalMenu?.revision ?? null,
+          itemCategories: Array.isArray(externalMenu?.itemCategories)
+            ? externalMenu.itemCategories.length
+            : 0,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error?.message || "iiko: Ошибка получения внешнего меню v2",
+        response: buildErrorResponseMeta(error),
+      };
+    }
+  },
+
+  /**
    * Возвращает меню из лучшего доступного источника:
    * - external_menu, если явно запрошен или включен auto и права доступны
    * - nomenclature как fallback
