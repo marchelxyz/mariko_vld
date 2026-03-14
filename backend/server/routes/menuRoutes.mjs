@@ -10,6 +10,25 @@ const logger = createLogger('menu');
 
 const MAX_ITEMS_PER_BATCH = 1000;
 const PARAMS_PER_ITEM = 15;
+const EXTERNAL_MENU_FILTER_PROFILES = {
+  zhukovsky_delivery_food: {
+    keepCategoryNames: [
+      "Холодные закуски",
+      "Салаты",
+      "Супы",
+      "Горячие закуски",
+      "Горячее",
+      "Выпечка",
+      "Соуса",
+      "Десерты",
+      "Детское",
+    ],
+    excludeItemNamePatterns: ["комплимент", "доп блюдо", "модификатор"],
+    skipHiddenCategories: true,
+    skipHiddenItems: true,
+    requirePositivePrice: true,
+  },
+};
 
 const normaliseText = (value) => {
   if (typeof value !== "string") {
@@ -26,6 +45,7 @@ const normaliseIikoProductId = (value) => {
 };
 
 const normaliseLowerText = (value) => normaliseText(value).toLowerCase();
+const asArray = (value) => (Array.isArray(value) ? value : []);
 
 const toSlug = (value) =>
   String(value ?? "")
@@ -154,6 +174,267 @@ const isSupportedIikoMenuProduct = (product) => {
   return true;
 };
 
+const normalisePatternList = (values) =>
+  asArray(values)
+    .map((value) => normaliseLowerText(value))
+    .filter(Boolean);
+
+const matchesTextPatterns = (value, patterns) => {
+  const haystack = normaliseLowerText(value);
+  if (!haystack || !Array.isArray(patterns) || patterns.length === 0) {
+    return false;
+  }
+  return patterns.some((pattern) => haystack.includes(pattern));
+};
+
+const resolveExternalMenuFilterOptions = (options = {}) => {
+  const profileName = normaliseLowerText(options?.filterProfile);
+  const profile = EXTERNAL_MENU_FILTER_PROFILES[profileName] ?? null;
+  const keepCategoryNames = new Set(
+    asArray(options?.keepCategoryNames ?? profile?.keepCategoryNames)
+      .map((value) => normaliseLowerText(value))
+      .filter(Boolean),
+  );
+  const excludeCategoryPatterns = normalisePatternList(
+    options?.excludeCategoryPatterns ?? profile?.excludeCategoryPatterns,
+  );
+  const excludeItemNamePatterns = normalisePatternList(
+    options?.excludeItemNamePatterns ?? profile?.excludeItemNamePatterns,
+  );
+
+  return {
+    profileName: profileName || null,
+    keepCategoryNames,
+    excludeCategoryPatterns,
+    excludeItemNamePatterns,
+    skipHiddenCategories:
+      options?.skipHiddenCategories === undefined
+        ? profile?.skipHiddenCategories !== false
+        : options.skipHiddenCategories === true,
+    skipHiddenItems:
+      options?.skipHiddenItems === undefined
+        ? profile?.skipHiddenItems !== false
+        : options.skipHiddenItems === true,
+    requirePositivePrice:
+      options?.requirePositivePrice === undefined
+        ? profile?.requirePositivePrice === true
+        : options.requirePositivePrice === true,
+  };
+};
+
+const pickExternalMenuItemSize = (item) => {
+  const sizes = asArray(item?.itemSizes).filter((size) => size?.isHidden !== true);
+  if (sizes.length === 0) {
+    return null;
+  }
+  return sizes.find((size) => size?.isDefault === true) ?? sizes[0];
+};
+
+const extractExternalMenuPrice = (item, organizationId) => {
+  const preferredOrganizationId = normaliseText(organizationId);
+  const sizes = asArray(item?.itemSizes);
+
+  for (const size of sizes) {
+    const priceEntries = asArray(size?.prices);
+    if (preferredOrganizationId) {
+      const preferred = priceEntries.find(
+        (entry) => normaliseText(entry?.organizationId) === preferredOrganizationId,
+      );
+      const direct = Number(preferred?.price);
+      if (Number.isFinite(direct)) {
+        return Number(direct.toFixed(2));
+      }
+    }
+
+    for (const entry of priceEntries) {
+      const direct = Number(entry?.price);
+      if (Number.isFinite(direct)) {
+        return Number(direct.toFixed(2));
+      }
+    }
+  }
+
+  return 0;
+};
+
+const extractExternalMenuImageUrl = (item, size) => {
+  const candidates = [
+    item?.buttonImageUrl,
+    item?.imageUrl,
+    size?.buttonImageUrl,
+    size?.imageUrl,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return undefined;
+};
+
+const formatExternalMenuWeight = (size) => {
+  const grams = Number(size?.portionWeightGrams);
+  if (Number.isFinite(grams) && grams > 0) {
+    return `${Math.round(grams)} г`;
+  }
+  return undefined;
+};
+
+const formatExternalMenuCalories = (size) => {
+  const candidates = [
+    Number(size?.nutritionPerHundredGrams?.energy),
+    ...asArray(size?.nutritions).map((entry) => Number(entry?.energy)),
+  ];
+  for (const candidate of candidates) {
+    if (Number.isFinite(candidate) && candidate > 0) {
+      return `${Math.round(candidate)} ккал`;
+    }
+  }
+  return undefined;
+};
+
+export const buildMenuFromIikoExternalMenu = ({
+  restaurantId,
+  externalMenu,
+  organizationId,
+  options = {},
+}) => {
+  const itemCategories = asArray(externalMenu?.itemCategories);
+  const filters = resolveExternalMenuFilterOptions(options);
+  const warnings = [];
+  const categoriesResult = [];
+  const seenProductIds = new Set();
+  let fallbackItemIndex = 0;
+  let categoriesSkippedByProfile = 0;
+  let categoriesSkippedHidden = 0;
+  let itemsReceived = 0;
+  let itemsSkippedHidden = 0;
+  let itemsSkippedByProfile = 0;
+  let itemsSkippedUnsupported = 0;
+  let itemsSkippedWithoutPrice = 0;
+  let duplicateItemsSkipped = 0;
+
+  for (const itemCategory of itemCategories) {
+    const categoryName = normaliseText(itemCategory?.name) || "Без категории";
+    const categoryNameLower = normaliseLowerText(categoryName);
+    const categoryId = normaliseText(itemCategory?.id);
+
+    if (filters.skipHiddenCategories && itemCategory?.isHidden === true) {
+      categoriesSkippedHidden += 1;
+      continue;
+    }
+
+    if (filters.keepCategoryNames.size > 0 && !filters.keepCategoryNames.has(categoryNameLower)) {
+      categoriesSkippedByProfile += 1;
+      continue;
+    }
+
+    if (matchesTextPatterns(categoryName, filters.excludeCategoryPatterns)) {
+      categoriesSkippedByProfile += 1;
+      continue;
+    }
+
+    const preparedItems = [];
+
+    for (const item of asArray(itemCategory?.items)) {
+      itemsReceived += 1;
+
+      if (filters.skipHiddenItems && item?.isHidden === true) {
+        itemsSkippedHidden += 1;
+        continue;
+      }
+
+      const itemName = normaliseText(item?.name);
+      if (!itemName) {
+        itemsSkippedUnsupported += 1;
+        continue;
+      }
+
+      const type = normaliseLowerText(item?.type);
+      const orderItemType = normaliseLowerText(item?.orderItemType);
+      if ((type && type !== "dish") || (orderItemType && orderItemType !== "product")) {
+        itemsSkippedUnsupported += 1;
+        continue;
+      }
+
+      if (matchesTextPatterns(itemName, filters.excludeItemNamePatterns)) {
+        itemsSkippedByProfile += 1;
+        continue;
+      }
+
+      const productId = normaliseText(item?.itemId);
+      if (productId) {
+        const duplicateKey = productId.toLowerCase();
+        if (seenProductIds.has(duplicateKey)) {
+          duplicateItemsSkipped += 1;
+          warnings.push(`Пропущен дубликат внешнего меню "${itemName}" (${productId})`);
+          continue;
+        }
+        seenProductIds.add(duplicateKey);
+      }
+
+      const size = pickExternalMenuItemSize(item);
+      const price = extractExternalMenuPrice(item, organizationId);
+      if (filters.requirePositivePrice && (!Number.isFinite(price) || price <= 0)) {
+        itemsSkippedWithoutPrice += 1;
+        continue;
+      }
+
+      preparedItems.push({
+        id: toMenuItemId(restaurantId, productId, itemName, fallbackItemIndex++),
+        name: itemName,
+        description: normaliseText(item?.description),
+        price: Number.isFinite(price) && price > 0 ? price : 0,
+        weight: formatExternalMenuWeight(size),
+        calories: formatExternalMenuCalories(size),
+        imageUrl: extractExternalMenuImageUrl(item, size),
+        iikoProductId: productId || undefined,
+        isVegetarian: false,
+        isSpicy: false,
+        isNew: false,
+        isRecommended: false,
+        isActive: true,
+        displayOrder: preparedItems.length + 1,
+      });
+    }
+
+    if (preparedItems.length === 0) {
+      continue;
+    }
+
+    categoriesResult.push({
+      id: toMenuCategoryId(restaurantId, categoryId || categoryName, categoriesResult.length + 1),
+      name: categoryName,
+      description: normaliseText(itemCategory?.description),
+      displayOrder: categoriesResult.length + 1,
+      isActive: true,
+      items: preparedItems,
+    });
+  }
+
+  return {
+    menu: {
+      restaurantId,
+      categories: categoriesResult,
+    },
+    summary: {
+      itemCategoriesReceived: itemCategories.length,
+      categoriesPrepared: categoriesResult.length,
+      categoriesSkippedByProfile,
+      categoriesSkippedHidden,
+      itemsReceived,
+      itemsPrepared: categoriesResult.reduce((acc, category) => acc + category.items.length, 0),
+      itemsSkippedHidden,
+      itemsSkippedByProfile,
+      itemsSkippedUnsupported,
+      itemsSkippedWithoutPrice,
+      duplicateItemsSkipped,
+      filterProfile: filters.profileName,
+    },
+    warnings,
+  };
+};
+
 const buildMenuFromIikoNomenclature = ({ restaurantId, nomenclature, includeInactive = false }) => {
   const groups = Array.isArray(nomenclature?.groups) ? nomenclature.groups : [];
   const categories = Array.isArray(nomenclature?.categories) ? nomenclature.categories : [];
@@ -274,7 +555,7 @@ const buildMenuFromIikoNomenclature = ({ restaurantId, nomenclature, includeInac
   };
 };
 
-const validateIikoMapping = (menu, { requireIikoProductId = false } = {}) => {
+export const validateIikoMapping = (menu, { requireIikoProductId = false } = {}) => {
   const duplicateMap = new Map();
   const missing = [];
 
@@ -318,7 +599,7 @@ const validateIikoMapping = (menu, { requireIikoProductId = false } = {}) => {
   };
 };
 
-const fetchExistingItemsByIikoId = async (restaurantId) => {
+export const fetchExistingItemsByIikoId = async (restaurantId) => {
   const rows = await queryMany(
     `SELECT mi.*
      FROM menu_items mi
@@ -338,7 +619,7 @@ const fetchExistingItemsByIikoId = async (restaurantId) => {
   return map;
 };
 
-const mergePreparedMenuWithExisting = (menu, existingByIikoId) => {
+export const mergePreparedMenuWithExisting = (menu, existingByIikoId) => {
   if (!menu || !Array.isArray(menu.categories)) {
     return menu;
   }
@@ -376,7 +657,7 @@ const mergePreparedMenuWithExisting = (menu, existingByIikoId) => {
   };
 };
 
-const persistRestaurantMenu = async (restaurantId, menu) => {
+export const persistRestaurantMenu = async (restaurantId, menu) => {
   const deleteStartTime = Date.now();
   await query(`DELETE FROM menu_items WHERE category_id IN (SELECT id FROM menu_categories WHERE restaurant_id = $1)`, [restaurantId]);
   await query(`DELETE FROM menu_categories WHERE restaurant_id = $1`, [restaurantId]);
