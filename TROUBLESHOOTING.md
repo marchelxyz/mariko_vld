@@ -65,7 +65,7 @@
 - `git diff --check`
 - ручной поиск по UI-строкам через `rg` на `HTTP`, `Server API responded`, `iiko`, `webhook`, `Remarked`, `VK GROUP TOKEN`, `provider_status`, `iiko_status`
 
-**Связанный commit:** будет добавлен после фиксации
+**Связанный commit:** `64d8790` `fix(ui): скрыты технические сообщения и служебные поля`
 
 ### ❌ Проблема: Формы в админке сбрасываются из-за фонового обновления прав и polling списка городов
 
