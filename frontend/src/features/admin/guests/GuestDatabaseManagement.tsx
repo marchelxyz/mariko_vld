@@ -783,9 +783,9 @@ export function GuestDatabaseManagement(): JSX.Element {
                   )}
 
                   <div className="mt-3 pt-3 border-t border-white/10 flex flex-wrap gap-4 text-xs text-white/50">
-                    {booking.remarkedReserveId && (
+                    {isSuperAdmin() && booking.remarkedReserveId && (
                       <div>
-                        Remarked ID: <span className="text-white/70">{booking.remarkedReserveId}</span>
+                        ID бронирования: <span className="text-white/70">{booking.remarkedReserveId}</span>
                       </div>
                     )}
                     <div>

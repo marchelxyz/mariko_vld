@@ -1,4 +1,3 @@
-import { ADMIN_TELEGRAM_IDS } from "../config.mjs";
 import { listAdminRecords } from "./adminService.mjs";
 import { sendTelegramTextMessage } from "./telegramBotService.mjs";
 import { createLogger } from "../utils/logger.mjs";
@@ -89,7 +88,7 @@ const buildAlertText = ({ title, lines = [], severity = "warn" }) => {
 };
 
 const resolveAlertRecipients = async () => {
-  const recipients = new Set([...ADMIN_TELEGRAM_IDS, ...parseTelegramIds(process.env.IIKO_ALERTS_TELEGRAM_IDS)]);
+  const recipients = new Set(parseTelegramIds(process.env.IIKO_ALERTS_TELEGRAM_IDS));
 
   try {
     const adminRecords = await listAdminRecords();

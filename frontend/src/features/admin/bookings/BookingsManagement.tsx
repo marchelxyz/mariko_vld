@@ -5,6 +5,7 @@ import { adminServerApi, type AdminBooking } from "@shared/api/admin";
 import { getAllCitiesAsync, type City } from "@shared/data";
 import { useAdmin } from "@shared/hooks";
 import { Permission, UserRole } from "@shared/types";
+import { sanitizeAdminFacingMessage } from "@shared/utils";
 
 const BOOKING_STATUS_LABELS: Record<string, string> = {
   created: "Новая",
@@ -113,7 +114,12 @@ export default function BookingsManagement(): JSX.Element {
         platform: pendingChange.booking.platform ?? null,
       });
       if (sendNotification && result.notification && !result.notification.success) {
-        alert(result.notification.error || "Не удалось отправить сообщение");
+        alert(
+          sanitizeAdminFacingMessage(
+            result.notification.error,
+            "Статус обновлён, но уведомление гостю отправить не удалось.",
+          ),
+        );
       }
       await refetch();
     } catch (error) {

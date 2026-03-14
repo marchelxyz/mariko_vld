@@ -3,6 +3,7 @@ import App from "./App.tsx";
 import "./index.css";
 import { getPlatform, markReady, requestFullscreenMode, setupFullscreenHandlers } from "@/lib/platform";
 import { logger } from "@/lib/logger";
+import { sanitizeUserFacingMessage } from "@shared/utils";
 import bridge from "@vkontakte/vk-bridge";
 import { isInVk } from "@/lib/vkCore";
 
@@ -242,7 +243,11 @@ if (typeof window !== "undefined") {
         event.preventDefault();
         return;
       }
-      const message = `Ошибка приложения: ${event.error?.message || event.message}`;
+      const rawMessage = event.error?.message || event.message;
+      const message = sanitizeUserFacingMessage(
+        rawMessage,
+        "Произошла ошибка приложения. Перезапустите экран и попробуйте ещё раз.",
+      );
       // Убеждаемся, что передаем Error объект
       const error = event.error instanceof Error 
         ? event.error 
@@ -258,7 +263,7 @@ if (typeof window !== "undefined") {
       alert(message);
     } catch (_) {
       logger.error('global', new Error(event?.message ?? "Неизвестная ошибка приложения"));
-      alert(event?.message ?? "Неизвестная ошибка приложения");
+      alert("Произошла ошибка приложения. Перезапустите экран и попробуйте ещё раз.");
     }
   });
 
@@ -269,7 +274,10 @@ if (typeof window !== "undefined") {
         event.preventDefault();
         return;
       }
-      const message = `Необработанная ошибка: ${reason?.message || String(reason)}`;
+      const message = sanitizeUserFacingMessage(
+        reason?.message || String(reason),
+        "Произошла ошибка приложения. Перезапустите экран и попробуйте ещё раз.",
+      );
       // Убеждаемся, что передаем Error объект
       const error = reason instanceof Error 
         ? reason 
@@ -283,7 +291,7 @@ if (typeof window !== "undefined") {
       alert(message);
     } catch (_) {
       logger.error('global', new Error('Необработанная ошибка'));
-      alert("Необработанная ошибка");
+      alert("Произошла ошибка приложения. Перезапустите экран и попробуйте ещё раз.");
     }
   });
 }
@@ -301,20 +309,22 @@ try {
     type: 'render_error',
   });
   try {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = sanitizeUserFacingMessage(
+      err instanceof Error ? err.message : String(err),
+      "Не удалось открыть приложение. Попробуйте ещё раз позже.",
+    );
     const instance = getTg();
     try {
       if (instance && typeof instance.showAlert === 'function') {
-        instance.showAlert(`Ошибка рендеринга: ${message}`);
+        instance.showAlert(message);
       } else {
-        alert(`Ошибка рендеринга: ${message}`);
+        alert(message);
       }
     } catch (alertError) {
       console.warn('showAlert failed, using fallback', alertError);
-      alert(`Ошибка рендеринга: ${message}`);
+      alert(message);
     }
   } catch (_) {
-    const message = err instanceof Error ? err.message : String(err);
-    alert(`Ошибка рендеринга: ${message}`);
+    alert("Не удалось открыть приложение. Попробуйте ещё раз позже.");
   }
 }

@@ -1,5 +1,6 @@
 import { defaultPromotions, type PromotionCardData } from "@shared/data";
 import { getInitData, getPlatform, getUserId } from "@/lib/platform";
+import { sanitizeAdminFacingMessage } from "@shared/utils";
 
 const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
 const RAW_SERVER_API_BASE = normalizeBaseUrl(rawServerEnv || "/api");
@@ -88,7 +89,10 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
 
   const text = await response.text();
   if (!response.ok) {
-    const errorMessage = parseErrorPayload(text) ?? `Server API responded with ${response.status}`;
+    const errorMessage = sanitizeAdminFacingMessage(
+      parseErrorPayload(text),
+      "Не удалось выполнить действие с акциями. Попробуйте ещё раз.",
+    );
     throw new Error(errorMessage);
   }
 
@@ -148,7 +152,10 @@ export async function savePromotions(
     });
     return { success: true };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Неожиданная ошибка сохранения акций";
+    const message = sanitizeAdminFacingMessage(
+      error instanceof Error ? error.message : null,
+      "Не удалось сохранить акции. Попробуйте ещё раз.",
+    );
     return { success: false, errorMessage: message };
   }
 }
@@ -185,14 +192,20 @@ export async function uploadPromotionImage(
 
     const text = await response.text();
     if (!response.ok) {
-      const errorMessage = parseErrorPayload(text) ?? `Server API responded with ${response.status}`;
+      const errorMessage = sanitizeAdminFacingMessage(
+        parseErrorPayload(text),
+        "Не удалось загрузить изображение. Попробуйте ещё раз.",
+      );
       throw new Error(errorMessage);
     }
 
     const data = JSON.parse(text);
     return { url: data.url };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Неожиданная ошибка при загрузке изображения';
+    const message = sanitizeAdminFacingMessage(
+      error instanceof Error ? error.message : null,
+      "Не удалось загрузить изображение. Попробуйте ещё раз.",
+    );
     throw new Error(message);
   }
 }
@@ -226,7 +239,10 @@ export async function fetchPromotionImageLibrary(
 
     const text = await response.text();
     if (!response.ok) {
-      const errorMessage = parseErrorPayload(text) ?? `Server API responded with ${response.status}`;
+      const errorMessage = sanitizeAdminFacingMessage(
+        parseErrorPayload(text),
+        "Не удалось загрузить библиотеку изображений. Попробуйте ещё раз.",
+      );
       throw new Error(errorMessage);
     }
 

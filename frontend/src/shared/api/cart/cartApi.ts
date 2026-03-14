@@ -1,4 +1,5 @@
 import type { CartItem } from "@/contexts";
+import { sanitizeUserFacingMessage } from "@shared/utils";
 
 export type CartOrderPayload = {
   restaurantId: string | null;
@@ -101,7 +102,12 @@ export async function submitCartOrder(payload: CartOrderPayload): Promise<CartOr
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => null);
-    throw new Error(parseServerErrorText(errorText) || "Ошибка отправки заказа");
+    throw new Error(
+      sanitizeUserFacingMessage(
+        parseServerErrorText(errorText),
+        "Не удалось отправить заказ. Попробуйте ещё раз.",
+      ),
+    );
   }
 
   const data = await response.json().catch(() => null);
@@ -126,7 +132,12 @@ export async function recalculateCart(
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => null);
-    throw new Error(parseServerErrorText(errorText) || "Ошибка расчёта корзины");
+    throw new Error(
+      sanitizeUserFacingMessage(
+        parseServerErrorText(errorText),
+        "Не удалось рассчитать заказ. Попробуйте ещё раз.",
+      ),
+    );
   }
 
   const data = await response.json();

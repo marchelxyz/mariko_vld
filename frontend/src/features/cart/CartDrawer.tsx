@@ -7,6 +7,7 @@ import type { CartPaymentMethodAvailability } from "@/shared/api/cart";
 import { profileApi } from "@shared/api/profile";
 import type { UserProfile } from "@shared/types";
 import { getPlatform, getUser } from "@/lib/platform";
+import { sanitizeUserFacingMessage } from "@shared/utils";
 
 type AddressSuggestion = {
   id: string;
@@ -298,7 +299,12 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
     } catch (error) {
       if (signal.aborted) return;
       console.error("Ошибка подсказок адреса", error);
-      setSuggestError(error instanceof Error ? error.message : "Не удалось загрузить подсказки");
+      setSuggestError(
+        sanitizeUserFacingMessage(
+          error instanceof Error ? error.message : null,
+          "Не удалось загрузить подсказки. Попробуйте ещё раз.",
+        ),
+      );
       setSuggestions([]);
     } finally {
       if (!signal.aborted) {
@@ -344,7 +350,12 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
       setIsSuggestOpen(false);
     } catch (error) {
       console.error("Ошибка обратного геокодирования", error);
-      setLocationError(error instanceof Error ? error.message : "Не удалось определить адрес");
+      setLocationError(
+        sanitizeUserFacingMessage(
+          error instanceof Error ? error.message : null,
+          "Не удалось определить адрес. Попробуйте ещё раз.",
+        ),
+      );
     }
   };
 
@@ -386,7 +397,12 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
       throw new Error("Геолокация недоступна");
     } catch (error) {
       console.warn("Ошибка геолокации", error);
-      setLocationError(error instanceof Error ? error.message : "Доступ к геолокации запрещён");
+      setLocationError(
+        sanitizeUserFacingMessage(
+          error instanceof Error ? error.message : null,
+          "Доступ к геолокации запрещён",
+        ),
+      );
     } finally {
       setIsLocating(false);
     }
@@ -463,7 +479,11 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
       });
       const resolvedOrderId = response.orderId ?? `draft-${Date.now()}`;
       setLastSubmitStatus("success");
-      setLastSubmitMessage(response.message ?? "Заказ отправлен, ожидайте звонка менеджера.");
+      const successMessage = sanitizeUserFacingMessage(
+        response.message,
+        "Заказ отправлен, ожидайте звонка менеджера.",
+      );
+      setLastSubmitMessage(successMessage);
       // Если в профиле не было адреса, сохраним то, что ввёл пользователь
       if (!profileHasAddress && normalizedTelegramId && resolvedDeliveryAddress) {
         profileApi
@@ -491,7 +511,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
       navigate("/order-success", {
         state: {
           orderId: resolvedOrderId,
-          message: response.message,
+          message: successMessage,
           restaurantId: selectedRestaurant?.id ?? null,
           paymentMethod,
         },
@@ -499,7 +519,12 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
       resetAndClose();
     } catch (error) {
       setLastSubmitStatus("error");
-      setLastSubmitMessage(error instanceof Error ? error.message : "Не удалось отправить заказ");
+      setLastSubmitMessage(
+        sanitizeUserFacingMessage(
+          error instanceof Error ? error.message : null,
+          "Не удалось отправить заказ. Попробуйте ещё раз.",
+        ),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -540,7 +565,12 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
           return;
         }
         console.error("Ошибка расчёта корзины:", error);
-        setCalcError(error?.message ?? "Не удалось рассчитать заказ");
+        setCalcError(
+          sanitizeUserFacingMessage(
+            error?.message,
+            "Не удалось рассчитать заказ. Попробуйте ещё раз.",
+          ),
+        );
         setCalculation(null);
       })
       .finally(() => {
@@ -935,7 +965,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
 
                   {!hasStreetAndHouse && (
                     <p className="text-xs text-amber-700">
-                      Для отправки в iiko укажите отдельно улицу и дом.
+                      Для оформления заказа укажите отдельно улицу и дом.
                     </p>
                   )}
                   {suggestError && <p className="text-xs text-red-600">{suggestError}</p>}
@@ -1009,8 +1039,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
               </button>
             </div>
             <p className="text-xs text-mariko-dark/60">
-              Для оплаты онлайн заказ отправится в iiko после успешного платежа. При оплате наличными
-              или картой заказ отправляется сразу.
+              При онлайн-оплате вы сначала перейдёте к оплате, затем заказ будет передан в обработку.
             </p>
             {lastSubmitStatus !== "idle" && (
               <p

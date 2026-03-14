@@ -1,4 +1,5 @@
 import { getInitData, getPlatform, getUser, getUserId } from "@/lib/platform";
+import { sanitizeUserFacingMessage } from "@shared/utils";
 
 function getOnboardingApiBaseUrl(): string {
   // Используем VITE_SERVER_API_URL если он установлен (предпочтительный вариант)
@@ -80,7 +81,10 @@ const buildHeaders = (userId: string): Record<string, string> => {
 const handleResponse = async (response: Response): Promise<OnboardingTourShownResponse> => {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = payload?.message || `Запрос флага показа подсказок завершился ошибкой (${response.status})`;
+    const message = sanitizeUserFacingMessage(
+      payload?.message,
+      "Не удалось обновить настройки интерфейса. Попробуйте ещё раз позже.",
+    );
     throw new Error(message);
   }
   return payload as OnboardingTourShownResponse;

@@ -2,6 +2,7 @@ import { Save, X, Plus, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button, Input, Label, Switch } from "@shared/ui";
 import type { Restaurant, DeliveryAggregator, SocialNetwork } from "@shared/data";
+import { useAdmin } from "@shared/hooks";
 
 /**
  * Предопределенные агрегаторы доставки
@@ -63,6 +64,8 @@ export function EditRestaurantModal({
   onClose,
   onSave,
 }: EditRestaurantModalProps): JSX.Element | null {
+  const { isSuperAdmin } = useAdmin();
+  const showTechnicalFields = isSuperAdmin();
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -164,21 +167,7 @@ export function EditRestaurantModal({
         yandexMapsUrl: yandexMapsUrl.trim(),
         twoGisUrl: twoGisUrl.trim(),
         socialNetworks: socialNetworks.filter(sn => sn.name.trim() && sn.url.trim()),
-        remarkedRestaurantId: remarkedRestaurantId.trim() ? (() => {
-          const parsed = parseInt(remarkedRestaurantId.trim(), 10);
-          if (isNaN(parsed)) {
-            alert('ID Remarked должен быть числом');
-            throw new Error('Invalid remarkedRestaurantId');
-          }
-          const idStr = parsed.toString();
-          if (!/^\d{6}$/.test(idStr)) {
-            alert('ID Remarked должен быть 6-значным кодом (например: 123456)');
-            throw new Error('Invalid remarkedRestaurantId format');
-          }
-          return parsed;
-        })() : undefined,
         reviewLink: reviewLink.trim(),
-        vkGroupToken: vkGroupToken.trim() || undefined,
         maxCartItemQuantity: (() => {
           const parsed = parseInt(maxCartItemQuantity.trim(), 10);
           if (isNaN(parsed) || parsed < 1) {
@@ -188,6 +177,24 @@ export function EditRestaurantModal({
           return parsed;
         })(),
         isDeliveryEnabled,
+        ...(showTechnicalFields
+          ? {
+              remarkedRestaurantId: remarkedRestaurantId.trim() ? (() => {
+                const parsed = parseInt(remarkedRestaurantId.trim(), 10);
+                if (isNaN(parsed)) {
+                  alert('ID ресторана для бронирования должен быть числом');
+                  throw new Error('Invalid remarkedRestaurantId');
+                }
+                const idStr = parsed.toString();
+                if (!/^\d{6}$/.test(idStr)) {
+                  alert('ID ресторана для бронирования должен состоять из 6 цифр');
+                  throw new Error('Invalid remarkedRestaurantId format');
+                }
+                return parsed;
+              })() : undefined,
+              vkGroupToken: vkGroupToken.trim() || undefined,
+            }
+          : {}),
       });
       onClose();
     } catch (error) {
@@ -253,18 +260,20 @@ export function EditRestaurantModal({
             </p>
           </div>
 
-          <div>
-            <Label className="text-white">ID Remarked (6-значный код)</Label>
-            <Input
-              value={remarkedRestaurantId}
-              onChange={(e) => setRemarkedRestaurantId(e.target.value)}
-              placeholder="123456"
-              type="number"
-            />
-            <p className="text-white/60 text-xs mt-1">
-              Используется для брони столиков. Должен быть 6-значным числом (например: 123456)
-            </p>
-          </div>
+          {showTechnicalFields && (
+            <div>
+              <Label className="text-white">ID ресторана для бронирования</Label>
+              <Input
+                value={remarkedRestaurantId}
+                onChange={(e) => setRemarkedRestaurantId(e.target.value)}
+                placeholder="123456"
+                type="number"
+              />
+              <p className="text-white/60 text-xs mt-1">
+                Используется для подключения бронирования столиков
+              </p>
+            </div>
+          )}
 
           <div>
             <Label className="text-white">Ссылка на отзывы *</Label>
@@ -278,18 +287,20 @@ export function EditRestaurantModal({
             </p>
           </div>
 
-          <div>
-            <Label className="text-white">VK GROUP TOKEN (опционально)</Label>
-            <Input
-              value={vkGroupToken}
-              onChange={(e) => setVkGroupToken(e.target.value)}
-              placeholder="vk1.a...."
-              type="text"
-            />
-            <p className="text-white/60 text-xs mt-1">
-              Токен сообщества ВК для уведомлений по этому ресторану
-            </p>
-          </div>
+          {showTechnicalFields && (
+            <div>
+              <Label className="text-white">Токен уведомлений VK</Label>
+              <Input
+                value={vkGroupToken}
+                onChange={(e) => setVkGroupToken(e.target.value)}
+                placeholder="vk1.a...."
+                type="text"
+              />
+              <p className="text-white/60 text-xs mt-1">
+                Используется для отправки уведомлений по этому ресторану
+              </p>
+            </div>
+          )}
 
           <div>
             <Label className="text-white">Максимальное количество одинаковых блюд в корзине</Label>

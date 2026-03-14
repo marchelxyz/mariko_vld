@@ -6,6 +6,7 @@ import { Header } from "@widgets/header";
 import { PageHeader } from "@widgets/pageHeader";
 import { createYookassaPayment, fetchPaymentStatus } from "@/shared/api/payments";
 import { safeOpenLink } from "@/lib/platform";
+import { sanitizeUserFacingMessage } from "@shared/utils";
 
 type LocationState = {
   orderId?: string;
@@ -70,7 +71,12 @@ const OrderSuccessPage = () => {
         restaurantId,
       });
       if (!result?.success) {
-        setPaymentError(result?.message ?? "Не удалось создать оплату");
+        setPaymentError(
+          sanitizeUserFacingMessage(
+            result?.message,
+            "Не удалось создать оплату. Попробуйте ещё раз.",
+          ),
+        );
         return;
       }
       setPaymentId(result.paymentId ?? result.providerPaymentId ?? null);
@@ -84,7 +90,10 @@ const OrderSuccessPage = () => {
         setPaymentError("Ссылка на оплату не получена");
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Не удалось создать оплату";
+      const message = sanitizeUserFacingMessage(
+        error instanceof Error ? error.message : null,
+        "Не удалось создать оплату. Попробуйте ещё раз.",
+      );
       setPaymentError(message);
     } finally {
       setIsPaymentStarting(false);

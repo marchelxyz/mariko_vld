@@ -1,5 +1,6 @@
 import { type MenuItem } from "@shared/data";
 import { getInitData, getPlatform, getUser } from "@/lib/platform";
+import { sanitizeAdminFacingMessage } from "@shared/utils";
 
 const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
 const RAW_SERVER_API_BASE = normalizeBaseUrl(rawServerEnv || "/api");
@@ -81,7 +82,10 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
 
   const text = await response.text();
   if (!response.ok) {
-    const errorMessage = parseErrorPayload(text) ?? `Server API responded with ${response.status}`;
+    const errorMessage = sanitizeAdminFacingMessage(
+      parseErrorPayload(text),
+      "Не удалось выполнить действие с рекомендуемыми блюдами. Попробуйте ещё раз.",
+    );
     throw new Error(errorMessage);
   }
 
@@ -141,7 +145,10 @@ export async function saveRecommendedDishes(
     });
     return { success: true };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Неожиданная ошибка сохранения рекомендуемых блюд";
+    const message = sanitizeAdminFacingMessage(
+      error instanceof Error ? error.message : null,
+      "Не удалось сохранить рекомендуемые блюда. Попробуйте ещё раз.",
+    );
     return { success: false, errorMessage: message };
   }
 }

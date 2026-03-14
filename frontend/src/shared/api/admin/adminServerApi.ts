@@ -6,6 +6,7 @@ import { getPlatform, getUser } from "@/lib/platform";
 import { getTg, getUser as getTelegramUser } from "@/lib/telegramCore";
 import { getVk } from "@/lib/vkCore";
 import { logger } from "@/lib/logger";
+import { sanitizeAdminFacingMessage } from "@shared/utils";
 
 function normalizeBaseUrl(base: string | undefined): string {
   if (!base || base === "/") {
@@ -516,7 +517,10 @@ const buildHeaders = (overrideTelegramId?: string, overrideVkId?: string): Recor
 const handleResponse = async <T>(response: Response): Promise<T> => {
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    const errorMessage = text || `Ошибка запроса (${response.status})`;
+    const errorMessage = sanitizeAdminFacingMessage(
+      text,
+      "Не удалось выполнить действие. Попробуйте ещё раз.",
+    );
     
     // Если получили 404, это может означать, что backend не настроен правильно
     if (response.status === 404) {

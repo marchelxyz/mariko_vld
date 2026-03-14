@@ -1,5 +1,6 @@
 import type { UserProfile } from "@shared/types";
 import { getInitData, getPlatform, getUser, getUserId } from "@/lib/platform";
+import { sanitizeUserFacingMessage } from "@shared/utils";
 
 function getProfileApiBaseUrl(): string {
   // Используем VITE_SERVER_API_URL если он установлен (предпочтительный вариант)
@@ -81,7 +82,10 @@ const buildHeaders = (userId: string): Record<string, string> => {
 const handleResponse = async (response: Response): Promise<ProfileResponse> => {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = payload?.message || `Запрос профиля завершился ошибкой (${response.status})`;
+    const message = sanitizeUserFacingMessage(
+      payload?.message,
+      "Не удалось загрузить профиль. Попробуйте ещё раз позже.",
+    );
     throw new Error(message);
   }
   return payload as ProfileResponse;
