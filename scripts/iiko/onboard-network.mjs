@@ -218,6 +218,12 @@ const normalizeRestaurant = (raw, index) => {
   const terminalGroupId = raw?.terminal_group_id ?? raw?.terminalGroupId ?? raw?.iiko_terminal_group_id ?? "";
   const deliveryTerminalId = raw?.delivery_terminal_id ?? raw?.deliveryTerminalId ?? null;
   const defaultPaymentType = raw?.default_payment_type ?? raw?.defaultPaymentType ?? null;
+  const cashPaymentType = raw?.cash_payment_type ?? raw?.cashPaymentType ?? null;
+  const cashPaymentKind = raw?.cash_payment_kind ?? raw?.cashPaymentKind ?? null;
+  const cardPaymentType = raw?.card_payment_type ?? raw?.cardPaymentType ?? null;
+  const cardPaymentKind = raw?.card_payment_kind ?? raw?.cardPaymentKind ?? null;
+  const onlinePaymentType = raw?.online_payment_type ?? raw?.onlinePaymentType ?? null;
+  const onlinePaymentKind = raw?.online_payment_kind ?? raw?.onlinePaymentKind ?? null;
   const sourceKey = raw?.source_key ?? raw?.sourceKey ?? null;
 
   const normalized = {
@@ -227,6 +233,12 @@ const normalizeRestaurant = (raw, index) => {
     terminalGroupId: String(terminalGroupId || "").trim(),
     deliveryTerminalId: deliveryTerminalId ? String(deliveryTerminalId).trim() : null,
     defaultPaymentType: defaultPaymentType ? String(defaultPaymentType).trim() : null,
+    cashPaymentType: cashPaymentType ? String(cashPaymentType).trim() : null,
+    cashPaymentKind: cashPaymentKind ? String(cashPaymentKind).trim() : null,
+    cardPaymentType: cardPaymentType ? String(cardPaymentType).trim() : null,
+    cardPaymentKind: cardPaymentKind ? String(cardPaymentKind).trim() : null,
+    onlinePaymentType: onlinePaymentType ? String(onlinePaymentType).trim() : null,
+    onlinePaymentKind: onlinePaymentKind ? String(onlinePaymentKind).trim() : null,
     sourceKey: sourceKey ? String(sourceKey).trim() : null,
     __index: index,
   };
@@ -293,6 +305,12 @@ const upsertIikoConfig = async ({ backendUrl, setupKey, restaurant, timeoutMs })
       terminal_group_id: restaurant.terminalGroupId,
       delivery_terminal_id: restaurant.deliveryTerminalId,
       default_payment_type: restaurant.defaultPaymentType,
+      cash_payment_type: restaurant.cashPaymentType,
+      cash_payment_kind: restaurant.cashPaymentKind,
+      card_payment_type: restaurant.cardPaymentType,
+      card_payment_kind: restaurant.cardPaymentKind,
+      online_payment_type: restaurant.onlinePaymentType,
+      online_payment_kind: restaurant.onlinePaymentKind,
       source_key: restaurant.sourceKey,
     }),
   });
@@ -321,6 +339,12 @@ const upsertIikoConfigAdmin = async ({
       terminalGroupId: restaurant.terminalGroupId,
       deliveryTerminalId: restaurant.deliveryTerminalId,
       defaultPaymentType: restaurant.defaultPaymentType,
+      cashPaymentType: restaurant.cashPaymentType,
+      cashPaymentKind: restaurant.cashPaymentKind,
+      cardPaymentType: restaurant.cardPaymentType,
+      cardPaymentKind: restaurant.cardPaymentKind,
+      onlinePaymentType: restaurant.onlinePaymentType,
+      onlinePaymentKind: restaurant.onlinePaymentKind,
       sourceKey: restaurant.sourceKey,
       isEnabled: true,
     }),

@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-14 16:05
+**Последнее обновление:** 2026-03-14 17:11
 
 ---
 
@@ -404,6 +404,56 @@ NODE
 - `providerOrderId = 'iiko-order-123'`
 - `rawStatus = 'OnTheWay'`
 - `normalizedStatus = 'delivery'`
+
+**Коммит:** нет
+
+### ✅ Решение: способы оплаты `cash/card/online` должны маппиться раздельно, а недоступные варианты нельзя показывать и принимать
+
+**Дата:** 2026-03-14
+**Симптомы:**
+- Проект отправлял все способы оплаты в iiko через один `default_payment_type`
+- `card` и `online` могли уходить как `Cash`, хотя в iiko это разные типы оплаты
+- UI корзины всегда показывал все три варианта оплаты, даже если у ресторана в iiko нет отдельного payment type для `card` или `online`
+- В результате заказ мог сохраниться локально, но не уйти в iiko корректно
+
+**Причина:**
+- В `restaurant_integrations` хранился только `default_payment_type`
+- В iiko-клиенте не было отдельного mapping для `cash/card/online`
+- Корзина не знала, какие способы оплаты реально доступны для конкретного ресторана
+- `legacy`-логика маскировала `card/online` под `Cash`
+
+**Решение:**
+- Расширить `restaurant_integrations` полями:
+  - `cash_payment_type`, `cash_payment_kind`
+  - `card_payment_type`, `card_payment_kind`
+  - `online_payment_type`, `online_payment_kind`
+- Добавить миграцию этих полей в `databaseInit.mjs`
+- Перевести iiko-клиент на раздельное разрешение payment types по способу оплаты
+- Оставить `legacy` только для cash-only сценария; `card/online` в legacy теперь не маскируются под `Cash`, а считаются недоступными
+- Добавить метод `getPaymentMethodAvailability()` и использовать его:
+  - в setup-диагностике `/api/db/get-iiko-payment-types`
+  - в `POST /api/cart/recalculate` для возврата доступных методов оплаты в frontend
+  - в `POST /api/cart/submit` для ранней валидации недоступного способа оплаты
+- В frontend корзины отключать недоступные варианты оплаты и автоматически переключать текущий выбор на первый доступный
+
+**Важно про webhook token:**
+- `IIKO_WEBHOOK_TOKEN` не возвращается Cloud API
+- Его нужно задать вручную в интерфейсе iiko Cloud API в поле `Токен авторизации` вебхука
+- Тот же самый секрет нужно записать в env сервера (`IIKO_WEBHOOK_TOKEN` или `IIKO_WEBHOOK_TOKENS`)
+
+**Проверка:**
+```bash
+node --check backend/server/integrations/iiko-client.mjs
+node --check backend/server/routes/cartRoutes.mjs
+node --check backend/server/cart-server.mjs
+cd frontend && npm exec tsc --noEmit --pretty false
+```
+
+Проверка live payment types для Жуковского:
+- `cash`: `09322f46-578a-d210-add7-eec222a08871` (`Наличные`)
+- `online`: `e370eaff-62a4-4337-9192-3aedb2db608a` (`Оплата онлайн Стартер`)
+- `bonus`: `e77df5ae-61e6-43e6-8a70-11b5eee9e6de`
+- Отдельный `card on receipt` payment type по текущему ответу iiko не найден
 
 **Коммит:** нет
 

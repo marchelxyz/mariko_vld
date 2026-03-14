@@ -5,7 +5,7 @@ const IIKO_STOP_LIST_CACHE_TTL_MS =
   Number.parseInt(process.env.IIKO_STOP_LIST_CACHE_TTL_MS ?? "", 10) || 30 * 1000;
 const IIKO_PAYMENT_TYPES_CACHE_TTL_MS =
   Number.parseInt(process.env.IIKO_PAYMENT_TYPES_CACHE_TTL_MS ?? "", 10) || 10 * 60 * 1000;
-const IIKO_PAYMENT_MODE = String(process.env.IIKO_PAYMENT_MODE ?? "legacy")
+const IIKO_PAYMENT_MODE = String(process.env.IIKO_PAYMENT_MODE ?? "")
   .trim()
   .toLowerCase();
 const IIKO_MENU_SOURCE_MODE = String(process.env.IIKO_MENU_SOURCE_MODE ?? "auto")
@@ -593,8 +593,169 @@ const normalisePaymentTypeKind = (value, fallback = "Cash") => {
   if (lower === "cash") return "Cash";
   if (lower === "card") return "Card";
   if (lower === "external") return "External";
+  if (lower === "iikocard") return "IikoCard";
   return fallback;
 };
+
+const normalizePaymentTypeSearchValue = (value) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, " ");
+
+const normalizePaymentTypeSearchCode = (value) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+
+const getPaymentTypeKindValue = (paymentType) =>
+  normalisePaymentTypeKind(paymentType?.kind ?? paymentType?.paymentTypeKind, "");
+
+const isBonusPaymentType = (paymentType) => {
+  const code = normalizePaymentTypeSearchCode(paymentType?.code);
+  const name = normalizePaymentTypeSearchValue(paymentType?.name);
+  const kind = getPaymentTypeKindValue(paymentType).toLowerCase();
+  return kind === "iikocard" || code.includes("bonus") || name.includes("бонус");
+};
+
+const isOnlinePaymentType = (paymentType) => {
+  const code = normalizePaymentTypeSearchCode(paymentType?.code);
+  const name = normalizePaymentTypeSearchValue(paymentType?.name);
+  return (
+    code === "onl" ||
+    code.includes("online") ||
+    name.includes("онлайн") ||
+    name.includes("internet") ||
+    name.includes("интернет") ||
+    name.includes("сбп")
+  );
+};
+
+const isCashPaymentType = (paymentType) => {
+  const code = normalizePaymentTypeSearchCode(paymentType?.code);
+  const name = normalizePaymentTypeSearchValue(paymentType?.name);
+  const kind = getPaymentTypeKindValue(paymentType);
+  return kind === "Cash" || code === "cash" || name.includes("налич");
+};
+
+const isCardOnReceiptPaymentType = (paymentType) => {
+  const code = normalizePaymentTypeSearchCode(paymentType?.code);
+  const name = normalizePaymentTypeSearchValue(paymentType?.name);
+  const kind = getPaymentTypeKindValue(paymentType);
+  return (
+    kind === "Card" &&
+    !isOnlinePaymentType(paymentType) &&
+    (code.includes("card") ||
+      name.includes("карт") ||
+      name.includes("терминал") ||
+      name.includes("эквайр"))
+  );
+};
+
+const sanitizePaymentTypes = (paymentTypes) =>
+  asArray(paymentTypes).filter((paymentType) => paymentType && paymentType.isDeleted !== true);
+
+const getConfiguredPaymentMode = (config) => {
+  if (IIKO_PAYMENT_MODE === "legacy" || IIKO_PAYMENT_MODE === "mapped" || IIKO_PAYMENT_MODE === "auto") {
+    return IIKO_PAYMENT_MODE;
+  }
+  const hasExplicitMappings = Boolean(
+    normaliseIikoProductId(config?.cash_payment_type) ||
+      normaliseIikoProductId(config?.card_payment_type) ||
+      normaliseIikoProductId(config?.online_payment_type),
+  );
+  return hasExplicitMappings ? "mapped" : "legacy";
+};
+
+const resolveSuggestedPaymentTypeMappings = (paymentTypes) => {
+  const sanitized = sanitizePaymentTypes(paymentTypes);
+
+  const pickFirst = (predicate) => sanitized.find((paymentType) => predicate(paymentType)) ?? null;
+  const cash = pickFirst((paymentType) => isCashPaymentType(paymentType) && !isBonusPaymentType(paymentType));
+  const online = pickFirst((paymentType) => isOnlinePaymentType(paymentType) && !isBonusPaymentType(paymentType));
+  const card = pickFirst(
+    (paymentType) => isCardOnReceiptPaymentType(paymentType) && !isBonusPaymentType(paymentType),
+  );
+
+  const mapEntry = (paymentType) =>
+    paymentType
+      ? {
+          id: normaliseIikoProductId(paymentType.id) || null,
+          name: normaliseIikoProductId(paymentType.name) || null,
+          code: normaliseIikoProductId(paymentType.code) || null,
+          kind: getPaymentTypeKindValue(paymentType) || null,
+        }
+      : null;
+
+  const warnings = [];
+  if (!cash) warnings.push("Не найден явный cash payment type");
+  if (!card) warnings.push("Не найден явный card-on-receipt payment type");
+  if (!online) warnings.push("Не найден явный online payment type");
+
+  return {
+    cash: mapEntry(cash),
+    card: mapEntry(card),
+    online: mapEntry(online),
+    warnings,
+  };
+};
+
+const getPaymentMethodAvailabilityErrorMessage = (paymentMethod, configuredMode) => {
+  if (configuredMode === "legacy") {
+    if (paymentMethod === "card") {
+      return "Для оплаты картой при получении нужен отдельный iiko payment type и mapping.";
+    }
+    if (paymentMethod === "online") {
+      return "Для онлайн-оплаты нужен отдельный iiko payment type и mapping.";
+    }
+  }
+
+  if (paymentMethod === "card") {
+    return 'iiko: Не найден paymentTypeId для способа оплаты "card"';
+  }
+  if (paymentMethod === "online") {
+    return 'iiko: Не найден paymentTypeId для способа оплаты "online"';
+  }
+  return 'iiko: Не найден paymentTypeId для способа оплаты "cash"';
+};
+
+const buildLegacyPaymentMethodAvailability = (config) => {
+  const defaultPaymentTypeId = normaliseIikoProductId(config?.default_payment_type);
+  return {
+    cash: {
+      available: Boolean(defaultPaymentTypeId),
+      paymentTypeId: defaultPaymentTypeId || null,
+      paymentTypeKind: defaultPaymentTypeId ? "Cash" : null,
+      paymentMode: "legacy",
+      isProcessedExternally: false,
+      error: defaultPaymentTypeId
+        ? null
+        : "iiko: Не заполнен default_payment_type (нужен для legacy-режима оплаты)",
+    },
+    card: {
+      available: false,
+      paymentTypeId: null,
+      paymentTypeKind: null,
+      paymentMode: "legacy",
+      isProcessedExternally: false,
+      error: getPaymentMethodAvailabilityErrorMessage("card", "legacy"),
+    },
+    online: {
+      available: false,
+      paymentTypeId: null,
+      paymentTypeKind: null,
+      paymentMode: "legacy",
+      isProcessedExternally: false,
+      error: getPaymentMethodAvailabilityErrorMessage("online", "legacy"),
+    },
+  };
+};
+
+const findPaymentTypeById = (paymentTypes, paymentTypeId) =>
+  sanitizePaymentTypes(paymentTypes).find(
+    (paymentType) => normaliseIikoProductId(paymentType?.id) === normaliseIikoProductId(paymentTypeId),
+  ) ?? null;
 
 const getPaymentTypesCacheKey = (config) =>
   [config?.api_login || "no-login", config?.iiko_organization_id || "no-org"].join(":");
@@ -632,10 +793,13 @@ const fetchPaymentTypesByToken = async (accessToken, organizationId) => {
 const resolveIikoPaymentConfig = async (config, accessToken, paymentMethod) => {
   const normalizedMethod = normalisePaymentMethod(paymentMethod);
   const defaultPaymentTypeId = normaliseIikoProductId(config?.default_payment_type);
+  const configuredMode = getConfiguredPaymentMode(config);
 
-  // Безопасный режим по умолчанию: всегда отправляем оплату как Cash/default_payment_type.
-  // Это сохраняет рабочее поведение, которое уже проверено на проекте.
-  if (IIKO_PAYMENT_MODE !== "mapped") {
+  // Legacy-режим оставляет старый cash-only сценарий, но не маскирует card/online под Cash.
+  if (configuredMode === "legacy") {
+    if (normalizedMethod !== "cash") {
+      throw new Error(getPaymentMethodAvailabilityErrorMessage(normalizedMethod, "legacy"));
+    }
     if (!defaultPaymentTypeId) {
       throw new Error(
         "iiko: Не заполнен default_payment_type (нужен для legacy-режима оплаты)",
@@ -649,29 +813,6 @@ const resolveIikoPaymentConfig = async (config, accessToken, paymentMethod) => {
     };
   }
 
-  const methodSpecificId = normaliseIikoProductId(
-    normalizedMethod === "cash"
-      ? config?.cash_payment_type
-      : normalizedMethod === "card"
-        ? config?.card_payment_type
-        : config?.online_payment_type,
-  );
-  const paymentTypeId = methodSpecificId || defaultPaymentTypeId;
-
-  if (!paymentTypeId) {
-    throw new Error("iiko: Не найден paymentTypeId для выбранного способа оплаты");
-  }
-
-  const configuredKindRaw =
-    normalizedMethod === "cash"
-      ? config?.cash_payment_kind
-      : normalizedMethod === "card"
-        ? config?.card_payment_kind
-        : config?.online_payment_kind;
-  const fallbackKind = normalizedMethod === "cash" ? "Cash" : "Card";
-  let paymentTypeKind = normalisePaymentTypeKind(configuredKindRaw, fallbackKind);
-
-  // Уточняем kind по paymentTypeId, если API отдает типы оплаты.
   let paymentTypes = getCachedPaymentTypes(config);
   if (!paymentTypes) {
     try {
@@ -681,19 +822,63 @@ const resolveIikoPaymentConfig = async (config, accessToken, paymentMethod) => {
       paymentTypes = [];
     }
   }
-  const matched = paymentTypes.find(
-    (type) =>
-      type &&
-      type.isDeleted !== true &&
-      normaliseIikoProductId(type.id) === paymentTypeId,
+  const paymentTypeSuggestions = resolveSuggestedPaymentTypeMappings(paymentTypes);
+
+  const methodSpecificId = normaliseIikoProductId(
+    normalizedMethod === "cash"
+      ? config?.cash_payment_type
+      : normalizedMethod === "card"
+        ? config?.card_payment_type
+        : config?.online_payment_type,
   );
-  if (matched) {
-    paymentTypeKind = normalisePaymentTypeKind(matched.kind, paymentTypeKind);
+  const configuredKindRaw =
+    normalizedMethod === "cash"
+      ? config?.cash_payment_kind
+      : normalizedMethod === "card"
+        ? config?.card_payment_kind
+        : config?.online_payment_kind;
+  const fallbackKind = normalizedMethod === "cash" ? "Cash" : "Card";
+
+  let selectedPaymentType =
+    findPaymentTypeById(paymentTypes, methodSpecificId) ??
+    findPaymentTypeById(
+      paymentTypes,
+      normalizedMethod === "cash"
+        ? paymentTypeSuggestions.cash?.id
+        : normalizedMethod === "card"
+          ? paymentTypeSuggestions.card?.id
+          : paymentTypeSuggestions.online?.id,
+    );
+
+  if (!selectedPaymentType && normalizedMethod === "cash" && defaultPaymentTypeId) {
+    selectedPaymentType = findPaymentTypeById(paymentTypes, defaultPaymentTypeId);
   }
 
-  // Если используем default_payment_type, в отсутствие явной конфигурации
-  // считаем его "Cash" для совместимости.
-  if (paymentTypeId === defaultPaymentTypeId && !configuredKindRaw && !matched) {
+  if (!selectedPaymentType && configuredMode === "auto" && defaultPaymentTypeId) {
+    selectedPaymentType = findPaymentTypeById(paymentTypes, defaultPaymentTypeId);
+  }
+
+  const paymentTypeId =
+    normaliseIikoProductId(selectedPaymentType?.id) ||
+    methodSpecificId ||
+    (normalizedMethod === "cash" ? defaultPaymentTypeId : "") ||
+    null;
+
+  if (!paymentTypeId) {
+    throw new Error(`iiko: Не найден paymentTypeId для способа оплаты "${normalizedMethod}"`);
+  }
+
+  let paymentTypeKind = normalisePaymentTypeKind(
+    configuredKindRaw || getPaymentTypeKindValue(selectedPaymentType),
+    fallbackKind,
+  );
+
+  if (
+    paymentTypeId === defaultPaymentTypeId &&
+    normalizedMethod === "cash" &&
+    !configuredKindRaw &&
+    !selectedPaymentType
+  ) {
     paymentTypeKind = "Cash";
   }
 
@@ -702,6 +887,8 @@ const resolveIikoPaymentConfig = async (config, accessToken, paymentMethod) => {
     paymentTypeKind,
     isProcessedExternally: normalizedMethod === "online" && paymentTypeKind !== "Cash",
     paymentMethod: normalizedMethod,
+    paymentTypeSuggestions,
+    paymentMode: configuredMode,
   };
 };
 
@@ -1289,6 +1476,7 @@ export const iikoClient = {
       return {
         success: true,
         paymentTypes: response?.paymentTypes ?? [],
+        suggestions: resolveSuggestedPaymentTypeMappings(response?.paymentTypes ?? []),
       };
     } catch (error) {
       return {
@@ -1302,6 +1490,90 @@ export const iikoClient = {
         },
       };
     }
+  },
+
+  async getPaymentTypeSuggestions(config) {
+    const paymentTypesResult = await this.getPaymentTypes(config);
+    if (!paymentTypesResult?.success) {
+      return paymentTypesResult;
+    }
+    return {
+      success: true,
+      paymentTypes: paymentTypesResult.paymentTypes ?? [],
+      suggestions: paymentTypesResult.suggestions ?? resolveSuggestedPaymentTypeMappings(paymentTypesResult.paymentTypes ?? []),
+    };
+  },
+
+  async getPaymentMethodAvailability(config, options = {}) {
+    if (!config?.api_login) {
+      return { success: false, error: "iiko: Не указан api_login" };
+    }
+
+    const paymentMode = getConfiguredPaymentMode(config);
+    const availability =
+      paymentMode === "legacy" ? buildLegacyPaymentMethodAvailability(config) : {};
+
+    let paymentTypes = [];
+    let suggestions = resolveSuggestedPaymentTypeMappings([]);
+    let accessToken = null;
+
+    if (paymentMode !== "legacy") {
+      try {
+        accessToken = await getAccessTokenForRequest(config.api_login, options);
+      } catch (error) {
+        return {
+          success: false,
+          error: error?.message || "iiko: Не удалось получить access token",
+        };
+      }
+
+      paymentTypes = getCachedPaymentTypes(config);
+      if (!paymentTypes) {
+        try {
+          paymentTypes = await fetchPaymentTypesByToken(accessToken, config.iiko_organization_id);
+          setCachedPaymentTypes(config, paymentTypes);
+        } catch (error) {
+          return {
+            success: false,
+            error: error?.message || "iiko: Не удалось получить payment types",
+          };
+        }
+      }
+      suggestions = resolveSuggestedPaymentTypeMappings(paymentTypes);
+
+      for (const paymentMethod of ["cash", "card", "online"]) {
+        try {
+          const resolved = await resolveIikoPaymentConfig(config, accessToken, paymentMethod);
+          availability[paymentMethod] = {
+            available: true,
+            paymentTypeId: resolved.paymentTypeId ?? null,
+            paymentTypeKind: resolved.paymentTypeKind ?? null,
+            paymentMode: resolved.paymentMode ?? paymentMode,
+            isProcessedExternally: resolved.isProcessedExternally === true,
+            error: null,
+          };
+        } catch (error) {
+          availability[paymentMethod] = {
+            available: false,
+            paymentTypeId: null,
+            paymentTypeKind: null,
+            paymentMode,
+            isProcessedExternally: false,
+            error:
+              error?.message ||
+              getPaymentMethodAvailabilityErrorMessage(paymentMethod, paymentMode),
+          };
+        }
+      }
+    }
+
+    return {
+      success: true,
+      paymentMode,
+      paymentMethods: availability,
+      paymentTypes,
+      suggestions,
+    };
   },
 
   /**
