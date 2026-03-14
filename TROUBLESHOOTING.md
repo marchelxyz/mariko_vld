@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-14 14:20
+**Последнее обновление:** 2026-03-14 14:32
 
 ---
 
@@ -315,6 +315,30 @@ curl -X POST "https://your-test-app.example.com/api/db/sync-external-menu?key=ma
   - `fats`
   - `carbs`
   - `allergens`
+
+**Коммит:** будет добавлен после фиксации изменений
+
+### ❌ Проблема: после добавления БЖУ и аллергенов sync падает с `INSERT has more target columns than expressions`
+
+**Дата:** 2026-03-14
+**Симптомы:**
+- `POST /api/db/sync-external-menu` или sync меню падает на вставке `menu_items`
+- PostgreSQL возвращает ошибку:
+  - `INSERT has more target columns than expressions`
+
+**Причина:**
+- В `persistRestaurantMenu()` были добавлены новые поля `proteins/fats/carbs/allergens`
+- Основной список item params был обновлён, но batch `VALUES (...)` для `menu_items` остался со старым числом placeholders
+
+**Решение:**
+- Синхронизировать число placeholders в batch insert с новым `PARAMS_PER_ITEM`
+- После расширения структуры `menu_items` всегда проверять оба места:
+  - формирование `itemParams`
+  - batch `batchValues.push(...)`
+
+**Проверка:**
+- `node --check backend/server/routes/menuRoutes.mjs`
+- Повторный вызов sync больше не должен падать на SQL вставке `menu_items`
 
 **Коммит:** будет добавлен после фиксации изменений
 

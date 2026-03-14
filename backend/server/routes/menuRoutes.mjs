@@ -919,7 +919,7 @@ export const persistRestaurantMenu = async (restaurantId, menu) => {
 
     for (let j = 0; j < batchSize; j++) {
       const itemIndex = i + j;
-      batchValues.push(`($${batchParamIndex}, $${batchParamIndex + 1}, $${batchParamIndex + 2}, $${batchParamIndex + 3}, $${batchParamIndex + 4}, $${batchParamIndex + 5}, $${batchParamIndex + 6}, $${batchParamIndex + 7}, $${batchParamIndex + 8}, $${batchParamIndex + 9}, $${batchParamIndex + 10}, $${batchParamIndex + 11}, $${batchParamIndex + 12}, $${batchParamIndex + 13}, $${batchParamIndex + 14}, NOW(), NOW())`);
+      batchValues.push(`($${batchParamIndex}, $${batchParamIndex + 1}, $${batchParamIndex + 2}, $${batchParamIndex + 3}, $${batchParamIndex + 4}, $${batchParamIndex + 5}, $${batchParamIndex + 6}, $${batchParamIndex + 7}, $${batchParamIndex + 8}, $${batchParamIndex + 9}, $${batchParamIndex + 10}, $${batchParamIndex + 11}, $${batchParamIndex + 12}, $${batchParamIndex + 13}, $${batchParamIndex + 14}, $${batchParamIndex + 15}, $${batchParamIndex + 16}, $${batchParamIndex + 17}, $${batchParamIndex + 18}, NOW(), NOW())`);
       batchParams.push(...itemParams.slice(itemIndex * PARAMS_PER_ITEM, (itemIndex + 1) * PARAMS_PER_ITEM));
       batchParamIndex += PARAMS_PER_ITEM;
     }
