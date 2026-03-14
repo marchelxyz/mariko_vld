@@ -11,7 +11,7 @@ import { useProfile } from "@entities/user";
 import { getCleanPhoneNumber } from "@shared/hooks/usePhoneInput";
 
 const resolveStatus = (order: CartOrderRecord): string => {
-  const candidates = [order.iiko_status, order.provider_status, order.status];
+  const candidates = [order.status, order.iiko_status, order.provider_status];
   const resolved = candidates.find((value) => typeof value === "string" && value.trim().length > 0);
   return String(resolved ?? "processing").toLowerCase();
 };
@@ -202,6 +202,8 @@ export default function OrdersPage() {
         limit: 20,
       }),
     enabled: hasIdentity,
+    refetchInterval: hasIdentity ? 15000 : false,
+    refetchIntervalInBackground: true,
   });
 
   const orders = data ?? [];
