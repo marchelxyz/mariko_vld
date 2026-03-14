@@ -149,7 +149,7 @@ export function DeliveryManagement(): JSX.Element {
             Управление доставками
           </h2>
           <p className="text-white/70 text-sm md:text-base">
-            Статусы заказов синхронизируются только из iiko
+            Статусы заказов обновляются автоматически
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">

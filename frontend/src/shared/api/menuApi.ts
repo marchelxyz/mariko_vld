@@ -1,5 +1,6 @@
 import type { RestaurantMenu } from "@shared/data";
 import { getInitData, getPlatform, getUser } from "@/lib/platform";
+import { sanitizeAdminFacingMessage } from "@shared/utils";
 
 const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
 const RAW_SERVER_API_BASE = rawServerEnv ? (rawServerEnv.endsWith("/") ? rawServerEnv.slice(0, -1) : rawServerEnv) : "/api";
@@ -97,7 +98,10 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
 
   const text = await response.text();
   if (!response.ok) {
-    const errorMessage = parseErrorPayload(text) ?? `Server API responded with ${response.status}`;
+    const errorMessage = sanitizeAdminFacingMessage(
+      parseErrorPayload(text),
+      "Не удалось выполнить действие с меню. Попробуйте ещё раз.",
+    );
     throw new Error(errorMessage);
   }
 
@@ -212,7 +216,10 @@ export async function saveRestaurantMenu(
     });
     return { success: true };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Неожиданная ошибка при сохранении меню';
+    const message = sanitizeAdminFacingMessage(
+      error instanceof Error ? error.message : null,
+      "Не удалось сохранить меню. Попробуйте ещё раз.",
+    );
     return { success: false, errorMessage: message };
   }
 }
@@ -299,14 +306,20 @@ export async function uploadMenuImage(
 
     const text = await response.text();
     if (!response.ok) {
-      const errorMessage = parseErrorPayload(text) ?? `Server API responded with ${response.status}`;
+      const errorMessage = sanitizeAdminFacingMessage(
+        parseErrorPayload(text),
+        "Не удалось загрузить изображение. Попробуйте ещё раз.",
+      );
       throw new Error(errorMessage);
     }
 
     const data = JSON.parse(text);
     return { url: data.url };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Неожиданная ошибка при загрузке изображения';
+    const message = sanitizeAdminFacingMessage(
+      error instanceof Error ? error.message : null,
+      "Не удалось загрузить изображение. Попробуйте ещё раз.",
+    );
     throw new Error(message);
   }
 }
@@ -343,7 +356,10 @@ export async function fetchMenuImageLibrary(
     });
     
     if (!response.ok) {
-      const errorMessage = parseErrorPayload(text) ?? `Server API responded with ${response.status}`;
+      const errorMessage = sanitizeAdminFacingMessage(
+        parseErrorPayload(text),
+        "Не удалось загрузить библиотеку изображений. Попробуйте ещё раз.",
+      );
       console.error('Ошибка ответа сервера', { status: response.status, errorMessage, text });
       throw new Error(errorMessage);
     }

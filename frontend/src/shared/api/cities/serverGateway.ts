@@ -2,6 +2,7 @@ import type { City } from "@shared/data";
 import { resolveServerUrl, RAW_SERVER_API_BASE } from "./config";
 import { getInitData, getUser, getPlatform } from "@/lib/platform";
 import { logger } from "@/lib/logger";
+import { sanitizeAdminFacingMessage } from "@shared/utils";
 
 function parseErrorPayload(payload?: string): string | null {
   if (!payload) {
@@ -74,7 +75,10 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
     const text = await response.text();
     
     if (!response.ok) {
-      const errorMessage = parseErrorPayload(text) ?? `Server API responded with ${response.status}`;
+      const errorMessage = sanitizeAdminFacingMessage(
+        parseErrorPayload(text),
+        "Не удалось получить данные от сервера. Попробуйте ещё раз.",
+      );
       const error = new Error(errorMessage);
       logger.apiError(method, url, error, response.status);
       throw error;
@@ -119,7 +123,10 @@ export async function setCityStatusViaServer(
   if (!response.ok) {
     return {
       success: false,
-      errorMessage: parseErrorPayload(text) ?? 'Ошибка серверного API при изменении статуса города',
+      errorMessage: sanitizeAdminFacingMessage(
+        parseErrorPayload(text),
+        "Не удалось изменить статус города. Попробуйте ещё раз.",
+      ),
     };
   }
 
@@ -174,7 +181,10 @@ export async function createCityViaServer(
     });
 
     if (!response.ok) {
-      const errorMessage = parseErrorPayload(text) ?? `Ошибка серверного API при создании города (${response.status})`;
+      const errorMessage = sanitizeAdminFacingMessage(
+        parseErrorPayload(text),
+        "Не удалось создать город. Попробуйте ещё раз.",
+      );
       logger.error('cities', new Error(errorMessage), {
         status: response.status,
         statusText: response.statusText,
@@ -191,16 +201,16 @@ export async function createCityViaServer(
     return { success: true };
   } catch (error) {
     // Детальная обработка различных типов ошибок
-    let errorMessage = 'Неожиданная ошибка при создании города';
+    let errorMessage = 'Не удалось создать город. Попробуйте ещё раз.';
     
     if (error instanceof TypeError) {
       if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
-        errorMessage = `Не удалось подключиться к серверу. Проверьте:\n1. Правильность URL: ${url}\n2. Доступность сервера\n3. Настройки CORS`;
+        errorMessage = 'Не удалось подключиться к серверу. Проверьте соединение и попробуйте ещё раз.';
       } else {
-        errorMessage = `Ошибка сети: ${error.message}`;
+        errorMessage = sanitizeAdminFacingMessage(error.message, errorMessage);
       }
     } else if (error instanceof Error) {
-      errorMessage = `Ошибка: ${error.message}`;
+      errorMessage = sanitizeAdminFacingMessage(error.message, errorMessage);
     }
     
     logger.error('cities', error instanceof Error ? error : new Error(String(error)), {
@@ -212,7 +222,7 @@ export async function createCityViaServer(
     
     return {
       success: false,
-      errorMessage,
+      errorMessage: sanitizeAdminFacingMessage(errorMessage, "Не удалось создать город. Попробуйте ещё раз."),
     };
   }
 }
@@ -233,28 +243,41 @@ export async function createRestaurantViaServer(
     maxCartItemQuantity?: number;
   }
 ): Promise<{ success: boolean; restaurantId?: string; errorMessage?: string }> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  appendPlatformAuthHeaders(headers);
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    appendPlatformAuthHeaders(headers);
 
-  const response = await fetch(resolveServerUrl('/cities/restaurants'), {
-    method: 'POST',
-    credentials: 'include',
-    headers,
-    body: JSON.stringify(restaurant),
-  });
+    const response = await fetch(resolveServerUrl('/cities/restaurants'), {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: JSON.stringify(restaurant),
+    });
 
-  const text = await response.text();
-  if (!response.ok) {
+    const text = await response.text();
+    if (!response.ok) {
+      return {
+        success: false,
+        errorMessage: sanitizeAdminFacingMessage(
+          parseErrorPayload(text),
+          'Не удалось сохранить ресторан. Попробуйте ещё раз.',
+        ),
+      };
+    }
+
+    const result = text ? JSON.parse(text) : {};
+    return { success: true, restaurantId: result.restaurantId };
+  } catch (error) {
     return {
       success: false,
-      errorMessage: parseErrorPayload(text) ?? 'Ошибка серверного API при создании ресторана',
+      errorMessage: sanitizeAdminFacingMessage(
+        error instanceof Error ? error.message : null,
+        'Не удалось сохранить ресторан. Попробуйте ещё раз.',
+      ),
     };
   }
-
-  const result = text ? JSON.parse(text) : {};
-  return { success: true, restaurantId: result.restaurantId };
 }
 
 export async function updateRestaurantViaServer(
@@ -275,25 +298,38 @@ export async function updateRestaurantViaServer(
     maxCartItemQuantity?: number;
   }
 ): Promise<{ success: boolean; errorMessage?: string }> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  appendPlatformAuthHeaders(headers);
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    appendPlatformAuthHeaders(headers);
 
-  const response = await fetch(resolveServerUrl(`/cities/restaurants/${restaurantId}`), {
-    method: 'PATCH',
-    credentials: 'include',
-    headers,
-    body: JSON.stringify(updates),
-  });
+    const response = await fetch(resolveServerUrl(`/cities/restaurants/${restaurantId}`), {
+      method: 'PATCH',
+      credentials: 'include',
+      headers,
+      body: JSON.stringify(updates),
+    });
 
-  const text = await response.text();
-  if (!response.ok) {
+    const text = await response.text();
+    if (!response.ok) {
+      return {
+        success: false,
+        errorMessage: sanitizeAdminFacingMessage(
+          parseErrorPayload(text),
+          'Не удалось обновить ресторан. Попробуйте ещё раз.',
+        ),
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
     return {
       success: false,
-      errorMessage: parseErrorPayload(text) ?? 'Ошибка серверного API при обновлении ресторана',
+      errorMessage: sanitizeAdminFacingMessage(
+        error instanceof Error ? error.message : null,
+        'Не удалось обновить ресторан. Попробуйте ещё раз.',
+      ),
     };
   }
-
-  return { success: true };
 }

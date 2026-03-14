@@ -37,7 +37,7 @@ import {
 import { profileApi } from "@shared/api/profile";
 import { toast } from "@/hooks/use-toast";
 import { CalendarIcon, Loader2, RefreshCw, Pencil } from "lucide-react";
-import { cn } from "@shared/utils";
+import { cn, sanitizeUserFacingMessage } from "@shared/utils";
 import { getCachedBookingSlots, cacheBookingSlots } from "@shared/utils/bookingSlotsCache";
 
 type EventType = {
@@ -191,7 +191,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           Бронирование пока недоступно для этого ресторана
         </p>
         <p className="mt-2 text-sm text-white/70">
-          Обратитесь к администратору для настройки системы бронирования
+          Попробуйте выбрать другой ресторан или вернитесь позже.
         </p>
       </div>
     );
@@ -201,10 +201,10 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
     return (
       <div className="rounded-[24px] border border-white/15 bg-white/10 p-6 text-center text-white">
         <p className="font-el-messiri text-lg">
-          Ошибка конфигурации системы бронирования
+          Бронирование временно недоступно
         </p>
         <p className="mt-2 text-sm text-white/70">
-          ID ресторана должен быть 6-значным кодом Remarked
+          Попробуйте выбрать другой ресторан или вернитесь позже.
         </p>
       </div>
     );
@@ -238,7 +238,10 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           setToken(response.data.token);
           setTokenError(null);
         } else {
-          const errorMessage = response.error || "Не удалось получить токен";
+          const errorMessage = sanitizeUserFacingMessage(
+            response.error,
+            "Система бронирования временно недоступна. Попробуйте позже.",
+          );
           setTokenError(errorMessage);
         }
       })
@@ -289,7 +292,12 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           errorMessage = "Не удалось подключиться к системе бронирования. Попробуйте обновить страницу.";
         }
         
-        setTokenError(errorMessage);
+        setTokenError(
+          sanitizeUserFacingMessage(
+            errorMessage,
+            "Система бронирования временно недоступна. Попробуйте позже.",
+          ),
+        );
         
         // Показываем toast только при критических ошибках (не сетевых)
         // Сетевые ошибки обычно временные и не требуют немедленного внимания пользователя
@@ -304,7 +312,10 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         if (!isNetworkError) {
           toast({
             title: "Ошибка подключения",
-            description: errorMessage,
+            description: sanitizeUserFacingMessage(
+              errorMessage,
+              "Система бронирования временно недоступна. Попробуйте позже.",
+            ),
             variant: "destructive",
           });
         }
@@ -581,7 +592,10 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
           });
         } else {
           // Обрабатываем ошибку из ответа
-          let errorMessage = response.error?.trim() || "Не удалось загрузить доступные слоты";
+          let errorMessage = sanitizeUserFacingMessage(
+            response.error?.trim(),
+            "Не удалось загрузить доступные слоты. Попробуйте позже.",
+          );
           
           // Проверяем, что сообщение не "Unknown error"
           if (!errorMessage || errorMessage.toLowerCase() === "unknown error") {
@@ -624,7 +638,10 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
             } else if (message.includes("timeout") || message.includes("Timeout")) {
               errorMessage = "Превышено время ожидания ответа от сервера. Попробуйте позже.";
             } else {
-              errorMessage = message;
+              errorMessage = sanitizeUserFacingMessage(
+                message,
+                "Не удалось загрузить доступные слоты. Попробуйте позже.",
+              );
             }
           }
         } else if (typeof error === 'string' && error.trim() && error.trim().toLowerCase() !== "unknown error") {
@@ -882,7 +899,10 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       const errorMsg = tokenError || "Система бронирования недоступна";
       toast({
         title: "Ошибка",
-        description: errorMsg,
+        description: sanitizeUserFacingMessage(
+          errorMsg,
+          "Система бронирования временно недоступна. Попробуйте позже.",
+        ),
         variant: "destructive",
       });
       return;
@@ -897,7 +917,10 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       } catch (error) {
         toast({
           title: "Ошибка",
-          description: error instanceof Error ? error.message : "Некорректный номер телефона",
+          description: sanitizeUserFacingMessage(
+            error instanceof Error ? error.message : null,
+            "Некорректный номер телефона",
+          ),
           variant: "destructive",
         });
         setSubmitting(false);
@@ -999,18 +1022,21 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         }
       } else {
         // Улучшенная обработка ошибок
-        const errorMessage = result?.error?.trim() || "Не удалось создать бронирование. Попробуйте позже.";
+        const errorMessage = sanitizeUserFacingMessage(
+          result?.error?.trim(),
+          "Не удалось создать бронирование. Попробуйте позже.",
+        );
         throw new Error(errorMessage);
       }
     } catch (error) {
       let errorMessage = "Не удалось создать бронирование. Попробуйте позже.";
       
       if (error instanceof Error) {
-        errorMessage = error.message.trim() || errorMessage;
+        errorMessage = sanitizeUserFacingMessage(error.message.trim(), errorMessage);
       } else if (typeof error === 'string') {
-        errorMessage = error.trim() || errorMessage;
+        errorMessage = sanitizeUserFacingMessage(error.trim(), errorMessage);
       } else if (error && typeof error === 'object' && 'message' in error) {
-        errorMessage = String(error.message).trim() || errorMessage;
+        errorMessage = sanitizeUserFacingMessage(String(error.message).trim(), errorMessage);
       }
       
       toast({

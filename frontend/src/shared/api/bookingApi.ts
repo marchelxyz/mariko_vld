@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { getTg, getUser } from "@/lib/telegramCore";
+import { sanitizeUserFacingMessage } from "@shared/utils";
 
 function normalizeBaseUrl(base: string): string {
   if (!base || base === "/") {
@@ -111,7 +112,10 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
     });
 
     if (!response.ok) {
-      let errorMessage = parseErrorPayload(responseText);
+      let errorMessage = sanitizeUserFacingMessage(
+        parseErrorPayload(responseText),
+        "",
+      );
       
       // Если не удалось извлечь сообщение из payload, формируем понятное сообщение
       if (!errorMessage || errorMessage.trim() === "" || errorMessage.toLowerCase() === "unknown error") {
@@ -181,7 +185,10 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
         } else if (message.includes("timeout") || message.includes("Timeout")) {
           errorMessage = "Превышено время ожидания ответа от сервера. Попробуйте позже.";
         } else {
-          errorMessage = message;
+          errorMessage = sanitizeUserFacingMessage(
+            message,
+            "Ошибка подключения к серверу. Попробуйте позже.",
+          );
         }
       } else {
         errorMessage = "Ошибка подключения к серверу. Попробуйте позже.";
@@ -397,11 +404,11 @@ export async function createBooking(
     let message = "Не удалось создать бронирование";
     
     if (error instanceof Error) {
-      message = error.message || message;
+      message = sanitizeUserFacingMessage(error.message, message);
     } else if (typeof error === 'string') {
-      message = error;
+      message = sanitizeUserFacingMessage(error, message);
     } else if (error && typeof error === 'object' && 'message' in error) {
-      message = String(error.message) || message;
+      message = sanitizeUserFacingMessage(String(error.message), message);
     }
     
     // Убеждаемся, что сообщение не пустое
@@ -477,7 +484,10 @@ export async function getBookingToken(restaurantId: string): Promise<{
       return response;
     }
 
-    const errorMessage = response.error || 'Не удалось получить токен';
+    const errorMessage = sanitizeUserFacingMessage(
+      response.error,
+      'Не удалось подключиться к системе бронирования.',
+    );
     logger.error('booking-api', new Error(errorMessage), {
       restaurantId,
       response,
@@ -494,7 +504,7 @@ export async function getBookingToken(restaurantId: string): Promise<{
 
     let message = "Не удалось получить токен";
     if (error instanceof Error) {
-      message = error.message || message;
+      message = sanitizeUserFacingMessage(error.message, message);
     }
     return {
       success: false,
@@ -516,7 +526,7 @@ export async function getBookingSlots(params: {
     return { 
       success: false, 
       data: { slots: [], date: params.date, guests_count: params.guestsCount },
-      error: "Серверный API выключен"
+      error: "Система бронирования временно недоступна"
     };
   }
 

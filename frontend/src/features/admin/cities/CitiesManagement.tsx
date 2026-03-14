@@ -31,6 +31,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@shared/ui";
+import { sanitizeAdminFacingMessage } from "@shared/utils";
 
 type RestaurantWithStatus = City['restaurants'][number] & { isActive: boolean };
 
@@ -55,6 +56,7 @@ const normalizeCity = (city: City & { is_active?: boolean }): CityWithStatus => 
  */
 export function CitiesManagement(): JSX.Element {
   const { userId, allowedRestaurants, isSuperAdmin, userRole, hasPermission, isLoading: isAdminLoading } = useAdmin();
+  const showTechnicalCityControls = isSuperAdmin();
   const [citiesWithStatus, setCitiesWithStatus] = useState<CityWithStatus[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [cityToDelete, setCityToDelete] = useState<string | null>(null);
@@ -294,11 +296,15 @@ export function CitiesManagement(): JSX.Element {
       yandexMapsUrl: updates.yandexMapsUrl.trim() ? updates.yandexMapsUrl : undefined,
       twoGisUrl: updates.twoGisUrl.trim() ? updates.twoGisUrl : undefined,
       socialNetworks: updates.socialNetworks.length > 0 ? updates.socialNetworks : undefined,
-      remarkedRestaurantId: updates.remarkedRestaurantId,
       reviewLink: updates.reviewLink.trim(),
-      vkGroupToken: updates.vkGroupToken?.trim() || undefined,
       maxCartItemQuantity: updates.maxCartItemQuantity,
       isDeliveryEnabled: updates.isDeliveryEnabled,
+      ...(showTechnicalCityControls
+        ? {
+            remarkedRestaurantId: updates.remarkedRestaurantId,
+            vkGroupToken: updates.vkGroupToken?.trim() || undefined,
+          }
+        : {}),
     });
 
     if (result) {
@@ -357,19 +363,22 @@ export function CitiesManagement(): JSX.Element {
             yandexMapsUrl: city.restaurant.yandexMapsUrl,
             twoGisUrl: city.restaurant.twoGisUrl,
             socialNetworks: city.restaurant.socialNetworks,
-            remarkedRestaurantId: city.restaurant.remarkedRestaurantId,
             reviewLink: city.restaurant.reviewLink,
-            vkGroupToken: city.restaurant.vkGroupToken,
+            ...(showTechnicalCityControls
+              ? {
+                  remarkedRestaurantId: city.restaurant.remarkedRestaurantId,
+                  vkGroupToken: city.restaurant.vkGroupToken,
+                }
+              : {}),
           });
 
           logger.debug('cities', 'Результат создания ресторана', restaurantResult);
 
           if (!restaurantResult.success) {
-            const details = restaurantResult.errorMessage ? `\n\nДетали: ${restaurantResult.errorMessage}` : '';
             logger.error('cities', new Error(restaurantResult.errorMessage || 'Ошибка создания ресторана'), {
               cityId: city.id,
             });
-            alert(`✅ Город "${city.name}" создан, но не удалось создать ресторан${details}`);
+            alert(`Город "${city.name}" создан, но ресторан сохранить не удалось.`);
           }
         }
 
@@ -379,24 +388,27 @@ export function CitiesManagement(): JSX.Element {
         alert(`✅ Город "${city.name}" успешно создан${city.restaurant ? ' с рестораном' : ''}`);
         setIsCreateCityModalOpen(false);
       } else {
-        const details = result.errorMessage ? `\n\nДетали: ${result.errorMessage}` : '';
         logger.error('cities', new Error(result.errorMessage || 'Ошибка создания города'), {
           cityId: city.id,
           errorMessage: result.errorMessage,
         });
-        
-        // Более информативное сообщение об ошибке
-        let errorMsg = `❌ Ошибка создания города${details}`;
-        if (result.errorMessage?.includes('Не удалось подключиться к серверу')) {
-          errorMsg += '\n\nПроверьте:\n1. Доступность сервера\n2. Переменную VITE_SERVER_API_URL\n3. Настройки CORS';
-        }
-        alert(errorMsg);
+        alert(
+          sanitizeAdminFacingMessage(
+            result.errorMessage,
+            'Не удалось создать город. Попробуйте ещё раз.',
+          ),
+        );
       }
     } catch (error) {
       logger.error('cities', error instanceof Error ? error : new Error('Неожиданная ошибка'), {
         cityId: city.id,
       });
-      alert(`❌ Неожиданная ошибка при создании города: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+      alert(
+        sanitizeAdminFacingMessage(
+          error instanceof Error ? error.message : null,
+          'Не удалось создать город. Попробуйте ещё раз.',
+        ),
+      );
     }
   };
 
@@ -597,9 +609,9 @@ export function CitiesManagement(): JSX.Element {
                     <p className="text-white/60 text-xs md:text-sm truncate">
                       {restaurant.address}
                     </p>
-                    {restaurant.remarkedRestaurantId && (
+                    {showTechnicalCityControls && restaurant.remarkedRestaurantId && (
                       <p className="text-white/50 text-xs mt-1">
-                        Remarked ID: {restaurant.remarkedRestaurantId}
+                        ID бронирования: {restaurant.remarkedRestaurantId}
                       </p>
                     )}
                   </div>
@@ -613,15 +625,17 @@ export function CitiesManagement(): JSX.Element {
                     >
                       <Edit className="w-3.5 h-3.5 md:w-4 md:h-4" />
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleUpdateRemarkedId(restaurant.id, city.id)}
-                      title="Настроить ID Remarked"
-                      className="h-8 w-8 md:h-9 md:w-9 p-0 text-xs"
-                    >
-                      🎯
-                    </Button>
+                    {showTechnicalCityControls && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleUpdateRemarkedId(restaurant.id, city.id)}
+                        title="Настроить ID бронирования"
+                        className="h-8 w-8 md:h-9 md:w-9 p-0 text-xs"
+                      >
+                        🎯
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"

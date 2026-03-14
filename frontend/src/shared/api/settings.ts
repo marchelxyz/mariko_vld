@@ -1,3 +1,5 @@
+import { sanitizeUserFacingMessage } from "@shared/utils";
+
 export type AppSettings = {
   supportTelegramUrl: string;
   personalDataConsentUrl: string;
@@ -30,7 +32,10 @@ type SettingsResponse = {
 const handleResponse = async (response: Response): Promise<SettingsResponse> => {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = payload?.message || `Запрос настроек завершился ошибкой (${response.status})`;
+    const message = sanitizeUserFacingMessage(
+      payload?.message,
+      "Не удалось загрузить настройки приложения. Попробуйте ещё раз позже.",
+    );
     throw new Error(message);
   }
   return payload as SettingsResponse;
