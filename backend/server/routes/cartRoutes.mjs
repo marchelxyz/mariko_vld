@@ -223,8 +223,9 @@ export function registerCartRoutes(app) {
     }
   });
 
-  app.post("/api/cart/recalculate", (req, res) => {
-    const { items = [], orderType = "delivery" } = req.body ?? {};
+  app.post("/api/cart/recalculate", async (req, res) => {
+    const { items = [], orderType = "delivery", restaurantId: rawRestaurantId = null } = req.body ?? {};
+    const restaurantId = normaliseNullableString(rawRestaurantId);
 
     const subtotal = Array.isArray(items)
       ? items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.amount || 0), 0)
@@ -245,6 +246,25 @@ export function registerCartRoutes(app) {
 
     const total = subtotal + deliveryFee;
 
+    let paymentMethods = null;
+    if (restaurantId) {
+      try {
+        const integrationConfig = await fetchRestaurantIntegrationConfig(restaurantId);
+        if (integrationConfig) {
+          const availabilityResult = await iikoClient.getPaymentMethodAvailability(integrationConfig);
+          if (availabilityResult?.success) {
+            paymentMethods = availabilityResult.paymentMethods ?? null;
+          } else {
+            console.warn(
+              `⚠️ Не удалось определить доступные способы оплаты iiko для ресторана ${restaurantId}: ${availabilityResult?.error}`,
+            );
+          }
+        }
+      } catch (error) {
+        console.warn(`⚠️ Ошибка расчёта доступных способов оплаты для ${restaurantId}:`, error);
+      }
+    }
+
     res.json({
       success: true,
       subtotal,
@@ -253,6 +273,7 @@ export function registerCartRoutes(app) {
       minOrder,
       canSubmit,
       warnings,
+      paymentMethods,
     });
   });
 
@@ -724,6 +745,28 @@ export function registerCartRoutes(app) {
 
         const integrationConfig = await fetchRestaurantIntegrationConfig(restaurantId);
         if (integrationConfig) {
+          const availabilityResult = await iikoClient.getPaymentMethodAvailability(integrationConfig);
+          if (availabilityResult?.success) {
+            const selectedPaymentMethod =
+              availabilityResult.paymentMethods?.[paymentMethod] ?? null;
+            if (selectedPaymentMethod && selectedPaymentMethod.available === false) {
+              return res.status(400).json({
+                success: false,
+                code: "IIKO_PAYMENT_METHOD_UNAVAILABLE",
+                message:
+                  paymentMethod === "card"
+                    ? "Оплата картой при получении сейчас недоступна для этого ресторана."
+                    : paymentMethod === "online"
+                      ? "Онлайн-оплата сейчас недоступна для этого ресторана."
+                      : "Оплата наличными сейчас недоступна для этого ресторана.",
+              });
+            }
+          } else {
+            console.warn(
+              `⚠️ Не удалось проверить способы оплаты iiko для ресторана ${restaurantId}: ${availabilityResult?.error}`,
+            );
+          }
+
           const stopListResult = await iikoClient.getStopList(integrationConfig);
           if (stopListResult.success) {
             const stopListProductIds = new Set(
@@ -835,7 +878,6 @@ export function registerCartRoutes(app) {
 
         if (paymentMethod !== "online" && restaurantId) {
           try {
-            const integrationConfig = await fetchRestaurantIntegrationConfig(restaurantId);
             if (integrationConfig) {
               const orderRecord = {
                 ...insertedOrder,

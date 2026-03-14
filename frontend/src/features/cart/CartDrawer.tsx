@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart, useCityContext } from "@/contexts";
 import { recalculateCart, submitCartOrder } from "@/shared/api/cart";
+import type { CartPaymentMethodAvailability } from "@/shared/api/cart";
 import { profileApi } from "@shared/api/profile";
 import type { UserProfile } from "@shared/types";
 import { getPlatform, getUser } from "@/lib/platform";
@@ -23,6 +24,13 @@ const GEO_REVERSE_URL = "/api/cart/geocode/reverse";
 const MIN_ADDRESS_LENGTH = 3;
 
 type PaymentMethod = "cash" | "card" | "online";
+type PaymentMethodAvailabilityMap = Record<PaymentMethod, CartPaymentMethodAvailability>;
+
+const PAYMENT_METHOD_OPTIONS: Array<{ value: PaymentMethod; label: string }> = [
+  { value: "cash", label: "Наличными при получении" },
+  { value: "card", label: "Картой при получении" },
+  { value: "online", label: "Онлайн-оплата" },
+];
 
 const parseAddressLine = (value: string) => {
   const cleaned = value.trim();
@@ -104,6 +112,7 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
     minOrder?: number;
     canSubmit?: boolean;
     warnings?: string[];
+    paymentMethods?: PaymentMethodAvailabilityMap | null;
   } | null>(null);
   const [calcError, setCalcError] = useState<string | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -376,6 +385,20 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
     if (!isFormValid) {
       return;
     }
+
+    const selectedPaymentAvailability = calculation?.paymentMethods?.[paymentMethod] ?? null;
+    if (selectedPaymentAvailability && selectedPaymentAvailability.available === false) {
+      setLastSubmitStatus("error");
+      setLastSubmitMessage(
+        paymentMethod === "card"
+          ? "Оплата картой при получении сейчас недоступна для этого ресторана."
+          : paymentMethod === "online"
+            ? "Онлайн-оплата сейчас недоступна для этого ресторана."
+            : "Оплата наличными сейчас недоступна для этого ресторана.",
+      );
+      return;
+    }
+
     setIsSubmitting(true);
     setLastSubmitStatus("idle");
     setLastSubmitMessage(null);
@@ -491,6 +514,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
       {
         items,
         orderType,
+        restaurantId: selectedRestaurant?.id ?? null,
         deliveryAddress:
           orderType === "delivery" ? resolvedDeliveryAddress?.trim() || undefined : undefined,
       },
@@ -514,7 +538,26 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
       });
 
     return () => controller.abort();
-  }, [isCheckoutMode, items, orderType, resolvedDeliveryAddress, isOpen]);
+  }, [isCheckoutMode, items, orderType, resolvedDeliveryAddress, selectedRestaurant?.id, isOpen]);
+
+  useEffect(() => {
+    if (!isCheckoutMode) {
+      return;
+    }
+    const paymentMethods = calculation?.paymentMethods;
+    if (!paymentMethods) {
+      return;
+    }
+    if (paymentMethods[paymentMethod]?.available) {
+      return;
+    }
+    const firstAvailable = PAYMENT_METHOD_OPTIONS.find(
+      (option) => paymentMethods[option.value]?.available,
+    );
+    if (firstAvailable && firstAvailable.value !== paymentMethod) {
+      setPaymentMethod(firstAvailable.value);
+    }
+  }, [calculation?.paymentMethods, isCheckoutMode, paymentMethod]);
 
   useEffect(() => {
     if (!isOpen || prefillAttempted) {
@@ -743,24 +786,32 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
               <div>
                 <p className="text-sm font-semibold text-mariko-dark/70 mb-2">Способ оплаты</p>
                 <div className="grid grid-cols-1 gap-2">
-                  {[
-                    { value: "cash", label: "Наличными при получении" },
-                    { value: "card", label: "Картой при получении" },
-                    { value: "online", label: "Онлайн-оплата" },
-                  ].map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setPaymentMethod(option.value as PaymentMethod)}
-                      className={`w-full rounded-[12px] border px-3 py-2 text-left text-sm font-semibold transition-colors ${
-                        paymentMethod === option.value
-                          ? "border-mariko-primary bg-mariko-primary text-white"
-                          : "border-mariko-field text-mariko-dark hover:bg-mariko-field/30"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
+                  {PAYMENT_METHOD_OPTIONS.map((option) => {
+                    const optionAvailability = calculation?.paymentMethods?.[option.value] ?? null;
+                    const isUnavailable = optionAvailability?.available === false;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        disabled={isUnavailable}
+                        onClick={() => setPaymentMethod(option.value)}
+                        className={`w-full rounded-[12px] border px-3 py-2 text-left text-sm font-semibold transition-colors ${
+                          paymentMethod === option.value
+                            ? "border-mariko-primary bg-mariko-primary text-white"
+                            : isUnavailable
+                              ? "cursor-not-allowed border-mariko-field/80 bg-mariko-field/20 text-mariko-dark/45"
+                              : "border-mariko-field text-mariko-dark hover:bg-mariko-field/30"
+                        }`}
+                      >
+                        <span className="block">{option.label}</span>
+                        {isUnavailable && (
+                          <span className="mt-1 block text-xs font-medium opacity-80">
+                            Недоступно для этого ресторана
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

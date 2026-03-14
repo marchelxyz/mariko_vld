@@ -961,6 +961,12 @@ app.get("/api/db/setup-iiko", async (req, res) => {
         iiko_terminal_group_id VARCHAR(255),
         delivery_terminal_id VARCHAR(255),
         default_payment_type VARCHAR(255),
+        cash_payment_type VARCHAR(255),
+        cash_payment_kind VARCHAR(50),
+        card_payment_type VARCHAR(255),
+        card_payment_kind VARCHAR(50),
+        online_payment_type VARCHAR(255),
+        online_payment_kind VARCHAR(50),
         source_key VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1028,6 +1034,12 @@ app.post("/api/db/add-iiko-config", async (req, res) => {
       terminal_group_id,
       delivery_terminal_id,
       default_payment_type,
+      cash_payment_type,
+      cash_payment_kind,
+      card_payment_type,
+      card_payment_kind,
+      online_payment_type,
+      online_payment_kind,
       source_key
     } = req.body;
 
@@ -1048,10 +1060,16 @@ app.post("/api/db/add-iiko-config", async (req, res) => {
         iiko_terminal_group_id,
         delivery_terminal_id,
         default_payment_type,
+        cash_payment_type,
+        cash_payment_kind,
+        card_payment_type,
+        card_payment_kind,
+        online_payment_type,
+        online_payment_kind,
         source_key,
         created_at,
         updated_at
-      ) VALUES ($1, 'iiko', true, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+      ) VALUES ($1, 'iiko', true, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
       ON CONFLICT (restaurant_id, provider)
       DO UPDATE SET
         api_login = $2,
@@ -1059,7 +1077,13 @@ app.post("/api/db/add-iiko-config", async (req, res) => {
         iiko_terminal_group_id = $4,
         delivery_terminal_id = $5,
         default_payment_type = $6,
-        source_key = $7,
+        cash_payment_type = $7,
+        cash_payment_kind = $8,
+        card_payment_type = $9,
+        card_payment_kind = $10,
+        online_payment_type = $11,
+        online_payment_kind = $12,
+        source_key = $13,
         is_enabled = true,
         updated_at = NOW()
       RETURNING *
@@ -1070,6 +1094,12 @@ app.post("/api/db/add-iiko-config", async (req, res) => {
       terminal_group_id,
       delivery_terminal_id || null,
       default_payment_type || null,
+      cash_payment_type || null,
+      cash_payment_kind || null,
+      card_payment_type || null,
+      card_payment_kind || null,
+      online_payment_type || null,
+      online_payment_kind || null,
       source_key || null
     ]);
 
@@ -2140,14 +2170,19 @@ app.get("/api/db/get-iiko-payment-types", async (req, res) => {
       });
     }
 
-    // Получаем типы оплаты
+    // Получаем типы оплаты и матрицу доступности способов оплаты
     const result = await iikoClient.getPaymentTypes(integrationConfig);
+    const availabilityResult = await iikoClient.getPaymentMethodAvailability(integrationConfig);
 
     return res.json({
       success: result.success,
       restaurantId,
       paymentTypes: result.paymentTypes ?? [],
+      suggestions: result.suggestions ?? null,
+      paymentMode: availabilityResult?.success ? availabilityResult.paymentMode ?? null : null,
+      paymentMethods: availabilityResult?.success ? availabilityResult.paymentMethods ?? null : null,
       error: result.error ?? null,
+      availabilityError: availabilityResult?.success ? null : availabilityResult?.error ?? null,
     });
   } catch (error) {
     logger.error("Ошибка получения типов оплаты из iiko", error);

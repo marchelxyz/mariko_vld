@@ -36,7 +36,17 @@ export type CartOrderResponse = {
 export type CartRecalcPayload = {
   items: CartItem[];
   orderType: "delivery" | "pickup";
+  restaurantId?: string | null;
   deliveryAddress?: string;
+};
+
+export type CartPaymentMethodAvailability = {
+  available: boolean;
+  paymentTypeId?: string | null;
+  paymentTypeKind?: string | null;
+  paymentMode?: string | null;
+  isProcessedExternally?: boolean;
+  error?: string | null;
 };
 
 export type CartRecalcResponse = {
@@ -47,6 +57,7 @@ export type CartRecalcResponse = {
   minOrder?: number;
   canSubmit?: boolean;
   warnings?: string[];
+  paymentMethods?: Record<"cash" | "card" | "online", CartPaymentMethodAvailability> | null;
   message?: string;
 };
 

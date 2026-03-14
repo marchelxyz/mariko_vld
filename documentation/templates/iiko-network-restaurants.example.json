@@ -7,6 +7,12 @@
       "terminalGroupId": "PASTE_IIKO_TERMINAL_GROUP_ID_HERE",
       "deliveryTerminalId": null,
       "defaultPaymentType": null,
+      "cashPaymentType": null,
+      "cashPaymentKind": null,
+      "cardPaymentType": null,
+      "cardPaymentKind": null,
+      "onlinePaymentType": null,
+      "onlinePaymentKind": null,
       "sourceKey": "mariko-main"
     },
     {
@@ -16,6 +22,12 @@
       "terminalGroupId": "PASTE_IIKO_TERMINAL_GROUP_ID_HERE",
       "deliveryTerminalId": null,
       "defaultPaymentType": null,
+      "cashPaymentType": null,
+      "cashPaymentKind": null,
+      "cardPaymentType": null,
+      "cardPaymentKind": null,
+      "onlinePaymentType": null,
+      "onlinePaymentKind": null,
       "sourceKey": "mariko-main"
     },
     {
@@ -25,6 +37,12 @@
       "terminalGroupId": "PASTE_IIKO_TERMINAL_GROUP_ID_HERE",
       "deliveryTerminalId": null,
       "defaultPaymentType": null,
+      "cashPaymentType": null,
+      "cashPaymentKind": null,
+      "cardPaymentType": null,
+      "cardPaymentKind": null,
+      "onlinePaymentType": null,
+      "onlinePaymentKind": null,
       "sourceKey": "mariko-main"
     }
   ]

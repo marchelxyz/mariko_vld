@@ -167,6 +167,12 @@ const SCHEMAS = {
       iiko_terminal_group_id VARCHAR(255),
       delivery_terminal_id VARCHAR(255),
       default_payment_type VARCHAR(255),
+      cash_payment_type VARCHAR(255),
+      cash_payment_kind VARCHAR(50),
+      card_payment_type VARCHAR(255),
+      card_payment_kind VARCHAR(50),
+      online_payment_type VARCHAR(255),
+      online_payment_kind VARCHAR(50),
       source_key VARCHAR(255),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1094,6 +1100,47 @@ export async function initializeDatabase() {
       }
     } catch (error) {
       console.warn("⚠️  Предупреждение при добавлении полей интеграции заказов:", error?.message || error);
+    }
+
+    // Миграция: добавляем расширенные payment mappings в restaurant_integrations
+    try {
+      const integrationColumns = await query(`
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'restaurant_integrations'
+          AND column_name IN (
+            'cash_payment_type',
+            'cash_payment_kind',
+            'card_payment_type',
+            'card_payment_kind',
+            'online_payment_type',
+            'online_payment_kind'
+          )
+      `);
+      const existingColumns = new Set(integrationColumns.rows.map((row) => row.column_name));
+
+      const requiredColumns = [
+        ["cash_payment_type", "VARCHAR(255)"],
+        ["cash_payment_kind", "VARCHAR(50)"],
+        ["card_payment_type", "VARCHAR(255)"],
+        ["card_payment_kind", "VARCHAR(50)"],
+        ["online_payment_type", "VARCHAR(255)"],
+        ["online_payment_kind", "VARCHAR(50)"],
+      ];
+
+      for (const [columnName, columnType] of requiredColumns) {
+        if (existingColumns.has(columnName)) {
+          continue;
+        }
+        await query(`ALTER TABLE restaurant_integrations ADD COLUMN ${columnName} ${columnType}`);
+        console.log(`✅ Поле ${columnName} добавлено в таблицу restaurant_integrations`);
+      }
+
+      if (requiredColumns.every(([columnName]) => existingColumns.has(columnName))) {
+        console.log("ℹ️  Расширенные payment mappings уже существуют в restaurant_integrations");
+      }
+    } catch (error) {
+      console.warn("⚠️  Предупреждение при добавлении payment mappings в restaurant_integrations:", error?.message || error);
     }
 
     // Миграция: добавляем поля блокировки пользователя
