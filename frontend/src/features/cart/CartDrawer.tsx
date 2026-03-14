@@ -118,6 +118,18 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   const [isCalculating, setIsCalculating] = useState(false);
   const [prefillAttempted, setPrefillAttempted] = useState(false);
   const [addressInitialized, setAddressInitialized] = useState(false);
+  const visiblePaymentMethodOptions = useMemo(() => {
+    const paymentMethods = calculation?.paymentMethods;
+    if (!paymentMethods) {
+      return PAYMENT_METHOD_OPTIONS;
+    }
+
+    const available = PAYMENT_METHOD_OPTIONS.filter(
+      (option) => paymentMethods[option.value]?.available !== false,
+    );
+
+    return available.length > 0 ? available : PAYMENT_METHOD_OPTIONS;
+  }, [calculation?.paymentMethods]);
   const [autoLocateAttempted, setAutoLocateAttempted] = useState(false);
   const [profileFromApi, setProfileFromApi] = useState<UserProfile | null>(null);
   const [profileHasAddress, setProfileHasAddress] = useState(false);
@@ -786,7 +798,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
               <div>
                 <p className="text-sm font-semibold text-mariko-dark/70 mb-2">Способ оплаты</p>
                 <div className="grid grid-cols-1 gap-2">
-                  {PAYMENT_METHOD_OPTIONS.map((option) => {
+                  {visiblePaymentMethodOptions.map((option) => {
                     const optionAvailability = calculation?.paymentMethods?.[option.value] ?? null;
                     const isUnavailable = optionAvailability?.available === false;
                     return (
