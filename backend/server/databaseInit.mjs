@@ -174,6 +174,13 @@ const SCHEMAS = {
       online_payment_type VARCHAR(255),
       online_payment_kind VARCHAR(50),
       source_key VARCHAR(255),
+      menu_sync_enabled BOOLEAN DEFAULT false,
+      menu_sync_source VARCHAR(50),
+      menu_sync_external_menu_id VARCHAR(255),
+      menu_sync_external_menu_name VARCHAR(255),
+      menu_sync_filter_profile VARCHAR(100),
+      menu_sync_language VARCHAR(20),
+      menu_sync_version INTEGER,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(restaurant_id, provider)
@@ -1114,7 +1121,14 @@ export async function initializeDatabase() {
             'card_payment_type',
             'card_payment_kind',
             'online_payment_type',
-            'online_payment_kind'
+            'online_payment_kind',
+            'menu_sync_enabled',
+            'menu_sync_source',
+            'menu_sync_external_menu_id',
+            'menu_sync_external_menu_name',
+            'menu_sync_filter_profile',
+            'menu_sync_language',
+            'menu_sync_version'
           )
       `);
       const existingColumns = new Set(integrationColumns.rows.map((row) => row.column_name));
@@ -1126,6 +1140,13 @@ export async function initializeDatabase() {
         ["card_payment_kind", "VARCHAR(50)"],
         ["online_payment_type", "VARCHAR(255)"],
         ["online_payment_kind", "VARCHAR(50)"],
+        ["menu_sync_enabled", "BOOLEAN DEFAULT false"],
+        ["menu_sync_source", "VARCHAR(50)"],
+        ["menu_sync_external_menu_id", "VARCHAR(255)"],
+        ["menu_sync_external_menu_name", "VARCHAR(255)"],
+        ["menu_sync_filter_profile", "VARCHAR(100)"],
+        ["menu_sync_language", "VARCHAR(20)"],
+        ["menu_sync_version", "INTEGER"],
       ];
 
       for (const [columnName, columnType] of requiredColumns) {

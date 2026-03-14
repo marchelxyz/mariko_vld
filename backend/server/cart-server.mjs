@@ -21,19 +21,16 @@ import { createRecommendedDishesRouter, createAdminRecommendedDishesRouter } fro
 import {
   createMenuRouter,
   createAdminMenuRouter,
-  buildMenuFromIikoExternalMenu,
-  fetchExistingItemsByIikoId,
-  mergePreparedMenuWithExisting,
-  persistRestaurantMenu,
-  validateIikoMapping,
 } from "./routes/menuRoutes.mjs";
 import { createIikoWebhookRouter } from "./routes/iikoWebhookRoutes.mjs";
 import { createStorageRouter } from "./routes/storageRoutes.mjs";
 import { logger } from "./utils/logger.mjs";
 import { startBookingNotificationWorker } from "./workers/bookingNotificationWorker.mjs";
+import { startIikoMenuSyncWorker } from "./workers/iikoMenuSyncWorker.mjs";
 import { startIikoRetryWorker } from "./workers/iikoRetryWorker.mjs";
 import { startTelegramBot, stopTelegramBot } from "./services/telegramBotService.mjs";
 import { applyIikoOrderStatusUpdate, fetchRestaurantIntegrationConfig } from "./services/integrationService.mjs";
+import { syncRestaurantExternalMenu } from "./services/iikoMenuSyncService.mjs";
 import { iikoClient } from "./integrations/iiko-client.mjs";
 import {
   isFinalCartOrderStatus,
@@ -840,6 +837,7 @@ app.use("/api/admin/storage", storageRouter);
 
 if (db) {
   startBookingNotificationWorker();
+  startIikoMenuSyncWorker();
   startIikoRetryWorker();
 } else {
   logger.warn("app", "База данных недоступна, воркеры не запущены");
@@ -968,6 +966,13 @@ app.get("/api/db/setup-iiko", async (req, res) => {
         online_payment_type VARCHAR(255),
         online_payment_kind VARCHAR(50),
         source_key VARCHAR(255),
+        menu_sync_enabled BOOLEAN DEFAULT false,
+        menu_sync_source VARCHAR(50),
+        menu_sync_external_menu_id VARCHAR(255),
+        menu_sync_external_menu_name VARCHAR(255),
+        menu_sync_filter_profile VARCHAR(100),
+        menu_sync_language VARCHAR(20),
+        menu_sync_version INTEGER,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(restaurant_id, provider)
@@ -1040,7 +1045,14 @@ app.post("/api/db/add-iiko-config", async (req, res) => {
       card_payment_kind,
       online_payment_type,
       online_payment_kind,
-      source_key
+      source_key,
+      menu_sync_enabled,
+      menu_sync_source,
+      menu_sync_external_menu_id,
+      menu_sync_external_menu_name,
+      menu_sync_filter_profile,
+      menu_sync_language,
+      menu_sync_version
     } = req.body;
 
     if (!restaurant_id || !api_login || !organization_id || !terminal_group_id) {
@@ -1067,9 +1079,16 @@ app.post("/api/db/add-iiko-config", async (req, res) => {
         online_payment_type,
         online_payment_kind,
         source_key,
+        menu_sync_enabled,
+        menu_sync_source,
+        menu_sync_external_menu_id,
+        menu_sync_external_menu_name,
+        menu_sync_filter_profile,
+        menu_sync_language,
+        menu_sync_version,
         created_at,
         updated_at
-      ) VALUES ($1, 'iiko', true, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+      ) VALUES ($1, 'iiko', true, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, NOW(), NOW())
       ON CONFLICT (restaurant_id, provider)
       DO UPDATE SET
         api_login = $2,
@@ -1084,6 +1103,13 @@ app.post("/api/db/add-iiko-config", async (req, res) => {
         online_payment_type = $11,
         online_payment_kind = $12,
         source_key = $13,
+        menu_sync_enabled = $14,
+        menu_sync_source = $15,
+        menu_sync_external_menu_id = $16,
+        menu_sync_external_menu_name = $17,
+        menu_sync_filter_profile = $18,
+        menu_sync_language = $19,
+        menu_sync_version = $20,
         is_enabled = true,
         updated_at = NOW()
       RETURNING *
@@ -1100,7 +1126,14 @@ app.post("/api/db/add-iiko-config", async (req, res) => {
       card_payment_kind || null,
       online_payment_type || null,
       online_payment_kind || null,
-      source_key || null
+      source_key || null,
+      menu_sync_enabled === true,
+      menu_sync_source || null,
+      menu_sync_external_menu_id || null,
+      menu_sync_external_menu_name || null,
+      menu_sync_filter_profile || null,
+      menu_sync_language || null,
+      Number.isFinite(Number(menu_sync_version)) ? Number(menu_sync_version) : null
     ]);
 
     return res.json({
@@ -1146,75 +1179,52 @@ app.post("/api/db/sync-external-menu", async (req, res) => {
       });
     }
 
-    const externalMenuResult = await iikoClient.getExternalMenuV2(integrationConfig, {
-      externalMenuId: req.body?.external_menu_id ?? req.body?.externalMenuId,
-      externalMenuName: req.body?.external_menu_name ?? req.body?.externalMenuName,
-      language: req.body?.language ?? "ru",
-      version: req.body?.version ?? 2,
-      forceFreshToken: req.body?.force_fresh_token === true || req.body?.forceFreshToken === true,
-    });
-
-    if (!externalMenuResult?.success) {
-      return res.status(502).json({
-        success: false,
-        message: "Не удалось получить внешнее меню из iiko",
-        error: externalMenuResult?.error || "iiko: неизвестная ошибка",
-        response: externalMenuResult?.response ?? null,
-      });
-    }
-
-    const prepared = buildMenuFromIikoExternalMenu({
+    const syncResult = await syncRestaurantExternalMenu({
       restaurantId,
-      externalMenu: externalMenuResult.externalMenu,
-      organizationId: integrationConfig.iiko_organization_id,
+      integrationConfig,
       options: {
-        filterProfile:
-          req.body?.filter_profile ??
-          req.body?.filterProfile ??
-          "zhukovsky_delivery_food",
-        keepCategoryNames: req.body?.keep_category_names ?? req.body?.keepCategoryNames,
-        excludeCategoryPatterns:
+        external_menu_id: req.body?.external_menu_id ?? req.body?.externalMenuId,
+        external_menu_name: req.body?.external_menu_name ?? req.body?.externalMenuName,
+        language: req.body?.language,
+        version: req.body?.version,
+        force_fresh_token:
+          req.body?.force_fresh_token === true || req.body?.forceFreshToken === true,
+        filter_profile: req.body?.filter_profile ?? req.body?.filterProfile,
+        keep_category_names: req.body?.keep_category_names ?? req.body?.keepCategoryNames,
+        exclude_category_patterns:
           req.body?.exclude_category_patterns ?? req.body?.excludeCategoryPatterns,
-        excludeItemNamePatterns:
+        exclude_item_name_patterns:
           req.body?.exclude_item_name_patterns ?? req.body?.excludeItemNamePatterns,
-        skipHiddenCategories:
+        skip_hidden_categories:
           req.body?.skip_hidden_categories ?? req.body?.skipHiddenCategories,
-        skipHiddenItems: req.body?.skip_hidden_items ?? req.body?.skipHiddenItems,
-        requirePositivePrice:
+        skip_hidden_items: req.body?.skip_hidden_items ?? req.body?.skipHiddenItems,
+        require_positive_price:
           req.body?.require_positive_price ?? req.body?.requirePositivePrice,
       },
     });
 
-    const existingByIikoId = await fetchExistingItemsByIikoId(restaurantId);
-    const mergedMenu = mergePreparedMenuWithExisting(prepared.menu, existingByIikoId);
-    const mappingValidation = validateIikoMapping(mergedMenu, { requireIikoProductId: true });
-
-    if (!mappingValidation.ok) {
-      return res.status(400).json({
+    if (!syncResult?.success) {
+      const statusCode =
+        syncResult?.details || syncResult?.summary || syncResult?.warnings ? 400 : 502;
+      return res.status(statusCode).json({
         success: false,
-        message: "Внешнее меню содержит конфликтующие или неполные iikoProductId",
-        details: {
-          duplicateCount: mappingValidation.duplicates.length,
-          missingCount: mappingValidation.missing.length,
-          duplicates: mappingValidation.duplicates.slice(0, 20),
-          missing: mappingValidation.missing.slice(0, 20),
-        },
-        summary: prepared.summary,
-        warnings: prepared.warnings.slice(0, 50),
+        message: syncResult?.error || "Не удалось синхронизировать внешнее меню",
+        ...(syncResult?.details ? { details: syncResult.details } : {}),
+        ...(syncResult?.summary ? { summary: syncResult.summary } : {}),
+        ...(syncResult?.warnings ? { warnings: syncResult.warnings } : {}),
+        ...(syncResult?.response ? { response: syncResult.response } : {}),
       });
     }
-
-    await persistRestaurantMenu(restaurantId, mergedMenu);
 
     return res.json({
       success: true,
       restaurantId,
-      source: externalMenuResult.source,
-      externalMenuId: externalMenuResult.externalMenuId,
-      externalMenuName: externalMenuResult.externalMenuName,
-      summary: prepared.summary,
-      warnings: prepared.warnings.slice(0, 50),
-      menu: mergedMenu,
+      source: syncResult.source,
+      externalMenuId: syncResult.externalMenuId,
+      externalMenuName: syncResult.externalMenuName,
+      summary: syncResult.summary,
+      warnings: syncResult.warnings,
+      menu: syncResult.menu,
     });
   } catch (error) {
     logger.error("Ошибка sync-external-menu", error);

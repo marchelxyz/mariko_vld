@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-15 00:55
+**Последнее обновление:** 2026-03-15 00:58
 
 ---
 
@@ -67,6 +67,85 @@
 5. Закрыть форму и проверить, что список городов продолжает обновляться после сохранения
 
 **Коммит:** нет
+
+### ✅ Решение: `401 Некорректный webhook token` при ручной проверке prod webhook означает, что защита webhook работает штатно
+
+**Дата:** 2026-03-15
+**Симптомы:**
+- При ручном `POST` на `https://tg.marikorest.ru/tg/api/integrations/iiko/webhook` сервер отвечает:
+  - `{"success":false,"message":"Некорректный webhook token"}`
+- Кажется, что prod webhook сломан или не настроен
+
+**Причина:**
+- Endpoint `iiko webhook` защищён через `IIKO_WEBHOOK_TOKEN`
+- Ручной запрос без заголовка токена или с неверным токеном обязан получать `401`
+- Это уже не ошибка конфигурации, а нормальное поведение защищённого webhook
+
+**Решение:**
+- Не "чинить" `401` на пустом ручном запросе без токена
+- Проверять webhook так:
+  1. Без токена: ожидаемо `401 Некорректный webhook token`
+  2. С корректным токеном: endpoint должен принять запрос и попытаться разобрать payload
+- В iiko Cloud API в настройке webhook должен стоять тот же секрет, что и в env сервера:
+  - iiko поле `Токен авторизации`
+  - серверная переменная `IIKO_WEBHOOK_TOKEN`
+
+**Проверка:**
+```bash
+# Ожидаемо 401 — токен не передан
+curl -X POST "https://tg.marikorest.ru/tg/api/integrations/iiko/webhook" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# Ожидаемо success/ignored — токен корректный, но payload пустой
+curl -X POST "https://tg.marikorest.ru/tg/api/integrations/iiko/webhook" \
+  -H "Content-Type: application/json" \
+  -H "x-webhook-token: <IIKO_WEBHOOK_TOKEN>" \
+  -d '{}'
+```
+
+**Коммит:** нет
+
+### ✅ Решение: автосинк внешнего меню нужно хранить в `restaurant_integrations` и запускать отдельным воркером
+
+**Дата:** 2026-03-15
+**Симптомы:**
+- Меню синхронизируется из iiko только вручную через dev/admin endpoint
+- После изменения внешнего меню `1234` в iiko приложение не подхватывает обновления само
+
+**Причина:**
+- В проекте не было фонового воркера для menu sync
+- Настройки внешнего меню для автосинка не хранились в `restaurant_integrations`
+
+**Решение:**
+- Добавить в `restaurant_integrations` поля конфигурации автосинка:
+  - `menu_sync_enabled`
+  - `menu_sync_source`
+  - `menu_sync_external_menu_id`
+  - `menu_sync_external_menu_name`
+  - `menu_sync_filter_profile`
+  - `menu_sync_language`
+  - `menu_sync_version`
+- Вынести sync внешнего меню в сервис `iikoMenuSyncService`
+- Поднять отдельный воркер `iikoMenuSyncWorker`, который периодически:
+  - читает активные iiko integration configs с `menu_sync_enabled = true`
+  - тянет внешнее меню через `api/2/menu` + `api/2/menu/by_id`
+  - валидирует mapping
+  - перезаписывает локальное меню ресторана
+
+**Проверка:**
+```bash
+node --check backend/server/services/iikoMenuSyncService.mjs
+node --check backend/server/workers/iikoMenuSyncWorker.mjs
+node --check backend/server/cart-server.mjs
+```
+
+Дополнительно после деплоя:
+1. Включить `menu_sync_enabled = true` для нужного ресторана
+2. Задать `menu_sync_external_menu_name = '1234'`
+3. Проверить, что воркер пишет успешный лог синка меню
+
+**Коммит:** будет добавлен после фиксации изменений
 
 ### ❌ Проблема: iiko developer tools в админке видны обычным администраторам
 
