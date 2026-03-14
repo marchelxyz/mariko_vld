@@ -44,6 +44,22 @@ const normaliseIikoProductId = (value) => {
   return String(value).trim();
 };
 
+const isRestaurantAccessibleToAdmin = (admin, restaurantId) =>
+  admin?.role === "super_admin" ||
+  admin?.role === "admin" ||
+  admin?.allowedRestaurants?.includes(restaurantId);
+
+const requireSuperAdminIikoDevAccess = (admin, res) => {
+  if (admin?.role === "super_admin") {
+    return true;
+  }
+  res.status(403).json({
+    success: false,
+    message: "Iiko developer tools доступны только супер-админу",
+  });
+  return false;
+};
+
 const normaliseLowerText = (value) => normaliseText(value).toLowerCase();
 const asArray = (value) => (Array.isArray(value) ? value : []);
 
@@ -1217,8 +1233,11 @@ export function createAdminMenuRouter() {
       if (!restaurant) {
         return res.status(404).json({ success: false, message: "Ресторан не найден" });
       }
-      if (admin.role !== "super_admin" && admin.role !== "admin" && !admin.allowedRestaurants?.includes(restaurantId)) {
+      if (!isRestaurantAccessibleToAdmin(admin, restaurantId)) {
         return res.status(403).json({ success: false, message: "Нет доступа к этому ресторану" });
+      }
+      if (!requireSuperAdminIikoDevAccess(admin, res)) {
+        return;
       }
 
       const integrationConfig = await fetchRestaurantIntegrationConfig(restaurantId);
@@ -1281,8 +1300,11 @@ export function createAdminMenuRouter() {
       if (!restaurant) {
         return res.status(404).json({ success: false, message: "Ресторан не найден" });
       }
-      if (admin.role !== "super_admin" && admin.role !== "admin" && !admin.allowedRestaurants?.includes(restaurantId)) {
+      if (!isRestaurantAccessibleToAdmin(admin, restaurantId)) {
         return res.status(403).json({ success: false, message: "Нет доступа к этому ресторану" });
+      }
+      if (!requireSuperAdminIikoDevAccess(admin, res)) {
+        return;
       }
 
       const integrationConfig = await fetchRestaurantIntegrationConfig(restaurantId);
@@ -1349,8 +1371,11 @@ export function createAdminMenuRouter() {
       if (!restaurant) {
         return res.status(404).json({ success: false, message: "Ресторан не найден" });
       }
-      if (admin.role !== "super_admin" && admin.role !== "admin" && !admin.allowedRestaurants?.includes(restaurantId)) {
+      if (!isRestaurantAccessibleToAdmin(admin, restaurantId)) {
         return res.status(403).json({ success: false, message: "Нет доступа к этому ресторану" });
+      }
+      if (!requireSuperAdminIikoDevAccess(admin, res)) {
+        return;
       }
 
       const integrationConfig = await fetchRestaurantIntegrationConfig(restaurantId);
@@ -1485,8 +1510,11 @@ export function createAdminMenuRouter() {
       if (!restaurant) {
         return res.status(404).json({ success: false, message: "Ресторан не найден" });
       }
-      if (admin.role !== "super_admin" && admin.role !== "admin" && !admin.allowedRestaurants?.includes(restaurantId)) {
+      if (!isRestaurantAccessibleToAdmin(admin, restaurantId)) {
         return res.status(403).json({ success: false, message: "Нет доступа к этому ресторану" });
+      }
+      if (!requireSuperAdminIikoDevAccess(admin, res)) {
+        return;
       }
 
       const integrationConfig = await fetchRestaurantIntegrationConfig(restaurantId);
@@ -1557,8 +1585,11 @@ export function createAdminMenuRouter() {
       if (!restaurant) {
         return res.status(404).json({ success: false, message: "Ресторан не найден" });
       }
-      if (admin.role !== "super_admin" && admin.role !== "admin" && !admin.allowedRestaurants?.includes(restaurantId)) {
+      if (!isRestaurantAccessibleToAdmin(admin, restaurantId)) {
         return res.status(403).json({ success: false, message: "Нет доступа к этому ресторану" });
+      }
+      if (!requireSuperAdminIikoDevAccess(admin, res)) {
+        return;
       }
 
       const integrationConfig = await fetchRestaurantIntegrationConfig(restaurantId);
@@ -1669,8 +1700,11 @@ export function createAdminMenuRouter() {
       if (!restaurant) {
         return res.status(404).json({ success: false, message: "Ресторан не найден" });
       }
-      if (admin.role !== "super_admin" && admin.role !== "admin" && !admin.allowedRestaurants?.includes(restaurantId)) {
+      if (!isRestaurantAccessibleToAdmin(admin, restaurantId)) {
         return res.status(403).json({ success: false, message: "Нет доступа к этому ресторану" });
+      }
+      if (!requireSuperAdminIikoDevAccess(admin, res)) {
+        return;
       }
 
       const prepared = buildMenuFromIikoNomenclature({
