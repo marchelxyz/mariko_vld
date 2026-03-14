@@ -8,6 +8,7 @@ import {
   extractIikoWebhookEventData,
   extractIikoWebhookEvents,
 } from "../services/iikoOrderStatusService.mjs";
+import { reportIikoWebhookAlert } from "../services/iikoAlertService.mjs";
 
 const logger = createLogger("iiko-webhook");
 
@@ -101,6 +102,13 @@ export function createIikoWebhookRouter() {
         logger.warn("Webhook iiko не содержит событий", {
           rawType: Array.isArray(payload) ? "array" : typeof payload,
         });
+        await reportIikoWebhookAlert({
+          type: "invalid_payload",
+          message: "Webhook iiko не содержит распознаваемых событий",
+          details: {
+            rawType: Array.isArray(payload) ? "array" : typeof payload,
+          },
+        });
         return res.status(400).json({
           success: false,
           message: "Webhook не содержит распознаваемых событий",
@@ -150,6 +158,11 @@ export function createIikoWebhookRouter() {
         results,
       });
     } catch (error) {
+      await reportIikoWebhookAlert({
+        type: "processing_error",
+        message: "Не удалось обработать webhook iiko",
+        error: error?.message || String(error),
+      });
       logger.requestError(req.method, req.path, error, 500);
       return res.status(500).json({
         success: false,
