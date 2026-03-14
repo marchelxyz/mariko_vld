@@ -63,6 +63,27 @@ export function stopTelegramBot(signal = "SIGTERM") {
   }
 }
 
+export async function sendTelegramTextMessage(chatId, messageText, options = {}) {
+  if (!chatId || !messageText) {
+    return null;
+  }
+
+  const normalizedChatId = Number(chatId);
+  if (!Number.isFinite(normalizedChatId)) {
+    throw new Error("Некорректный chatId для Telegram уведомления");
+  }
+
+  if (!TELEGRAM_BOT_TOKEN) {
+    throw new Error("TELEGRAM_BOT_TOKEN не задан");
+  }
+
+  const telegram = botInstance?.telegram ?? new Telegraf(TELEGRAM_BOT_TOKEN, { handlerTimeout: 10_000 }).telegram;
+  return telegram.sendMessage(normalizedChatId, String(messageText), {
+    disable_web_page_preview: true,
+    ...options,
+  });
+}
+
 /**
  * Регистрирует обработчики команд и сообщений.
  */

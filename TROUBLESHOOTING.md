@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-15 01:06
+**Последнее обновление:** 2026-03-15 02:05
 
 ---
 
@@ -521,6 +521,50 @@ NODE
 - `normalizedStatus = 'delivery'`
 
 **Коммит:** нет
+
+### ✅ Решение: сбои webhook iiko и автосинка меню нужно дублировать Telegram-алертами супер-админам
+
+**Дата:** 2026-03-15
+**Симптомы:**
+- Ошибки `iiko webhook` и `menu sync worker` видны только в логах контейнера
+- О проблеме можно узнать слишком поздно, когда статусы или меню уже давно не обновляются
+- Ручной просмотр логов Timeweb неудобен как основной канал контроля
+
+**Причина:**
+- В проекте были логи и фоновые воркеры, но не было активного канала оповещения о сбоях iiko
+- `401 Некорректный webhook token` при ручной проверке — штатный кейс и не должен считаться аварией, но реальные `500`/broken payload и ошибки автосинка нужно сигналить отдельно
+
+**Решение:**
+- Добавить сервис [`backend/server/services/iikoAlertService.mjs`](backend/server/services/iikoAlertService.mjs)
+- Получателей алертов собирать из:
+  - `ADMIN_TELEGRAM_IDS`
+  - `IIKO_ALERTS_TELEGRAM_IDS`
+  - записей `super_admin` в `admin_users`
+- Отправлять Telegram-алерты через [`backend/server/services/telegramBotService.mjs`](backend/server/services/telegramBotService.mjs)
+- Включить дедупликацию по ключу инцидента через `IIKO_ALERTS_DEDUP_MS`, чтобы один и тот же сбой не спамил каждые несколько секунд
+- Подключить алерты:
+  - к `iiko webhook` на нераспознаваемый payload и необработанные ошибки
+  - к `iiko menu sync worker` на неуспешный sync и необработанные исключения
+- Не слать алерт на `401 Некорректный webhook token`, потому что это ожидаемое поведение защищённого webhook и частый ручной тест
+
+**Проверка:**
+```bash
+node --check backend/server/services/iikoAlertService.mjs
+node --check backend/server/routes/iikoWebhookRoutes.mjs
+node --check backend/server/workers/iikoMenuSyncWorker.mjs
+node --check backend/server/services/telegramBotService.mjs
+```
+
+Дополнительно:
+1. Убедиться, что `TELEGRAM_BOT_TOKEN` задан
+2. Убедиться, что есть хотя бы один получатель в `ADMIN_TELEGRAM_IDS`, `IIKO_ALERTS_TELEGRAM_IDS` или среди `super_admin`
+3. Проверить env:
+   - `IIKO_ALERTS_ENABLED=true`
+   - `IIKO_WEBHOOK_ALERTS_ENABLED=true`
+   - `IIKO_MENU_SYNC_ALERTS_ENABLED=true`
+   - `IIKO_ALERTS_DEDUP_MS=900000`
+
+**Коммит:** будет добавлен после фиксации изменений
 
 ### ✅ Решение: способы оплаты `cash/card/online` должны маппиться раздельно, а недоступные варианты нельзя показывать и принимать
 

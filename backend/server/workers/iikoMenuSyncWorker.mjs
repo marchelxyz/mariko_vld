@@ -1,6 +1,7 @@
 import { db, queryMany } from "../postgresClient.mjs";
 import { createLogger } from "../utils/logger.mjs";
 import { syncRestaurantExternalMenu } from "../services/iikoMenuSyncService.mjs";
+import { reportIikoMenuSyncAlert } from "../services/iikoAlertService.mjs";
 
 const logger = createLogger("iiko-menu-sync-worker");
 
@@ -42,6 +43,14 @@ const processMenuSyncBatch = async () => {
           restaurantId: integrationConfig?.restaurant_id ?? null,
           menuSyncSource: integrationConfig?.menu_sync_source ?? null,
         });
+        await reportIikoMenuSyncAlert({
+          restaurantId: integrationConfig?.restaurant_id ?? null,
+          externalMenuName: integrationConfig?.menu_sync_external_menu_name ?? null,
+          message: "Автосинк меню пропущен: поддержан только source=external_menu",
+          details: {
+            menuSyncSource: integrationConfig?.menu_sync_source ?? null,
+          },
+        });
         continue;
       }
 
@@ -57,6 +66,18 @@ const processMenuSyncBatch = async () => {
           details: syncResult?.details ?? null,
           summary: syncResult?.summary ?? null,
         });
+        await reportIikoMenuSyncAlert({
+          restaurantId: integrationConfig?.restaurant_id ?? null,
+          externalMenuName:
+            syncResult?.externalMenuName ??
+            integrationConfig?.menu_sync_external_menu_name ??
+            null,
+          message: syncResult?.error ?? "Автосинк меню завершился с ошибкой",
+          details: {
+            details: syncResult?.details ?? null,
+            summary: syncResult?.summary ?? null,
+          },
+        });
         continue;
       }
 
@@ -68,6 +89,12 @@ const processMenuSyncBatch = async () => {
         totalItems: syncResult.summary?.totalItems ?? null,
       });
     } catch (error) {
+      await reportIikoMenuSyncAlert({
+        restaurantId: integrationConfig?.restaurant_id ?? null,
+        externalMenuName: integrationConfig?.menu_sync_external_menu_name ?? null,
+        message: "Автосинк меню завершился необработанной ошибкой",
+        error: error?.message || String(error),
+      });
       logger.error(
         "Автосинк меню завершился необработанной ошибкой",
         error instanceof Error ? error : new Error(String(error)),
