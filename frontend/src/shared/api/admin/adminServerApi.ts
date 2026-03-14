@@ -668,18 +668,6 @@ export const adminServerApi = {
     return data.orders ?? [];
   },
 
-  async updateOrderStatus(orderId: string, status: string): Promise<void> {
-    const response = await fetch(
-      `${ADMIN_API_BASE}/orders/${encodeURIComponent(orderId)}/status`,
-      {
-        method: "PATCH",
-        headers: buildHeaders(undefined, undefined),
-        body: JSON.stringify({ status }),
-      },
-    );
-    await handleResponse<{ success: boolean }>(response);
-  },
-
   async updateRestaurantStatus(restaurantId: string, isActive: boolean): Promise<void> {
     const response = await fetch(
       `${ADMIN_API_BASE}/restaurants/${encodeURIComponent(restaurantId)}/status`,
