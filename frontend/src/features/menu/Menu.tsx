@@ -7,7 +7,7 @@ import { fetchRestaurantMenu } from "@/shared/api/menuApi";
 import { isMarikoDeliveryEnabledForCity } from "@/shared/config/marikoDelivery";
 import { useDeliveryAccess } from "@shared/hooks";
 import { getMenuByRestaurantId, type MenuItem, type RestaurantMenu } from "@shared/data";
-import { MenuItemComponent, DishCardSkeleton } from "@shared/ui";
+import { MenuItemComponent, DishCardSkeleton, DishDetailsFacts } from "@shared/ui";
 import { toast } from "@/hooks/use-toast";
 import { getPlatform } from "@/lib/platform";
 
@@ -504,17 +504,12 @@ const Menu = (): JSX.Element => {
               </button>
             </div>
 
-            <div className="space-y-4 overflow-y-auto px-5 pb-5 pt-4">
-              <div className="flex items-baseline justify-between gap-4">
-                <span className="font-el-messiri text-2xl font-bold text-mariko-secondary">
-                  {activeDish.price}₽
-                </span>
-                {(activeDish.weight || activeDish.calories) && (
-                  <span className="text-sm text-gray-600">
-                    {[activeDish.weight, activeDish.calories].filter(Boolean).join(" / ")}
+              <div className="space-y-4 overflow-y-auto px-5 pb-5 pt-4">
+                <div className="flex items-baseline justify-between gap-4">
+                  <span className="font-el-messiri text-2xl font-bold text-mariko-secondary">
+                    {activeDish.price}₽
                   </span>
-                )}
-              </div>
+                </div>
 
               {(activeDish.isRecommended ||
                 activeDish.isNew ||
@@ -547,6 +542,15 @@ const Menu = (): JSX.Element => {
               {activeDish.description && (
                 <p className="text-base leading-relaxed text-gray-800">{activeDish.description}</p>
               )}
+
+              <DishDetailsFacts
+                weight={activeDish.weight}
+                calories={activeDish.calories}
+                proteins={activeDish.proteins}
+                fats={activeDish.fats}
+                carbs={activeDish.carbs}
+                allergens={activeDish.allergens}
+              />
 
               <div className="space-y-3">
                 <p className="text-sm text-gray-600">

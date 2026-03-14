@@ -9,6 +9,10 @@ export interface MenuItem {
   unavailableReason?: string;
   weight?: string;
   calories?: string;
+  proteins?: string;
+  fats?: string;
+  carbs?: string;
+  allergens?: string[];
   imageUrl?: string;
   isVegetarian?: boolean;
   isSpicy?: boolean;

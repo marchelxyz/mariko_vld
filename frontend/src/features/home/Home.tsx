@@ -13,6 +13,7 @@ import {
   QuickActionButton,
   ServiceCard,
   MenuItemComponent,
+  DishDetailsFacts,
 } from "@shared/ui";
 import { PromotionsCarousel, type PromotionSlide } from "./PromotionsCarousel";
 import { toast } from "@/hooks/use-toast";
@@ -658,9 +659,6 @@ const Index = () => {
                   <span className="font-el-messiri text-2xl font-bold text-mariko-secondary">
                     {activeDish.price}₽
                   </span>
-                  {activeDish.weight && (
-                    <span className="text-sm text-gray-600">{activeDish.weight}</span>
-                  )}
                 </div>
 
                 {(activeDish.isRecommended ||
@@ -696,6 +694,15 @@ const Index = () => {
                     {activeDish.description}
                   </p>
                 )}
+
+                <DishDetailsFacts
+                  weight={activeDish.weight}
+                  calories={activeDish.calories}
+                  proteins={activeDish.proteins}
+                  fats={activeDish.fats}
+                  carbs={activeDish.carbs}
+                  allergens={activeDish.allergens}
+                />
 
                 <p className="text-sm text-gray-600">
                   Забронируйте столик заранее — лучшие места уходят быстро.

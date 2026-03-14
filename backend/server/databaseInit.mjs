@@ -324,7 +324,12 @@ const SCHEMAS = {
       price DECIMAL(10, 2) NOT NULL,
       weight VARCHAR(50),
       calories VARCHAR(50),
+      proteins VARCHAR(50),
+      fats VARCHAR(50),
+      carbs VARCHAR(50),
+      allergens JSONB DEFAULT '[]'::jsonb,
       image_url TEXT,
+      iiko_product_id VARCHAR(255),
       is_vegetarian BOOLEAN DEFAULT false,
       is_spicy BOOLEAN DEFAULT false,
       is_new BOOLEAN DEFAULT false,
@@ -979,46 +984,58 @@ export async function initializeDatabase() {
       console.warn("⚠️  Предупреждение при добавлении настроек приложения:", error?.message || error);
     }
 
-    // Миграция: добавляем поле calories в таблицу menu_items
+    // Миграция: добавляем nutrition-поля в таблицу menu_items
     try {
-      const consentColumns = await query(`
+      const menuItemColumns = await query(`
         SELECT column_name 
         FROM information_schema.columns 
-        WHERE table_name = 'user_profiles'
+        WHERE table_name = 'menu_items'
           AND column_name IN (
-            'personal_data_consent_given',
-            'personal_data_consent_date',
-            'personal_data_policy_consent_given',
-            'personal_data_policy_consent_date'
+            'calories',
+            'proteins',
+            'fats',
+            'carbs',
+            'allergens',
+            'iiko_product_id'
           )
       `);
-      const existingColumns = new Set(consentColumns.rows.map((row) => row.column_name));
-      if (!existingColumns.has('personal_data_consent_given')) {
-        await query(`ALTER TABLE user_profiles ADD COLUMN personal_data_consent_given BOOLEAN DEFAULT false`);
-        console.log("✅ Поле personal_data_consent_given добавлено в таблицу user_profiles");
+      const existingColumns = new Set(menuItemColumns.rows.map((row) => row.column_name));
+      if (!existingColumns.has('calories')) {
+        await query(`ALTER TABLE menu_items ADD COLUMN calories VARCHAR(50)`);
+        console.log("✅ Поле calories добавлено в таблицу menu_items");
       }
-      if (!existingColumns.has('personal_data_consent_date')) {
-        await query(`ALTER TABLE user_profiles ADD COLUMN personal_data_consent_date TIMESTAMP`);
-        console.log("✅ Поле personal_data_consent_date добавлено в таблицу user_profiles");
+      if (!existingColumns.has('proteins')) {
+        await query(`ALTER TABLE menu_items ADD COLUMN proteins VARCHAR(50)`);
+        console.log("✅ Поле proteins добавлено в таблицу menu_items");
       }
-      if (!existingColumns.has('personal_data_policy_consent_given')) {
-        await query(`ALTER TABLE user_profiles ADD COLUMN personal_data_policy_consent_given BOOLEAN DEFAULT false`);
-        console.log("✅ Поле personal_data_policy_consent_given добавлено в таблицу user_profiles");
+      if (!existingColumns.has('fats')) {
+        await query(`ALTER TABLE menu_items ADD COLUMN fats VARCHAR(50)`);
+        console.log("✅ Поле fats добавлено в таблицу menu_items");
       }
-      if (!existingColumns.has('personal_data_policy_consent_date')) {
-        await query(`ALTER TABLE user_profiles ADD COLUMN personal_data_policy_consent_date TIMESTAMP`);
-        console.log("✅ Поле personal_data_policy_consent_date добавлено в таблицу user_profiles");
+      if (!existingColumns.has('carbs')) {
+        await query(`ALTER TABLE menu_items ADD COLUMN carbs VARCHAR(50)`);
+        console.log("✅ Поле carbs добавлено в таблицу menu_items");
+      }
+      if (!existingColumns.has('allergens')) {
+        await query(`ALTER TABLE menu_items ADD COLUMN allergens JSONB DEFAULT '[]'::jsonb`);
+        console.log("✅ Поле allergens добавлено в таблицу menu_items");
+      }
+      if (!existingColumns.has('iiko_product_id')) {
+        await query(`ALTER TABLE menu_items ADD COLUMN iiko_product_id VARCHAR(255)`);
+        console.log("✅ Поле iiko_product_id добавлено в таблицу menu_items");
       }
       if (
-        existingColumns.has('personal_data_consent_given') &&
-        existingColumns.has('personal_data_consent_date') &&
-        existingColumns.has('personal_data_policy_consent_given') &&
-        existingColumns.has('personal_data_policy_consent_date')
+        existingColumns.has('calories') &&
+        existingColumns.has('proteins') &&
+        existingColumns.has('fats') &&
+        existingColumns.has('carbs') &&
+        existingColumns.has('allergens') &&
+        existingColumns.has('iiko_product_id')
       ) {
-        console.log("ℹ️  Поля согласий уже существуют в таблице user_profiles");
+        console.log("ℹ️  Nutrition-поля уже существуют в таблице menu_items");
       }
     } catch (error) {
-      console.warn("⚠️  Предупреждение при добавлении полей согласий:", error?.message || error);
+      console.warn("⚠️  Предупреждение при добавлении nutrition-полей меню:", error?.message || error);
     }
 
     // Миграция: добавляем поля блокировки пользователя

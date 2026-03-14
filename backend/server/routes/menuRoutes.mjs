@@ -9,7 +9,7 @@ import { iikoClient } from "../integrations/iiko-client.mjs";
 const logger = createLogger('menu');
 
 const MAX_ITEMS_PER_BATCH = 1000;
-const PARAMS_PER_ITEM = 15;
+const PARAMS_PER_ITEM = 19;
 const EXTERNAL_MENU_FILTER_PROFILES = {
   zhukovsky_delivery_food: {
     keepCategoryNames: [
@@ -120,6 +120,81 @@ const extractProductImageUrl = (product) => {
   return undefined;
 };
 
+const pickFirstFiniteNumber = (...candidates) => {
+  for (const candidate of candidates) {
+    const parsed = Number(candidate);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+};
+
+const formatNutrientGrams = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return undefined;
+  }
+  return `${numeric.toFixed(1).replace(/\.0$/, "")} г`;
+};
+
+const normaliseAllergenLabel = (entry) => {
+  if (typeof entry === "string") {
+    return normaliseText(entry);
+  }
+  if (!entry || typeof entry !== "object") {
+    return "";
+  }
+
+  return (
+    normaliseText(entry?.name) ||
+    normaliseText(entry?.allergenName) ||
+    normaliseText(entry?.groupName) ||
+    normaliseText(entry?.label) ||
+    normaliseText(entry?.value) ||
+    ""
+  );
+};
+
+const normaliseAllergenList = (...candidates) => {
+  const seen = new Set();
+  const result = [];
+
+  for (const candidate of candidates) {
+    let entries = [];
+    if (Array.isArray(candidate)) {
+      entries = candidate;
+    } else if (typeof candidate === "string") {
+      const raw = candidate.trim();
+      if (!raw) {
+        entries = [];
+      } else {
+        try {
+          const parsed = JSON.parse(raw);
+          entries = Array.isArray(parsed) ? parsed : raw.split(",").map((entry) => entry.trim());
+        } catch {
+          entries = raw.split(",").map((entry) => entry.trim());
+        }
+      }
+    }
+
+    for (const entry of entries) {
+      const label = normaliseAllergenLabel(entry);
+      if (!label) {
+        continue;
+      }
+      const key = label.toLowerCase();
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      result.push(label);
+    }
+  }
+
+  return result;
+};
+
 const formatIikoWeight = (product) => {
   const numericWeight = Number(product?.weight);
   if (Number.isFinite(numericWeight) && numericWeight > 0) {
@@ -149,6 +224,27 @@ const formatIikoCalories = (product) => {
 
   return undefined;
 };
+
+const formatIikoProteins = (product) =>
+  formatNutrientGrams(
+    pickFirstFiniteNumber(product?.proteinsFullAmount, product?.proteinsAmount, product?.proteinAmount),
+  );
+
+const formatIikoFats = (product) =>
+  formatNutrientGrams(pickFirstFiniteNumber(product?.fatFullAmount, product?.fatAmount));
+
+const formatIikoCarbs = (product) =>
+  formatNutrientGrams(
+    pickFirstFiniteNumber(
+      product?.carbohydratesFullAmount,
+      product?.carbohydratesAmount,
+      product?.carbsFullAmount,
+      product?.carbsAmount,
+    ),
+  );
+
+const extractIikoAllergens = (product) =>
+  normaliseAllergenList(product?.allergens, product?.allergenGroups, product?.tags);
 
 const resolveProductGroupId = (product) =>
   normaliseText(product?.parentGroup) ||
@@ -281,10 +377,17 @@ const formatExternalMenuWeight = (size) => {
 };
 
 const formatExternalMenuCalories = (size) => {
-  const candidates = [
-    Number(size?.nutritionPerHundredGrams?.energy),
-    ...asArray(size?.nutritions).map((entry) => Number(entry?.energy)),
-  ];
+  const portionWeight = Number(size?.portionWeightGrams);
+  const perHundred =
+    pickFirstFiniteNumber(
+      size?.nutritionPerHundredGrams?.energy,
+      ...asArray(size?.nutritions).map((entry) => entry?.energy),
+    );
+  if (Number.isFinite(portionWeight) && portionWeight > 0 && Number.isFinite(perHundred)) {
+    return `${Math.round((perHundred * portionWeight) / 100)} ккал`;
+  }
+
+  const candidates = [Number(perHundred)];
   for (const candidate of candidates) {
     if (Number.isFinite(candidate) && candidate > 0) {
       return `${Math.round(candidate)} ккал`;
@@ -292,6 +395,54 @@ const formatExternalMenuCalories = (size) => {
   }
   return undefined;
 };
+
+const formatExternalMenuProteins = (size) =>
+  formatNutrientGrams(
+    (() => {
+      const portionWeight = Number(size?.portionWeightGrams);
+      const perHundred = pickFirstFiniteNumber(
+        size?.nutritionPerHundredGrams?.proteins,
+        ...asArray(size?.nutritions).map((entry) => entry?.proteins),
+      );
+      if (Number.isFinite(portionWeight) && portionWeight > 0 && Number.isFinite(perHundred)) {
+        return (perHundred * portionWeight) / 100;
+      }
+      return perHundred;
+    })(),
+  );
+
+const formatExternalMenuFats = (size) =>
+  formatNutrientGrams(
+    (() => {
+      const portionWeight = Number(size?.portionWeightGrams);
+      const perHundred = pickFirstFiniteNumber(
+        size?.nutritionPerHundredGrams?.fats,
+        ...asArray(size?.nutritions).map((entry) => entry?.fats),
+      );
+      if (Number.isFinite(portionWeight) && portionWeight > 0 && Number.isFinite(perHundred)) {
+        return (perHundred * portionWeight) / 100;
+      }
+      return perHundred;
+    })(),
+  );
+
+const formatExternalMenuCarbs = (size) =>
+  formatNutrientGrams(
+    (() => {
+      const portionWeight = Number(size?.portionWeightGrams);
+      const perHundred = pickFirstFiniteNumber(
+        size?.nutritionPerHundredGrams?.carbs,
+        ...asArray(size?.nutritions).map((entry) => entry?.carbs),
+      );
+      if (Number.isFinite(portionWeight) && portionWeight > 0 && Number.isFinite(perHundred)) {
+        return (perHundred * portionWeight) / 100;
+      }
+      return perHundred;
+    })(),
+  );
+
+const extractExternalMenuAllergens = (item, size) =>
+  normaliseAllergenList(item?.allergens, item?.allergenGroups, size?.allergens, size?.allergenGroups);
 
 export const buildMenuFromIikoExternalMenu = ({
   restaurantId,
@@ -387,6 +538,10 @@ export const buildMenuFromIikoExternalMenu = ({
         price: Number.isFinite(price) && price > 0 ? price : 0,
         weight: formatExternalMenuWeight(size),
         calories: formatExternalMenuCalories(size),
+        proteins: formatExternalMenuProteins(size),
+        fats: formatExternalMenuFats(size),
+        carbs: formatExternalMenuCarbs(size),
+        allergens: extractExternalMenuAllergens(item, size),
         imageUrl: extractExternalMenuImageUrl(item, size),
         iikoProductId: productId || undefined,
         isVegetarian: false,
@@ -514,6 +669,10 @@ const buildMenuFromIikoNomenclature = ({ restaurantId, nomenclature, includeInac
       price: Number.isFinite(price) && price > 0 ? price : 0,
       weight: formatIikoWeight(product),
       calories: formatIikoCalories(product),
+      proteins: formatIikoProteins(product),
+      fats: formatIikoFats(product),
+      carbs: formatIikoCarbs(product),
+      allergens: extractIikoAllergens(product),
       imageUrl: extractProductImageUrl(product),
       iikoProductId: productId || undefined,
       isVegetarian: false,
@@ -642,6 +801,13 @@ export const mergePreparedMenuWithExisting = (menu, existingByIikoId) => {
         imageUrl: item.imageUrl || existing.image_url || undefined,
         calories: item.calories || existing.calories || undefined,
         weight: item.weight || existing.weight || undefined,
+        proteins: item.proteins || existing.proteins || undefined,
+        fats: item.fats || existing.fats || undefined,
+        carbs: item.carbs || existing.carbs || undefined,
+        allergens:
+          Array.isArray(item.allergens) && item.allergens.length > 0
+            ? item.allergens
+            : normaliseAllergenList(existing.allergens),
         isVegetarian: existing.is_vegetarian ?? item.isVegetarian ?? false,
         isSpicy: existing.is_spicy ?? item.isSpicy ?? false,
         isNew: existing.is_new ?? item.isNew ?? false,
@@ -715,7 +881,7 @@ export const persistRestaurantMenu = async (restaurantId, menu) => {
       const item = category.items[itemIndex];
       const itemId = item.id || `${categoryId}-item-${itemIndex}`;
 
-      itemValues.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7}, $${paramIndex + 8}, $${paramIndex + 9}, $${paramIndex + 10}, $${paramIndex + 11}, $${paramIndex + 12}, $${paramIndex + 13}, $${paramIndex + 14}, NOW(), NOW())`);
+      itemValues.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7}, $${paramIndex + 8}, $${paramIndex + 9}, $${paramIndex + 10}, $${paramIndex + 11}, $${paramIndex + 12}, $${paramIndex + 13}, $${paramIndex + 14}, $${paramIndex + 15}, $${paramIndex + 16}, $${paramIndex + 17}, $${paramIndex + 18}, NOW(), NOW())`);
       itemParams.push(
         itemId,
         categoryId,
@@ -724,6 +890,10 @@ export const persistRestaurantMenu = async (restaurantId, menu) => {
         item.price || 0,
         item.weight || null,
         item.calories || null,
+        item.proteins || null,
+        item.fats || null,
+        item.carbs || null,
+        JSON.stringify(Array.isArray(item.allergens) ? item.allergens : []),
         item.imageUrl || null,
         item.iikoProductId || null,
         !!item.isVegetarian,
@@ -733,7 +903,7 @@ export const persistRestaurantMenu = async (restaurantId, menu) => {
         item.isActive !== false,
         item.displayOrder ?? itemIndex + 1,
       );
-      paramIndex += 15;
+      paramIndex += PARAMS_PER_ITEM;
     }
   }
 
@@ -756,7 +926,7 @@ export const persistRestaurantMenu = async (restaurantId, menu) => {
 
     await query(
       `INSERT INTO menu_items (
-        id, category_id, name, description, price, weight, calories, image_url,
+        id, category_id, name, description, price, weight, calories, proteins, fats, carbs, allergens, image_url,
         iiko_product_id, is_vegetarian, is_spicy, is_new, is_recommended, is_active, display_order,
         created_at, updated_at
       )
@@ -879,6 +1049,10 @@ export function createMenuRouter() {
           price: Number(item.price),
           weight: item.weight || undefined,
           calories: item.calories || undefined,
+          proteins: item.proteins || undefined,
+          fats: item.fats || undefined,
+          carbs: item.carbs || undefined,
+          allergens: normaliseAllergenList(item.allergens),
           imageUrl,
           iikoProductId: iikoProductId || undefined,
           isOrderable,
