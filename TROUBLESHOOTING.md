@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-14 14:32
+**Последнее обновление:** 2026-03-14 16:05
 
 ---
 
@@ -341,6 +341,71 @@ curl -X POST "https://your-test-app.example.com/api/db/sync-external-menu?key=ma
 - Повторный вызов sync больше не должен падать на SQL вставке `menu_items`
 
 **Коммит:** будет добавлен после фиксации изменений
+
+### ✅ Решение: статусы заказов из iiko нужно принимать webhook'ом и нормализовать в `cart_orders`, иначе гость видит устаревший или ручной статус
+
+**Дата:** 2026-03-14
+**Симптомы:**
+- У гостя на экране `Мои заказы` актуальный статус появлялся только после ручного обновления
+- Админка показывала локальный статус из БД, который мог расходиться с фактическим статусом заказа в iiko
+- В проекте не было iiko webhook endpoint, а схема `cart_orders` не гарантировала наличие всех integration/iiko полей на новых БД
+
+**Причина:**
+- В backend отсутствовал endpoint для приёма webhook'ов iiko
+- Нормализация сырых статусов iiko в локальные статусы заказа не была вынесена в единый слой
+- `databaseInit.mjs` не создавал/мигрировал все поля `cart_orders`, которые уже использует интеграция:
+  - `payment_method`
+  - `integration_provider`
+  - `provider_status`
+  - `provider_order_id`
+  - `provider_payload`
+  - `provider_error`
+  - `provider_synced_at`
+  - `iiko_order_id`
+  - `iiko_status`
+
+**Решение:**
+- Добавить роут `POST /api/integrations/iiko/webhook`
+- Для production требовать `IIKO_WEBHOOK_TOKEN` или `IIKO_WEBHOOK_TOKENS`
+- Добавить сервис `iikoOrderStatusService` для:
+  - извлечения сырых статусов из webhook/pull-ответов iiko
+  - нормализации в локальные статусы `processing/kitchen/packed/delivery/completed/cancelled/failed`
+  - защиты от регресса статуса при опоздавших событиях
+- Обновлять `cart_orders` через единый apply-layer:
+  - `provider_status`
+  - `iiko_status`
+  - `provider_order_id`
+  - `iiko_order_id`
+  - канонический `status`
+- В `frontend/src/features/orders/OrdersPage.tsx` включить автообновление списка заказов (`refetchInterval`) и читать статус сначала из локального `status`, а не из сырого `provider_status`
+- В `databaseInit.mjs` добавить создание и миграцию integration/iiko полей для `cart_orders`, а также индексы по `provider_order_id` и `iiko_order_id`
+
+**Проверка:**
+```bash
+node --check backend/server/services/iikoOrderStatusService.mjs
+node --check backend/server/services/integrationService.mjs
+node --check backend/server/routes/iikoWebhookRoutes.mjs
+node --check backend/server/cart-server.mjs
+cd frontend && npm exec tsc --noEmit --pretty false
+```
+
+Мини-проверка парсинга webhook:
+```bash
+node <<'NODE'
+import { extractIikoWebhookEventData } from './backend/server/services/iikoOrderStatusService.mjs';
+console.log(extractIikoWebhookEventData({
+  eventType: 'DeliveryOrderStatusChanged',
+  orderInfo: { id: 'iiko-order-123', deliveryStatus: 'OnTheWay' },
+}));
+NODE
+```
+
+Ожидаемо:
+- `providerOrderId = 'iiko-order-123'`
+- `rawStatus = 'OnTheWay'`
+- `normalizedStatus = 'delivery'`
+
+**Коммит:** нет
 
 ### ⚠️ Проблема: Кириллица в restaurant_id ломает URL-запросы
 

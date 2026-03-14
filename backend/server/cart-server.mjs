@@ -27,13 +27,20 @@ import {
   persistRestaurantMenu,
   validateIikoMapping,
 } from "./routes/menuRoutes.mjs";
+import { createIikoWebhookRouter } from "./routes/iikoWebhookRoutes.mjs";
 import { createStorageRouter } from "./routes/storageRoutes.mjs";
 import { logger } from "./utils/logger.mjs";
 import { startBookingNotificationWorker } from "./workers/bookingNotificationWorker.mjs";
 import { startIikoRetryWorker } from "./workers/iikoRetryWorker.mjs";
 import { startTelegramBot, stopTelegramBot } from "./services/telegramBotService.mjs";
-import { fetchRestaurantIntegrationConfig } from "./services/integrationService.mjs";
+import { applyIikoOrderStatusUpdate, fetchRestaurantIntegrationConfig } from "./services/integrationService.mjs";
 import { iikoClient } from "./integrations/iiko-client.mjs";
+import {
+  isFinalCartOrderStatus,
+  mergeCartOrderStatus,
+  normalizeIikoOrderStatus,
+  resolveIikoRawStatus,
+} from "./services/iikoOrderStatusService.mjs";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -61,27 +68,18 @@ const frontendStaticRoot = resolveFrontendStaticRoot();
 
 const app = express();
 
-// Функция для извлечения статуса заказа из ответа iiko
-const resolveIikoFrontStatus = (order) => {
-  if (!order || typeof order !== "object") {
-    return null;
+const IIKO_ORDER_STATUS_SYNC_THROTTLE_MS =
+  Number.parseInt(process.env.IIKO_ORDER_STATUS_SYNC_THROTTLE_MS ?? "", 10) || 30 * 1000;
+
+const isOrderStatusSyncStale = (value) => {
+  if (!value) {
+    return true;
   }
-  const candidates = [
-    order.status,
-    order.order?.status,
-    order.orderInfo?.status,
-    order.orderInfo?.state,
-    order.orderInfo?.deliveryStatus,
-    order.creationStatus,
-    order.deliveryStatus,
-    order.state,
-  ];
-  for (const value of candidates) {
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) {
+    return true;
   }
-  return null;
+  return Date.now() - timestamp >= IIKO_ORDER_STATUS_SYNC_THROTTLE_MS;
 };
 
 const PROFILE_DUPLICATE_INDEXES = [
@@ -708,48 +706,48 @@ app.get("/api/cart/user-orders", async (req, res) => {
       return normalizedOrder;
     });
 
-    // Для каждого заказа с provider_order_id (или iiko_order_id в старой схеме)
-    // запрашиваем актуальный статус из iikoFront
-    const { fetchRestaurantIntegrationConfig } = await import("./services/integrationService.mjs");
-    const { iikoClient } = await import("./integrations/iiko-client.mjs");
-
     const ordersWithStatus = await Promise.all(
       orders.map(async (order) => {
         const providerOrderId = order.provider_order_id ?? order.iiko_order_id ?? null;
         let iikoStatus = order.iiko_status ?? order.provider_status ?? null;
         let iikoDetails = null;
+        let localStatus = order.status ?? null;
 
-        if (providerOrderId && order.restaurant_id) {
+        const shouldRefreshFromIiko =
+          providerOrderId &&
+          order.restaurant_id &&
+          !isFinalCartOrderStatus(localStatus) &&
+          isOrderStatusSyncStale(order.provider_synced_at);
+
+        if (shouldRefreshFromIiko) {
           try {
             const integrationConfig = await fetchRestaurantIntegrationConfig(order.restaurant_id);
             if (integrationConfig) {
-              const statusResult = await iikoClient.checkOrderStatus(
-                integrationConfig,
-                [providerOrderId]
-              );
+              const statusResult = await iikoClient.checkOrderStatus(integrationConfig, [providerOrderId]);
 
               if (statusResult.success && statusResult.orders?.length > 0) {
                 const iikoOrder = statusResult.orders[0];
-                iikoStatus = resolveIikoFrontStatus(iikoOrder) ?? iikoStatus;
+                const nextRawStatus = resolveIikoRawStatus(iikoOrder) || iikoStatus;
+                const nextNormalizedStatus = mergeCartOrderStatus(
+                  localStatus,
+                  normalizeIikoOrderStatus(nextRawStatus),
+                );
+
+                iikoStatus = nextRawStatus || iikoStatus;
+                localStatus = nextNormalizedStatus || localStatus;
                 iikoDetails = iikoOrder;
 
-                // Обновляем статус в БД, если изменился
-                if (iikoStatus && iikoStatus !== (order.iiko_status ?? order.provider_status ?? null)) {
-                  try {
-                    await db.query(
-                      `UPDATE ${CART_ORDERS_TABLE} 
-                       SET provider_status = $1, updated_at = NOW() 
-                       WHERE id = $2`,
-                      [iikoStatus, order.id],
-                    );
-                  } catch {
-                    await db.query(
-                      `UPDATE ${CART_ORDERS_TABLE} 
-                       SET iiko_status = $1, updated_at = NOW() 
-                       WHERE id = $2`,
-                      [iikoStatus, order.id],
-                    );
-                  }
+                if (nextRawStatus) {
+                  await applyIikoOrderStatusUpdate({
+                    providerOrderId,
+                    externalId: order.external_id ?? null,
+                    rawStatus: nextRawStatus,
+                    payload: {
+                      source: "user_orders_pull",
+                      order: iikoOrder,
+                    },
+                    source: "user_orders_pull",
+                  });
                 }
               }
             }
@@ -760,8 +758,10 @@ app.get("/api/cart/user-orders", async (req, res) => {
 
         return {
           ...order,
+          status: localStatus ?? order.status,
           iiko_order_id: providerOrderId,
           iiko_status: iikoStatus,
+          provider_status: iikoStatus ?? order.provider_status ?? null,
           iiko_details: iikoDetails,
         };
       })
@@ -799,6 +799,7 @@ app.post("/api/logs", async (req, res) => {
   }
 });
 app.use("/api/payments", createPaymentRouter());
+app.use("/api/integrations/iiko", createIikoWebhookRouter());
 // Геокодер: дублируем под /api/geocode и /api/cart/geocode, чтобы попадать под имеющийся прокси /api/cart/*
 const geocodeRouter = createGeocodeRouter();
 app.use("/api/geocode", geocodeRouter);

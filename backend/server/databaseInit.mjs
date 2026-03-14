@@ -93,6 +93,15 @@ const SCHEMAS = {
       payment_id UUID,
       payment_status VARCHAR(50),
       payment_provider VARCHAR(50),
+      payment_method VARCHAR(50),
+      integration_provider VARCHAR(50),
+      provider_status VARCHAR(100),
+      provider_order_id VARCHAR(255),
+      provider_payload JSONB,
+      provider_error TEXT,
+      provider_synced_at TIMESTAMP,
+      iiko_order_id VARCHAR(255),
+      iiko_status VARCHAR(100),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
@@ -384,6 +393,8 @@ const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_delivery_access_users_telegram_id ON delivery_access_users(telegram_id);`,
   `CREATE INDEX IF NOT EXISTS idx_delivery_access_users_vk_id ON delivery_access_users(vk_id);`,
   `CREATE INDEX IF NOT EXISTS idx_cart_orders_external_id ON ${CART_ORDERS_TABLE}(external_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_cart_orders_provider_order_id ON ${CART_ORDERS_TABLE}(provider_order_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_cart_orders_iiko_order_id ON ${CART_ORDERS_TABLE}(iiko_order_id);`,
   `CREATE INDEX IF NOT EXISTS idx_cart_orders_customer_phone ON ${CART_ORDERS_TABLE}(customer_phone);`,
   `CREATE INDEX IF NOT EXISTS idx_cart_orders_status ON ${CART_ORDERS_TABLE}(status);`,
   `CREATE INDEX IF NOT EXISTS idx_cart_orders_created_at ON ${CART_ORDERS_TABLE}(created_at DESC);`,
@@ -1036,6 +1047,53 @@ export async function initializeDatabase() {
       }
     } catch (error) {
       console.warn("⚠️  Предупреждение при добавлении nutrition-полей меню:", error?.message || error);
+    }
+
+    // Миграция: добавляем поля интеграции заказов в cart_orders
+    try {
+      const cartOrderColumns = await query(`
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = $1
+          AND column_name IN (
+            'payment_method',
+            'integration_provider',
+            'provider_status',
+            'provider_order_id',
+            'provider_payload',
+            'provider_error',
+            'provider_synced_at',
+            'iiko_order_id',
+            'iiko_status'
+          )
+      `, [CART_ORDERS_TABLE.toLowerCase()]);
+      const existingColumns = new Set(cartOrderColumns.rows.map((row) => row.column_name));
+
+      const requiredColumns = [
+        ["payment_method", "VARCHAR(50)"],
+        ["integration_provider", "VARCHAR(50)"],
+        ["provider_status", "VARCHAR(100)"],
+        ["provider_order_id", "VARCHAR(255)"],
+        ["provider_payload", "JSONB"],
+        ["provider_error", "TEXT"],
+        ["provider_synced_at", "TIMESTAMP"],
+        ["iiko_order_id", "VARCHAR(255)"],
+        ["iiko_status", "VARCHAR(100)"],
+      ];
+
+      for (const [columnName, columnType] of requiredColumns) {
+        if (existingColumns.has(columnName)) {
+          continue;
+        }
+        await query(`ALTER TABLE ${CART_ORDERS_TABLE} ADD COLUMN ${columnName} ${columnType}`);
+        console.log(`✅ Поле ${columnName} добавлено в таблицу ${CART_ORDERS_TABLE}`);
+      }
+
+      if (requiredColumns.every(([columnName]) => existingColumns.has(columnName))) {
+        console.log(`ℹ️  Поля интеграции уже существуют в таблице ${CART_ORDERS_TABLE}`);
+      }
+    } catch (error) {
+      console.warn("⚠️  Предупреждение при добавлении полей интеграции заказов:", error?.message || error);
     }
 
     // Миграция: добавляем поля блокировки пользователя
