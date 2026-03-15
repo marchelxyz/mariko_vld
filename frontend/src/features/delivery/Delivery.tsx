@@ -140,11 +140,6 @@ const Delivery = () => {
             className="relative z-20 mt-6 md:mt-8 space-y-6 md:space-y-8"
             style={{ paddingBottom: "calc(var(--app-bottom-inset) + 140px)" }}
           >
-            {!canShowInternalDelivery && isCitySupported && (
-              <div className="rounded-2xl border border-white/20 bg-white/10 p-4 text-sm text-white/80">
-                Доставка Марико доступна только пользователям с выданным доступом.
-              </div>
-            )}
             {getDeliveryOptions().map((option, index) => (
               <ActionButton
                 key={index}
