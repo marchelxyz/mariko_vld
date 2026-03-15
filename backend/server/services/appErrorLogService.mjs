@@ -363,9 +363,9 @@ export const updateAppErrorLogStatus = async ({ id, status, resolvedByTelegramId
   const normalizedStatus = normalizeStatus(status);
   const row = await queryOne(
     `UPDATE app_error_logs
-     SET status = $2,
-         resolved_at = CASE WHEN $2 = 'resolved' THEN NOW() ELSE NULL END,
-         resolved_by_telegram_id = CASE WHEN $2 = 'resolved' THEN $3 ELSE NULL END,
+     SET status = $2::varchar(20),
+         resolved_at = CASE WHEN $2::varchar(20) = 'resolved' THEN NOW() ELSE NULL END,
+         resolved_by_telegram_id = CASE WHEN $2::varchar(20) = 'resolved' THEN $3::bigint ELSE NULL END,
          updated_at = NOW()
      WHERE id = $1
      RETURNING *`,
