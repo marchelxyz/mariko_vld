@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-15 02:51
+**Последнее обновление:** 2026-03-15 11:18
 
 ---
 
@@ -896,6 +896,43 @@ curl "https://<backend>/api/db/check-terminal-groups?key=mariko-iiko-setup-2024&
 ---
 
 ## Timeweb Deployment
+
+### ❌ Проблема: prod продолжает работать на старом commit, а новые админские разделы не появляются
+
+**Дата:** 2026-03-15
+**Симптомы:**
+- в Timeweb в истории деплоев новые коммиты помечены как `failure`;
+- `prod` продолжает обслуживать старый последний успешный commit;
+- в админке не появляется новый раздел, хотя код уже есть в `prodrepo/main`;
+- новые backend-роуты вроде `/api/admin/error-logs` и `/api/cart/admin/error-logs` отвечают `404 Not Found`.
+
+**Причина:**
+- Timeweb не смог собрать новый frontend bundle и откатился на предыдущий успешный образ;
+- `vite build` падал с ошибкой:
+  - `"sanitizeUserFacingMessage" is not exported by "src/shared/utils.ts"`
+- функция использовалась через импорт `@shared/utils`, но из `frontend/src/shared/utils.ts` не была переэкспортирована.
+
+**Решение:**
+- добавить реэкспорт:
+  - `sanitizeUserFacingMessage`
+  - `sanitizeAdminFacingMessage`
+  из `frontend/src/shared/utils/userFacingError.ts` в `frontend/src/shared/utils.ts`;
+- локально обязательно прогонять production-сборку frontend перед прод-деплоем:
+  - `cd frontend && npm run build`
+- после фикса отправить новый commit в `prodrepo/main` и дождаться успешного деплоя в Timeweb.
+
+**Проверка:**
+```bash
+cd frontend && npm run build
+curl -i https://tg.marikorest.ru/tg/api/admin/error-logs
+curl -i https://tg.marikorest.ru/tg/api/cart/admin/error-logs
+```
+
+Ожидаемое поведение после успешного деплоя:
+- маршруты больше не `404`;
+- без Telegram admin auth они отвечают `401`, что подтверждает регистрацию роутов.
+
+**Связанный commit:** `будет добавлен после фикса`
 
 ### ⚠️ Проблема: Код не обновляется после git push
 
@@ -2039,5 +2076,5 @@ curl -X POST "https://api-ru.iiko.services/api/1/organizations" \
 
 ---
 
-**Последнее обновление:** 2026-03-15 02:51
+**Последнее обновление:** 2026-03-15 11:18
 **Автор:** Codex (GPT-5)
