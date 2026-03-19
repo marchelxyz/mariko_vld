@@ -136,7 +136,7 @@ backend/server/
 
 ### Setup endpoints (защищены ключом)
 ```
-?key=mariko-iiko-setup-2024
+?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET
 ```
 
 - `GET /api/db/setup-iiko` - Проверка/создание таблиц
@@ -161,22 +161,22 @@ backend/server/
 
 ### Проверка конфигурации
 ```bash
-curl "https://your-domain.com/api/db/setup-iiko?key=mariko-iiko-setup-2024"
+curl "https://your-domain.com/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET"
 ```
 
 ### Проверка терминальных групп
 ```bash
-curl "https://your-domain.com/api/db/check-terminal-groups?key=mariko-iiko-setup-2024&restaurantId=nn-rozh"
+curl "https://your-domain.com/api/db/check-terminal-groups?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET&restaurantId=nn-rozh"
 ```
 
 ### Проверка типов оплаты
 ```bash
-curl "https://your-domain.com/api/db/get-iiko-payment-types?key=mariko-iiko-setup-2024&restaurantId=nn-rozh"
+curl "https://your-domain.com/api/db/get-iiko-payment-types?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET&restaurantId=nn-rozh"
 ```
 
 ### Ручная отправка заказа в iiko
 ```bash
-curl -X POST "https://your-domain.com/api/db/manual-send-to-iiko?key=mariko-iiko-setup-2024" \
+curl -X POST "https://your-domain.com/api/db/manual-send-to-iiko?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET" \
   -H "Content-Type: application/json" \
   -d '{"externalId": "order-123"}'
 ```
@@ -186,7 +186,7 @@ curl -X POST "https://your-domain.com/api/db/manual-send-to-iiko?key=mariko-iiko
 ## 🔐 Безопасность
 
 **ВАЖНО:** Setup endpoints защищены секретным ключом. В production:
-- Используйте сложный ключ (не `mariko-iiko-setup-2024`)
+- Используйте сложный ключ (не `CHANGE_ME_DB_ADMIN_ROUTE_SECRET`)
 - После настройки удалите или отключите setup endpoints
 - Храните ключи в ENV переменных, не в коде
 

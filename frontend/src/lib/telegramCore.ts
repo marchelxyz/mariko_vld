@@ -55,10 +55,25 @@ const memoryStorage = new Map<string, string>();
 const noop = () => {};
 const fullscreenRequestCooldownMs = 1200;
 const TELEGRAM_DESKTOP_PLATFORMS = new Set(["tdesktop", "macos", "web", "weba", "webk"]);
+const TELEGRAM_FULLSCREEN_MIN_VERSION = "8.0";
+const TELEGRAM_CLOUD_STORAGE_MIN_VERSION = "6.9";
+const TELEGRAM_DEVICE_STORAGE_MIN_VERSION = "9.0";
+const TELEGRAM_SECURE_STORAGE_MIN_VERSION = "9.0";
 
 function isDesktopTelegramClient(tg: TelegramWebApp): boolean {
   const platform = String(tg?.platform ?? "").trim().toLowerCase();
   return TELEGRAM_DESKTOP_PLATFORMS.has(platform);
+}
+
+function isTelegramVersionAtLeast(tg: TelegramWebApp, version: string): boolean {
+  if (typeof tg.isVersionAtLeast !== "function") {
+    return false;
+  }
+  try {
+    return tg.isVersionAtLeast(version);
+  } catch {
+    return false;
+  }
 }
 
 function shouldRequestFullscreen(tg: TelegramWebApp, payload?: TelegramViewportChangedPayload): boolean {
@@ -404,7 +419,10 @@ export const requestFullscreenMode = () => {
 
   try {
     // Приоритет: requestFullscreen() для Bot API 8.0+ (предпочтительный метод)
-    if (typeof tg.requestFullscreen === "function") {
+    if (
+      typeof tg.requestFullscreen === "function" &&
+      isTelegramVersionAtLeast(tg, TELEGRAM_FULLSCREEN_MIN_VERSION)
+    ) {
       const result = tg.requestFullscreen();
       // Если возвращается Promise, обрабатываем его
       if (result instanceof Promise) {
@@ -588,13 +606,25 @@ const getStoragePriority = (): TelegramAsyncKeyValueStorage[] => {
   }
 
   const storages: TelegramAsyncKeyValueStorage[] = [];
-  if (tg.SecureStorage) {
+  if (
+    tg.SecureStorage &&
+    typeof tg.SecureStorage.getItem === "function" &&
+    isTelegramVersionAtLeast(tg, TELEGRAM_SECURE_STORAGE_MIN_VERSION)
+  ) {
     storages.push(tg.SecureStorage);
   }
-  if (tg.DeviceStorage) {
+  if (
+    tg.DeviceStorage &&
+    typeof tg.DeviceStorage.getItem === "function" &&
+    isTelegramVersionAtLeast(tg, TELEGRAM_DEVICE_STORAGE_MIN_VERSION)
+  ) {
     storages.push(tg.DeviceStorage);
   }
-  if (tg.CloudStorage) {
+  if (
+    tg.CloudStorage &&
+    typeof tg.CloudStorage.getItem === "function" &&
+    isTelegramVersionAtLeast(tg, TELEGRAM_CLOUD_STORAGE_MIN_VERSION)
+  ) {
     storages.push(tg.CloudStorage);
   }
   return storages;

@@ -37,6 +37,8 @@ export function useBookingSlotsPrefetch(selectedRestaurant: Restaurant | null) {
       date: todayStr,
       guestsCount: defaultGuestsCount,
       withRooms: false, // Не запрашиваем данные о столах, нужны только временные слоты
+      signal: abortController.signal,
+      suppressErrorLog: true,
     })
       .then((response) => {
         // Проверяем, не был ли запрос отменен

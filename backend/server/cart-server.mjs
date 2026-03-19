@@ -2,6 +2,7 @@
 
 import express from "express";
 import cors from "cors";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -34,6 +35,10 @@ import { syncRestaurantExternalMenu } from "./services/iikoMenuSyncService.mjs";
 import { createAppErrorLog } from "./services/appErrorLogService.mjs";
 import { iikoClient } from "./integrations/iiko-client.mjs";
 import {
+  prepareRestaurantIntegrationSecretsForStorage,
+  sanitizeRestaurantIntegrationForResponse,
+} from "./services/restaurantIntegrationSecrets.mjs";
+import {
   isFinalCartOrderStatus,
   mergeCartOrderStatus,
   normalizeIikoOrderStatus,
@@ -41,6 +46,111 @@ import {
 } from "./services/iikoOrderStatusService.mjs";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const isProduction = String(process.env.NODE_ENV ?? "").trim().toLowerCase() === "production";
+
+const parseBooleanEnv = (value, fallback = false) => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["1", "true", "yes", "y", "on"].includes(normalized)) {
+      return true;
+    }
+    if (["0", "false", "no", "n", "off"].includes(normalized)) {
+      return false;
+    }
+  }
+  return fallback;
+};
+
+const normalizeIp = (value) => {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) {
+    return "";
+  }
+  if (normalized.startsWith("::ffff:")) {
+    return normalized.slice("::ffff:".length);
+  }
+  return normalized;
+};
+
+const DB_ADMIN_ROUTES_ENABLED = parseBooleanEnv(
+  process.env.DB_ADMIN_ROUTES_ENABLED,
+  !isProduction,
+);
+const DB_ADMIN_ROUTE_SECRET_KEY = String(process.env.DB_ADMIN_ROUTE_SECRET_KEY ?? "").trim();
+const DB_ADMIN_ROUTE_ALLOWED_IPS = new Set(
+  String(process.env.DB_ADMIN_ROUTE_ALLOWED_IPS ?? "")
+    .split(",")
+    .map((value) => normalizeIp(value))
+    .filter(Boolean),
+);
+
+const timingSafeStringEquals = (left, right) => {
+  const leftBuffer = Buffer.from(String(left ?? ""), "utf8");
+  const rightBuffer = Buffer.from(String(right ?? ""), "utf8");
+  if (leftBuffer.length === 0 || rightBuffer.length === 0 || leftBuffer.length !== rightBuffer.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+};
+
+const collectRequestIpCandidates = (req) => {
+  const candidates = new Set();
+  const forwarded = String(req.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((value) => normalizeIp(value))
+    .filter(Boolean);
+  for (const forwardedIp of forwarded) {
+    candidates.add(forwardedIp);
+  }
+
+  for (const candidate of [
+    req.ip,
+    req.socket?.remoteAddress,
+    req.connection?.remoteAddress,
+  ]) {
+    const normalized = normalizeIp(candidate);
+    if (normalized) {
+      candidates.add(normalized);
+    }
+  }
+
+  return Array.from(candidates);
+};
+
+const isDbAdminRouteIpAllowed = (req) => {
+  if (DB_ADMIN_ROUTE_ALLOWED_IPS.size === 0) {
+    return true;
+  }
+  return collectRequestIpCandidates(req).some((candidate) => DB_ADMIN_ROUTE_ALLOWED_IPS.has(candidate));
+};
+
+const authoriseDbAdminRoute = (req, res) => {
+  if (!DB_ADMIN_ROUTES_ENABLED) {
+    return res.status(404).json({ success: false, message: "Not found" });
+  }
+
+  if (!DB_ADMIN_ROUTE_SECRET_KEY) {
+    logger.error("app", "DB admin routes enabled without DB_ADMIN_ROUTE_SECRET_KEY");
+    return res.status(503).json({
+      success: false,
+      message: "DB admin routes are not configured",
+    });
+  }
+
+  const providedKey = String(req.get("x-db-admin-key") ?? req.query?.key ?? "").trim();
+  if (!timingSafeStringEquals(providedKey, DB_ADMIN_ROUTE_SECRET_KEY)) {
+    return res.status(403).json({ success: false, message: "Forbidden" });
+  }
+
+  if (!isDbAdminRouteIpAllowed(req)) {
+    return res.status(403).json({ success: false, message: "Forbidden" });
+  }
+
+  return null;
+};
 
 function resolveFrontendStaticRoot() {
   const candidates = [
@@ -432,6 +542,7 @@ const corsOptions = {
     'Authorization', 
     'X-Telegram-Init-Data', 
     'X-Telegram-Id',
+    'X-DB-Admin-Key',
     'X-VK-Init-Data',
     'X-VK-Id',
   ],
@@ -454,6 +565,13 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json());
+app.use("/api/db", (req, res, next) => {
+  const authErrorResponse = authoriseDbAdminRoute(req, res);
+  if (authErrorResponse) {
+    return;
+  }
+  next();
+});
 
 // Эндпоинт для диагностики и инициализации БД
 app.get("/api/db/init", async (req, res) => {
@@ -525,12 +643,6 @@ app.get("/api/db/check", async (req, res) => {
 });
 
 app.get("/api/db/check-profile-duplicates", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
-
-  if (req.query.key !== SECRET_KEY) {
-    return res.status(403).json({ success: false, message: "Invalid key" });
-  }
-
   try {
     if (!db) {
       return res.status(503).json({
@@ -556,12 +668,6 @@ app.get("/api/db/check-profile-duplicates", async (req, res) => {
 });
 
 app.post("/api/db/fix-profile-duplicates", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
-
-  if (req.query.key !== SECRET_KEY) {
-    return res.status(403).json({ success: false, message: "Invalid key" });
-  }
-
   try {
     if (!db) {
       return res.status(503).json({
@@ -864,12 +970,6 @@ if (frontendStaticRoot) {
 // Временный endpoint для настройки iiko интеграции
 // ВАЖНО: Удалить после настройки!
 app.get("/api/db/setup-iiko", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
-
-  if (req.query.key !== SECRET_KEY) {
-    return res.status(403).json({ success: false, message: "Invalid key" });
-  }
-
   try {
     if (!db) {
       return res.status(503).json({ success: false, message: "DATABASE_URL не задан" });
@@ -1006,7 +1106,7 @@ app.get("/api/db/setup-iiko", async (req, res) => {
 
     // 5. Проверяем существующие интеграции
     const integrations = await query("SELECT * FROM restaurant_integrations");
-    results.existingIntegrations = integrations.rows;
+    results.existingIntegrations = integrations.rows.map(sanitizeRestaurantIntegrationForResponse);
 
     return res.json({ success: true, results });
   } catch (error) {
@@ -1021,12 +1121,6 @@ app.get("/api/db/setup-iiko", async (req, res) => {
 
 // Endpoint для добавления конфигурации iiko
 app.post("/api/db/add-iiko-config", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
-
-  if (req.query.key !== SECRET_KEY) {
-    return res.status(403).json({ success: false, message: "Invalid key" });
-  }
-
   try {
     if (!db) {
       return res.status(503).json({ success: false, message: "DATABASE_URL не задан" });
@@ -1062,6 +1156,11 @@ app.post("/api/db/add-iiko-config", async (req, res) => {
         message: "Обязательные поля: restaurant_id, api_login, organization_id, terminal_group_id"
       });
     }
+
+    const preparedSecrets = prepareRestaurantIntegrationSecretsForStorage({
+      api_login,
+      source_key,
+    });
 
     const result = await query(`
       INSERT INTO restaurant_integrations (
@@ -1116,7 +1215,7 @@ app.post("/api/db/add-iiko-config", async (req, res) => {
       RETURNING *
     `, [
       restaurant_id,
-      api_login,
+      preparedSecrets.api_login,
       organization_id,
       terminal_group_id,
       delivery_terminal_id || null,
@@ -1127,7 +1226,7 @@ app.post("/api/db/add-iiko-config", async (req, res) => {
       card_payment_kind || null,
       online_payment_type || null,
       online_payment_kind || null,
-      source_key || null,
+      preparedSecrets.source_key,
       menu_sync_enabled === true,
       menu_sync_source || null,
       menu_sync_external_menu_id || null,
@@ -1140,7 +1239,7 @@ app.post("/api/db/add-iiko-config", async (req, res) => {
     return res.json({
       success: true,
       message: "Конфигурация iiko добавлена",
-      integration: result.rows[0]
+      integration: sanitizeRestaurantIntegrationForResponse(result.rows[0]),
     });
   } catch (error) {
     logger.error("Ошибка add-iiko-config", error);
@@ -1153,12 +1252,6 @@ app.post("/api/db/add-iiko-config", async (req, res) => {
 });
 
 app.post("/api/db/sync-external-menu", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
-
-  if (req.query.key !== SECRET_KEY) {
-    return res.status(403).json({ success: false, message: "Invalid key" });
-  }
-
   try {
     if (!db) {
       return res.status(503).json({ success: false, message: "DATABASE_URL не задан" });
@@ -1239,12 +1332,6 @@ app.post("/api/db/sync-external-menu", async (req, res) => {
 
 // Endpoint для добавления админа
 app.post("/api/db/add-admin", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
-
-  if (req.query.key !== SECRET_KEY) {
-    return res.status(403).json({ success: false, message: "Invalid key" });
-  }
-
   try {
     if (!db) {
       return res.status(503).json({ success: false, message: "DATABASE_URL не задан" });
@@ -1285,12 +1372,6 @@ app.post("/api/db/add-admin", async (req, res) => {
 
 // Endpoint для миграции: добавление колонки iiko_product_id
 app.post("/api/db/migrate-iiko-product-id", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
-
-  if (req.query.key !== SECRET_KEY) {
-    return res.status(403).json({ success: false, message: "Invalid key" });
-  }
-
   try {
     if (!db) {
       return res.status(503).json({ success: false, message: "DATABASE_URL не задан" });
@@ -1337,12 +1418,6 @@ app.post("/api/db/migrate-iiko-product-id", async (req, res) => {
 
 // Endpoint для добавления integration полей в cart_orders
 app.post("/api/db/migrate-integration-fields", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
-
-  if (req.query.key !== SECRET_KEY) {
-    return res.status(403).json({ success: false, message: "Invalid key" });
-  }
-
   try {
     if (!db) {
       return res.status(503).json({ success: false, message: "DATABASE_URL не задан" });
@@ -1400,12 +1475,6 @@ app.post("/api/db/migrate-integration-fields", async (req, res) => {
 
 // Endpoint для добавления YooKassa конфигурации
 app.post("/api/db/add-yookassa-config", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
-
-  if (req.query.key !== SECRET_KEY) {
-    return res.status(403).json({ success: false, message: "Invalid key" });
-  }
-
   try {
     if (!db) {
       return res.status(503).json({ success: false, message: "DATABASE_URL не задан" });
@@ -1468,12 +1537,6 @@ app.post("/api/db/add-yookassa-config", async (req, res) => {
 
 // Endpoint для просмотра последних заказов
 app.get("/api/db/recent-orders", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
-
-  if (req.query.key !== SECRET_KEY) {
-    return res.status(403).json({ success: false, message: "Invalid key" });
-  }
-
   try {
     if (!db) {
       return res.status(503).json({ success: false, message: "DATABASE_URL не задан" });
@@ -1535,12 +1598,6 @@ app.get("/api/db/recent-orders", async (req, res) => {
 
 // Endpoint для проверки платежной конфигурации
 app.get("/api/db/check-payment-config", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
-
-  if (req.query.key !== SECRET_KEY) {
-    return res.status(403).json({ success: false, message: "Invalid key" });
-  }
-
   try {
     if (!db) {
       return res.status(503).json({ success: false, message: "DATABASE_URL не задан" });
@@ -1578,12 +1635,6 @@ app.get("/api/db/check-payment-config", async (req, res) => {
 
 // Endpoint для ручной отправки заказа в iiko (для тестирования)
 app.post("/api/db/manual-send-to-iiko", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
-
-  if (req.query.key !== SECRET_KEY) {
-    return res.status(403).json({ success: false, message: "Invalid key" });
-  }
-
   try {
     if (!db) {
       return res.status(503).json({ success: false, message: "DATABASE_URL не задан" });
@@ -1668,12 +1719,6 @@ app.post("/api/db/manual-send-to-iiko", async (req, res) => {
 
 // Endpoint для проверки терминальных групп
 app.get("/api/db/check-terminal-groups", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
-
-  if (req.query.key !== SECRET_KEY) {
-    return res.status(403).json({ success: false, message: "Invalid key" });
-  }
-
   try {
     if (!db) {
       return res.status(503).json({ success: false, message: "DATABASE_URL не задан" });
@@ -1721,12 +1766,6 @@ app.get("/api/db/check-terminal-groups", async (req, res) => {
 
 // Endpoint для диагностики доступа к iiko (DNS/TLS/access_token/terminal_groups)
 app.get("/api/db/iiko-debug", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
-
-  if (req.query.key !== SECRET_KEY) {
-    return res.status(403).json({ success: false, message: "Invalid key" });
-  }
-
   try {
     if (!db) {
       return res.status(503).json({ success: false, message: "DATABASE_URL не задан" });
@@ -1983,12 +2022,6 @@ app.get("/api/db/iiko-debug", async (req, res) => {
 
 // Endpoint для попытки починить DNS внутри контейнера (переписывает /etc/resolv.conf)
 app.post("/api/db/fix-dns", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
-
-  if (req.query.key !== SECRET_KEY) {
-    return res.status(403).json({ success: false, message: "Invalid key" });
-  }
-
   const describeError = (error) => {
     const chain = [];
     let current = error;
@@ -2098,12 +2131,6 @@ app.post("/api/db/fix-dns", async (req, res) => {
 
 // Endpoint для проверки статуса заказа в iiko
 app.get("/api/db/check-iiko-order-status", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
-
-  if (req.query.key !== SECRET_KEY) {
-    return res.status(403).json({ success: false, message: "Invalid key" });
-  }
-
   try {
     if (!db) {
       return res.status(503).json({ success: false, message: "DATABASE_URL не задан" });
@@ -2155,12 +2182,6 @@ app.get("/api/db/check-iiko-order-status", async (req, res) => {
 
 // Endpoint для получения типов оплаты из iiko
 app.get("/api/db/get-iiko-payment-types", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
-
-  if (req.query.key !== SECRET_KEY) {
-    return res.status(403).json({ success: false, message: "Invalid key" });
-  }
-
   try {
     if (!db) {
       return res.status(503).json({ success: false, message: "DATABASE_URL не задан" });

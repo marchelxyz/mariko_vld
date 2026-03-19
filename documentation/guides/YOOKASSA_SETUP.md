@@ -212,7 +212,7 @@ YOOKASSA_PROD_SECRET_KEY=live_abcdef123456...
 #### В базе данных (для production)
 ```bash
 # Тестовые ключи (уже настроено)
-curl -X POST "https://your-test-app.example.com/api/db/add-yookassa-config?key=mariko-iiko-setup-2024" \
+curl -X POST "https://your-test-app.example.com/api/db/add-yookassa-config?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
     "restaurant_id": "zhukovsky",
@@ -223,7 +223,7 @@ curl -X POST "https://your-test-app.example.com/api/db/add-yookassa-config?key=m
   }'
 
 # Production ключи (после получения)
-curl -X POST "https://your-domain.com/api/db/add-yookassa-config?key=mariko-iiko-setup-2024" \
+curl -X POST "https://your-domain.com/api/db/add-yookassa-config?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
     "restaurant_id": "zhukovsky",
@@ -483,7 +483,7 @@ curl "https://your-test-app.example.com/api/payments/2d8f6a7e-000f-5000-a000-1f7
 ### Шаг 2: Обновить конфигурацию в БД
 
 ```bash
-curl -X POST "https://your-production-domain.com/api/db/add-yookassa-config?key=mariko-iiko-setup-2024" \
+curl -X POST "https://your-production-domain.com/api/db/add-yookassa-config?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
     "restaurant_id": "zhukovsky",
@@ -537,10 +537,10 @@ YOOKASSA_PROD_CALLBACK_URL=https://your-domain.com/api/payments/yookassa/webhook
 **Решение:**
 ```bash
 # 1. Проверить наличие конфигурации
-curl "https://your-backend.com/api/db/check-payment-config?key=mariko-iiko-setup-2024"
+curl "https://your-backend.com/api/db/check-payment-config?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET"
 
 # 2. Если пусто - добавить конфигурацию
-curl -X POST "https://your-backend.com/api/db/add-yookassa-config?key=mariko-iiko-setup-2024" \
+curl -X POST "https://your-backend.com/api/db/add-yookassa-config?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET" \
   -H "Content-Type: application/json" \
   -d '{ ... }' # см. выше
 ```
@@ -559,7 +559,7 @@ curl -X POST "https://your-backend.com/api/db/add-yookassa-config?key=mariko-iik
 #### 1. URL webhook неправильный
 ```bash
 # Проверить URL в БД
-curl "https://your-backend.com/api/db/check-payment-config?key=mariko-iiko-setup-2024"
+curl "https://your-backend.com/api/db/check-payment-config?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET"
 
 # callback_url должен быть:
 # https://your-domain.com/api/payments/yookassa/webhook

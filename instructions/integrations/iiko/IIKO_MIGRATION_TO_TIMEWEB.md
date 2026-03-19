@@ -119,7 +119,7 @@ const resolveIikoFrontStatus = (order) => {
 
 ### 2.5 Добавить setup-эндпоинты iiko (в конец файла, перед app.listen)
 
-Все эндпоинты защищены секретным ключом `?key=mariko-iiko-setup-2024`.
+Все эндпоинты защищены секретным ключом `?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET`.
 
 **Список эндпоинтов для копирования из marikoTESTiiko/backend/server/cart-server.mjs:**
 
@@ -171,7 +171,7 @@ export const TELEGRAM_WEBAPP_RETURN_URL = process.env.TELEGRAM_WEBAPP_RETURN_URL
 
 ```bash
 DOMAIN=https://apps.vhachapuri.ru  # или IP TimeWeb
-KEY=mariko-iiko-setup-2024
+KEY=CHANGE_ME_DB_ADMIN_ROUTE_SECRET
 
 # 1. Создать таблицы
 curl "$DOMAIN/api/db/setup-iiko?key=$KEY"
@@ -384,20 +384,20 @@ location /api/payments/ {
 curl https://apps.vhachapuri.ru/api/health
 
 # 2. Проверить setup iiko
-curl "https://apps.vhachapuri.ru/api/db/setup-iiko?key=mariko-iiko-setup-2024"
+curl "https://apps.vhachapuri.ru/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET"
 
 # 3. Проверить конфиг платежей
-curl "https://apps.vhachapuri.ru/api/db/check-payment-config?key=mariko-iiko-setup-2024"
+curl "https://apps.vhachapuri.ru/api/db/check-payment-config?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET"
 
 # 4. Проверить терминальные группы iiko
-curl "https://apps.vhachapuri.ru/api/db/check-terminal-groups?key=mariko-iiko-setup-2024&restaurantId=nn-rozh"
+curl "https://apps.vhachapuri.ru/api/db/check-terminal-groups?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET&restaurantId=nn-rozh"
 ```
 
 ### 8.3 Синхронизация меню
 
 ```bash
 # Проверить незамапленные товары:
-curl "https://apps.vhachapuri.ru/api/db/setup-iiko?key=mariko-iiko-setup-2024"
+curl "https://apps.vhachapuri.ru/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET"
 # Посмотреть в ответе поле menuItemsWithoutIikoId
 ```
 

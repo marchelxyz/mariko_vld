@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { Permission } from "@shared/types";
 import { UserRole } from "@shared/types/admin";
 import { getPlatform, getUserId } from "@/lib/platform";
+import { getTg } from "@/lib/telegramCore";
 import { adminServerApi } from "@shared/api/admin/adminServerApi";
 import { logger } from "@/lib/logger";
 
@@ -33,6 +34,7 @@ const ADMIN_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 часа
 const TELEGRAM_ADMIN_RETRY_DELAYS_MS = [0, 350, 900, 1800, 3200, 5000, 7500];
 const DEFAULT_ADMIN_RETRY_DELAYS_MS = [0];
 const TELEGRAM_ADMIN_SYNC_INTERVAL_MS = 30_000;
+const TELEGRAM_INIT_DATA_STORAGE_KEY = "mariko_tg_init_data";
 
 const loadAdminFromStorage = (): AdminStorageData | null => {
   if (typeof window === "undefined") {
@@ -133,6 +135,41 @@ const mapRole = (value: string): UserRole => {
   }
 };
 
+const hasTelegramAuthPayload = (): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const initData = getTg()?.initData;
+  if (typeof initData === "string" && initData.trim()) {
+    return true;
+  }
+
+  try {
+    const urlPayload = new URLSearchParams(window.location.search).get("tgWebAppData");
+    if (urlPayload && urlPayload.trim()) {
+      return true;
+    }
+  } catch {
+    // ignore URL parsing problems
+  }
+
+  try {
+    const cachedPayload = window.sessionStorage?.getItem(TELEGRAM_INIT_DATA_STORAGE_KEY);
+    return Boolean(cachedPayload && cachedPayload.trim());
+  } catch {
+    return false;
+  }
+};
+
+const getAdminRequestStatus = (error: unknown): number | null => {
+  if (!error || typeof error !== "object") {
+    return null;
+  }
+  const status = (error as { status?: unknown }).status;
+  return typeof status === "number" ? status : null;
+};
+
 export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Element => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -146,6 +183,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
     let cancelled = false;
     const platform = getPlatform();
     const isTelegramPlatform = platform === "telegram";
+    const cachedAdmin = loadAdminFromStorage();
 
     const loadAdminData = async ({
       silent = false,
@@ -162,6 +200,14 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
         ? TELEGRAM_ADMIN_RETRY_DELAYS_MS
         : DEFAULT_ADMIN_RETRY_DELAYS_MS;
       let loaded = false;
+
+      if (isTelegramPlatform && !hasTelegramAuthPayload()) {
+        logger.debug('admin-context', 'Skip admin probe: Telegram init data unavailable');
+        if (!silent) {
+          setIsLoading(false);
+        }
+        return false;
+      }
 
       for (let attempt = 0; attempt < retryDelays.length; attempt++) {
         const delay = retryDelays[attempt] ?? 0;
@@ -204,11 +250,16 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
           break;
         } catch (error) {
           if (cancelled) return;
+          const status = getAdminRequestStatus(error);
           logger.warn('admin-context', 'Failed to load admin data attempt', {
             error,
             attempt: attempt + 1,
             attemptsTotal: retryDelays.length,
+            status,
           });
+          if (status === 401 || status === 403) {
+            break;
+          }
         }
       }
 
@@ -225,7 +276,6 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
       return loaded;
     };
 
-    const cachedAdmin = loadAdminFromStorage();
     if (cachedAdmin) {
       setIsAdmin(cachedAdmin.isAdmin);
       setUserRole(cachedAdmin.userRole);
