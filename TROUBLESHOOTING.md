@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-19 14:12
+**Последнее обновление:** 2026-03-19 14:20
 
 ---
 
@@ -198,7 +198,7 @@
 3. Убедиться, что появляется сообщение `Выгрузка ошибок скопирована`
 4. Вставить текст в заметки/чат и проверить, что это полный журнал по текущему фильтру
 
-**Связанный commit:** `0b8f6d6` `fix(security): санитизированы iiko тех-уведомления и логи`
+**Связанный commit:** `0b8f6d6` `fix(security): санитизированы iiko тех-уведомления и логи`; `967b7a5` `fix(security): убран сырой текст ошибок iiko`
 
 ### ❌ Проблема: Telegram Desktop блокирует автоматическое копирование выгрузки ошибок в clipboard
 
@@ -906,6 +906,10 @@ node --check backend/server/workers/iikoMenuSyncWorker.mjs
   - редактировать `enc:v1:...`;
   - редактировать `api_login` / `apiLogin`, `source_key`, `token`, `authorization`, `secret` и сходные ключи;
   - редактировать free-form тексты вида `Login ... is not authorized`;
+- перестать пробрасывать наружу сырой текст провайдера как `error.message`:
+  - `iiko-client` должен формировать собственные безопасные сообщения вроде `Ошибка авторизации при получении access token`;
+- перестать отдавать наружу raw `response.body` от iiko:
+  - оставлять только безопасный summary (`status`, `endpoint`, `correlationId`, `retryAttempts`, `timeoutMs`, `availableMenus`, `requestAttempts`);
 - пропустить через него:
   - `backend/server/services/iikoAlertService.mjs`
   - `backend/server/integrations/iiko-client.mjs`
