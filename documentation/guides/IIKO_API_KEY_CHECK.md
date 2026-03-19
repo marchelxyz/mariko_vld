@@ -66,7 +66,7 @@ curl https://api-ru.iiko.services/api/1/serverinfo
 
 ```bash
 # Получить конфигурацию из БД
-curl "https://ineedaglokk-marikotest-3474.twc1.net/api/db/setup-iiko?key=mariko-iiko-setup-2024"
+curl "https://ineedaglokk-marikotest-3474.twc1.net/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET"
 
 # Найти в ответе:
 # "existingIntegrations": [
@@ -329,7 +329,7 @@ cat > /tmp/iiko-config-update.json << 'EOF'
 EOF
 
 # Обновить через API
-curl -X POST "https://ineedaglokk-marikotest-3474.twc1.net/api/db/add-iiko-config?key=mariko-iiko-setup-2024" \
+curl -X POST "https://ineedaglokk-marikotest-3474.twc1.net/api/db/add-iiko-config?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET" \
   -H "Content-Type: application/json" \
   -d @/tmp/iiko-config-update.json
 
@@ -348,12 +348,12 @@ curl -X POST "https://ineedaglokk-marikotest-3474.twc1.net/api/db/add-iiko-confi
 
 ```bash
 # Проверить через setup endpoint
-curl "https://ineedaglokk-marikotest-3474.twc1.net/api/db/setup-iiko?key=mariko-iiko-setup-2024"
+curl "https://ineedaglokk-marikotest-3474.twc1.net/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET"
 
 # В ответе найти "existingIntegrations" - должен быть новый ключ
 
 # Протестировать получение терминальных групп
-curl "https://ineedaglokk-marikotest-3474.twc1.net/api/db/check-terminal-groups?key=mariko-iiko-setup-2024&restaurantId=zhukovsky"
+curl "https://ineedaglokk-marikotest-3474.twc1.net/api/db/check-terminal-groups?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET&restaurantId=zhukovsky"
 
 # Должно вернуть список терминалов без ошибок
 ```
@@ -416,7 +416,7 @@ iiko Cloud имеет лимиты:
 **Решение:**
 ```bash
 # 1. Проверить, какой ключ в БД
-curl "https://ineedaglokk-marikotest-3474.twc1.net/api/db/setup-iiko?key=mariko-iiko-setup-2024"
+curl "https://ineedaglokk-marikotest-3474.twc1.net/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET"
 
 # 2. Обновить конфигурацию (см. выше)
 
@@ -432,7 +432,7 @@ curl -X POST \
 # 4. Подождать 2-3 минуты для деплоя
 
 # 5. Проверить снова
-curl "https://ineedaglokk-marikotest-3474.twc1.net/api/db/check-terminal-groups?key=mariko-iiko-setup-2024&restaurantId=zhukovsky"
+curl "https://ineedaglokk-marikotest-3474.twc1.net/api/db/check-terminal-groups?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET&restaurantId=zhukovsky"
 ```
 
 ---

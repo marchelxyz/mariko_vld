@@ -68,6 +68,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
   const { cities: allCities, isLoading: isCitiesLoading } = useCities();
   const canManage = hasPermission(Permission.MANAGE_MENU);
   const superAdmin = isSuperAdmin();
+  const canUseGlobalMenuLibrary = superAdmin || userRole === UserRole.ADMIN;
   const canUseIikoDeveloperTools = canManage && superAdmin;
 
   const findCityIdByRestaurantId = useCallback((restaurantId?: string): string | null => {
@@ -648,6 +649,7 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     if (!selectedRestaurantId) {
       return;
     }
+    const libraryScope = canUseGlobalMenuLibrary ? 'global' : 'restaurant';
     setLibrarySearch('');
     setIsLibraryOpen(true);
     setLibraryImages([]);
@@ -656,9 +658,9 @@ export function MenuManagement({ restaurantId: initialRestaurantId }: MenuManage
     try {
       console.log('Загрузка библиотеки изображений', { 
         restaurantId: selectedRestaurantId, 
-        scope: 'global' 
+        scope: libraryScope,
       });
-      const images = await fetchMenuImageLibrary(selectedRestaurantId, 'global');
+      const images = await fetchMenuImageLibrary(selectedRestaurantId, libraryScope);
       console.log('Изображения получены от API', { 
         count: images.length, 
         images: images.map(img => ({ path: img.path, url: img.url, size: img.size }))

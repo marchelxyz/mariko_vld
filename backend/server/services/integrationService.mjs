@@ -2,6 +2,7 @@ import { INTEGRATION_PROVIDER, INTEGRATION_CACHE_TTL_MS, CART_ORDERS_TABLE } fro
 import { queryOne, query, db } from "../postgresClient.mjs";
 import { iikoClient } from "../integrations/iiko-client.mjs";
 import { mergeCartOrderStatus, normalizeIikoOrderStatus } from "./iikoOrderStatusService.mjs";
+import { hydrateRestaurantIntegrationSecrets } from "./restaurantIntegrationSecrets.mjs";
 
 const integrationConfigCache = new Map();
 const enqueueLockMap = new Map();
@@ -106,7 +107,7 @@ export const fetchRestaurantIntegrationConfig = async (restaurantId) => {
        LIMIT 1`,
       [restaurantId, INTEGRATION_PROVIDER],
     );
-    const config = result?.is_enabled ? result : null;
+    const config = result?.is_enabled ? hydrateRestaurantIntegrationSecrets(result) : null;
     setCachedIntegrationConfig(restaurantId, config);
     return config;
   } catch (error) {

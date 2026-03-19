@@ -36,10 +36,15 @@ function resolveServerUrl(path: string): string {
   return `${RAW_SERVER_API_BASE}${normalizedPath}`;
 }
 
-async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<T> {
+type BookingRequestOptions = RequestInit & {
+  suppressErrorLog?: boolean;
+};
+
+async function fetchFromServer<T>(path: string, options?: BookingRequestOptions): Promise<T> {
   const requestStartTime = performance.now();
   const url = resolveServerUrl(path);
   const method = options?.method || "GET";
+  const suppressErrorLog = options?.suppressErrorLog === true;
   
   const bodySize = (() => {
     const body = options?.body;
@@ -138,17 +143,19 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
       
       const error = new Error(errorMessage);
       
-      logger.error('api', error, {
-        apiError: {
-          method,
-          url,
-          status: response.status,
-          statusText: response.statusText,
-          responseBody: responseText.substring(0, 1000), // Ограничиваем размер для безопасности
-          duration: `${responseDuration.toFixed(2)}ms`,
-          timestamp: new Date().toISOString(),
-        },
-      });
+      if (!suppressErrorLog) {
+        logger.error('api', error, {
+          apiError: {
+            method,
+            url,
+            status: response.status,
+            statusText: response.statusText,
+            responseBody: responseText.substring(0, 1000), // Ограничиваем размер для безопасности
+            duration: `${responseDuration.toFixed(2)}ms`,
+            timestamp: new Date().toISOString(),
+          },
+        });
+      }
       
       throw error;
     }
@@ -169,6 +176,10 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
     return parsedResponse;
   } catch (error) {
     responseDuration = performance.now() - requestStartTime;
+
+    if (error instanceof Error && error.name === "AbortError") {
+      throw error;
+    }
     
     if (error instanceof Error && error.message.includes('Server API responded')) {
       // Уже залогировано выше
@@ -200,21 +211,23 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
     const apiError = new Error(errorMessage);
     
     // Сетевая ошибка или другая ошибка
-    logger.error('api', apiError, {
-      apiNetworkError: {
-        method,
-        url,
-        errorType: error instanceof Error ? error.name : 'Unknown',
-        originalErrorMessage: error instanceof Error ? error.message : String(error),
-        finalErrorMessage: errorMessage,
-        duration: `${responseDuration.toFixed(2)}ms`,
-        timestamp: new Date().toISOString(),
-        networkInfo: {
-          online: typeof navigator !== 'undefined' ? navigator.onLine : 'unknown',
-          connectionType: (navigator as any)?.connection?.effectiveType || 'unknown',
+    if (!suppressErrorLog) {
+      logger.error('api', apiError, {
+        apiNetworkError: {
+          method,
+          url,
+          errorType: error instanceof Error ? error.name : 'Unknown',
+          originalErrorMessage: error instanceof Error ? error.message : String(error),
+          finalErrorMessage: errorMessage,
+          duration: `${responseDuration.toFixed(2)}ms`,
+          timestamp: new Date().toISOString(),
+          networkInfo: {
+            online: typeof navigator !== 'undefined' ? navigator.onLine : 'unknown',
+            connectionType: (navigator as any)?.connection?.effectiveType || 'unknown',
+          },
         },
-      },
-    });
+      });
+    }
     
     throw apiError;
   }
@@ -444,7 +457,13 @@ export async function createBooking(
 /**
  * Получить токен для работы с системой бронирования
  */
-export async function getBookingToken(restaurantId: string): Promise<{
+export async function getBookingToken(
+  restaurantId: string,
+  options?: {
+    signal?: AbortSignal;
+    suppressErrorLog?: boolean;
+  },
+): Promise<{
   success: boolean;
   data?: {
     token: string;
@@ -473,6 +492,8 @@ export async function getBookingToken(restaurantId: string): Promise<{
       error?: string;
     }>(`/booking/token?restaurantId=${encodeURIComponent(restaurantId)}`, {
       method: 'GET',
+      signal: options?.signal,
+      suppressErrorLog: options?.suppressErrorLog,
     });
 
     if (response.success && response.data) {
@@ -497,10 +518,15 @@ export async function getBookingToken(restaurantId: string): Promise<{
       error: errorMessage,
     };
   } catch (error) {
-    logger.error('booking-api', error instanceof Error ? error : new Error(String(error)), {
-      restaurantId,
-      errorType: error instanceof Error ? error.name : 'Unknown',
-    });
+    if (error instanceof Error && error.name === "AbortError") {
+      throw error;
+    }
+    if (!options?.suppressErrorLog) {
+      logger.error('booking-api', error instanceof Error ? error : new Error(String(error)), {
+        restaurantId,
+        errorType: error instanceof Error ? error.name : 'Unknown',
+      });
+    }
 
     let message = "Не удалось получить токен";
     if (error instanceof Error) {
@@ -521,6 +547,8 @@ export async function getBookingSlots(params: {
   date: string;
   guestsCount: number;
   withRooms?: boolean;
+  signal?: AbortSignal;
+  suppressErrorLog?: boolean;
 }): Promise<GetSlotsResponse> {
   if (!shouldUseServerApi()) {
     return { 
@@ -542,9 +570,15 @@ export async function getBookingSlots(params: {
     const url = `/booking/slots?${queryParams.toString()}`;
     const result = await fetchFromServer<GetSlotsResponse>(url, {
       method: "GET",
+      signal: params.signal,
+      suppressErrorLog: params.suppressErrorLog,
     });
     return result;
   } catch (error: unknown) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw error;
+    }
+
     let message = "Не удалось получить доступные слоты";
     
     if (error instanceof Error) {
@@ -567,19 +601,21 @@ export async function getBookingSlots(params: {
       message = "Не удалось получить доступные слоты. Попробуйте позже.";
     }
     
-    logger.error('booking-api', error instanceof Error ? error : new Error(message), {
-      step: 'get_slots_error',
-      errorDetails: {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message,
-      },
-      params: {
-        restaurantId: params.restaurantId,
-        date: params.date,
-        guestsCount: params.guestsCount,
-      },
-      timestamp: new Date().toISOString(),
-    });
+    if (!params.suppressErrorLog) {
+      logger.error('booking-api', error instanceof Error ? error : new Error(message), {
+        step: 'get_slots_error',
+        errorDetails: {
+          name: error instanceof Error ? error.name : 'Unknown',
+          message,
+        },
+        params: {
+          restaurantId: params.restaurantId,
+          date: params.date,
+          guestsCount: params.guestsCount,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
     
     return {
       success: false,

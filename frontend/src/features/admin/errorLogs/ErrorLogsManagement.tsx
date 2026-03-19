@@ -91,6 +91,47 @@ function renderRoleLabel(role: string): string {
   return ROLE_LABELS[role] ?? role;
 }
 
+function fallbackCopyTextToClipboard(text: string): boolean {
+  if (typeof document === "undefined" || !document.body) {
+    return false;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  textarea.style.pointerEvents = "none";
+  textarea.style.left = "-9999px";
+  textarea.style.top = "0";
+
+  const selection = document.getSelection();
+  const previousRanges =
+    selection && selection.rangeCount > 0
+      ? Array.from({ length: selection.rangeCount }, (_, index) => selection.getRangeAt(index).cloneRange())
+      : [];
+
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  textarea.setSelectionRange(0, textarea.value.length);
+
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch {
+    copied = false;
+  } finally {
+    document.body.removeChild(textarea);
+    if (selection) {
+      selection.removeAllRanges();
+      previousRanges.forEach((range) => selection.addRange(range));
+    }
+  }
+
+  return copied;
+}
+
 export function ErrorLogsManagement(): JSX.Element | null {
   const { isSuperAdmin } = useAdmin();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -168,30 +209,35 @@ export function ErrorLogsManagement(): JSX.Element | null {
     }
   };
 
-  const copyTextToClipboard = async (text: string) => {
+  const copyTextToClipboard = async (text: string): Promise<boolean> => {
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
-        return;
+        return true;
       }
-    } catch (error) {
-      console.error("Ошибка копирования текста ошибок:", error);
+    } catch {
+      // Игнорируем и пробуем legacy fallback ниже.
     }
 
-    throw new Error("clipboard_unavailable");
+    return fallbackCopyTextToClipboard(text);
   };
 
   const handleCopyCurrentExport = async () => {
     setIsCopyingExport(true);
     try {
       const { text, filename } = await loadExportText();
-      await copyTextToClipboard(text);
       setExportFilename(filename);
       setExportText(text);
-      alert("Выгрузка ошибок скопирована");
+      const copied = await copyTextToClipboard(text);
+      if (copied) {
+        alert("Выгрузка ошибок скопирована");
+        return;
+      }
+      setIsExportOpen(true);
+      alert("Автокопирование недоступно в текущем клиенте. Открыт текст выгрузки для ручного копирования.");
     } catch (error) {
-      console.error("Ошибка копирования выгрузки ошибок:", error);
-      alert("Не удалось скопировать выгрузку автоматически");
+      console.error("Ошибка подготовки выгрузки ошибок:", error);
+      alert("Не удалось подготовить выгрузку ошибок");
     } finally {
       setIsCopyingExport(false);
     }
@@ -199,11 +245,14 @@ export function ErrorLogsManagement(): JSX.Element | null {
 
   const handleCopyExportText = async () => {
     try {
-      await copyTextToClipboard(exportText);
-      alert("Текст ошибок скопирован");
-    } catch (error) {
-      console.error("Ошибка копирования текста ошибок:", error);
-      alert("Не удалось скопировать автоматически. Можно выделить текст вручную.");
+      const copied = await copyTextToClipboard(exportText);
+      if (copied) {
+        alert("Текст ошибок скопирован");
+        return;
+      }
+      alert("Автокопирование недоступно. Можно выделить текст вручную.");
+    } catch {
+      alert("Автокопирование недоступно. Можно выделить текст вручную.");
     }
   };
 

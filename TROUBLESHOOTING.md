@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-19 11:34
+**Последнее обновление:** 2026-03-19 13:27
 
 ---
 
@@ -200,6 +200,152 @@
 
 **Связанный commit:** будет добавлен после фиксации изменений
 
+### ❌ Проблема: Telegram Desktop блокирует автоматическое копирование выгрузки ошибок в clipboard
+
+**Дата:** 2026-03-19
+**Симптомы:**
+- в супер-админке при нажатии `Скопировать выгрузку` или `Скопировать` внутри модального окна появляются ошибки:
+  - `Ошибка копирования текста ошибок: NotAllowedError`
+  - `Ошибка копирования выгрузки ошибок: clipboard_unavailable`
+- сами эти сбои попадают обратно в раздел `Ошибки приложения`;
+- в Telegram Desktop/WebView пользователь не получает нормальный fallback кроме alert.
+
+**Причина:**
+- `navigator.clipboard.writeText(...)` в Telegram Desktop/WebView может быть недоступен или заблокирован политикой пользовательского агента;
+- frontend трактовал это как аварийную ошибку и логировал через `console.error`, хотя это ограничение платформы, а не падение приложения;
+- после неудачи не было резервного сценария, кроме выброса `clipboard_unavailable`.
+
+**Решение:**
+- в `frontend/src/features/admin/errorLogs/ErrorLogsManagement.tsx` добавлен fallback через скрытый `textarea` + `document.execCommand("copy")`;
+- если и fallback недоступен, экспорт автоматически открывается в модальном окне для ручного копирования;
+- platform limitation больше не логируется как `console.error`, чтобы не засорять журнал ложными инцидентами.
+
+**Проверка:**
+1. Открыть Telegram Desktop → супер-админка → `Ошибки приложения`
+2. Нажать `Скопировать выгрузку`
+3. Убедиться, что:
+   - текст либо копируется сразу;
+   - либо автоматически открывается модальное окно с текстом выгрузки для ручного копирования
+4. Проверить, что новые записи `clipboard_unavailable` / `NotAllowedError` в журнал больше не добавляются
+
+**Связанный commit:** нет
+
+### ❌ Проблема: старые Telegram WebApp клиенты пишут console error на unsupported fullscreen/storage API
+
+**Дата:** 2026-03-19
+**Симптомы:**
+- в логах Telegram-клиентов со старым WebApp API появляются ошибки:
+  - `[Telegram.WebApp] Method requestFullscreen is not supported in version 6.0`
+  - `[Telegram.WebApp] CloudStorage is not supported in version 6.0`
+  - `[Telegram.WebApp] DeviceStorage is not supported in version 6.0`
+  - `[Telegram.WebApp] SecureStorage is not supported in version 6.0`
+- ошибки приходят даже без падения интерфейса;
+- один и тот же сеанс быстро создаёт пачку шумовых incident logs.
+
+**Причина:**
+- frontend ориентировался только на наличие метода/объекта (`requestFullscreen`, `CloudStorage`, `DeviceStorage`, `SecureStorage`);
+- Telegram WebApp SDK может отдавать API-объекты заранее, но сам пишет `console error`, если вызвать их на неподдерживаемой версии клиента;
+- отсутствовали проверки через `tg.isVersionAtLeast(...)`.
+
+**Решение:**
+- в `frontend/src/lib/telegramCore.ts` добавлены version gate'ы:
+  - `requestFullscreen` только для `8.0+`
+  - `CloudStorage` только для `6.9+`
+  - `DeviceStorage` и `SecureStorage` только для `9.0+`
+- при отсутствии поддержки fullscreen используется fallback на `expand()`;
+- при отсутствии storage API остаётся fallback на `localStorage`/memory storage без ложных ошибок Telegram SDK.
+
+**Проверка:**
+1. Открыть приложение в старом Telegram Desktop/WebView
+2. Пройти старт приложения и открыть несколько экранов
+3. Убедиться, что новые записи вида `... is not supported in version 6.0` больше не появляются
+4. Проверить, что интерфейс по-прежнему разворачивается через `expand()`, а кэш состояния работает
+
+**Связанный commit:** нет
+
+### ❌ Проблема: мягкая проверка `/admin/me` засоряет журнал ожидаемыми `401`
+
+**Дата:** 2026-03-19
+**Симптомы:**
+- в журнале ошибок массово появляются записи `getCurrentAdmin error` с `401`;
+- это происходит не только у админов, но и у обычных пользователей на `/`, `/menu`, `/profile`;
+- одна и та же сессия создаёт несколько одинаковых записей подряд.
+
+**Причина:**
+- `AdminContext` использует `/admin/me` как мягкую проверку роли на всём приложении;
+- frontend логировал любой non-2xx ответ `getCurrentAdmin` как `error`;
+- для этой мягкой проверки `401/403` являются ожидаемыми восстановимыми состояниями (нет подтверждённой Telegram auth, устаревшая initData, обычный пользователь и т.п.), а не аварией приложения.
+
+**Решение:**
+- в `frontend/src/shared/api/admin/adminServerApi.ts` логирование `401/403` для `getCurrentAdmin` понижено до `warn`;
+- `error` оставлен только для неожиданных ответов, где действительно нужна диагностика backend/frontend.
+- в `frontend/src/contexts/AdminContext.tsx` добавлен ранний выход, если Telegram `initData` недоступен и запрос всё равно заведомо не сможет пройти серверную верификацию;
+- там же повторные попытки прекращаются сразу после терминального `401/403`, чтобы не создавать серию одинаковых запросов и логов.
+
+**Проверка:**
+1. Открыть приложение обычным пользователем и пройти `/`, `/menu`, `/profile`
+2. Открыть приложение админом после холодного старта и после фонового возврата в приложение
+3. Проверить, что `getCurrentAdmin` больше не создаёт новые `error`-инциденты на ожидаемых `401/403`
+
+**Связанный commit:** нет
+
+### ❌ Проблема: ограниченные роли запрашивают глобальную библиотеку фото меню и получают ложный `403`
+
+**Дата:** 2026-03-19
+**Симптомы:**
+- у ролей вроде `marketer` в админке появляются ошибки:
+  - `Ошибка ответа сервера`
+  - `Ошибка получения библиотеки изображений меню: Недостаточно прав для глобальной библиотеки`
+- backend корректно отвечает `403`, но этот штатный отказ попадает в общий журнал ошибок как будто это баг.
+
+**Причина:**
+- frontend меню всегда открывал библиотеку изображений со `scope=global`;
+- backend разрешает глобальную библиотеку только `super_admin` и `admin`;
+- ожидаемый отказ по правам дополнительно логировался как `console.error`.
+
+**Решение:**
+- в `frontend/src/features/admin/menu/MenuManagement.tsx` выбор scope сделан ролевым:
+  - `global` только для `super_admin` и `admin`
+  - `restaurant` для ограниченных ролей
+- в `frontend/src/shared/api/menuApi.ts` ожидаемый `403 Недостаточно прав для глобальной библиотеки` больше не пишется как аварийный `console.error`.
+
+**Проверка:**
+1. Зайти в админку под ограниченной ролью с доступом к меню
+2. Открыть редактирование блюда и нажать `Выбрать из библиотеки`
+3. Убедиться, что открывается библиотека изображений ресторана без новых `403`-ошибок в журнале
+
+**Связанный commit:** нет
+
+### ❌ Проблема: фоновая предзагрузка слотов бронирования создаёт лишние error-логи и не умеет реально отменять запросы
+
+**Дата:** 2026-03-19
+**Симптомы:**
+- на главной или при переключении ресторана могут появляться `api` / `booking-api` ошибки по `/booking/slots`, даже если пользователь не открывал форму бронирования;
+- `useBookingSlotsPrefetch` создаёт `AbortController`, но фактически запрос не отменяется;
+- при быстрой смене ресторана/даты могут висеть устаревшие запросы и дублироваться ошибки от внешнего booking provider.
+
+**Причина:**
+- `getBookingSlots` и `getBookingToken` не принимали `signal`, поэтому существующие `AbortController` в `BookingForm` и `useBookingSlotsPrefetch` были нерабочими;
+- фоновый prefetch логировал внешние сбои бронирования как полноценные `error`-инциденты, хотя это не пользовательское действие и часто временная проблема провайдера.
+
+**Решение:**
+- в `frontend/src/shared/api/bookingApi.ts` добавлена поддержка:
+  - `signal` для реальной отмены `fetch`;
+  - `suppressErrorLog` для тихих фоновых запросов;
+- `AbortError` перестал превращаться в обычную ошибку API и теперь корректно пробрасывается наверх;
+- `frontend/src/shared/hooks/useBookingSlotsPrefetch.ts` переведён на тихий режим с реальной отменой запросов;
+- `frontend/src/features/booking/BookingForm.tsx` начал передавать `signal` в запрос токена и слотов, чтобы отмена предыдущих запросов действительно работала.
+
+**Проверка:**
+1. Открыть главную и быстро переключать рестораны с настроенным бронированием
+2. Открыть форму бронирования и быстро менять дату/количество гостей
+3. Убедиться, что:
+   - устаревшие запросы отменяются без пользовательских ошибок;
+   - фоновые prefetch-сбои больше не создают отдельные `error`-записи в журнале;
+   - рабочий сценарий бронирования по-прежнему загружает токен и слоты
+
+**Связанный commit:** нет
+
 ### ✅ Решение: `401 Некорректный webhook token` при ручной проверке prod webhook означает, что защита webhook работает штатно
 
 **Дата:** 2026-03-15
@@ -374,10 +520,10 @@ server = app.listen(PORT, ...);
 **Как проверить:**
 ```bash
 # Локально
-curl http://localhost:4010/api/db/setup-iiko?key=mariko-iiko-setup-2024
+curl http://localhost:4010/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET
 
 # На Timeweb
-curl https://ineedaglokk-marikotest-3474.twc1.net/api/db/setup-iiko?key=mariko-iiko-setup-2024
+curl https://ineedaglokk-marikotest-3474.twc1.net/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET
 ```
 
 **Важно:**
@@ -516,7 +662,7 @@ curl -X POST "https://api-ru.iiko.services/api/2/menu/by_id" \
   - `0` отсутствующих `iikoProductId`
 - Для server-side перезаливки в test добавлен setup-key endpoint:
 ```bash
-curl -X POST "https://ineedaglokk-marikotest-3474.twc1.net/api/db/sync-external-menu?key=mariko-iiko-setup-2024" \
+curl -X POST "https://ineedaglokk-marikotest-3474.twc1.net/api/db/sync-external-menu?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
     "restaurant_id": "zhukovsky-хачапури-марико",
@@ -887,7 +1033,7 @@ const encoded = encodeURIComponent("zhukovsky-хачапури-марико");
 Вызвать setup endpoint для создания таблиц:
 
 ```bash
-curl "https://your-backend.com/api/db/setup-iiko?key=mariko-iiko-setup-2024"
+curl "https://your-backend.com/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET"
 ```
 
 Этот endpoint создаст таблицы:
@@ -899,7 +1045,7 @@ curl "https://your-backend.com/api/db/setup-iiko?key=mariko-iiko-setup-2024"
 **Проверка:**
 ```bash
 # Должен вернуть список ресторанов и интеграций
-curl "https://your-backend.com/api/db/setup-iiko?key=mariko-iiko-setup-2024"
+curl "https://your-backend.com/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET"
 ```
 
 ---
@@ -969,16 +1115,16 @@ node export-from-prod.mjs YOUR_API_KEY
 **Решение (временное оперативное):**
 1. Использовать диагностику:
 ```bash
-curl "https://<backend>/api/db/iiko-debug?key=mariko-iiko-setup-2024&restaurantId=<restaurantId>"
+curl "https://<backend>/api/db/iiko-debug?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET&restaurantId=<restaurantId>"
 ```
 2. Выполнить DNS-фикс:
 ```bash
-curl -X POST "https://<backend>/api/db/fix-dns?key=mariko-iiko-setup-2024"
+curl -X POST "https://<backend>/api/db/fix-dns?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET"
 ```
 3. После фикса повторно проверить:
 ```bash
-curl "https://<backend>/api/db/iiko-debug?key=mariko-iiko-setup-2024&restaurantId=<restaurantId>"
-curl "https://<backend>/api/db/check-terminal-groups?key=mariko-iiko-setup-2024&restaurantId=<restaurantId>"
+curl "https://<backend>/api/db/iiko-debug?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET&restaurantId=<restaurantId>"
+curl "https://<backend>/api/db/check-terminal-groups?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET&restaurantId=<restaurantId>"
 ```
 
 **Ожидаемый результат после фикса:**
@@ -1158,6 +1304,58 @@ curl "https://api.telegram.org/bot<token>/getWebhookInfo"
 
 ## Database Issues
 
+### ❌ Проблема: prod-техроуты `/api/db/*` раскрывают iiko-секреты и позволяют опасные операции по shared key из репозитория
+
+**Дата:** 2026-03-19
+**Симптомы:**
+- prod-роут `GET /api/db/setup-iiko` отвечает `200` и возвращает `existingIntegrations` из `restaurant_integrations`;
+- в ответе присутствуют чувствительные поля вроде `api_login` и `source_key`;
+- те же `/api/db/*` роуты позволяют выполнять миграции, запись iiko-конфига, ручные отправки в iiko и другие опасные действия;
+- shared key для этих роутов был захардкожен прямо в репозитории и продублирован в документации.
+
+**Причина:**
+- legacy debug/setup-роуты не были выключены на production;
+- защита строилась на одном query-параметре `key`, пришитом в исходники;
+- часть роутов делала `SELECT * FROM restaurant_integrations` и возвращала сырые строки БД наружу;
+- `restaurant_integrations.api_login` и `restaurant_integrations.source_key` хранились в plaintext.
+
+**Решение:**
+1. В `backend/server/cart-server.mjs` добавить единый guard для всех `/api/db/*`:
+   - `DB_ADMIN_ROUTES_ENABLED=false` по умолчанию в production;
+   - отдельный секрет `DB_ADMIN_ROUTE_SECRET_KEY` из env;
+   - опциональный allowlist по `DB_ADMIN_ROUTE_ALLOWED_IPS`;
+   - поддержать header `X-DB-Admin-Key` и legacy query `?key=` только как transport, но не как hardcoded secret.
+2. Удалить реальный shared key из репозитория и заменить его на placeholder в документации/резервных файлах.
+3. Санитизировать ответы setup/iiko-роутов:
+   - не возвращать `api_login` и `source_key`;
+   - отдавать только `has_api_login`, `has_source_key` и остальные безопасные поля.
+4. Добавить application-level шифрование для `restaurant_integrations.api_login` и `restaurant_integrations.source_key`:
+   - ключ `APP_SECRETS_MASTER_KEY` хранить отдельно в env;
+   - при чтении конфигурации выполнять расшифровку в runtime;
+   - для существующих plaintext записей использовать backfill-скрипт `backend/server/scripts/backfillRestaurantIntegrationSecrets.mjs`.
+5. После выката считать старый iiko `api_login` потенциально скомпрометированным и ротировать его в iiko.
+
+**Проверка:**
+```bash
+# 1. В production без явного разрешения debug-роутов endpoint должен быть недоступен
+curl -i "https://<your-domain>/api/db/setup-iiko"
+
+# 2. В controlled-окружении с включенными debug-роутами и секретом из env
+curl -H "X-DB-Admin-Key: ${DB_ADMIN_ROUTE_SECRET_KEY}" \
+  "https://<your-domain>/api/db/setup-iiko"
+
+# 3. Проверить, что чувствительные поля не возвращаются
+# Ожидаемо: в existingIntegrations нет api_login/source_key, только has_api_login/has_source_key
+
+# 4. Dry-run шифрования существующих секретов
+node backend/server/scripts/backfillRestaurantIntegrationSecrets.mjs
+
+# 5. Применение шифрования
+node backend/server/scripts/backfillRestaurantIntegrationSecrets.mjs --apply
+```
+
+**Связанный commit:** нет
+
 ### ❌ Проблема: "DATABASE_URL не задан" в логах
 
 **Симптомы:**
@@ -1263,13 +1461,13 @@ curl -H "X-Telegram-Id: 577222108" \
    при отсутствии таблицы временно считать `attempts=0` и писать один warn, без спама error.
 4. Применить setup endpoint на стенде:
 ```bash
-curl "https://<your-domain>/api/db/setup-iiko?key=mariko-iiko-setup-2024"
+curl "https://<your-domain>/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET"
 ```
 
 **Проверка:**
 ```bash
 # 1) Проверить setup
-curl "https://<your-domain>/api/db/setup-iiko?key=mariko-iiko-setup-2024"
+curl "https://<your-domain>/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET"
 
 # 2) Убедиться, что в логах больше нет 42P01 по integration_job_logs
 # (через Timeweb API logs или панель логов)
@@ -1292,10 +1490,10 @@ curl "https://<your-domain>/api/db/setup-iiko?key=mariko-iiko-setup-2024"
 1. Добавлены endpoint'ы диагностики и очистки:
 ```bash
 # Проверка (dry-run)
-curl "https://<your-domain>/api/db/check-profile-duplicates?key=mariko-iiko-setup-2024"
+curl "https://<your-domain>/api/db/check-profile-duplicates?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET"
 
 # Очистка дублей (оставляет самую раннюю запись)
-curl -X POST "https://<your-domain>/api/db/fix-profile-duplicates?key=mariko-iiko-setup-2024&apply=1"
+curl -X POST "https://<your-domain>/api/db/fix-profile-duplicates?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET&apply=1"
 ```
 2. При очистке:
 - сохраняется самый ранний профиль (по `created_at`, затем `id`);
@@ -1730,9 +1928,9 @@ curl -s "https://<domain>/api/cities/all" \
 **Решение:**
 1. Выполнить setup/миграции на проде:
 ```bash
-curl -X GET  "https://tg.marikorest.ru/tg/api/db/setup-iiko?key=mariko-iiko-setup-2024"
-curl -X POST "https://tg.marikorest.ru/tg/api/db/migrate-iiko-product-id?key=mariko-iiko-setup-2024"
-curl -X POST "https://tg.marikorest.ru/tg/api/db/migrate-integration-fields?key=mariko-iiko-setup-2024"
+curl -X GET  "https://tg.marikorest.ru/tg/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET"
+curl -X POST "https://tg.marikorest.ru/tg/api/db/migrate-iiko-product-id?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET"
+curl -X POST "https://tg.marikorest.ru/tg/api/db/migrate-integration-fields?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET"
 ```
 2. Перенести iiko-конфиг ресторана из test DB в prod через `add-iiko-config`.
 3. Так как `sync-iiko` остановился на дублях, временно скопировать `iiko_product_id` из тестовой БД в продовую по совпадающим `menu_items.id` для ресторана Жуковского.
@@ -2037,10 +2235,10 @@ curl -I https://tg.marikorest.ru/tg/assets/index-<current-hash>.js
 
 ### 🔐 Защита setup endpoints секретным ключом
 
-Все setup endpoints защищены query параметром `?key=mariko-iiko-setup-2024`:
+Все setup endpoints защищены query параметром `?key=CHANGE_ME_DB_ADMIN_ROUTE_SECRET`:
 
 ```javascript
-const SECRET_KEY = "mariko-iiko-setup-2024";
+const SECRET_KEY = "CHANGE_ME_DB_ADMIN_ROUTE_SECRET";
 
 if (req.query.key !== SECRET_KEY) {
   return res.status(403).json({ success: false, message: "Invalid key" });
@@ -2136,7 +2334,7 @@ curl -X POST \
 ### Проверить backend endpoints
 ```bash
 BACKEND_URL="https://ineedaglokk-marikotest-3474.twc1.net"
-SECRET_KEY="mariko-iiko-setup-2024"
+SECRET_KEY="CHANGE_ME_DB_ADMIN_ROUTE_SECRET"
 
 # Health check
 curl "${BACKEND_URL}/api/health"

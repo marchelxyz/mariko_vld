@@ -300,7 +300,7 @@ app.use((req, res) => {
 // Временный endpoint для настройки iiko интеграции
 // ВАЖНО: Удалить после настройки!
 app.get("/api/db/setup-iiko", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
+  const SECRET_KEY = "CHANGE_ME_DB_ADMIN_ROUTE_SECRET";
 
   if (req.query.key !== SECRET_KEY) {
     return res.status(403).json({ success: false, message: "Invalid key" });
@@ -425,7 +425,7 @@ app.get("/api/db/setup-iiko", async (req, res) => {
 
 // Endpoint для добавления конфигурации iiko
 app.post("/api/db/add-iiko-config", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
+  const SECRET_KEY = "CHANGE_ME_DB_ADMIN_ROUTE_SECRET";
 
   if (req.query.key !== SECRET_KEY) {
     return res.status(403).json({ success: false, message: "Invalid key" });
@@ -506,7 +506,7 @@ app.post("/api/db/add-iiko-config", async (req, res) => {
 
 // Endpoint для добавления админа
 app.post("/api/db/add-admin", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
+  const SECRET_KEY = "CHANGE_ME_DB_ADMIN_ROUTE_SECRET";
 
   if (req.query.key !== SECRET_KEY) {
     return res.status(403).json({ success: false, message: "Invalid key" });
@@ -552,7 +552,7 @@ app.post("/api/db/add-admin", async (req, res) => {
 
 // Endpoint для миграции: добавление колонки iiko_product_id
 app.post("/api/db/migrate-iiko-product-id", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
+  const SECRET_KEY = "CHANGE_ME_DB_ADMIN_ROUTE_SECRET";
 
   if (req.query.key !== SECRET_KEY) {
     return res.status(403).json({ success: false, message: "Invalid key" });
@@ -604,7 +604,7 @@ app.post("/api/db/migrate-iiko-product-id", async (req, res) => {
 
 // Endpoint для добавления integration полей в cart_orders
 app.post("/api/db/migrate-integration-fields", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
+  const SECRET_KEY = "CHANGE_ME_DB_ADMIN_ROUTE_SECRET";
 
   if (req.query.key !== SECRET_KEY) {
     return res.status(403).json({ success: false, message: "Invalid key" });
@@ -667,7 +667,7 @@ app.post("/api/db/migrate-integration-fields", async (req, res) => {
 
 // Endpoint для добавления YooKassa конфигурации
 app.post("/api/db/add-yookassa-config", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
+  const SECRET_KEY = "CHANGE_ME_DB_ADMIN_ROUTE_SECRET";
 
   if (req.query.key !== SECRET_KEY) {
     return res.status(403).json({ success: false, message: "Invalid key" });
@@ -735,7 +735,7 @@ app.post("/api/db/add-yookassa-config", async (req, res) => {
 
 // Endpoint для просмотра последних заказов
 app.get("/api/db/recent-orders", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
+  const SECRET_KEY = "CHANGE_ME_DB_ADMIN_ROUTE_SECRET";
 
   if (req.query.key !== SECRET_KEY) {
     return res.status(403).json({ success: false, message: "Invalid key" });
@@ -802,7 +802,7 @@ app.get("/api/db/recent-orders", async (req, res) => {
 
 // Endpoint для проверки платежной конфигурации
 app.get("/api/db/check-payment-config", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
+  const SECRET_KEY = "CHANGE_ME_DB_ADMIN_ROUTE_SECRET";
 
   if (req.query.key !== SECRET_KEY) {
     return res.status(403).json({ success: false, message: "Invalid key" });
@@ -845,7 +845,7 @@ app.get("/api/db/check-payment-config", async (req, res) => {
 
 // Endpoint для ручной отправки заказа в iiko (для тестирования)
 app.post("/api/db/manual-send-to-iiko", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
+  const SECRET_KEY = "CHANGE_ME_DB_ADMIN_ROUTE_SECRET";
 
   if (req.query.key !== SECRET_KEY) {
     return res.status(403).json({ success: false, message: "Invalid key" });
@@ -935,7 +935,7 @@ app.post("/api/db/manual-send-to-iiko", async (req, res) => {
 
 // Endpoint для проверки терминальных групп
 app.get("/api/db/check-terminal-groups", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
+  const SECRET_KEY = "CHANGE_ME_DB_ADMIN_ROUTE_SECRET";
 
   if (req.query.key !== SECRET_KEY) {
     return res.status(403).json({ success: false, message: "Invalid key" });
@@ -988,7 +988,7 @@ app.get("/api/db/check-terminal-groups", async (req, res) => {
 
 // Endpoint для проверки статуса заказа в iiko
 app.get("/api/db/check-iiko-order-status", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
+  const SECRET_KEY = "CHANGE_ME_DB_ADMIN_ROUTE_SECRET";
 
   if (req.query.key !== SECRET_KEY) {
     return res.status(403).json({ success: false, message: "Invalid key" });
@@ -1045,7 +1045,7 @@ app.get("/api/db/check-iiko-order-status", async (req, res) => {
 
 // Endpoint для получения типов оплаты из iiko
 app.get("/api/db/get-iiko-payment-types", async (req, res) => {
-  const SECRET_KEY = "mariko-iiko-setup-2024";
+  const SECRET_KEY = "CHANGE_ME_DB_ADMIN_ROUTE_SECRET";
 
   if (req.query.key !== SECRET_KEY) {
     return res.status(403).json({ success: false, message: "Invalid key" });

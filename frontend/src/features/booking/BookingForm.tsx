@@ -227,7 +227,9 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       return;
     }
     
-    getBookingToken(restaurantId)
+    getBookingToken(restaurantId, {
+      signal: tokenAbortControllerRef.current.signal,
+    })
       .then((response) => {
         // Проверяем, не был ли запрос отменен
         if (tokenAbortControllerRef.current?.signal.aborted) {
@@ -371,6 +373,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       date: dateStr,
       guestsCount: guestsCount,
       withRooms: false, // Не запрашиваем данные о столах, нужны только временные слоты
+      signal: slotsAbortControllerRef.current.signal,
     })
       .then((response) => {
         if (slotsAbortControllerRef.current?.signal.aborted) {
@@ -536,6 +539,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
       date: dateStr,
       guestsCount: guestsCount,
       withRooms: true,
+      signal: slotsAbortControllerRef.current.signal,
     })
       .then((response) => {
         // Проверяем, не был ли запрос отменен

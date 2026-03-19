@@ -594,12 +594,24 @@ export const adminServerApi = {
     });
     if (!response.ok) {
       const errorText = await response.text().catch(() => "");
-      logger.error('admin-api', new Error('getCurrentAdmin error'), {
+      const errorMessage = sanitizeAdminFacingMessage(
+        errorText,
+        "Не удалось выполнить действие. Попробуйте ещё раз.",
+      );
+      const requestError = new Error(errorMessage) as Error & { status?: number };
+      requestError.status = response.status;
+      const logPayload = {
         status: response.status,
         statusText: response.statusText,
         url,
         errorText,
-      });
+      };
+      if (response.status === 401 || response.status === 403) {
+        logger.warn('admin-api', 'getCurrentAdmin unauthorized', logPayload);
+      } else {
+        logger.error('admin-api', new Error('getCurrentAdmin error'), logPayload);
+      }
+      throw requestError;
     }
     return handleResponse<AdminMeResponse>(response);
   },

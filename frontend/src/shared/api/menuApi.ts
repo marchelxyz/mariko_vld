@@ -360,7 +360,12 @@ export async function fetchMenuImageLibrary(
         parseErrorPayload(text),
         "Не удалось загрузить библиотеку изображений. Попробуйте ещё раз.",
       );
-      console.error('Ошибка ответа сервера', { status: response.status, errorMessage, text });
+      if (
+        response.status !== 403 ||
+        errorMessage !== "Недостаточно прав для глобальной библиотеки"
+      ) {
+        console.error('Ошибка ответа сервера', { status: response.status, errorMessage, text });
+      }
       throw new Error(errorMessage);
     }
 
@@ -368,6 +373,13 @@ export async function fetchMenuImageLibrary(
     console.log('Распарсенные данные', { count: assets.length, assets });
     return assets;
   } catch (error) {
+    if (error instanceof Error && error.message === "Недостаточно прав для глобальной библиотеки") {
+      console.warn('Глобальная библиотека изображений меню недоступна для текущей роли', {
+        restaurantId,
+        scope,
+      });
+      return [];
+    }
     console.error('Ошибка получения библиотеки изображений меню:', error);
     return [];
   }
