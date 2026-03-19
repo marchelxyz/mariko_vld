@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CheckCheck,
+  Copy,
   Download,
   Loader2,
   RotateCcw,
@@ -15,7 +16,17 @@ import {
   type AppErrorLogStatus,
 } from "@shared/api/admin";
 import { useAdmin } from "@shared/hooks";
-import { Button, Input } from "@shared/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Textarea,
+} from "@shared/ui";
 
 type StatusFilter = "all" | AppErrorLogStatus;
 
@@ -86,6 +97,9 @@ export function ErrorLogsManagement(): JSX.Element | null {
   const [searchQuery, setSearchQuery] = useState("");
   const [updatingLogId, setUpdatingLogId] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [exportFilename, setExportFilename] = useState("app-error-logs.txt");
+  const [exportText, setExportText] = useState("");
 
   const {
     data,
@@ -131,26 +145,51 @@ export function ErrorLogsManagement(): JSX.Element | null {
   const handleDownloadNewLogs = async () => {
     setIsDownloading(true);
     try {
-      const { blob, filename } = await adminServerApi.downloadErrorLogs({
+      const { text, filename } = await adminServerApi.downloadErrorLogs({
         status: "new",
         search: searchQuery.trim() || undefined,
         limit: 1000,
       });
+      setExportFilename(filename);
+      setExportText(text);
+      setIsExportOpen(true);
+    } catch (error) {
+      console.error("Ошибка скачивания журнала ошибок:", error);
+      alert("Не удалось скачать журнал ошибок");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
+  const handleCopyExportText = async () => {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(exportText);
+        alert("Текст ошибок скопирован");
+        return;
+      }
+    } catch (error) {
+      console.error("Ошибка копирования текста ошибок:", error);
+    }
+
+    alert("Не удалось скопировать автоматически. Можно выделить текст вручную.");
+  };
+
+  const handleDownloadExportText = () => {
+    try {
+      const blob = new Blob([exportText], { type: "text/plain;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = filename;
+      link.download = exportFilename;
       link.style.display = "none";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error("Ошибка скачивания журнала ошибок:", error);
-      alert("Не удалось скачать журнал ошибок");
-    } finally {
-      setIsDownloading(false);
+      console.error("Ошибка скачивания txt журнала ошибок:", error);
+      alert("Не удалось скачать .txt файл");
     }
   };
 
@@ -189,7 +228,7 @@ export function ErrorLogsManagement(): JSX.Element | null {
             ) : (
               <Download className="w-4 h-4 mr-2" />
             )}
-            Скачать новые
+            Открыть новые
           </Button>
           <Button type="button" variant="outline" onClick={() => void refetch()} disabled={isFetching}>
             {isFetching ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-2" />}
@@ -197,6 +236,36 @@ export function ErrorLogsManagement(): JSX.Element | null {
           </Button>
         </div>
       </div>
+
+      <Dialog open={isExportOpen} onOpenChange={setIsExportOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-mariko-secondary border-white/10">
+          <DialogHeader>
+            <DialogTitle className="text-white font-el-messiri text-xl md:text-2xl">
+              Новые ошибки приложения
+            </DialogTitle>
+            <DialogDescription className="text-white/70">
+              Текст уже подготовлен для анализа. Можно скопировать его или скачать как `.txt`.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Textarea
+            value={exportText}
+            readOnly
+            className="min-h-[420px] bg-white/5 border-white/10 text-white font-mono text-xs leading-5"
+          />
+
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" onClick={handleCopyExportText}>
+              <Copy className="w-4 h-4 mr-2" />
+              Скопировать
+            </Button>
+            <Button type="button" variant="outline" onClick={handleDownloadExportText}>
+              <Download className="w-4 h-4 mr-2" />
+              Скачать .txt
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-3 md:grid-cols-3">
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
