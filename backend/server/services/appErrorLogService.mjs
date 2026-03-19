@@ -387,6 +387,50 @@ export const exportAppErrorLogs = async ({ status = null, search = null, limit =
   };
 };
 
+export const formatAppErrorLogsAsText = (report) => {
+  const lines = [
+    "Журнал ошибок приложения",
+    `Сформирован: ${report?.exportedAt ?? new Date().toISOString()}`,
+    `Статус: ${report?.status ?? "all"}`,
+    `Поиск: ${report?.search ?? "-"}`,
+    `Количество: ${Number(report?.count) || 0}`,
+    "",
+  ];
+
+  const logs = Array.isArray(report?.logs) ? report.logs : [];
+  for (const [index, log] of logs.entries()) {
+    lines.push(`#${index + 1}`);
+    lines.push(`ID: ${log?.id ?? "-"}`);
+    lines.push(`Статус: ${log?.status ?? "-"}`);
+    lines.push(`Уровень: ${log?.level ?? "-"}`);
+    lines.push(`Категория: ${log?.category ?? "-"}`);
+    lines.push(`Сообщение: ${log?.message ?? "-"}`);
+    lines.push(`Ошибка: ${log?.errorName ?? "-"}`);
+    lines.push(`Роль: ${log?.role ?? "-"}`);
+    lines.push(`Пользователь: ${log?.userName ?? "-"}`);
+    lines.push(`Telegram ID: ${log?.telegramId ?? "-"}`);
+    lines.push(`VK ID: ${log?.vkId ?? "-"}`);
+    lines.push(`Платформа: ${log?.platform ?? "-"}`);
+    lines.push(`Страница: ${log?.pathname ?? "-"}`);
+    lines.push(`URL: ${log?.pageUrl ?? "-"}`);
+    lines.push(`Сессия: ${log?.sessionId ?? "-"}`);
+    lines.push(`Создано: ${log?.createdAt ?? "-"}`);
+    lines.push(`Обновлено: ${log?.updatedAt ?? "-"}`);
+    lines.push(`Решено: ${log?.resolvedAt ?? "-"}`);
+    lines.push(`Кем решено: ${log?.resolvedByTelegramId ?? "-"}`);
+    lines.push(`User-Agent: ${log?.userAgent ?? "-"}`);
+    lines.push("Payload:");
+    lines.push(JSON.stringify(log?.payload ?? {}, null, 2));
+    if (log?.errorStack) {
+      lines.push("Stack:");
+      lines.push(String(log.errorStack));
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
+};
+
 export const updateAppErrorLogStatus = async ({ id, status, resolvedByTelegramId = null }) => {
   const normalizedStatus = normalizeStatus(status);
   const row = await queryOne(

@@ -910,6 +910,7 @@ export const adminServerApi = {
     status?: AppErrorLogStatus;
     search?: string;
     limit?: number;
+    format?: "txt" | "json";
   } = {}): Promise<DownloadedAdminFile> {
     const search = new URLSearchParams();
     if (params.status) {
@@ -921,6 +922,7 @@ export const adminServerApi = {
     if (params.limit) {
       search.set("limit", String(params.limit));
     }
+    search.set("format", params.format ?? "txt");
 
     const response = await fetch(
       `${ADMIN_API_BASE}/error-logs/export${search.toString() ? `?${search.toString()}` : ""}`,
