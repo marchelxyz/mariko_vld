@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-19 13:27
+**Последнее обновление:** 2026-03-19 14:12
 
 ---
 
@@ -198,7 +198,7 @@
 3. Убедиться, что появляется сообщение `Выгрузка ошибок скопирована`
 4. Вставить текст в заметки/чат и проверить, что это полный журнал по текущему фильтру
 
-**Связанный commit:** будет добавлен после фиксации изменений
+**Связанный commit:** `0b8f6d6` `fix(security): санитизированы iiko тех-уведомления и логи`
 
 ### ❌ Проблема: Telegram Desktop блокирует автоматическое копирование выгрузки ошибок в clipboard
 
@@ -885,6 +885,53 @@ node --check backend/server/workers/iikoMenuSyncWorker.mjs
 - `01:15Z` и `01:30Z` (`04:15` и `04:30` МСК) — `HTTP 500 Internal Server Error` от iiko на `api/2/menu/by_id`
 - `20:00Z` днём ранее — timeout/abort на том же endpoint
 - Это фоновой сбой чтения меню из iiko, а не действие пользователя и не ошибка оформления заказа
+
+**Связанный commit:** будет добавлен после фиксации изменений
+
+### ❌ Проблема: iiko тех-уведомления и error meta могут показывать зашифрованный `api_login` и другие секреты в явном виде
+
+**Дата:** 2026-03-19
+**Симптомы:**
+- в Telegram tech-alert по iiko прилетает сырой `details` JSON;
+- внутри `errorDescription` может оказаться строка вида `Login enc:v1:... is not authorized`;
+- похожие значения могут попадать в backend-логи и в `response.body` у iiko debug/admin ответов.
+
+**Причина:**
+- `iikoAlertService` отправлял в алерт сырые вложенные `details` через `JSON.stringify(...)`;
+- `iiko-client` прокидывал `error.response` наружу почти без санитизации;
+- backend `logger` печатал raw `error`/`data`, включая вложенные custom fields у `Error`.
+
+**Решение:**
+- добавить общий backend-санитайзер секретов:
+  - редактировать `enc:v1:...`;
+  - редактировать `api_login` / `apiLogin`, `source_key`, `token`, `authorization`, `secret` и сходные ключи;
+  - редактировать free-form тексты вида `Login ... is not authorized`;
+- пропустить через него:
+  - `backend/server/services/iikoAlertService.mjs`
+  - `backend/server/integrations/iiko-client.mjs`
+  - `backend/server/utils/logger.mjs`
+  - `backend/server/cart-server.mjs` для `iiko-debug`;
+- в Telegram iiko-alert'ах не слать сырой `details` JSON, а оставлять только короткое summary:
+  - `Сбоев подряд`
+  - `HTTP статус`
+  - `Эндпоинт`
+  - `Повторов запроса`
+  - `Timeout`
+  - `Correlation ID`
+
+**Проверка:**
+```bash
+node --check backend/server/utils/sensitiveDataSanitizer.mjs
+node --check backend/server/utils/logger.mjs
+node --check backend/server/services/iikoAlertService.mjs
+node --check backend/server/integrations/iiko-client.mjs
+node --check backend/server/cart-server.mjs
+git diff --check
+```
+
+Ручная проверка санитайзера:
+- вход: `Login enc:v1:... is not authorized.`
+- выход: `Login [REDACTED] is not authorized.`
 
 **Связанный commit:** будет добавлен после фиксации изменений
 
