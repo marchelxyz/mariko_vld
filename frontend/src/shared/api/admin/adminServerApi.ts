@@ -171,12 +171,14 @@ export type AdminBookingsResponse = {
 };
 
 export type AppErrorLogStatus = "new" | "resolved";
+export type AppErrorLogSeverity = "critical" | "high" | "medium" | "low";
 
 export type AppErrorLogRecord = {
   id: string;
   status: AppErrorLogStatus;
   source: string;
   level: "debug" | "info" | "warn" | "error";
+  severity: AppErrorLogSeverity;
   category: string;
   message: string;
   errorName: string | null;
@@ -874,6 +876,7 @@ export const adminServerApi = {
 
   async getErrorLogs(params: {
     status?: AppErrorLogStatus;
+    severity?: AppErrorLogSeverity;
     search?: string;
     limit?: number;
   } = {}): Promise<{
@@ -887,6 +890,9 @@ export const adminServerApi = {
     const search = new URLSearchParams();
     if (params.status) {
       search.set("status", params.status);
+    }
+    if (params.severity) {
+      search.set("severity", params.severity);
     }
     if (params.search) {
       search.set("search", params.search);
@@ -920,6 +926,7 @@ export const adminServerApi = {
 
   async downloadErrorLogs(params: {
     status?: AppErrorLogStatus;
+    severity?: AppErrorLogSeverity;
     search?: string;
     limit?: number;
     format?: "txt" | "json";
@@ -927,6 +934,9 @@ export const adminServerApi = {
     const search = new URLSearchParams();
     if (params.status) {
       search.set("status", params.status);
+    }
+    if (params.severity) {
+      search.set("severity", params.severity);
     }
     if (params.search) {
       search.set("search", params.search);
