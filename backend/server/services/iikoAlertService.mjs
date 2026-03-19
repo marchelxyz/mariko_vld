@@ -1,6 +1,10 @@
 import { listAdminRecords } from "./adminService.mjs";
 import { sendTelegramTextMessage } from "./telegramBotService.mjs";
 import { createLogger } from "../utils/logger.mjs";
+import {
+  sanitizeSensitiveData,
+  sanitizeSensitiveText,
+} from "../utils/sensitiveDataSanitizer.mjs";
 
 const logger = createLogger("iiko-alerts");
 
@@ -61,15 +65,96 @@ const normalizeLineValue = (value) => {
   if (value === null || value === undefined) {
     return null;
   }
+  const sanitizedValue = sanitizeSensitiveData(value);
   if (typeof value === "object") {
     try {
-      return JSON.stringify(value);
+      return JSON.stringify(sanitizedValue);
     } catch {
-      return String(value);
+      return sanitizeSensitiveText(String(sanitizedValue));
     }
   }
-  const normalized = String(value).trim();
+  const normalized = sanitizeSensitiveText(String(sanitizedValue)).trim();
   return normalized || null;
+};
+
+const getNestedValue = (payload, path) => {
+  let current = payload;
+  for (const segment of path) {
+    if (current === null || current === undefined || typeof current !== "object") {
+      return null;
+    }
+    current = current[segment];
+  }
+  return current ?? null;
+};
+
+const normalizeEndpointValue = (value) => {
+  const text = normalizeLineValue(value);
+  if (!text) {
+    return null;
+  }
+  try {
+    return new URL(text).pathname || text;
+  } catch {
+    return text;
+  }
+};
+
+const buildSafeDetailLines = (details) => {
+  if (details === null || details === undefined) {
+    return [];
+  }
+
+  const sanitizedDetails = sanitizeSensitiveData(details);
+  if (typeof sanitizedDetails !== "object" || Array.isArray(sanitizedDetails)) {
+    const normalized = normalizeLineValue(sanitizedDetails);
+    return normalized ? [`Детали: ${normalized}`] : [];
+  }
+
+  const consecutiveFailures =
+    getNestedValue(sanitizedDetails, ["consecutiveFailures"]) ??
+    getNestedValue(sanitizedDetails, ["details", "consecutiveFailures"]);
+  const status =
+    getNestedValue(sanitizedDetails, ["status"]) ??
+    getNestedValue(sanitizedDetails, ["details", "status"]) ??
+    getNestedValue(sanitizedDetails, ["details", "details", "status"]);
+  const endpoint = normalizeEndpointValue(
+    getNestedValue(sanitizedDetails, ["url"]) ??
+      getNestedValue(sanitizedDetails, ["details", "url"]) ??
+      getNestedValue(sanitizedDetails, ["details", "details", "url"]),
+  );
+  const retryAttempts =
+    getNestedValue(sanitizedDetails, ["retryAttempts"]) ??
+    getNestedValue(sanitizedDetails, ["details", "retryAttempts"]) ??
+    getNestedValue(sanitizedDetails, ["details", "details", "retryAttempts"]);
+  const timeoutMs =
+    getNestedValue(sanitizedDetails, ["timeoutMs"]) ??
+    getNestedValue(sanitizedDetails, ["details", "timeoutMs"]) ??
+    getNestedValue(sanitizedDetails, ["details", "details", "timeoutMs"]);
+  const correlationId =
+    getNestedValue(sanitizedDetails, ["correlationId"]) ??
+    getNestedValue(sanitizedDetails, ["body", "correlationId"]) ??
+    getNestedValue(sanitizedDetails, ["details", "body", "correlationId"]) ??
+    getNestedValue(sanitizedDetails, ["details", "details", "body", "correlationId"]);
+  const rawType =
+    getNestedValue(sanitizedDetails, ["rawType"]) ??
+    getNestedValue(sanitizedDetails, ["details", "rawType"]);
+  const summary =
+    getNestedValue(sanitizedDetails, ["summary"]) ??
+    getNestedValue(sanitizedDetails, ["details", "summary"]);
+
+  return [
+    Number.isFinite(Number(consecutiveFailures)) ? `Сбоев подряд: ${consecutiveFailures}` : null,
+    Number.isFinite(Number(status)) ? `HTTP статус: ${status}` : null,
+    endpoint ? `Эндпоинт: ${endpoint}` : null,
+    Number.isFinite(Number(retryAttempts)) ? `Повторов запроса: ${retryAttempts}` : null,
+    Number.isFinite(Number(timeoutMs)) ? `Timeout: ${timeoutMs}ms` : null,
+    normalizeLineValue(correlationId) ? `Correlation ID: ${normalizeLineValue(correlationId)}` : null,
+    normalizeLineValue(rawType) ? `Тип payload: ${normalizeLineValue(rawType)}` : null,
+    typeof summary === "string" && normalizeLineValue(summary)
+      ? `Сводка: ${normalizeLineValue(summary)}`
+      : null,
+  ].filter(Boolean);
 };
 
 const truncateMessage = (value) => {
@@ -168,11 +253,11 @@ export const reportIikoWebhookAlert = async ({
     severity: type === "processing_error" ? "error" : "warn",
     title: "Проблема при обработке webhook iiko",
     lines: [
-      type ? `Тип: ${type}` : null,
-      message ? `Сообщение: ${message}` : null,
+      normalizeLineValue(type) ? `Тип: ${normalizeLineValue(type)}` : null,
+      normalizeLineValue(message) ? `Сообщение: ${normalizeLineValue(message)}` : null,
       Number.isFinite(received) ? `Событий: ${received}` : null,
       error ? `Ошибка: ${normalizeLineValue(error)}` : null,
-      details ? `Детали: ${normalizeLineValue(details)}` : null,
+      ...buildSafeDetailLines(details),
     ],
   });
 
@@ -189,10 +274,12 @@ export const reportIikoMenuSyncAlert = async ({
     severity: "error",
     title: "Сбой автосинка меню iiko",
     lines: [
-      restaurantId ? `Ресторан: ${restaurantId}` : null,
-      externalMenuName ? `Внешнее меню: ${externalMenuName}` : null,
-      message ? `Сообщение: ${message}` : null,
+      normalizeLineValue(restaurantId) ? `Ресторан: ${normalizeLineValue(restaurantId)}` : null,
+      normalizeLineValue(externalMenuName)
+        ? `Внешнее меню: ${normalizeLineValue(externalMenuName)}`
+        : null,
+      normalizeLineValue(message) ? `Сообщение: ${normalizeLineValue(message)}` : null,
       error ? `Ошибка: ${normalizeLineValue(error)}` : null,
-      details ? `Детали: ${normalizeLineValue(details)}` : null,
+      ...buildSafeDetailLines(details),
     ],
   });

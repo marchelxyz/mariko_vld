@@ -26,6 +26,7 @@ import {
 import { createIikoWebhookRouter } from "./routes/iikoWebhookRoutes.mjs";
 import { createStorageRouter } from "./routes/storageRoutes.mjs";
 import { logger } from "./utils/logger.mjs";
+import { sanitizeSensitiveText } from "./utils/sensitiveDataSanitizer.mjs";
 import { startBookingNotificationWorker } from "./workers/bookingNotificationWorker.mjs";
 import { startIikoMenuSyncWorker } from "./workers/iikoMenuSyncWorker.mjs";
 import { startIikoRetryWorker } from "./workers/iikoRetryWorker.mjs";
@@ -1930,16 +1931,18 @@ app.get("/api/db/iiko-debug", async (req, res) => {
           status: response.status,
           statusText: response.statusText,
           parseError: parsed.error,
-          bodySnippet: text.replace(/\s+/g, " ").slice(0, 200),
+          bodySnippet: sanitizeSensitiveText(text.replace(/\s+/g, " ").slice(0, 200)),
         };
       } else if (!response.ok) {
         diagnostics.accessToken = {
           ok: false,
           status: response.status,
           statusText: response.statusText,
-          errorDescription: parsed.json?.errorDescription ?? parsed.json?.message ?? null,
+          errorDescription: sanitizeSensitiveText(
+            parsed.json?.errorDescription ?? parsed.json?.message ?? null,
+          ),
           correlationId: parsed.json?.correlationId ?? null,
-          bodySnippet: text.replace(/\s+/g, " ").slice(0, 200),
+          bodySnippet: sanitizeSensitiveText(text.replace(/\s+/g, " ").slice(0, 200)),
         };
       } else {
         token = parsed.json?.token ?? null;
