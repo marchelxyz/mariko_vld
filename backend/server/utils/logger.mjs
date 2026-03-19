@@ -2,6 +2,11 @@
  * Централизованная система логирования для бэкенда
  */
 
+import {
+  sanitizeSensitiveData,
+  sanitizeSensitiveText,
+} from "./sensitiveDataSanitizer.mjs";
+
 const LOG_LEVELS = {
   DEBUG: 0,
   INFO: 1,
@@ -30,6 +35,25 @@ class Logger {
     this.category = category;
   }
 
+  sanitizeError(error) {
+    if (!error) {
+      return null;
+    }
+
+    return sanitizeSensitiveData({
+      name: error?.name,
+      message: error?.message,
+      stack: error?.stack,
+      code: error?.code,
+      detail: error?.detail,
+      constraint: error?.constraint,
+      status: error?.status,
+      url: error?.url,
+      response: error?.response,
+      network: error?.network,
+    });
+  }
+
   formatTimestamp() {
     return new Date().toISOString();
   }
@@ -37,22 +61,16 @@ class Logger {
   formatMessage(level, message, data, error) {
     const timestamp = this.formatTimestamp();
     const category = this.category;
+    const sanitizedMessage = sanitizeSensitiveText(message);
+    const sanitizedData = data ? sanitizeSensitiveData(data) : null;
+    const sanitizedError = error ? this.sanitizeError(error) : null;
     const entry = {
       timestamp,
       level,
       category,
-      message,
-      ...(data && { data }),
-      ...(error && {
-        error: {
-          name: error?.name,
-          message: error?.message,
-          stack: error?.stack,
-          code: error?.code,
-          detail: error?.detail,
-          constraint: error?.constraint,
-        },
-      }),
+      message: sanitizedMessage,
+      ...(sanitizedData && { data: sanitizedData }),
+      ...(sanitizedError && { error: sanitizedError }),
     };
 
     return entry;
@@ -89,15 +107,15 @@ class Logger {
     const icon = this.getIcon(level);
     const reset = COLORS.reset;
 
-    const logMessage = `${color}${icon} [${entry.timestamp}] [${level.toUpperCase()}] [${this.category}] ${message}${reset}`;
+    const logMessage = `${color}${icon} [${entry.timestamp}] [${level.toUpperCase()}] [${this.category}] ${entry.message}${reset}`;
     
     // Выбираем правильный метод консоли
     const consoleMethod = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log;
     
-    if (data || error) {
+    if (entry.data || entry.error) {
       consoleMethod(logMessage);
-      if (data) console.log('  Data:', data);
-      if (error) console.error('  Error:', error);
+      if (entry.data) console.log('  Data:', entry.data);
+      if (entry.error) console.error('  Error:', entry.error);
     } else {
       consoleMethod(logMessage);
     }

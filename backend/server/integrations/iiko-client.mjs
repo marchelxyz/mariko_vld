@@ -1,3 +1,8 @@
+import {
+  sanitizeSensitiveData,
+  sanitizeSensitiveText,
+} from "../utils/sensitiveDataSanitizer.mjs";
+
 const IIKO_BASE_URL = process.env.IIKO_BASE_URL || "https://api-ru.iiko.services";
 const IIKO_TIMEOUT_MS = Number.parseInt(process.env.IIKO_TIMEOUT_MS ?? "", 10) || 15000;
 const IIKO_EXTERNAL_MENU_TIMEOUT_MS =
@@ -268,10 +273,12 @@ const requestJson = async (url, options = {}) => {
       });
     } catch (error) {
       const enriched = new Error(
-        `iiko: network error while requesting ${url}: ${error?.message || "fetch failed"}`,
+        sanitizeSensitiveText(
+          `iiko: network error while requesting ${url}: ${error?.message || "fetch failed"}`,
+        ),
       );
       enriched.url = url;
-      enriched.network = extractNetworkErrorDetails(error);
+      enriched.network = sanitizeSensitiveData(extractNetworkErrorDetails(error));
       throw enriched;
     }
     const text = await response.text();
@@ -287,22 +294,28 @@ const requestJson = async (url, options = {}) => {
     }
 
     if (parseError) {
-      const snippet = text ? text.replace(/\s+/g, " ").slice(0, 200).trim() : "";
+      const snippet = text
+        ? sanitizeSensitiveText(text.replace(/\s+/g, " ").slice(0, 200).trim())
+        : "";
       const error = new Error(
-        `iiko: Некорректный ответ JSON (${parseError.message}). HTTP ${response.status} ${response.statusText} at ${url}${
+        sanitizeSensitiveText(
+          `iiko: Некорректный ответ JSON (${parseError.message}). HTTP ${response.status} ${response.statusText} at ${url}${
           snippet ? `. Body: ${snippet}` : ""
         }`,
+        ),
       );
       error.status = response.status;
-      error.response = { raw: text };
+      error.response = { raw: sanitizeSensitiveText(text) };
       error.url = url;
       throw error;
     }
 
     if (!response.ok) {
-      const message = payload?.message || payload?.error?.message || response.statusText;
+      const message = sanitizeSensitiveText(
+        payload?.message || payload?.error?.message || response.statusText,
+      );
       const error = new Error(message || `iiko API error (HTTP ${response.status})`);
-      error.response = payload;
+      error.response = sanitizeSensitiveData(payload);
       error.status = response.status;
       error.url = url;
       throw error;
@@ -549,13 +562,14 @@ const extractExternalMenuIds = (payload) => {
   return Array.from(ids);
 };
 
-const buildErrorResponseMeta = (error, extra = {}) => ({
-  status: error?.status,
-  url: error?.url,
-  body: error?.response ?? null,
-  network: error?.network ?? null,
-  ...extra,
-});
+const buildErrorResponseMeta = (error, extra = {}) =>
+  sanitizeSensitiveData({
+    status: error?.status,
+    url: error?.url,
+    body: error?.response ?? null,
+    network: error?.network ?? null,
+    ...extra,
+  });
 
 const isRetryableIikoRequestError = (error) => {
   const status = Number(error?.status ?? 0);
@@ -1108,13 +1122,7 @@ export const iikoClient = {
       return {
         success: false,
         error: error?.message || "iiko: Ошибка создания заказа",
-        response: {
-          status: error?.status,
-          url: error?.url,
-          body: error?.response ?? null,
-          network: error?.network ?? null,
-          request: payload,
-        },
+        response: buildErrorResponseMeta(error, { request: payload }),
       };
     }
   },
@@ -1155,12 +1163,7 @@ export const iikoClient = {
       return {
         success: false,
         error: error?.message || "iiko: Ошибка получения номенклатуры",
-        response: {
-          status: error?.status,
-          url: error?.url,
-          body: error?.response ?? null,
-          network: error?.network ?? null,
-        },
+        response: buildErrorResponseMeta(error),
       };
     }
   },
@@ -1573,12 +1576,7 @@ export const iikoClient = {
       return {
         success: false,
         error: error?.message || "iiko: Ошибка получения типов оплаты",
-        response: {
-          status: error?.status,
-          url: error?.url,
-          body: error?.response ?? null,
-          network: error?.network ?? null,
-        },
+        response: buildErrorResponseMeta(error),
       };
     }
   },
@@ -1695,12 +1693,7 @@ export const iikoClient = {
       return {
         success: false,
         error: error?.message || "iiko: Ошибка получения терминальных групп",
-        response: {
-          status: error?.status,
-          url: error?.url,
-          body: error?.response ?? null,
-          network: error?.network ?? null,
-        },
+        response: buildErrorResponseMeta(error),
       };
     }
   },
@@ -1748,12 +1741,7 @@ export const iikoClient = {
       return {
         success: false,
         error: error?.message || "iiko: Ошибка получения стоп-листа",
-        response: {
-          status: error?.status,
-          url: error?.url,
-          body: error?.response ?? null,
-          network: error?.network ?? null,
-        },
+        response: buildErrorResponseMeta(error),
       };
     }
   },
@@ -1853,12 +1841,7 @@ export const iikoClient = {
       return {
         success: false,
         error: error?.message || "iiko: Ошибка проверки статуса заказа",
-        response: {
-          status: error?.status,
-          url: error?.url,
-          body: error?.response ?? null,
-          network: error?.network ?? null,
-        },
+        response: buildErrorResponseMeta(error),
       };
     }
   },
