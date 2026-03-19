@@ -209,7 +209,7 @@ type AppErrorLogsResponse = {
 };
 
 type DownloadedAdminFile = {
-  blob: Blob;
+  text: string;
   filename: string;
 };
 
@@ -935,11 +935,11 @@ export const adminServerApi = {
       await handleResponse(response);
     }
 
-    const blob = await response.blob();
+    const text = await response.text();
     const contentDisposition = response.headers.get("content-disposition") || "";
     const filenameMatch = contentDisposition.match(/filename=\"?([^\";]+)\"?/i);
     return {
-      blob,
+      text,
       filename: filenameMatch?.[1] || "app-error-logs.json",
     };
   },
