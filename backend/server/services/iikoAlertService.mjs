@@ -1,5 +1,4 @@
-import { listAdminRecords } from "./adminService.mjs";
-import { sendTelegramTextMessage } from "./telegramBotService.mjs";
+import { createSystemAppErrorLog } from "./appErrorLogService.mjs";
 import { createLogger } from "../utils/logger.mjs";
 import {
   sanitizeSensitiveData,
@@ -34,12 +33,6 @@ const ALERT_DEDUP_MS = parseIntegerEnv(process.env.IIKO_ALERTS_DEDUP_MS, 15 * 60
 const ALERT_MAX_TEXT_LENGTH = parseIntegerEnv(process.env.IIKO_ALERTS_MAX_TEXT_LENGTH, 3500);
 
 const alertThrottleMap = new Map();
-
-const parseTelegramIds = (raw) =>
-  String(raw ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => /^\d+$/.test(value));
 
 const cleanupThrottleMap = () => {
   const now = Date.now();
@@ -165,59 +158,30 @@ const truncateMessage = (value) => {
   return `${text.slice(0, ALERT_MAX_TEXT_LENGTH - 1)}…`;
 };
 
-const buildAlertText = ({ title, lines = [], severity = "warn" }) => {
-  const prefix = severity === "error" ? "IIKO ALERT ERROR" : "IIKO ALERT";
-  return truncateMessage(
-    [prefix, title, "", ...lines.filter(Boolean)].join("\n"),
+const buildAlertMessage = ({ title, summaryMessage, errorMessage }) =>
+  truncateMessage(
+    [title, summaryMessage, errorMessage].filter(Boolean).join(": "),
   );
-};
 
-const resolveAlertRecipients = async () => {
-  const recipients = new Set(parseTelegramIds(process.env.IIKO_ALERTS_TELEGRAM_IDS));
-
-  try {
-    const adminRecords = await listAdminRecords();
-    adminRecords
-      .filter((record) => record?.role === "super_admin" && record?.telegram_id)
-      .forEach((record) => {
-        recipients.add(String(record.telegram_id).trim());
-      });
-  } catch (error) {
-    logger.warn("Не удалось получить super_admin для iiko alert", null, error instanceof Error ? error : new Error(String(error)));
+const buildAlertPathname = (category) => {
+  if (category === "iiko-webhook") {
+    return "/backend/iiko/webhook";
   }
-
-  return Array.from(recipients).filter(Boolean);
-};
-
-const sendAlertToRecipients = async (messageText) => {
-  const recipients = await resolveAlertRecipients();
-  if (!recipients.length) {
-    logger.warn("iiko alerts: не найдено получателей уведомлений");
-    return { delivered: 0, recipients: 0 };
+  if (category === "iiko-menu-sync") {
+    return "/backend/iiko/menu-sync";
   }
-
-  let delivered = 0;
-  for (const recipient of recipients) {
-    try {
-      await sendTelegramTextMessage(recipient, messageText);
-      delivered += 1;
-    } catch (error) {
-      logger.warn(
-        "Не удалось отправить iiko alert в Telegram",
-        { recipient },
-        error instanceof Error ? error : new Error(String(error)),
-      );
-    }
-  }
-
-  return { delivered, recipients: recipients.length };
+  return "/backend/iiko";
 };
 
 const maybeSendAlert = async ({
   enabled,
   dedupKey,
+  category,
   title,
   lines,
+  summaryMessage = null,
+  errorMessage = null,
+  details = null,
   severity = "warn",
 }) => {
   if (!ALERTS_ENABLED || !enabled) {
@@ -229,15 +193,58 @@ const maybeSendAlert = async ({
     return { skipped: "dedup" };
   }
 
-  const messageText = buildAlertText({ title, lines, severity });
-  const result = await sendAlertToRecipients(messageText);
-  logger.info("iiko alert dispatched", {
-    dedupKey,
-    severity,
-    delivered: result.delivered,
-    recipients: result.recipients,
-  });
-  return result;
+  const sanitizedDetails = sanitizeSensitiveData(details);
+  const sanitizedLines = lines.filter(Boolean).map((line) => normalizeLineValue(line)).filter(Boolean);
+  const safeSummaryMessage = normalizeLineValue(summaryMessage);
+  const safeErrorMessage = normalizeLineValue(errorMessage);
+
+  try {
+    const log = await createSystemAppErrorLog({
+      category: category || "iiko",
+      level: severity === "error" ? "error" : "warn",
+      message: buildAlertMessage({
+        title,
+        summaryMessage: safeSummaryMessage,
+        errorMessage: safeErrorMessage,
+      }) || title,
+      pathname: buildAlertPathname(category),
+      payload: {
+        title: normalizeLineValue(title),
+        severity,
+        dedupKey,
+        lines: sanitizedLines,
+        details: sanitizedDetails,
+      },
+      error: safeErrorMessage
+        ? {
+            name: "Error",
+            message: safeErrorMessage,
+          }
+        : null,
+    });
+
+    logger.info("iiko alert записан в журнал ошибок", {
+      dedupKey,
+      severity,
+      logId: log?.id ?? null,
+      category: category || "iiko",
+    });
+
+    return {
+      logged: true,
+      logId: log?.id ?? null,
+    };
+  } catch (error) {
+    logger.error(
+      "Не удалось записать iiko alert в журнал ошибок",
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        dedupKey,
+        category: category || "iiko",
+      },
+    );
+    return { skipped: "log_write_failed" };
+  }
 };
 
 export const reportIikoWebhookAlert = async ({
@@ -250,8 +257,16 @@ export const reportIikoWebhookAlert = async ({
   maybeSendAlert({
     enabled: WEBHOOK_ALERTS_ENABLED,
     dedupKey: `webhook:${type}`,
+    category: "iiko-webhook",
     severity: type === "processing_error" ? "error" : "warn",
     title: "Проблема при обработке webhook iiko",
+    summaryMessage: message,
+    errorMessage: error,
+    details: {
+      type,
+      received,
+      details,
+    },
     lines: [
       normalizeLineValue(type) ? `Тип: ${normalizeLineValue(type)}` : null,
       normalizeLineValue(message) ? `Сообщение: ${normalizeLineValue(message)}` : null,
@@ -271,8 +286,16 @@ export const reportIikoMenuSyncAlert = async ({
   maybeSendAlert({
     enabled: MENU_SYNC_ALERTS_ENABLED,
     dedupKey: `menu-sync:${restaurantId || "unknown"}:${externalMenuName || "default"}`,
+    category: "iiko-menu-sync",
     severity: "error",
     title: "Сбой автосинка меню iiko",
+    summaryMessage: message,
+    errorMessage: error,
+    details: {
+      restaurantId,
+      externalMenuName,
+      details,
+    },
     lines: [
       normalizeLineValue(restaurantId) ? `Ресторан: ${normalizeLineValue(restaurantId)}` : null,
       normalizeLineValue(externalMenuName)

@@ -276,6 +276,7 @@ export function createAdminRouter() {
       const result = await listAppErrorLogs({
         status: typeof req.query.status === "string" ? req.query.status : null,
         search: typeof req.query.search === "string" ? req.query.search : null,
+        severity: typeof req.query.severity === "string" ? req.query.severity : null,
         limit: typeof req.query.limit === "string" ? Number.parseInt(req.query.limit, 10) : 200,
       });
 
@@ -305,6 +306,7 @@ export function createAdminRouter() {
       const result = await exportAppErrorLogs({
         status,
         search,
+        severity: typeof req.query.severity === "string" ? req.query.severity : null,
         limit: typeof req.query.limit === "string" ? Number.parseInt(req.query.limit, 10) : 1000,
       });
 

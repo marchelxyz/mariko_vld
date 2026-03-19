@@ -4,6 +4,7 @@ import { fetchAdminRecordByTelegram, getTelegramIdFromRequest } from "./adminSer
 
 const ERROR_LOG_STATUS_VALUES = new Set(["new", "resolved"]);
 const LOG_LEVEL_VALUES = new Set(["debug", "info", "warn", "error"]);
+const ERROR_LOG_SEVERITY_VALUES = new Set(["critical", "high", "medium", "low"]);
 
 const truncate = (value, maxLength = 1000) => {
   if (value === null || value === undefined) {
@@ -28,6 +29,24 @@ const parseBigIntValue = (value) => {
 };
 
 const isPlainObject = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const getRequestHeader = (req, name) => {
+  if (!req || typeof req.get !== "function") {
+    return null;
+  }
+  return req.get(name);
+};
+
+const getNestedValue = (value, path) => {
+  let current = value;
+  for (const segment of path) {
+    if (current === null || current === undefined || typeof current !== "object") {
+      return null;
+    }
+    current = current[segment];
+  }
+  return current ?? null;
+};
 
 const ensureSerializable = (value, depth = 0, seen = new WeakSet()) => {
   if (value === null || value === undefined) {
@@ -111,6 +130,133 @@ const normalizeLevel = (value) => {
   return LOG_LEVEL_VALUES.has(normalized) ? normalized : "error";
 };
 
+const normalizeSeverity = (value) => {
+  const normalized = truncate(value, 20);
+  if (!normalized) {
+    return "high";
+  }
+  return ERROR_LOG_SEVERITY_VALUES.has(normalized) ? normalized : "high";
+};
+
+const normalizeSeverityFilter = (value) => {
+  const normalized = truncate(value, 20);
+  if (!normalized) {
+    return null;
+  }
+  return ERROR_LOG_SEVERITY_VALUES.has(normalized) ? normalized : null;
+};
+
+const buildComparableText = (value) => String(value ?? "").trim().toLowerCase();
+
+const buildPayloadSearchText = (payload) => {
+  try {
+    return JSON.stringify(ensureSerializable(payload ?? {})).toLowerCase();
+  } catch {
+    return "";
+  }
+};
+
+const extractPayloadStatusCode = (payload) => {
+  const candidates = [
+    getNestedValue(payload, ["data", "status"]),
+    getNestedValue(payload, ["status"]),
+    getNestedValue(payload, ["data", "apiError", "status"]),
+    getNestedValue(payload, ["data", "apiNetworkError", "status"]),
+    getNestedValue(payload, ["data", "details", "status"]),
+  ];
+
+  for (const candidate of candidates) {
+    const numeric = Number(candidate);
+    if (Number.isFinite(numeric)) {
+      return Math.trunc(numeric);
+    }
+  }
+
+  return null;
+};
+
+const resolveErrorLogSeverity = ({ source, level, category, message, errorName, payload }) => {
+  const normalizedSource = buildComparableText(source);
+  const normalizedCategory = buildComparableText(category);
+  const normalizedMessage = buildComparableText(message);
+  const normalizedErrorName = buildComparableText(errorName);
+  const payloadText = buildPayloadSearchText(payload);
+  const combinedText = [
+    normalizedCategory,
+    normalizedMessage,
+    normalizedErrorName,
+    payloadText,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const statusCode = extractPayloadStatusCode(payload);
+
+  const isBookingOutage =
+    (normalizedCategory === "booking-api" || normalizedCategory === "api") &&
+    (combinedText.includes("/api/booking/") ||
+      combinedText.includes("get_slots_error") ||
+      combinedText.includes("сервис бронирования временно недоступен") ||
+      combinedText.includes("load failed"));
+
+  if (isBookingOutage) {
+    return "critical";
+  }
+
+  const isIikoOperationalIssue =
+    normalizedSource === "backend" &&
+    (normalizedCategory.startsWith("iiko") ||
+      combinedText.includes("iiko") ||
+      combinedText.includes("/api/1/access_token"));
+
+  if (isIikoOperationalIssue) {
+    return "high";
+  }
+
+  const isAdminUnauthorizedProbe =
+    normalizedCategory === "admin-api" &&
+    normalizedMessage === "getcurrentadmin error" &&
+    (statusCode === 401 || statusCode === 403 || combinedText.includes("не удалось определить администратора"));
+
+  if (isAdminUnauthorizedProbe) {
+    return "low";
+  }
+
+  const isUnsupportedTelegramClientApi =
+    normalizedCategory === "console" && combinedText.includes("not supported in version");
+
+  if (isUnsupportedTelegramClientApi) {
+    return "low";
+  }
+
+  const isClipboardPlatformLimitation =
+    combinedText.includes("clipboard_unavailable") ||
+    combinedText.includes("notallowederror") ||
+    combinedText.includes("ошибка копирования");
+
+  if (isClipboardPlatformLimitation) {
+    return "low";
+  }
+
+  const isPermissionOrAccessIssue =
+    statusCode === 403 ||
+    combinedText.includes("недостаточно прав") ||
+    combinedText.includes("forbidden");
+
+  if (isPermissionOrAccessIssue) {
+    return "medium";
+  }
+
+  if (level === "debug" || level === "info") {
+    return "low";
+  }
+
+  if (level === "warn") {
+    return "medium";
+  }
+
+  return "high";
+};
+
 const resolveProfileName = async ({ userId, telegramId, vkId }) => {
   const conditions = [];
   const params = [];
@@ -168,31 +314,51 @@ const resolveRoleAndAdminName = async (telegramId) => {
   };
 };
 
-const mapErrorLogRow = (row) => ({
-  id: row.id,
-  status: normalizeStatus(row.status),
-  source: row.source ?? "frontend",
-  level: normalizeLevel(row.level),
-  category: row.category ?? "app",
-  message: row.message ?? "Ошибка",
-  errorName: row.error_name ?? null,
-  errorStack: row.error_stack ?? null,
-  payload: parseJsonField(row.payload, {}),
-  userId: row.user_id ?? null,
-  userName: row.user_name ?? null,
-  telegramId: row.telegram_id ? String(row.telegram_id) : null,
-  vkId: row.vk_id ? String(row.vk_id) : null,
-  role: row.role ?? "user",
-  platform: row.platform ?? null,
-  pathname: row.pathname ?? null,
-  pageUrl: row.page_url ?? null,
-  sessionId: row.session_id ?? null,
-  userAgent: row.user_agent ?? null,
-  resolvedAt: row.resolved_at ?? null,
-  resolvedByTelegramId: row.resolved_by_telegram_id ? String(row.resolved_by_telegram_id) : null,
-  createdAt: row.created_at ?? null,
-  updatedAt: row.updated_at ?? null,
-});
+const mapErrorLogRow = (row) => {
+  const payload = parseJsonField(row.payload, {});
+  const status = normalizeStatus(row.status);
+  const source = row.source ?? "frontend";
+  const level = normalizeLevel(row.level);
+  const category = row.category ?? "app";
+  const message = row.message ?? "Ошибка";
+  const errorName = row.error_name ?? null;
+
+  return {
+    id: row.id,
+    status,
+    source,
+    level,
+    severity: normalizeSeverity(
+      resolveErrorLogSeverity({
+        source,
+        level,
+        category,
+        message,
+        errorName,
+        payload,
+      }),
+    ),
+    category,
+    message,
+    errorName,
+    errorStack: row.error_stack ?? null,
+    payload,
+    userId: row.user_id ?? null,
+    userName: row.user_name ?? null,
+    telegramId: row.telegram_id ? String(row.telegram_id) : null,
+    vkId: row.vk_id ? String(row.vk_id) : null,
+    role: row.role ?? "user",
+    platform: row.platform ?? null,
+    pathname: row.pathname ?? null,
+    pageUrl: row.page_url ?? null,
+    sessionId: row.session_id ?? null,
+    userAgent: row.user_agent ?? null,
+    resolvedAt: row.resolved_at ?? null,
+    resolvedByTelegramId: row.resolved_by_telegram_id ? String(row.resolved_by_telegram_id) : null,
+    createdAt: row.created_at ?? null,
+    updatedAt: row.updated_at ?? null,
+  };
+};
 
 const buildSearchClause = (search, params) => {
   const normalizedSearch = truncate(search, 200);
@@ -227,14 +393,24 @@ const buildErrorLogFilters = ({ status = null, search = null } = {}) => {
   return { filters, params };
 };
 
-export const createAppErrorLog = async (req, payload) => {
+const insertAppErrorLog = async ({ req = null, payload }) => {
   const entry = isPlainObject(payload) ? payload : {};
-  const telegramId = parseBigIntValue(getTelegramIdFromRequest(req) ?? entry.telegramId);
-  const vkId = parseBigIntValue(req.get("x-vk-id") ?? entry.vkId);
+  const telegramId = parseBigIntValue(
+    (req ? getTelegramIdFromRequest(req) : null) ?? entry.telegramId,
+  );
+  const vkId = parseBigIntValue(getRequestHeader(req, "x-vk-id") ?? entry.vkId);
   const userId = truncate(entry.userId, 255);
-  const roleInfo = await resolveRoleAndAdminName(telegramId);
-  const profileName = await resolveProfileName({ userId, telegramId, vkId });
-  const userName = truncate(entry.userName, 255) ?? roleInfo.adminName ?? profileName;
+  const explicitRole = truncate(entry.role, 50);
+  const roleInfo = explicitRole
+    ? { role: explicitRole, adminName: null }
+    : await resolveRoleAndAdminName(telegramId);
+  const profileName =
+    roleInfo.role === "system" ? null : await resolveProfileName({ userId, telegramId, vkId });
+  const userName =
+    truncate(entry.userName, 255) ??
+    roleInfo.adminName ??
+    profileName ??
+    (roleInfo.role === "system" ? "Система" : null);
 
   const errorInfo = isPlainObject(entry.error) ? entry.error : {};
   const level = normalizeLevel(entry.level);
@@ -248,7 +424,9 @@ export const createAppErrorLog = async (req, payload) => {
   const pathname = truncate(entry.pathname, 1000) ?? null;
   const pageUrl = truncate(entry.pageUrl, 2000) ?? null;
   const sessionId = truncate(entry.sessionId, 255) ?? null;
-  const userAgent = truncate(entry.userAgent ?? req.get("user-agent"), 1000) ?? null;
+  const userAgent =
+    truncate(entry.userAgent ?? getRequestHeader(req, "user-agent"), 1000) ??
+    (source === "backend" ? "backend" : null);
 
   const row = await queryOne(
     `INSERT INTO app_error_logs (
@@ -319,7 +497,28 @@ export const createAppErrorLog = async (req, payload) => {
   return mapErrorLogRow(row);
 };
 
-export const listAppErrorLogs = async ({ status = null, search = null, limit = 200 } = {}) => {
+export const createAppErrorLog = async (req, payload) => insertAppErrorLog({ req, payload });
+
+export const createSystemAppErrorLog = async (payload) =>
+  insertAppErrorLog({
+    payload: {
+      source: "backend",
+      role: "system",
+      userName: "Система",
+      userAgent: "backend",
+      ...payload,
+    },
+  });
+
+const filterLogsBySeverity = (logs, severity) => {
+  const normalizedSeverity = normalizeSeverityFilter(severity);
+  if (!normalizedSeverity) {
+    return logs;
+  }
+  return logs.filter((log) => log.severity === normalizedSeverity);
+};
+
+export const listAppErrorLogs = async ({ status = null, search = null, severity = null, limit = 200 } = {}) => {
   const { filters, params } = buildErrorLogFilters({ status, search });
   const safeLimit = Math.min(Math.max(Number(limit) || 200, 1), 500);
   params.push(safeLimit);
@@ -357,13 +556,15 @@ export const listAppErrorLogs = async ({ status = null, search = null, limit = 2
     }
   }
 
+  const mappedLogs = rows.map(mapErrorLogRow);
+
   return {
-    logs: rows.map(mapErrorLogRow),
+    logs: filterLogsBySeverity(mappedLogs, severity),
     counts,
   };
 };
 
-export const exportAppErrorLogs = async ({ status = null, search = null, limit = 1000 } = {}) => {
+export const exportAppErrorLogs = async ({ status = null, search = null, severity = null, limit = 1000 } = {}) => {
   const { filters, params } = buildErrorLogFilters({ status, search });
   const safeLimit = Math.min(Math.max(Number(limit) || 1000, 1), 2000);
   params.push(safeLimit);
@@ -377,13 +578,16 @@ export const exportAppErrorLogs = async ({ status = null, search = null, limit =
     params,
   );
 
+  const mappedLogs = filterLogsBySeverity(rows.map(mapErrorLogRow), severity);
+
   return {
     exportedAt: new Date().toISOString(),
     status: status && ERROR_LOG_STATUS_VALUES.has(status) ? status : null,
     search: truncate(search, 200) ?? null,
+    severity: normalizeSeverityFilter(severity),
     limit: safeLimit,
-    count: rows.length,
-    logs: rows.map(mapErrorLogRow),
+    count: mappedLogs.length,
+    logs: mappedLogs,
   };
 };
 
@@ -393,6 +597,7 @@ export const formatAppErrorLogsAsText = (report) => {
     `Сформирован: ${report?.exportedAt ?? new Date().toISOString()}`,
     `Статус: ${report?.status ?? "all"}`,
     `Поиск: ${report?.search ?? "-"}`,
+    `Критичность: ${report?.severity ?? "all"}`,
     `Количество: ${Number(report?.count) || 0}`,
     "",
   ];
@@ -403,6 +608,7 @@ export const formatAppErrorLogsAsText = (report) => {
     lines.push(`ID: ${log?.id ?? "-"}`);
     lines.push(`Статус: ${log?.status ?? "-"}`);
     lines.push(`Уровень: ${log?.level ?? "-"}`);
+    lines.push(`Критичность: ${log?.severity ?? "-"}`);
     lines.push(`Категория: ${log?.category ?? "-"}`);
     lines.push(`Сообщение: ${log?.message ?? "-"}`);
     lines.push(`Ошибка: ${log?.errorName ?? "-"}`);
