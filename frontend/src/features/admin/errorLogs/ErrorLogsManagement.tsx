@@ -97,6 +97,7 @@ export function ErrorLogsManagement(): JSX.Element | null {
   const [searchQuery, setSearchQuery] = useState("");
   const [updatingLogId, setUpdatingLogId] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isCopyingExport, setIsCopyingExport] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [exportFilename, setExportFilename] = useState("app-error-logs.txt");
   const [exportText, setExportText] = useState("");
@@ -142,37 +143,68 @@ export function ErrorLogsManagement(): JSX.Element | null {
     }
   };
 
-  const handleDownloadNewLogs = async () => {
+  const buildExportParams = () => ({
+    status: statusFilter === "all" ? undefined : statusFilter,
+    search: searchQuery.trim() || undefined,
+    limit: 1000,
+  });
+
+  const loadExportText = async () => {
+    return adminServerApi.downloadErrorLogs(buildExportParams());
+  };
+
+  const handleOpenExport = async () => {
     setIsDownloading(true);
     try {
-      const { text, filename } = await adminServerApi.downloadErrorLogs({
-        status: "new",
-        search: searchQuery.trim() || undefined,
-        limit: 1000,
-      });
+      const { text, filename } = await loadExportText();
       setExportFilename(filename);
       setExportText(text);
       setIsExportOpen(true);
     } catch (error) {
-      console.error("Ошибка скачивания журнала ошибок:", error);
-      alert("Не удалось скачать журнал ошибок");
+      console.error("Ошибка открытия журнала ошибок:", error);
+      alert("Не удалось открыть журнал ошибок");
     } finally {
       setIsDownloading(false);
     }
   };
 
-  const handleCopyExportText = async () => {
+  const copyTextToClipboard = async (text: string) => {
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(exportText);
-        alert("Текст ошибок скопирован");
+        await navigator.clipboard.writeText(text);
         return;
       }
     } catch (error) {
       console.error("Ошибка копирования текста ошибок:", error);
     }
 
-    alert("Не удалось скопировать автоматически. Можно выделить текст вручную.");
+    throw new Error("clipboard_unavailable");
+  };
+
+  const handleCopyCurrentExport = async () => {
+    setIsCopyingExport(true);
+    try {
+      const { text, filename } = await loadExportText();
+      await copyTextToClipboard(text);
+      setExportFilename(filename);
+      setExportText(text);
+      alert("Выгрузка ошибок скопирована");
+    } catch (error) {
+      console.error("Ошибка копирования выгрузки ошибок:", error);
+      alert("Не удалось скопировать выгрузку автоматически");
+    } finally {
+      setIsCopyingExport(false);
+    }
+  };
+
+  const handleCopyExportText = async () => {
+    try {
+      await copyTextToClipboard(exportText);
+      alert("Текст ошибок скопирован");
+    } catch (error) {
+      console.error("Ошибка копирования текста ошибок:", error);
+      alert("Не удалось скопировать автоматически. Можно выделить текст вручную.");
+    }
   };
 
   const handleDownloadExportText = () => {
@@ -220,7 +252,20 @@ export function ErrorLogsManagement(): JSX.Element | null {
           <Button
             type="button"
             variant="outline"
-            onClick={handleDownloadNewLogs}
+            onClick={handleCopyCurrentExport}
+            disabled={isCopyingExport}
+          >
+            {isCopyingExport ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Copy className="w-4 h-4 mr-2" />
+            )}
+            Скопировать выгрузку
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleOpenExport}
             disabled={isDownloading}
           >
             {isDownloading ? (
@@ -228,7 +273,7 @@ export function ErrorLogsManagement(): JSX.Element | null {
             ) : (
               <Download className="w-4 h-4 mr-2" />
             )}
-            Открыть новые
+            Открыть выгрузку
           </Button>
           <Button type="button" variant="outline" onClick={() => void refetch()} disabled={isFetching}>
             {isFetching ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-2" />}
