@@ -1,5 +1,12 @@
 const IIKO_BASE_URL = process.env.IIKO_BASE_URL || "https://api-ru.iiko.services";
 const IIKO_TIMEOUT_MS = Number.parseInt(process.env.IIKO_TIMEOUT_MS ?? "", 10) || 15000;
+const IIKO_EXTERNAL_MENU_TIMEOUT_MS =
+  Number.parseInt(process.env.IIKO_EXTERNAL_MENU_TIMEOUT_MS ?? "", 10) ||
+  Math.max(IIKO_TIMEOUT_MS, 30000);
+const IIKO_EXTERNAL_MENU_RETRY_ATTEMPTS =
+  Number.parseInt(process.env.IIKO_EXTERNAL_MENU_RETRY_ATTEMPTS ?? "", 10) || 3;
+const IIKO_EXTERNAL_MENU_RETRY_DELAY_MS =
+  Number.parseInt(process.env.IIKO_EXTERNAL_MENU_RETRY_DELAY_MS ?? "", 10) || 2000;
 const IIKO_TOKEN_TTL_MS = Number.parseInt(process.env.IIKO_TOKEN_TTL_MS ?? "", 10) || 10 * 60 * 1000;
 const IIKO_STOP_LIST_CACHE_TTL_MS =
   Number.parseInt(process.env.IIKO_STOP_LIST_CACHE_TTL_MS ?? "", 10) || 30 * 1000;
@@ -15,6 +22,11 @@ const IIKO_MENU_SOURCE_MODE = String(process.env.IIKO_MENU_SOURCE_MODE ?? "auto"
 const tokenCache = new Map();
 const stopListCache = new Map();
 const paymentTypesCache = new Map();
+
+const sleep = (ms) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 
 const extractNetworkErrorDetails = (error) => {
   const chain = [];
@@ -344,7 +356,7 @@ const getAccessTokenForRequest = async (apiLogin, options = {}) => {
   return ensureAccessToken(apiLogin);
 };
 
-const postIikoJson = async (path, token, body) =>
+const postIikoJson = async (path, token, body, options = {}) =>
   requestJson(`${IIKO_BASE_URL}${path}`, {
     method: "POST",
     headers: {
@@ -352,6 +364,7 @@ const postIikoJson = async (path, token, body) =>
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(body),
+    timeoutMs: options.timeoutMs,
   });
 
 const isRetryableBodyMismatchError = (error) => {
@@ -543,6 +556,64 @@ const buildErrorResponseMeta = (error, extra = {}) => ({
   network: error?.network ?? null,
   ...extra,
 });
+
+const isRetryableIikoRequestError = (error) => {
+  const status = Number(error?.status ?? 0);
+  if (status >= 500) {
+    return true;
+  }
+  if (status === 408 || status === 429) {
+    return true;
+  }
+
+  const message = String(error?.message ?? "").trim().toLowerCase();
+  if (!message) {
+    return false;
+  }
+
+  const retryableMarkers = [
+    "timeout",
+    "timed out",
+    "this operation was aborted",
+    "abort",
+    "network error",
+    "fetch failed",
+    "internal server error",
+    "service unavailable",
+    "bad gateway",
+    "gateway timeout",
+    "too many requests",
+    "econnreset",
+    "etimedout",
+    "econnrefused",
+    "socket hang up",
+  ];
+
+  return retryableMarkers.some((marker) => message.includes(marker));
+};
+
+const runIikoRequestWithRetry = async (requestFactory, options = {}) => {
+  const attempts = Math.max(Number(options?.attempts) || 1, 1);
+  const delayMs = Math.max(Number(options?.delayMs) || 0, 0);
+
+  let lastError = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await requestFactory({ attempt, attempts });
+    } catch (error) {
+      lastError = error;
+      if (attempt >= attempts || !isRetryableIikoRequestError(error)) {
+        if (error && typeof error === "object") {
+          error.retryAttempts = attempt;
+        }
+        throw error;
+      }
+      await sleep(delayMs * attempt);
+    }
+  }
+
+  throw lastError ?? new Error("iiko: Не удалось выполнить запрос после повторов");
+};
 
 const buildProbeSummary = (response, extra = {}) => ({
   ok: response?.ok ?? true,
@@ -1229,13 +1300,21 @@ export const iikoClient = {
     try {
       const token = await getAccessTokenForRequest(config.api_login, options);
       const organizationId = config.iiko_organization_id;
-      const listPayload = await requestJson(`${IIKO_BASE_URL}/api/2/menu`, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
+      const listPayload = await runIikoRequestWithRetry(
+        () =>
+          requestJson(`${IIKO_BASE_URL}/api/2/menu`, {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            timeoutMs: IIKO_EXTERNAL_MENU_TIMEOUT_MS,
+          }),
+        {
+          attempts: IIKO_EXTERNAL_MENU_RETRY_ATTEMPTS,
+          delayMs: IIKO_EXTERNAL_MENU_RETRY_DELAY_MS,
         },
-      });
+      );
 
       const externalMenus = Array.isArray(listPayload?.externalMenus) ? listPayload.externalMenus : [];
       const requestedMenuId = normaliseIikoProductId(
@@ -1280,7 +1359,16 @@ export const iikoClient = {
         language: normaliseIikoProductId(options?.language) || "ru",
         version: Number.isFinite(Number(options?.version)) ? Number(options.version) : 2,
       };
-      const externalMenu = await postIikoJson("/api/2/menu/by_id", token, detailRequestBody);
+      const externalMenu = await runIikoRequestWithRetry(
+        () =>
+          postIikoJson("/api/2/menu/by_id", token, detailRequestBody, {
+            timeoutMs: IIKO_EXTERNAL_MENU_TIMEOUT_MS,
+          }),
+        {
+          attempts: IIKO_EXTERNAL_MENU_RETRY_ATTEMPTS,
+          delayMs: IIKO_EXTERNAL_MENU_RETRY_DELAY_MS,
+        },
+      );
 
       return {
         success: true,
@@ -1307,7 +1395,10 @@ export const iikoClient = {
       return {
         success: false,
         error: error?.message || "iiko: Ошибка получения внешнего меню v2",
-        response: buildErrorResponseMeta(error),
+        response: buildErrorResponseMeta(error, {
+          retryAttempts: Number(error?.retryAttempts ?? 1) || 1,
+          timeoutMs: IIKO_EXTERNAL_MENU_TIMEOUT_MS,
+        }),
       };
     }
   },

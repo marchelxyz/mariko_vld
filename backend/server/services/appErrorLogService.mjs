@@ -214,6 +214,19 @@ const buildSearchClause = (search, params) => {
   `;
 };
 
+const buildErrorLogFilters = ({ status = null, search = null } = {}) => {
+  const params = [];
+  let filters = "WHERE 1 = 1";
+
+  if (status && ERROR_LOG_STATUS_VALUES.has(status)) {
+    params.push(status);
+    filters += ` AND status = $${params.length}`;
+  }
+
+  filters += buildSearchClause(search, params);
+  return { filters, params };
+};
+
 export const createAppErrorLog = async (req, payload) => {
   const entry = isPlainObject(payload) ? payload : {};
   const telegramId = parseBigIntValue(getTelegramIdFromRequest(req) ?? entry.telegramId);
@@ -307,16 +320,7 @@ export const createAppErrorLog = async (req, payload) => {
 };
 
 export const listAppErrorLogs = async ({ status = null, search = null, limit = 200 } = {}) => {
-  const params = [];
-  let filters = "WHERE 1 = 1";
-
-  if (status && ERROR_LOG_STATUS_VALUES.has(status)) {
-    params.push(status);
-    filters += ` AND status = $${params.length}`;
-  }
-
-  filters += buildSearchClause(search, params);
-
+  const { filters, params } = buildErrorLogFilters({ status, search });
   const safeLimit = Math.min(Math.max(Number(limit) || 200, 1), 500);
   params.push(safeLimit);
 
@@ -356,6 +360,30 @@ export const listAppErrorLogs = async ({ status = null, search = null, limit = 2
   return {
     logs: rows.map(mapErrorLogRow),
     counts,
+  };
+};
+
+export const exportAppErrorLogs = async ({ status = null, search = null, limit = 1000 } = {}) => {
+  const { filters, params } = buildErrorLogFilters({ status, search });
+  const safeLimit = Math.min(Math.max(Number(limit) || 1000, 1), 2000);
+  params.push(safeLimit);
+
+  const rows = await queryMany(
+    `SELECT *
+     FROM app_error_logs
+     ${filters}
+     ORDER BY CASE WHEN status = 'new' THEN 0 ELSE 1 END, created_at DESC
+     LIMIT $${params.length}`,
+    params,
+  );
+
+  return {
+    exportedAt: new Date().toISOString(),
+    status: status && ERROR_LOG_STATUS_VALUES.has(status) ? status : null,
+    search: truncate(search, 200) ?? null,
+    limit: safeLimit,
+    count: rows.length,
+    logs: rows.map(mapErrorLogRow),
   };
 };
 

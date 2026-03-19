@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-15 12:02
+**Последнее обновление:** 2026-03-19 11:20
 
 ---
 
@@ -641,7 +641,6 @@ NODE
 **Решение:**
 - Добавить сервис [`backend/server/services/iikoAlertService.mjs`](backend/server/services/iikoAlertService.mjs)
 - Получателей алертов собирать из:
-  - `ADMIN_TELEGRAM_IDS`
   - `IIKO_ALERTS_TELEGRAM_IDS`
   - записей `super_admin` в `admin_users`
 - Отправлять Telegram-алерты через [`backend/server/services/telegramBotService.mjs`](backend/server/services/telegramBotService.mjs)
@@ -669,6 +668,51 @@ node --check backend/server/services/telegramBotService.mjs
    - `IIKO_ALERTS_DEDUP_MS=900000`
 
 **Коммит:** будет добавлен после фиксации изменений
+
+### ❌ Проблема: автосинк внешнего меню шлёт повторяющиеся алерты каждые 15 минут из-за transient ошибок iiko
+
+**Дата:** 2026-03-19
+**Симптомы:**
+- В Telegram приходят повторяющиеся алерты `IIKO ALERT ERROR` по ресторану `zhukovsky-хачапури-марико`
+- Ошибки чередуются между:
+  - `iiko: network error while requesting .../api/2/menu/by_id: This operation was aborted`
+  - `Internal Server Error`
+- Алерты приходят ровно в интервалы воркера `04:15`, `04:30` и т.п., даже если пользователь ничего не делал
+- В тексте алерта `details` и `summary` могут быть `null`, из-за чего непонятно, это timeout, сетевой сбой или `HTTP 500` от iiko
+
+**Причина:**
+- Воркер автосинка запускается каждые `15 минут`, а дедупликация алертов по умолчанию тоже была `15 минут`
+- При повторных сбоях каждый следующий прогон снова отправлял уведомление
+- Чтение `api/2/menu/by_id` не имело retry на transient ошибки iiko (`timeout`, `AbortError`, `HTTP 500/503`)
+- При неуспешном `getExternalMenuV2()` сервис автосинка не пробрасывал в worker подробности ответа (`status`, `url`, `network`, число попыток)
+
+**Решение:**
+- Добавить retry для `api/2/menu` и `api/2/menu/by_id`:
+  - `IIKO_EXTERNAL_MENU_TIMEOUT_MS=30000`
+  - `IIKO_EXTERNAL_MENU_RETRY_ATTEMPTS=3`
+  - `IIKO_EXTERNAL_MENU_RETRY_DELAY_MS=2000`
+- В `iikoMenuSyncWorker` ввести минимальный порог `IIKO_MENU_SYNC_ALERT_MIN_CONSECUTIVE_FAILURES=2`
+- Считать алерт уже частью одного failure-streak: пока синк не восстановился, повторные одинаковые падения не должны спамить чат каждый интервал
+- Пробрасывать в детали алерта метаданные ошибки:
+  - `status`
+  - `url`
+  - `network`
+  - `retryAttempts`
+  - `timeoutMs`
+
+**Проверка:**
+```bash
+node --check backend/server/integrations/iiko-client.mjs
+node --check backend/server/services/iikoMenuSyncService.mjs
+node --check backend/server/workers/iikoMenuSyncWorker.mjs
+```
+
+По live-логам Timeweb для инцидента `2026-03-19`:
+- `01:15Z` и `01:30Z` (`04:15` и `04:30` МСК) — `HTTP 500 Internal Server Error` от iiko на `api/2/menu/by_id`
+- `20:00Z` днём ранее — timeout/abort на том же endpoint
+- Это фоновой сбой чтения меню из iiko, а не действие пользователя и не ошибка оформления заказа
+
+**Связанный commit:** будет добавлен после фиксации изменений
 
 ### ✅ Решение: способы оплаты `cash/card/online` должны маппиться раздельно, а недоступные варианты нельзя показывать и принимать
 

@@ -113,7 +113,11 @@ export const syncRestaurantExternalMenu = async ({
     return {
       success: false,
       error: externalMenuResult?.error || "Не удалось получить внешнее меню из iiko",
+      details: externalMenuResult?.response ?? null,
       response: externalMenuResult?.response ?? null,
+      summary: null,
+      externalMenuId: syncSettings.externalMenuId || null,
+      externalMenuName: syncSettings.externalMenuName || null,
     };
   }
 

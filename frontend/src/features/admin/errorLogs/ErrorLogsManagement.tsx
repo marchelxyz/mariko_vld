@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CheckCheck,
+  Download,
   Loader2,
   RotateCcw,
   Search,
@@ -84,6 +85,7 @@ export function ErrorLogsManagement(): JSX.Element | null {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [updatingLogId, setUpdatingLogId] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const {
     data,
@@ -126,6 +128,32 @@ export function ErrorLogsManagement(): JSX.Element | null {
     }
   };
 
+  const handleDownloadNewLogs = async () => {
+    setIsDownloading(true);
+    try {
+      const { blob, filename } = await adminServerApi.downloadErrorLogs({
+        status: "new",
+        search: searchQuery.trim() || undefined,
+        limit: 1000,
+      });
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Ошибка скачивания журнала ошибок:", error);
+      alert("Не удалось скачать журнал ошибок");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   if (!isSuperAdmin()) {
     return null;
   }
@@ -149,10 +177,25 @@ export function ErrorLogsManagement(): JSX.Element | null {
             Реестр пользовательских и административных ошибок с пометкой обработки
           </p>
         </div>
-        <Button type="button" variant="outline" onClick={() => void refetch()} disabled={isFetching}>
-          {isFetching ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-2" />}
-          Обновить
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleDownloadNewLogs}
+            disabled={isDownloading}
+          >
+            {isDownloading ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4 mr-2" />
+            )}
+            Скачать новые
+          </Button>
+          <Button type="button" variant="outline" onClick={() => void refetch()} disabled={isFetching}>
+            {isFetching ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-2" />}
+            Обновить
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">

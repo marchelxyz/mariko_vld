@@ -208,6 +208,11 @@ type AppErrorLogsResponse = {
   };
 };
 
+type DownloadedAdminFile = {
+  blob: Blob;
+  filename: string;
+};
+
 type AdminSettingsResponse = {
   success: boolean;
   settings: AppSettings;
@@ -899,5 +904,41 @@ export const adminServerApi = {
     });
     const data = await handleResponse<{ success: boolean; log: AppErrorLogRecord }>(response);
     return data.log;
+  },
+
+  async downloadErrorLogs(params: {
+    status?: AppErrorLogStatus;
+    search?: string;
+    limit?: number;
+  } = {}): Promise<DownloadedAdminFile> {
+    const search = new URLSearchParams();
+    if (params.status) {
+      search.set("status", params.status);
+    }
+    if (params.search) {
+      search.set("search", params.search);
+    }
+    if (params.limit) {
+      search.set("limit", String(params.limit));
+    }
+
+    const response = await fetch(
+      `${ADMIN_API_BASE}/error-logs/export${search.toString() ? `?${search.toString()}` : ""}`,
+      {
+        headers: buildHeaders(),
+      },
+    );
+
+    if (!response.ok) {
+      await handleResponse(response);
+    }
+
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get("content-disposition") || "";
+    const filenameMatch = contentDisposition.match(/filename=\"?([^\";]+)\"?/i);
+    return {
+      blob,
+      filename: filenameMatch?.[1] || "app-error-logs.json",
+    };
   },
 };
