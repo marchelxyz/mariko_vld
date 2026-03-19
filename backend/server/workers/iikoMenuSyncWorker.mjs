@@ -12,7 +12,55 @@ const parseEnvInt = (name, fallback) => {
 
 const MENU_SYNC_INTERVAL_MS = parseEnvInt("IIKO_MENU_SYNC_INTERVAL_MS", 15 * 60 * 1000);
 const MENU_SYNC_BATCH_LIMIT = parseEnvInt("IIKO_MENU_SYNC_BATCH_LIMIT", 25);
+const MENU_SYNC_ALERT_MIN_CONSECUTIVE_FAILURES = parseEnvInt(
+  "IIKO_MENU_SYNC_ALERT_MIN_CONSECUTIVE_FAILURES",
+  2,
+);
 const MENU_SYNC_WORKER_ENABLED = process.env.IIKO_MENU_SYNC_WORKER_ENABLED !== "false";
+const menuSyncFailureState = new Map();
+
+const getFailureKey = (restaurantId, externalMenuName) =>
+  `${String(restaurantId || "unknown").trim()}:${String(externalMenuName || "default").trim()}`;
+
+const registerMenuSyncFailure = ({ restaurantId, externalMenuName }) => {
+  const key = getFailureKey(restaurantId, externalMenuName);
+  const previous = menuSyncFailureState.get(key) ?? {
+    consecutiveFailures: 0,
+    alerted: false,
+  };
+  const next = {
+    consecutiveFailures: previous.consecutiveFailures + 1,
+    alerted: previous.alerted,
+  };
+  menuSyncFailureState.set(key, next);
+  return {
+    key,
+    ...next,
+    shouldAlert:
+      next.consecutiveFailures >= MENU_SYNC_ALERT_MIN_CONSECUTIVE_FAILURES && !previous.alerted,
+  };
+};
+
+const registerMenuSyncSuccess = ({ restaurantId, externalMenuName }) => {
+  const key = getFailureKey(restaurantId, externalMenuName);
+  const previous = menuSyncFailureState.get(key) ?? null;
+  if (previous) {
+    menuSyncFailureState.delete(key);
+  }
+  return previous;
+};
+
+const markMenuSyncAlerted = ({ restaurantId, externalMenuName }) => {
+  const key = getFailureKey(restaurantId, externalMenuName);
+  const current = menuSyncFailureState.get(key);
+  if (!current) {
+    return;
+  }
+  menuSyncFailureState.set(key, {
+    ...current,
+    alerted: true,
+  });
+};
 
 const fetchMenuSyncCandidates = async () =>
   queryMany(
@@ -25,6 +73,41 @@ const fetchMenuSyncCandidates = async () =>
      LIMIT $1`,
     [MENU_SYNC_BATCH_LIMIT],
   );
+
+const maybeAlertMenuSyncFailure = async ({
+  restaurantId,
+  externalMenuName,
+  message,
+  error = null,
+  details = null,
+}) => {
+  const failureState = registerMenuSyncFailure({ restaurantId, externalMenuName });
+
+  logger.warn("Автосинк меню завершился с ошибкой", {
+    restaurantId: restaurantId ?? null,
+    externalMenuName: externalMenuName ?? null,
+    error: message ?? error ?? "Неизвестная ошибка",
+    details: details ?? null,
+    consecutiveFailures: failureState.consecutiveFailures,
+    shouldAlert: failureState.shouldAlert,
+  });
+
+  if (!failureState.shouldAlert) {
+    return;
+  }
+
+  await reportIikoMenuSyncAlert({
+    restaurantId: restaurantId ?? null,
+    externalMenuName: externalMenuName ?? null,
+    message,
+    error,
+    details: {
+      consecutiveFailures: failureState.consecutiveFailures,
+      details: details ?? null,
+    },
+  });
+  markMenuSyncAlerted({ restaurantId, externalMenuName });
+};
 
 const processMenuSyncBatch = async () => {
   const candidates = await fetchMenuSyncCandidates();
@@ -39,11 +122,7 @@ const processMenuSyncBatch = async () => {
         .toLowerCase();
 
       if (menuSource !== "external_menu") {
-        logger.warn("Автосинк меню пропущен: пока поддержан только external_menu", {
-          restaurantId: integrationConfig?.restaurant_id ?? null,
-          menuSyncSource: integrationConfig?.menu_sync_source ?? null,
-        });
-        await reportIikoMenuSyncAlert({
+        await maybeAlertMenuSyncFailure({
           restaurantId: integrationConfig?.restaurant_id ?? null,
           externalMenuName: integrationConfig?.menu_sync_external_menu_name ?? null,
           message: "Автосинк меню пропущен: поддержан только source=external_menu",
@@ -60,13 +139,7 @@ const processMenuSyncBatch = async () => {
       });
 
       if (!syncResult?.success) {
-        logger.warn("Автосинк меню завершился с ошибкой", {
-          restaurantId: integrationConfig?.restaurant_id ?? null,
-          error: syncResult?.error ?? "Неизвестная ошибка",
-          details: syncResult?.details ?? null,
-          summary: syncResult?.summary ?? null,
-        });
-        await reportIikoMenuSyncAlert({
+        await maybeAlertMenuSyncFailure({
           restaurantId: integrationConfig?.restaurant_id ?? null,
           externalMenuName:
             syncResult?.externalMenuName ??
@@ -81,6 +154,11 @@ const processMenuSyncBatch = async () => {
         continue;
       }
 
+      registerMenuSyncSuccess({
+        restaurantId: syncResult.restaurantId,
+        externalMenuName: syncResult.externalMenuName ?? integrationConfig?.menu_sync_external_menu_name ?? null,
+      });
+
       logger.info("Автосинк меню выполнен", {
         restaurantId: syncResult.restaurantId,
         externalMenuId: syncResult.externalMenuId ?? null,
@@ -89,7 +167,7 @@ const processMenuSyncBatch = async () => {
         totalItems: syncResult.summary?.totalItems ?? null,
       });
     } catch (error) {
-      await reportIikoMenuSyncAlert({
+      await maybeAlertMenuSyncFailure({
         restaurantId: integrationConfig?.restaurant_id ?? null,
         externalMenuName: integrationConfig?.menu_sync_external_menu_name ?? null,
         message: "Автосинк меню завершился необработанной ошибкой",

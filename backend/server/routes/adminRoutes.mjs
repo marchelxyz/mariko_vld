@@ -37,6 +37,7 @@ import {
 import { createLogger } from "../utils/logger.mjs";
 import {
   createAppErrorLog,
+  exportAppErrorLogs,
   listAppErrorLogs,
   updateAppErrorLogStatus,
 } from "../services/appErrorLogService.mjs";
@@ -287,6 +288,35 @@ export function createAdminRouter() {
       return res.status(500).json({
         success: false,
         message: "Не удалось получить журнал ошибок приложения",
+      });
+    }
+  });
+
+  router.get("/error-logs/export", async (req, res) => {
+    if (!(await authoriseSuperAdmin(req, res))) {
+      return;
+    }
+
+    try {
+      const status = typeof req.query.status === "string" ? req.query.status : "new";
+      const search = typeof req.query.search === "string" ? req.query.search : null;
+      const result = await exportAppErrorLogs({
+        status,
+        search,
+        limit: typeof req.query.limit === "string" ? Number.parseInt(req.query.limit, 10) : 1000,
+      });
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const filename = `app-error-logs-${result.status || "all"}-${timestamp}.json`;
+
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      return res.send(JSON.stringify(result, null, 2));
+    } catch (error) {
+      console.error("Ошибка экспорта app_error_logs:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Не удалось скачать журнал ошибок приложения",
       });
     }
   });
