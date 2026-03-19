@@ -33,6 +33,68 @@ const sleep = (ms) =>
     setTimeout(resolve, ms);
   });
 
+const getIikoEndpointPath = (url) => {
+  try {
+    return new URL(url).pathname || String(url ?? "");
+  } catch {
+    return String(url ?? "");
+  }
+};
+
+const buildSafeIikoHttpErrorMessage = (url, status) => {
+  const path = getIikoEndpointPath(url);
+  const statusLabel = Number.isFinite(Number(status)) ? ` (HTTP ${status})` : "";
+
+  if (path === "/api/1/access_token") {
+    if (status === 401 || status === 403) {
+      return "iiko: Ошибка авторизации при получении access token";
+    }
+    return `iiko: Не удалось получить access token${statusLabel}`;
+  }
+
+  if (path === "/api/1/deliveries/create") {
+    return `iiko: Не удалось создать заказ${statusLabel}`;
+  }
+
+  if (path === "/api/1/nomenclature") {
+    return `iiko: Не удалось получить номенклатуру${statusLabel}`;
+  }
+
+  if (path === "/api/1/payment_types") {
+    return `iiko: Не удалось получить типы оплаты${statusLabel}`;
+  }
+
+  if (path === "/api/1/terminal_groups") {
+    return `iiko: Не удалось получить терминальные группы${statusLabel}`;
+  }
+
+  if (path === "/api/1/stop_lists") {
+    return `iiko: Не удалось получить стоп-лист${statusLabel}`;
+  }
+
+  if (
+    path === "/api/1/external_menus" ||
+    path === "/api/1/external_menu" ||
+    path === "/api/2/menu" ||
+    path === "/api/2/menu/by_id"
+  ) {
+    return `iiko: Не удалось получить внешнее меню${statusLabel}`;
+  }
+
+  if (path === "/api/1/deliveries/by_id") {
+    return `iiko: Не удалось получить статус заказа${statusLabel}`;
+  }
+
+  return `iiko API error${statusLabel}`;
+};
+
+const extractIikoCorrelationId = (payload) => {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  return payload.correlationId ?? payload?.error?.correlationId ?? null;
+};
+
 const extractNetworkErrorDetails = (error) => {
   const chain = [];
   let current = error;
@@ -294,27 +356,20 @@ const requestJson = async (url, options = {}) => {
     }
 
     if (parseError) {
-      const snippet = text
-        ? sanitizeSensitiveText(text.replace(/\s+/g, " ").slice(0, 200).trim())
-        : "";
       const error = new Error(
         sanitizeSensitiveText(
-          `iiko: Некорректный ответ JSON (${parseError.message}). HTTP ${response.status} ${response.statusText} at ${url}${
-          snippet ? `. Body: ${snippet}` : ""
-        }`,
+          `iiko: Некорректный ответ JSON. HTTP ${response.status} ${response.statusText} at ${url}`,
         ),
       );
       error.status = response.status;
-      error.response = { raw: sanitizeSensitiveText(text) };
+      error.response = { raw: "[omitted]" };
       error.url = url;
       throw error;
     }
 
     if (!response.ok) {
-      const message = sanitizeSensitiveText(
-        payload?.message || payload?.error?.message || response.statusText,
-      );
-      const error = new Error(message || `iiko API error (HTTP ${response.status})`);
+      const message = buildSafeIikoHttpErrorMessage(url, response.status);
+      const error = new Error(sanitizeSensitiveText(message));
       error.response = sanitizeSensitiveData(payload);
       error.status = response.status;
       error.url = url;
@@ -565,8 +620,8 @@ const extractExternalMenuIds = (payload) => {
 const buildErrorResponseMeta = (error, extra = {}) =>
   sanitizeSensitiveData({
     status: error?.status,
-    url: error?.url,
-    body: error?.response ?? null,
+    url: error?.url ? getIikoEndpointPath(error.url) : null,
+    correlationId: extractIikoCorrelationId(error?.response),
     network: error?.network ?? null,
     ...extra,
   });
@@ -1210,10 +1265,12 @@ export const iikoClient = {
           error: "iiko: external_menus доступен, но ответ не содержит состав меню или идентификаторы меню",
           response: {
             status: 200,
-            url: `${IIKO_BASE_URL}/api/1/external_menus`,
-            body: listResult.payload ?? null,
-            network: null,
+            url: "/api/1/external_menus",
             request: listResult.requestBody,
+            detectedKeys:
+              listResult.payload && typeof listResult.payload === "object"
+                ? Object.keys(listResult.payload)
+                : [],
           },
         };
       }
@@ -1258,12 +1315,9 @@ export const iikoClient = {
           error: "iiko: Не удалось извлечь состав внешнего меню из external_menu endpoints",
           response: {
             status: 200,
-            url: `${IIKO_BASE_URL}/api/1/external_menu`,
-            body: {
-              externalMenuIds,
-              requestAttempts,
-            },
-            network: null,
+            url: "/api/1/external_menu",
+            externalMenuIds,
+            requestAttempts,
             request: listResult.requestBody,
           },
         };
@@ -1345,13 +1399,13 @@ export const iikoClient = {
           error: "iiko: Не удалось определить внешнее меню для синхронизации",
           response: {
             status: 200,
-            url: `${IIKO_BASE_URL}/api/2/menu`,
-            body: {
-              requestedMenuId: requestedMenuId || null,
-              requestedMenuName: requestedMenuName || null,
-              externalMenus,
-            },
-            network: null,
+            url: "/api/2/menu",
+            requestedMenuId: requestedMenuId || null,
+            requestedMenuName: requestedMenuName || null,
+            availableMenus: externalMenus.map((menu) => ({
+              id: normaliseIikoProductId(menu?.id) || null,
+              name: normaliseIikoProductId(menu?.name) || null,
+            })),
           },
         };
       }
