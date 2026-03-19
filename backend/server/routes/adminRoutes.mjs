@@ -38,6 +38,7 @@ import { createLogger } from "../utils/logger.mjs";
 import {
   createAppErrorLog,
   exportAppErrorLogs,
+  formatAppErrorLogsAsText,
   listAppErrorLogs,
   updateAppErrorLogStatus,
 } from "../services/appErrorLogService.mjs";
@@ -300,6 +301,7 @@ export function createAdminRouter() {
     try {
       const status = typeof req.query.status === "string" ? req.query.status : "new";
       const search = typeof req.query.search === "string" ? req.query.search : null;
+      const format = typeof req.query.format === "string" ? req.query.format.trim().toLowerCase() : "txt";
       const result = await exportAppErrorLogs({
         status,
         search,
@@ -307,11 +309,17 @@ export function createAdminRouter() {
       });
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      const filename = `app-error-logs-${result.status || "all"}-${timestamp}.json`;
+      const filenameBase = `app-error-logs-${result.status || "all"}-${timestamp}`;
 
-      res.setHeader("Content-Type", "application/json; charset=utf-8");
-      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-      return res.send(JSON.stringify(result, null, 2));
+      if (format === "json") {
+        res.setHeader("Content-Type", "application/json; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename="${filenameBase}.json"`);
+        return res.send(JSON.stringify(result, null, 2));
+      }
+
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${filenameBase}.txt"`);
+      return res.send(formatAppErrorLogsAsText(result));
     } catch (error) {
       console.error("Ошибка экспорта app_error_logs:", error);
       return res.status(500).json({
