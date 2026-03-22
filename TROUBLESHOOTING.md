@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-19 14:38
+**Последнее обновление:** 2026-03-23 00:05
 
 ---
 
@@ -2248,6 +2248,34 @@ curl -i "https://tg.marikorest.ru/tg/api/admin/me"
 ```
 
 **Связанный commit:** `N/A` (локальные изменения, commit ещё не создан)
+
+### ⚠️ Проблема: seed `super_admin` из `VITE_ADMIN_TELEGRAM_IDS` может временно потерять TG-админку до прихода `initData`
+
+**Дата:** 2026-03-23
+**Симптомы:**
+- seed супер-админ с Telegram ID из prod env (`577222108`) периодически не видит `Админ-панель`;
+- backend при этом уже распознаёт пользователя как `super_admin` по `ADMIN_TELEGRAM_IDS`;
+- проблема проявляется особенно неприятно после нового запуска Mini App, когда `sessionStorage` ещё пустой.
+
+**Причина:**
+- frontend ждал либо успешный `/api/admin/me`, либо уже сохранённый admin-кеш;
+- если Telegram `initData` ещё не приехал, `AdminContext` пропускал admin probe и оставлял пользователя в состоянии `user`;
+- для известных seed-admin ID из `VITE_ADMIN_TELEGRAM_IDS` не было мягкого клиентского fallback, хотя этот allowlist уже зашит во frontend env.
+
+**Решение:**
+- в `frontend/src/contexts/AdminContext.tsx` добавлен provisional fallback для Telegram seed-admin:
+  - Telegram ID берётся из `initDataUnsafe`, `tgWebAppData` в URL, `sessionStorage` (`mariko_tg_user_id`) и обычного `getUserId()`;
+  - если ID входит в `VITE_ADMIN_TELEGRAM_IDS`, UI больше не роняется в `user`, пока Telegram-auth догружается;
+  - при временных `401/403` до прихода `initData` seed-super-admin сохраняет видимость админки и права супер-админа на уровне интерфейса.
+
+**Проверка:**
+1. Открыть TG Mini App пользователем `577222108`.
+2. Убедиться, что даже при раннем отсутствии `initData` вкладка `Админ-панель` не исчезает.
+3. После прихода валидного `/tg/api/admin/me` роль должна остаться `super_admin` без ручного перезахода.
+4. `cd frontend && npm exec tsc --noEmit --pretty false`
+5. `cd frontend && npm run build`
+
+**Связанный commit:** нет
 
 ---
 
