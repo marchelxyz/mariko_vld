@@ -36,6 +36,8 @@ const DEFAULT_ADMIN_RETRY_DELAYS_MS = [0];
 const TELEGRAM_ADMIN_SYNC_INTERVAL_MS = 30_000;
 const TELEGRAM_INIT_DATA_STORAGE_KEY = "mariko_tg_init_data";
 const TELEGRAM_USER_ID_STORAGE_KEY = "mariko_tg_user_id";
+const TELEGRAM_BOOTSTRAP_ATTEMPTS = 20;
+const TELEGRAM_BOOTSTRAP_DELAY_MS = 250;
 
 const parseAdminTelegramIds = (raw: string | undefined): Set<string> =>
   new Set(
@@ -241,21 +243,54 @@ const getAdminRequestStatus = (error: unknown): number | null => {
   return typeof status === "number" ? status : null;
 };
 
+const delay = (ms: number): Promise<void> =>
+  new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const resolveAdminRuntimeContext = () => {
+  const platform = getPlatform();
+  const isTelegramPlatform = platform === "telegram";
+  const currentUserId = getUserId() || "";
+
+  return {
+    platform,
+    isTelegramPlatform,
+    currentUserId,
+    hasTelegramPayload: isTelegramPlatform && hasTelegramAuthPayload(),
+    knownTelegramSeedAdmin: isTelegramPlatform && isKnownTelegramSeedAdmin(),
+  };
+};
+
+const waitForTelegramBootstrap = async () => {
+  let context = resolveAdminRuntimeContext();
+
+  for (let attempt = 0; attempt < TELEGRAM_BOOTSTRAP_ATTEMPTS; attempt += 1) {
+    if (
+      context.isTelegramPlatform ||
+      context.hasTelegramPayload ||
+      context.knownTelegramSeedAdmin ||
+      Boolean(context.currentUserId)
+    ) {
+      return context;
+    }
+
+    await delay(TELEGRAM_BOOTSTRAP_DELAY_MS);
+    context = resolveAdminRuntimeContext();
+  }
+
+  return context;
+};
+
 export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Element => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userRole, setUserRole] = useState<UserRole>(UserRole.USER);
   const [permissions, setPermissions] = useState<Permission[]>([]);
-  const [userId] = useState<string>(getUserId() || '');
+  const [userId, setUserId] = useState<string>(getUserId() || '');
   const [allowedRestaurants, setAllowedRestaurants] = useState<string[]>([]);
 
   // Загружаем данные администратора при монтировании компонента
   useEffect(() => {
     let cancelled = false;
-    const platform = getPlatform();
-    const isTelegramPlatform = platform === "telegram";
-    const cachedAdmin = loadAdminFromStorage();
-    const knownTelegramSeedAdmin = isTelegramPlatform && isKnownTelegramSeedAdmin();
 
     const loadAdminData = async ({
       silent = false,
@@ -264,16 +299,43 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
       silent?: boolean;
       resetOnFailure?: boolean;
     } = {}): Promise<boolean> => {
+      const cachedAdmin = loadAdminFromStorage();
+      const runtimeContext = await waitForTelegramBootstrap();
+      if (cancelled) {
+        return false;
+      }
+
+      const {
+        platform,
+        isTelegramPlatform,
+        currentUserId,
+        hasTelegramPayload,
+        knownTelegramSeedAdmin,
+      } = runtimeContext;
+
+      if (currentUserId && currentUserId !== userId) {
+        setUserId((prev) => (prev === currentUserId ? prev : currentUserId));
+      }
+
       if (!silent) {
         setIsLoading(true);
       }
+
+      logger.debug("admin-context", "Resolved admin runtime context", {
+        platform,
+        isTelegramPlatform,
+        hasTelegramPayload,
+        knownTelegramSeedAdmin,
+        hasUserId: Boolean(currentUserId),
+        silent,
+      });
 
       const retryDelays = isTelegramPlatform
         ? TELEGRAM_ADMIN_RETRY_DELAYS_MS
         : DEFAULT_ADMIN_RETRY_DELAYS_MS;
       let loaded = false;
 
-      if (isTelegramPlatform && !hasTelegramAuthPayload()) {
+      if (isTelegramPlatform && !hasTelegramPayload) {
         if (knownTelegramSeedAdmin) {
           setIsAdmin(true);
           setUserRole(UserRole.SUPER_ADMIN);
@@ -312,7 +374,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
             isAdmin: isAdminUser,
             userRole: role,
             permissions: nextPermissions,
-            userId,
+            userId: currentUserId,
             allowedRestaurants: nextAllowedRestaurants,
           });
 
@@ -360,6 +422,11 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
       }
       return loaded;
     };
+
+    const initialContext = resolveAdminRuntimeContext();
+    const cachedAdmin = loadAdminFromStorage();
+    const isTelegramPlatform = initialContext.isTelegramPlatform;
+    const knownTelegramSeedAdmin = initialContext.knownTelegramSeedAdmin;
 
     if (cachedAdmin) {
       setIsAdmin(cachedAdmin.isAdmin);
