@@ -35,6 +35,17 @@ const TELEGRAM_ADMIN_RETRY_DELAYS_MS = [0, 350, 900, 1800, 3200, 5000, 7500];
 const DEFAULT_ADMIN_RETRY_DELAYS_MS = [0];
 const TELEGRAM_ADMIN_SYNC_INTERVAL_MS = 30_000;
 const TELEGRAM_INIT_DATA_STORAGE_KEY = "mariko_tg_init_data";
+const TELEGRAM_USER_ID_STORAGE_KEY = "mariko_tg_user_id";
+
+const parseAdminTelegramIds = (raw: string | undefined): Set<string> =>
+  new Set(
+    String(raw ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter((value) => /^\d+$/.test(value)),
+  );
+
+const CLIENT_ADMIN_TELEGRAM_IDS = parseAdminTelegramIds(import.meta.env.VITE_ADMIN_TELEGRAM_IDS);
 
 const loadAdminFromStorage = (): AdminStorageData | null => {
   if (typeof window === "undefined") {
@@ -162,6 +173,66 @@ const hasTelegramAuthPayload = (): boolean => {
   }
 };
 
+const readTelegramUserIdFromUrl = (): string | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = new URLSearchParams(window.location.search).get("tgWebAppData");
+    if (!raw) {
+      return null;
+    }
+    const params = new URLSearchParams(raw);
+    const userRaw = params.get("user");
+    if (!userRaw) {
+      return null;
+    }
+    const user = JSON.parse(userRaw) as { id?: unknown };
+    if (typeof user?.id === "number" || typeof user?.id === "string") {
+      const normalized = String(user.id).trim();
+      return /^\d+$/.test(normalized) ? normalized : null;
+    }
+  } catch {
+    // ignore URL parsing problems
+  }
+
+  return null;
+};
+
+const resolveKnownTelegramUserId = (): string | null => {
+  const tgUserId = getTg()?.initDataUnsafe?.user?.id;
+  if (typeof tgUserId === "number" || typeof tgUserId === "string") {
+    const normalized = String(tgUserId).trim();
+    if (/^\d+$/.test(normalized)) {
+      return normalized;
+    }
+  }
+
+  const platformUserId = getUserId();
+  if (platformUserId && /^\d+$/.test(platformUserId)) {
+    return platformUserId;
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      const cachedUserId = window.sessionStorage?.getItem(TELEGRAM_USER_ID_STORAGE_KEY);
+      if (cachedUserId && /^\d+$/.test(cachedUserId)) {
+        return cachedUserId;
+      }
+    } catch {
+      // ignore storage problems
+    }
+  }
+
+  return readTelegramUserIdFromUrl();
+};
+
+const isKnownTelegramSeedAdmin = (): boolean => {
+  const telegramUserId = resolveKnownTelegramUserId();
+  return Boolean(telegramUserId && CLIENT_ADMIN_TELEGRAM_IDS.has(telegramUserId));
+};
+
 const getAdminRequestStatus = (error: unknown): number | null => {
   if (!error || typeof error !== "object") {
     return null;
@@ -184,6 +255,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
     const platform = getPlatform();
     const isTelegramPlatform = platform === "telegram";
     const cachedAdmin = loadAdminFromStorage();
+    const knownTelegramSeedAdmin = isTelegramPlatform && isKnownTelegramSeedAdmin();
 
     const loadAdminData = async ({
       silent = false,
@@ -202,6 +274,12 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
       let loaded = false;
 
       if (isTelegramPlatform && !hasTelegramAuthPayload()) {
+        if (knownTelegramSeedAdmin) {
+          setIsAdmin(true);
+          setUserRole(UserRole.SUPER_ADMIN);
+          setPermissions(derivePermissions(UserRole.SUPER_ADMIN));
+          setAllowedRestaurants([]);
+        }
         logger.debug('admin-context', 'Skip admin probe: Telegram init data unavailable');
         if (!silent) {
           setIsLoading(false);
@@ -264,11 +342,18 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
       }
 
       if (!loaded && !cancelled && resetOnFailure) {
-        // Если ошибка, считаем пользователя обычным пользователем
-        setIsAdmin(false);
-        setUserRole(UserRole.USER);
-        setPermissions([]);
-        setAllowedRestaurants([]);
+        if (knownTelegramSeedAdmin) {
+          setIsAdmin(true);
+          setUserRole(UserRole.SUPER_ADMIN);
+          setPermissions(derivePermissions(UserRole.SUPER_ADMIN));
+          setAllowedRestaurants([]);
+        } else {
+          // Если ошибка, считаем пользователя обычным пользователем
+          setIsAdmin(false);
+          setUserRole(UserRole.USER);
+          setPermissions([]);
+          setAllowedRestaurants([]);
+        }
       }
       if (!cancelled && !silent) {
         setIsLoading(false);
@@ -282,9 +367,15 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
       setPermissions(cachedAdmin.permissions || []);
       setAllowedRestaurants(cachedAdmin.allowedRestaurants || []);
       setIsLoading(false);
+    } else if (knownTelegramSeedAdmin) {
+      setIsAdmin(true);
+      setUserRole(UserRole.SUPER_ADMIN);
+      setPermissions(derivePermissions(UserRole.SUPER_ADMIN));
+      setAllowedRestaurants([]);
+      setIsLoading(false);
     }
 
-    const shouldResetOnInitialFailure = !isTelegramPlatform || !cachedAdmin;
+    const shouldResetOnInitialFailure = !isTelegramPlatform || (!cachedAdmin && !knownTelegramSeedAdmin);
     void loadAdminData({ resetOnFailure: shouldResetOnInitialFailure });
 
     const refreshAdminDataSilently = () => {
