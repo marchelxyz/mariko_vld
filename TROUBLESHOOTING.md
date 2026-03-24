@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-24 22:36
+**Последнее обновление:** 2026-03-25 00:01
 
 ---
 
@@ -1293,6 +1293,107 @@ curl "https://<backend>/api/db/check-terminal-groups?key=CHANGE_ME_DB_ADMIN_ROUT
 
 ## Timeweb Deployment
 
+### ❌ Проблема: test TG/VK нельзя выкатить автоматически, если Timeweb не видит `origin` репозиторий и упирается в лимит App Platform
+
+**Дата:** 2026-03-24
+**Симптомы:**
+- локальный код и `origin/main` готовы к test-деплою, но поднять отдельные TG/VK test app'ы не получается;
+- `TIMEWEB_API_TEST` отвечает `403 Forbidden` даже на `GET /api/v1/apps`;
+- доступ к старому test-хосту по SSH отсутствует (`Permission denied (publickey)`);
+- попытка создать новый App Platform сервис через `TIMEWEB_API_PROD` упирается в `invalid_tariff_exception`;
+- у подключенного GitHub provider в Timeweb виден только `marchelxyz/mariko_vld`, а `ineedaglokk/MARIKOTEST` недоступен для деплоя.
+
+**Причина:**
+- test-аккаунт/токен Timeweb не даёт доступа к App Platform API;
+- старый test-контур обслуживается отдельно и без SSH недоступен для правок nginx/Caddy и выкладки;
+- prod-аккаунт Timeweb имеет лимит/тариф, который не позволяет создать дополнительные App Platform приложения для test;
+- в Timeweb подключён только GitHub provider `marchelxyz`, поэтому `origin` репозиторий нельзя выбрать как источник деплоя без отдельного VCS-доступа.
+
+**Решение:**
+- для полноценного test-деплоя нужен любой один рабочий путь:
+  - рабочий `TIMEWEB_API_TEST` с доступом к App Platform и подключенным `ineedaglokk/MARIKOTEST`;
+  - либо SSH/пароль на старый test-хост;
+  - либо расширение лимита App Platform в аккаунте, где уже доступны prod app'ы;
+  - либо добавление нового GitHub VCS provider для `ineedaglokk/MARIKOTEST` через `POST /api/v1/vcs-provider` с GitHub PAT.
+- после этого test TG и VK лучше поднимать так же, как на prod: двумя отдельными App Platform сервисами с разными `APP_BASE_PATH`/`VITE_BASE_PATH`.
+
+**Проверка:**
+```bash
+# Проверка prod API-токена Timeweb
+python3 - <<'PY'
+from pathlib import Path
+from urllib.request import Request, urlopen
+import ssl
+ctx = ssl._create_unverified_context()
+token = next(
+    line.split("=", 1)[1].strip()
+    for line in Path(".env.secrets").read_text().splitlines()
+    if line.startswith("TIMEWEB_API_PROD=")
+)
+req = Request("https://api.timeweb.cloud/api/v1/apps", headers={"Authorization": f"Bearer {token}"})
+with urlopen(req, context=ctx) as response:
+    print(response.status)
+PY
+
+# Проверка test API-токена Timeweb
+python3 - <<'PY'
+from pathlib import Path
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError
+import ssl
+ctx = ssl._create_unverified_context()
+token = next(
+    line.split("=", 1)[1].strip()
+    for line in Path(".env.secrets").read_text().splitlines()
+    if line.startswith("TIMEWEB_API_TEST=")
+)
+req = Request("https://api.timeweb.cloud/api/v1/apps", headers={"Authorization": f"Bearer {token}"})
+try:
+    with urlopen(req, context=ctx) as response:
+        print(response.status)
+except HTTPError as error:
+    print(error.code)
+PY
+
+# Проверка старого test-контура
+curl -I https://ineedaglokk-marikotest-3474.twc1.net/tg/
+curl -I https://ineedaglokk-marikotest-3474.twc1.net/vk/
+ssh root@85.198.83.72
+```
+
+**Связанный commit:** нет
+
+### ❌ Проблема: test app в Timeweb падает в `502`, если пытаться обслуживать его и по `/tg/`, и по `/` через `APP_BASE_PATH=/`
+
+**Дата:** 2026-03-24
+**Симптомы:**
+- после смены test env VK Mini App внутри `vk.com/app...` бесконечно грузится или пишет `Приложение не инициализировано`;
+- `https://<test-domain>/api/health` начинает отвечать `502 Bad Gateway`;
+- `https://<test-domain>/tg/` тоже перестаёт открываться, хотя app в Timeweb числится как `active`.
+
+**Причина:**
+- в текущем Docker/nginx шаблоне проекта root-path через `APP_BASE_PATH=/` создаёт дублирующий `location /` в `/etc/nginx/http.d/default.conf`;
+- nginx падает с `duplicate location "/"`, из-за чего контейнер уходит в restart loop и снаружи видно `502`.
+
+**Решение:**
+- не использовать для этого сервиса обход с `APP_BASE_PATH=/`/`VITE_BASE_PATH=/`, если цель — параллельно обслуживать и TG, и VK из одного Timeweb app;
+- откатить test env к предыдущему рабочему состоянию из backup app-конфига;
+- вручную перезапустить deploy на том же commit;
+- для VK либо поднимать отдельный app, либо сначала переделывать nginx/docker-шаблон локально и только потом тестировать на test.
+
+**Проверка:**
+```bash
+# Логи Timeweb app
+curl -sS -H "Authorization: Bearer $TIMEWEB_API_TEST" \
+  "https://api.timeweb.cloud/api/v1/apps/<app_id>/logs"
+
+# После rollback и redeploy:
+curl -i https://<test-domain>/api/health
+curl -i https://<test-domain>/tg/
+```
+
+**Связанный commit:** нет, rollback test env без изменения git-кода.
+
 ### ❌ Проблема: prod продолжает работать на старом commit, а новые админские разделы не появляются
 
 **Дата:** 2026-03-15
@@ -2463,6 +2564,59 @@ node scripts/iiko/onboard-network.mjs \
 - `git diff --check`
 
 **Связанный commit:** нет
+
+---
+
+### ❌ Проблема: во VK Desktop iframe админка не поднимается, если fallback `initData` из URL теряет `sign`
+
+**Дата:** 2026-03-24
+**Симптомы:**
+- VK Mini App открывается, но `Админ-панель` не появляется даже у seed `super_admin`;
+- при этом профиль и обычные экраны открываются;
+- на backend нет новых записей `admin-api`, хотя во VK есть `vk_user_id`;
+- если `window.vk.WebApp` недоступен, frontend пытается жить по URL-параметрам, но verified VK auth на backend не проходит.
+
+**Причина:**
+- `frontend/src/lib/platform.ts` и `frontend/src/lib/vkCore.ts` в URL fallback собирали только `vk_*` параметры;
+- параметр `sign` от VK терялся;
+- backend `verifyVKInitData()` требует полный query string с подписью, поэтому `x-vk-init-data` не верифицировался;
+- в результате `/api/cart/admin/me` во VK не мог вернуть админский контекст.
+
+**Решение:**
+- в VK fallback передавать на backend полный `window.location.search`, а не только `vk_*`;
+- в `vkCore.getInitData()` сохранять в объекте все query-параметры, включая `sign`;
+- не полагаться на урезанный URL fallback для signed VK auth.
+
+**Проверка:**
+- `cd frontend && npm exec tsc --noEmit --pretty false`
+- `cd frontend && npm run build`
+- открыть VK Mini App в desktop/web iframe и убедиться, что админский seed получает `Админ-панель`
+
+**Связанный commit:** будет добавлен после фикса
+
+---
+
+### ❌ Проблема: в профиле отображается alt-текст `Грузинские кувшины` вместо картинки
+
+**Дата:** 2026-03-24
+**Симптомы:**
+- в правом нижнем углу профиля видно текст `Грузинские кувшины` и битый image placeholder;
+- особенно заметно во VK Desktop/Web.
+
+**Причина:**
+- `frontend/src/features/profile/Profile.tsx` рендерил декоративный `<img src=\"/images/characters/character-bonus.png\">`;
+- файла `frontend/public/images/characters/character-bonus.png` в проекте нет;
+- nginx отдавал `404`, браузер показывал alt-текст.
+
+**Решение:**
+- удалить устаревший декоративный блок из профиля;
+- не держать в UI ссылки на несуществующие public assets.
+
+**Проверка:**
+- `curl -I https://<domain>/images/characters/character-bonus.png` должен больше не быть нужен для профиля;
+- открыть `/profile` и убедиться, что справа снизу больше нет битой картинки/alt-текста.
+
+**Связанный commit:** будет добавлен после фикса
 
 ---
 
