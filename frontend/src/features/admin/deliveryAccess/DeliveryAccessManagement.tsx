@@ -8,7 +8,14 @@ import {
 } from "@shared/api/admin";
 import { useAdmin } from "@shared/hooks";
 import { Permission } from "@shared/types";
+import {
+  getPlatformIdentitySearchLabel,
+  getPlatformIdentitySearchValues,
+  getPlatformIdentityText,
+  isVisibleInPlatformList,
+} from "@shared/utils";
 import { Button, Input, Switch } from "@shared/ui";
+import { getPlatform } from "@/lib/platform";
 
 const modeLabel: Record<DeliveryAccessMode, string> = {
   list: "Доступ по списку",
@@ -17,6 +24,7 @@ const modeLabel: Record<DeliveryAccessMode, string> = {
 };
 
 export function DeliveryAccessManagement(): JSX.Element {
+  const currentPlatform = getPlatform();
   const { hasPermission } = useAdmin();
   const canManage = hasPermission(Permission.MANAGE_DELIVERIES);
   const queryClient = useQueryClient();
@@ -37,23 +45,27 @@ export function DeliveryAccessManagement(): JSX.Element {
 
   const mode = data?.mode ?? "list";
   const users = data?.users ?? [];
+  const platformScopedUsers = useMemo(
+    () => users.filter((user) => isVisibleInPlatformList(user, currentPlatform)),
+    [currentPlatform, users],
+  );
 
   const filteredUsers = useMemo(() => {
     if (!searchQuery.trim()) {
-      return users;
+      return platformScopedUsers;
     }
     const query = searchQuery.trim().toLowerCase();
-    return users.filter((user) => {
-      const fields = [user.name, user.phone, user.telegramId, user.vkId]
+    return platformScopedUsers.filter((user) => {
+      const fields = [user.name, user.phone, ...getPlatformIdentitySearchValues(user, currentPlatform)]
         .filter(Boolean)
         .map((value) => String(value).toLowerCase());
       return fields.some((value) => value.includes(query));
     });
-  }, [searchQuery, users]);
+  }, [currentPlatform, platformScopedUsers, searchQuery]);
 
   const enabledUsersCount = useMemo(
-    () => users.filter((user) => user.hasAccess).length,
-    [users],
+    () => platformScopedUsers.filter((user) => user.hasAccess).length,
+    [platformScopedUsers],
   );
 
   const handleEnableAll = async () => {
@@ -124,7 +136,7 @@ export function DeliveryAccessManagement(): JSX.Element {
             Доступ к доставке
           </h2>
           <p className="text-white/70 mt-1">
-            {modeLabel[mode]} · Доступно: {enabledUsersCount} из {users.length}
+            {modeLabel[mode]} · Доступно: {enabledUsersCount} из {platformScopedUsers.length}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -154,7 +166,7 @@ export function DeliveryAccessManagement(): JSX.Element {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60 pointer-events-none" />
         <Input
           type="text"
-          placeholder="Поиск по имени, телефону, TG/VK ID"
+          placeholder={`Поиск по имени, телефону или ${getPlatformIdentitySearchLabel(currentPlatform)}...`}
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
           className="w-full bg-white/10 border-white/20 text-white placeholder:text-white/60 pl-9"
@@ -171,11 +183,7 @@ export function DeliveryAccessManagement(): JSX.Element {
             >
               <div className="min-w-0">
                 <p className="text-white font-semibold truncate">{user.name || "Без имени"}</p>
-                <p className="text-white/70 text-sm truncate">
-                  ID: {user.userId}
-                  {user.telegramId ? ` · TG: ${user.telegramId}` : ""}
-                  {user.vkId ? ` · VK: ${user.vkId}` : ""}
-                </p>
+                <p className="text-white/70 text-sm truncate">{getPlatformIdentityText(user, currentPlatform)}</p>
                 {user.phone && <p className="text-white/70 text-sm">Телефон: {user.phone}</p>}
               </div>
 

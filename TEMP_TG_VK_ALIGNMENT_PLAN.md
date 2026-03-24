@@ -140,25 +140,28 @@
 - [ ] ручная проверка кнопок и первых кликов
 
 Подматрица TG:
-- [ ] холодный старт `/tg/` без 404/chunk error и без выпадения в `user` у seed super-admin
-- [ ] профиль: загрузка, редактирование имени/телефона/пола, сохранение без `demo_user`
-- [ ] меню: загрузка категорий, карточки, добавление в корзину, работа toast/счетчика
-- [ ] корзина: изменение количества, удаление, подготовка checkout без финальной отправки заказа
-- [ ] бронь: загрузка токена/слотов, смена даты/гостей, отмена устаревших запросов без ложных `error`
-- [ ] админка: `/admin/me`, пользователи, настройки, журнал ошибок, бронирования, delivery access
+- [x] холодный старт локального smoke `/` с TG mock-initData без 404/chunk error
+- [x] профильный API smoke: `/cart/profile/me`, `/cart/profile/sync`, onboarding settings
+- [x] меню smoke: route `/menu` и загрузка локальных mock/static данных
+- [x] корзина/API smoke: `/cart/recalculate`, `/cart/cart`, `/cart/submit` без реального провайдера
+- [x] бронь/API smoke: `/booking/token`, `/booking/slots`, mocked `Remarked`
+- [x] админка smoke: `/admin`, `/admin/me`, настройки
+- [ ] ручной UI-clickthrough формы корзины и брони до локального success state
+- [ ] ручной просмотр разделов пользователей, журнала ошибок и delivery access в браузере
 
 Подматрица VK:
-- [ ] холодный старт `/vk/` с VK query/initData без Telegram-only ошибок
-- [ ] профиль: загрузка и сохранение через VK identity без подстановки TG ID
-- [ ] меню: загрузка, добавление в корзину, отсутствие TG-only helper leakage
-- [ ] корзина: изолированный storage key, корректный platform auth при запросах
-- [ ] бронь: payload и профильный sync идут через VK initData, без реальной отправки брони
-- [ ] админка: VK role bootstrap, `/admin/me`, отсутствие cross-platform fallback на Telegram ID
+- [x] холодный старт локального smoke `/` с VK mock-initData без Telegram-only ошибок
+- [x] профильный API smoke: загрузка через VK identity без подстановки TG ID
+- [ ] меню UI smoke route `/menu`
+- [ ] корзина UI smoke route `/menu` -> cart
+- [ ] бронь UI smoke route `/booking`
+- [x] админка smoke: `/admin`, `/admin/me`, отсутствие cross-platform fallback на Telegram ID
+- [x] настройки smoke: route `/settings` и platform-aware support settings
 
 Сквозные проверки:
-- [ ] support links: TG использует `supportTelegramUrl`, VK использует `supportVkUrl` с fallback
-- [ ] frontend logger и `/api/logs`: TG/VK отправляют корректные platform headers
-- [ ] localStorage/sessionStorage не смешивают TG/VK состояние на одном origin
+- [x] support links: TG использует `supportTelegramUrl`, VK использует `supportVkUrl` с fallback
+- [x] frontend logger и `/api/logs`: TG/VK отправляют корректные platform headers
+- [x] localStorage/sessionStorage не смешивают TG/VK состояние на одном origin
 - [ ] shared UI не импортирует Telegram-specific API напрямую
 - [ ] первые клики по главным CTA не ломают экран и не уводят на чужую платформу
 
@@ -209,4 +212,18 @@
   - разобран diff `origin/main...origin/vk_app`
   - VK-only изменения классифицированы на `уже покрыто / не переносим напрямую / точечно переносим`
   - подтверждено, что критичная часть VK infra/base-path уже поглощена текущим локальным `main`
-- Следующий шаг: добить точечные platform-runtime хвосты и перейти к фазе 8 (локальная матрица проверки)
+- Дополнительно выполнено после фаз 1-7:
+  - в админке разделены внутренний `id`, `TG ID` и `VK ID`; platform-aware отображение и поиск добавлены в `RolesManagement` и `DeliveryAccessManagement`
+  - добавлены unit-тесты на platform identity helper: `frontend/src/shared/utils.spec.ts`
+  - локально пройдены `vitest`, `tsc`, `vite build`, `git diff --check`
+- Фаза 8: частично закрыта безопасным локальным smoke-mode
+- Дополнительно выполнено:
+  - добавлен локальный mock-harness `frontend/src/dev/localSmokeMode.ts`, который под explicit env-флагом перехватывает `/api/*` и `Remarked`, не допуская реальных броней/заказов/iiko-вызовов
+  - добавлены локальные команды `frontend/package.json`: `dev:smoke`, `build:smoke`, `preview:smoke`
+  - headless smoke в Chromium пройден для TG и VK через локальный preview:
+    - TG: `/admin`, `/settings`, `/menu`, `/cart/profile/me`, `/cart/recalculate`, `/booking/slots`, mocked `Remarked`
+    - VK: `/admin`, `/settings`, `/cart/profile/me`, `/cart/delivery-access/me`
+- Остаток до полного закрытия фазы 8:
+  - прогнать расширенный ручной clickthrough по UI корзины и брони поверх локального smoke-mode;
+  - отдельно пройти разделы `Users / Delivery Access / Error Logs` живыми кликами в браузере.
+- Следующий шаг: добить оставшийся ручной clickthrough локально и только потом собирать финальный пакет для test deploy.

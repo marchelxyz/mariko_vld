@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-24 22:31
+**Последнее обновление:** 2026-03-24 22:23
 
 ---
 
@@ -525,6 +525,39 @@ node --check backend/server/cart-server.mjs
 **Коммит:** нет
 
 ---
+
+### ❌ Проблема: В админке путались внутренний ID, TG ID и VK ID в управлении ролями и доступом к доставке
+
+**Дата:** 2026-03-24
+**Симптомы:**
+- в `Управление ролями` строки могли выглядеть как `ID: 1189569891 · TG: 1189569891`, из-за чего было непонятно, что такое `ID`;
+- в TG-админке отображались и искались не только TG ID, а во VK-пути не было симметричного показа `VK ID`;
+- в `Доступ к доставке` одновременно показывались внутренний `userId`, `TG` и `VK`, что визуально смешивало платформы;
+- сохранение роли опиралось на поле `id`, которое могло быть внутренним UUID `admin_users.id` или `user_profiles.id`.
+
+**Причина:**
+- frontend показывал сырое поле `id`, хотя это внутренний идентификатор профиля/админ-записи, а не платформенный ID;
+- поиск и отображение в админке не были platform-aware и смешивали TG/VK значения;
+- backend `PATCH /api/admin/users/:userId` не умел напрямую разрешать `admin_users.id`, если в запрос прилетал внутренний UUID.
+
+**Решение:**
+- добавлен общий helper `frontend/src/shared/utils/platformIdentity.ts` для platform-aware отображения, поиска и выбора корректного ID;
+- `frontend/src/features/admin/roles/RolesManagement.tsx` теперь:
+  - в TG показывает только `TG ID`;
+  - во VK показывает только `VK ID`;
+  - ищет только по ID текущей платформы;
+  - сохраняет роль по предпочтительному ID текущей платформы;
+- `frontend/src/features/admin/deliveryAccess/DeliveryAccessManagement.tsx` больше не показывает внутренний `userId` как пользовательский идентификатор и также фильтруется по текущей платформе;
+- в backend добавлен `fetchAdminRecordById(...)`, а `backend/server/routes/adminRoutes.mjs` научен обновлять роль и по внутреннему `admin_users.id`, если он пришёл из старых сценариев.
+
+**Проверка:**
+- `node --check backend/server/services/adminService.mjs`
+- `node --check backend/server/routes/adminRoutes.mjs`
+- `cd frontend && npm exec tsc --noEmit --pretty false`
+- `cd frontend && npm run build`
+- `git diff --check`
+
+**Связанный commit:** нет
 
 ## Express Routing
 
@@ -2703,6 +2736,71 @@ curl -X POST "https://api-ru.iiko.services/api/1/organizations" \
   -d '{"organizationIds":null,"returnAdditionalInfo":true,"includeDisabled":false}'
 ```
 
+### Локальный безопасный smoke без боевых API
+```bash
+cd frontend
+
+# 1. Собрать smoke-bundle с локальными mock API
+npm run build:smoke
+
+# 2. Поднять локальный preview с теми же mock API
+npm run preview:smoke
+
+# 3. Открыть TG smoke
+open "http://127.0.0.1:4174/?smoke_platform=telegram&smoke_role=super_admin#/admin"
+
+# 4. Открыть VK smoke
+open "http://127.0.0.1:4174/?smoke_platform=vk&smoke_role=admin#/admin"
+```
+
+### ❌ Проблема: для TG/VK не было безопасного локального runtime smoke, и любые проверки упирались в live backend или внешние API
+
+**Дата:** 2026-03-24
+**Симптомы:**
+- локальная сборка проходила, но полноценный runtime smoke нельзя было честно закрыть без риска уйти в живые `/api/*`;
+- backend без `DATABASE_URL` уходил в mock-режим, но не покрывал админку и профильный поток;
+- браузерные проверки без отдельного safe-контура рисковали задеть реальные брони, заказы или внешние провайдеры;
+- `BookingForm` дополнительно умел ходить в `Remarked` напрямую, минуя локальный backend mock.
+
+**Причина:**
+- проекту не хватало отдельного frontend smoke-режима, который бы под explicit env-флагом:
+  - поднимал mock Telegram/VK platform context;
+  - перехватывал критичные `/api/*` ручки;
+  - отрезал прямые вызовы `Remarked`;
+  - не требовал подключения к живой БД и провайдерам.
+
+**Решение:**
+- добавлен локальный smoke harness: `frontend/src/dev/localSmokeMode.ts`;
+- smoke-режим включается только при `VITE_LOCAL_SMOKE_MOCKS=true`;
+- добавлены команды:
+  - `npm run dev:smoke`
+  - `npm run build:smoke`
+  - `npm run preview:smoke`
+- в smoke-режиме перехватываются критичные ручки:
+  - `profile`
+  - `admin`
+  - `delivery access`
+  - `cart`
+  - `orders`
+  - `booking`
+  - `settings`
+  - `cities`
+  - `logs`
+  - `payments`
+  - `Remarked`
+- отдельные TG/VK mock identity и storage namespace позволяют прогонять обе платформы локально без смешения и без боевых side effects.
+
+**Проверка:**
+- `cd frontend && npm exec tsc --noEmit --pretty false`
+- `cd frontend && npm run build:smoke`
+- `git diff --check`
+- headless smoke в Chromium против `http://127.0.0.1:4174`:
+  - TG: `/admin`, `/settings`, `/menu`, `/cart/profile/me`, `/cart/recalculate`, `/booking/slots`, mocked `Remarked`
+  - VK: `/admin`, `/settings`, `/cart/profile/me`, `/cart/delivery-access/me`
+- подтверждено, что в smoke-режиме не создаются реальные заказы, реальные брони и не происходят боевые вызовы в `iiko` или `Remarked`.
+
+**Связанный commit:** нет
+
 ---
 
 ## См. также
@@ -2714,5 +2812,5 @@ curl -X POST "https://api-ru.iiko.services/api/1/organizations" \
 
 ---
 
-**Последнее обновление:** 2026-03-15 12:02
+**Последнее обновление:** 2026-03-24 22:23
 **Автор:** Codex (GPT-5)
