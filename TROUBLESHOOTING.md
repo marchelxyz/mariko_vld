@@ -1575,7 +1575,7 @@ curl -H "X-DB-Admin-Key: ${DB_ADMIN_ROUTE_SECRET_KEY}" \
 - `/api/db/check` отвечает `success: true`;
 - в логах больше нет `EAI_AGAIN`, `Connection terminated due to connection timeout`, `timeout exceeded when trying to connect`.
 
-**Связанный commit:** нет (операционный инцидент)
+**Связанный commit:** `fc35142` `fix(backend): повышена устойчивость к сбоям postgres`
 
 ---
 
