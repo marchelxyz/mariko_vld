@@ -14,6 +14,10 @@ import { iikoClient } from "../integrations/iiko-client.mjs";
 import { normaliseNullableString } from "../utils.mjs";
 import { addressService } from "../services/addressService.mjs";
 import {
+  shouldRequireVerifiedTelegramInitData,
+  verifyTelegramInitData,
+} from "../utils/telegramAuth.mjs";
+import {
   getVKUserIdFromInitData,
   shouldRequireVerifiedVKInitData,
   verifyVKInitData,
@@ -24,9 +28,24 @@ const healthPayload = async () => ({
   database: db ? await checkConnection() : false,
 });
 
-const getTelegramIdFromHeaders = (req) => {
+const getUnsafeTelegramIdFromHeaders = (req) => {
   const raw = req.get("x-telegram-id");
   return typeof raw === "string" ? raw.trim() : null;
+};
+
+const getVerifiedTelegramIdFromHeaders = (req) => {
+  const headerTelegramId = getUnsafeTelegramIdFromHeaders(req);
+  const rawInitData = req.get("x-telegram-init-data");
+
+  if (rawInitData) {
+    const verifiedInitData = verifyTelegramInitData(rawInitData);
+    if (verifiedInitData?.telegramId) {
+      return verifiedInitData.telegramId;
+    }
+    console.warn("[cartRoutes] Проверка подписи Telegram initData не прошла");
+  }
+
+  return shouldRequireVerifiedTelegramInitData() ? null : headerTelegramId;
 };
 
 const getVkIdFromHeaders = (req) => {
@@ -61,7 +80,7 @@ const getVerifiedVkIdFromHeaders = (req) => {
 
 // Универсальная функция для получения ID пользователя из заголовков (Telegram или VK)
 const getUserIdFromHeaders = (req) => {
-  return getTelegramIdFromHeaders(req) || getVerifiedVkIdFromHeaders(req);
+  return getVerifiedTelegramIdFromHeaders(req) || getVerifiedVkIdFromHeaders(req);
 };
 
 const normalizePaymentMethod = (value) => {
@@ -196,7 +215,7 @@ export function registerCartRoutes(app) {
     }
 
     const headerUserId = getUserIdFromHeaders(req);
-    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerTelegramId = getVerifiedTelegramIdFromHeaders(req);
     const headerVkId = getVerifiedVkIdFromHeaders(req);
     const queryUserId =
       normaliseNullableString(req.query?.userId) ?? normaliseNullableString(req.query?.id);
@@ -287,7 +306,7 @@ export function registerCartRoutes(app) {
 
     const body = req.body ?? {};
     const headerUserId = getUserIdFromHeaders(req);
-    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerTelegramId = getVerifiedTelegramIdFromHeaders(req);
     const headerVkId = getVerifiedVkIdFromHeaders(req);
     try {
       const effectiveId = await resolveCanonicalProfileId({
@@ -354,7 +373,7 @@ export function registerCartRoutes(app) {
       return;
     }
     const headerUserId = getUserIdFromHeaders(req);
-    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerTelegramId = getVerifiedTelegramIdFromHeaders(req);
     const headerVkId = getVerifiedVkIdFromHeaders(req);
     const requestedId =
       normaliseNullableString(req.query?.id) ??
@@ -391,7 +410,7 @@ export function registerCartRoutes(app) {
     }
     const body = req.body ?? {};
     const headerUserId = getUserIdFromHeaders(req);
-    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerTelegramId = getVerifiedTelegramIdFromHeaders(req);
     const headerVkId = getVerifiedVkIdFromHeaders(req);
     try {
       const effectiveId = await resolveCanonicalProfileId({
@@ -457,7 +476,7 @@ export function registerCartRoutes(app) {
     }
     // Используем getUserIdFromHeaders, который поддерживает и VK ID, и Telegram ID
     const headerUserId = getUserIdFromHeaders(req);
-    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerTelegramId = getVerifiedTelegramIdFromHeaders(req);
     const headerVkId = getVerifiedVkIdFromHeaders(req);
     const requestedId =
       normaliseNullableString(req.query?.id) ??
@@ -489,7 +508,7 @@ export function registerCartRoutes(app) {
     const body = req.body ?? {};
     // Используем getUserIdFromHeaders, который поддерживает и VK ID, и Telegram ID
     const headerUserId = getUserIdFromHeaders(req);
-    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerTelegramId = getVerifiedTelegramIdFromHeaders(req);
     const headerVkId = getVerifiedVkIdFromHeaders(req);
     try {
       const resolvedId = await resolveCanonicalProfileId({
@@ -533,7 +552,7 @@ export function registerCartRoutes(app) {
     const orderPayload = req.body;
     const rawOrderItems = Array.isArray(orderPayload?.items) ? orderPayload.items : [];
     const headerUserId = getUserIdFromHeaders(req);
-    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerTelegramId = getVerifiedTelegramIdFromHeaders(req);
     const headerVkId = getVerifiedVkIdFromHeaders(req);
 
     if (!orderPayload?.customerName || !orderPayload?.customerPhone) {
@@ -953,7 +972,7 @@ export function registerCartRoutes(app) {
       return res.status(503).json({ success: false, message: "База данных недоступна" });
     }
 
-    const rawTelegramId = req.query?.telegramId ?? req.get("x-telegram-id");
+    const rawTelegramId = req.query?.telegramId ?? getVerifiedTelegramIdFromHeaders(req);
     const rawVkId = req.query?.vkId ?? getVerifiedVkIdFromHeaders(req);
     const rawPhone = req.query?.phone ?? req.get("x-customer-phone");
     const telegramId =
@@ -1044,7 +1063,7 @@ export function registerCartRoutes(app) {
     if (!ensureDatabase(res)) {
       return;
     }
-    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerTelegramId = getVerifiedTelegramIdFromHeaders(req);
     const userId =
       normaliseNullableString(req.query?.userId) ??
       normaliseNullableString(req.query?.id) ??
@@ -1060,7 +1079,7 @@ export function registerCartRoutes(app) {
     if (!ensureDatabase(res)) {
       return;
     }
-    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerTelegramId = getVerifiedTelegramIdFromHeaders(req);
     const { userId: bodyUserId, ...payload } = req.body ?? {};
     const userId = normaliseNullableString(bodyUserId) ?? headerTelegramId;
     if (!userId) {
@@ -1077,7 +1096,7 @@ export function registerCartRoutes(app) {
     if (!ensureDatabase(res)) {
       return;
     }
-    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerTelegramId = getVerifiedTelegramIdFromHeaders(req);
     const { userId: bodyUserId, ...payload } = req.body ?? {};
     const userId = normaliseNullableString(bodyUserId) ?? headerTelegramId;
     const addressId = req.params.addressId;
@@ -1095,7 +1114,7 @@ export function registerCartRoutes(app) {
     if (!ensureDatabase(res)) {
       return;
     }
-    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerTelegramId = getVerifiedTelegramIdFromHeaders(req);
     const userId = normaliseNullableString(req.query?.userId) ?? headerTelegramId;
     const addressId = req.params.addressId;
     if (!userId || !addressId) {
@@ -1112,7 +1131,7 @@ export function registerCartRoutes(app) {
     if (!ensureDatabase(res)) {
       return;
     }
-    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerTelegramId = getVerifiedTelegramIdFromHeaders(req);
     const userId = normaliseNullableString(req.body?.userId) ?? headerTelegramId;
     const addressId = req.params.addressId;
     if (!userId || !addressId) {
@@ -1133,7 +1152,7 @@ export function registerCartRoutes(app) {
       return;
     }
     const headerUserId = getUserIdFromHeaders(req);
-    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerTelegramId = getVerifiedTelegramIdFromHeaders(req);
     const headerVkId = getVerifiedVkIdFromHeaders(req);
     const body = req.body ?? {};
     
@@ -1199,7 +1218,7 @@ export function registerCartRoutes(app) {
       return;
     }
     const headerUserId = getUserIdFromHeaders(req);
-    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerTelegramId = getVerifiedTelegramIdFromHeaders(req);
     const headerVkId = getVerifiedVkIdFromHeaders(req);
     
     const requestedId =
@@ -1256,7 +1275,7 @@ export function registerCartRoutes(app) {
       return;
     }
     const headerUserId = getUserIdFromHeaders(req);
-    const headerTelegramId = getTelegramIdFromHeaders(req);
+    const headerTelegramId = getVerifiedTelegramIdFromHeaders(req);
     const headerVkId = getVerifiedVkIdFromHeaders(req);
     
     const requestedId =

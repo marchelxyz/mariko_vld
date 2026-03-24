@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-24 22:23
+**Последнее обновление:** 2026-03-24 22:36
 
 ---
 
@@ -2801,6 +2801,62 @@ open "http://127.0.0.1:4174/?smoke_platform=vk&smoke_role=admin#/admin"
 
 **Связанный commit:** нет
 
+### ❌ Проблема: публичные `cart/booking` маршруты Telegram доверяют голому `X-Telegram-Id` без проверки подписи
+
+**Дата:** 2026-03-24
+**Симптомы:**
+- пользовательские TG-ручки (`cart`, `orders`, `booking`) принимали `X-Telegram-Id` как готовую истину;
+- строгая проверка `Telegram initData` уже работала в admin auth, но не была дотянута до части пользовательских маршрутов;
+- при наличии backend-доступа можно было подставить чужой Telegram ID в заголовок и запросить/сохранить данные от имени другого пользователя.
+
+**Причина:**
+- проверка `verifyTelegramInitData(...)` была внедрена точечно для admin layer;
+- в `backend/server/routes/cartRoutes.mjs`, `backend/server/routes/bookingRoutes.mjs` и legacy `backend/server/cart-server.mjs` остался прямой fallback на сырой `x-telegram-id`.
+
+**Решение:**
+- добавлен единый verified-path для Telegram в публичных маршрутах;
+- теперь `x-telegram-init-data` проверяется так же, как и в admin auth;
+- fallback на голый `X-Telegram-Id` сохраняется только если строгая проверка явно не требуется по текущему env-policy;
+- обновлены:
+  - `backend/server/routes/cartRoutes.mjs`
+  - `backend/server/routes/bookingRoutes.mjs`
+  - `backend/server/cart-server.mjs`
+
+**Проверка:**
+- `node --check backend/server/routes/cartRoutes.mjs`
+- `node --check backend/server/routes/bookingRoutes.mjs`
+- `node --check backend/server/cart-server.mjs`
+- `rg -n 'x-telegram-id' backend/server/routes backend/server/cart-server.mjs`
+- убедиться, что публичные маршруты используют verified helper, а не raw header напрямую
+
+**Связанный commit:** нет
+
+### ❌ Проблема: `cart-server` в production разрешает любой `Origin` через временный CORS fallback
+
+**Дата:** 2026-03-24
+**Симптомы:**
+- в `backend/server/cart-server.mjs` production-ветка CORS не отклоняла неизвестные origin;
+- комментарий прямо указывал, что это временный режим для диагностики;
+- любой внешний сайт мог бить в backend из браузера при включённых credential-aware CORS заголовках.
+
+**Причина:**
+- после временной диагностики в коде осталась ветка:
+  - `Разрешен origin в production (временно для диагностики)`
+- строгий denylist/allowlist не был возвращён обратно.
+
+**Решение:**
+- production CORS переведён на строгий allowlist;
+- добавлен env override `CORS_ALLOWED_ORIGINS`;
+- по умолчанию разрешаются только известные домены проекта и платформенные origins;
+- в dev по-прежнему разрешены локальные `localhost/127.0.0.1/0.0.0.0`, но не весь интернет.
+
+**Проверка:**
+- `node --check backend/server/cart-server.mjs`
+- проверить, что в `cart-server.mjs` нет ветки `разрешаем все origins в production`
+- убедиться, что в env-шаблонах присутствует `CORS_ALLOWED_ORIGINS`
+
+**Связанный commit:** нет
+
 ---
 
 ## См. также
@@ -2812,5 +2868,5 @@ open "http://127.0.0.1:4174/?smoke_platform=vk&smoke_role=admin#/admin"
 
 ---
 
-**Последнее обновление:** 2026-03-24 22:23
+**Последнее обновление:** 2026-03-24 22:36
 **Автор:** Codex (GPT-5)

@@ -3,6 +3,10 @@ import { db, ensureDatabase, query, queryOne } from "../postgresClient.mjs";
 import { upsertUserProfileRecord } from "../services/profileService.mjs";
 import { createLogger } from "../utils/logger.mjs";
 import {
+  shouldRequireVerifiedTelegramInitData,
+  verifyTelegramInitData,
+} from "../utils/telegramAuth.mjs";
+import {
   getVKUserIdFromInitData,
   shouldRequireVerifiedVKInitData,
   verifyVKInitData,
@@ -15,9 +19,24 @@ const FETCH_TIMEOUT = 30000; // 30 секунд (увеличено для ме�
 const MAX_RETRIES = 3;
 const RETRY_DELAY_BASE = 1000; // 1 секунда базовая задержка
 
-const getTelegramIdFromHeaders = (req) => {
+const getUnsafeTelegramIdFromHeaders = (req) => {
   const raw = req.get("x-telegram-id");
   return typeof raw === "string" ? raw.trim() : null;
+};
+
+const getVerifiedTelegramIdFromHeaders = (req) => {
+  const headerTelegramId = getUnsafeTelegramIdFromHeaders(req);
+  const verifiedInitData = verifyTelegramInitData(req.get("x-telegram-init-data"));
+
+  if (verifiedInitData?.telegramId) {
+    return verifiedInitData.telegramId;
+  }
+
+  if (req.get("x-telegram-init-data")) {
+    console.warn("[bookingRoutes] Проверка подписи Telegram initData не прошла");
+  }
+
+  return shouldRequireVerifiedTelegramInitData() ? null : headerTelegramId;
 };
 
 const getVerifiedVkIdFromHeaders = (req) => {
@@ -890,7 +909,7 @@ export function createBookingRouter() {
         duration: bookingDuration,
       } = req.body ?? {};
 
-      const headerTelegramId = getTelegramIdFromHeaders(req);
+      const headerTelegramId = getVerifiedTelegramIdFromHeaders(req);
       const headerVkId = getVerifiedVkIdFromHeaders(req);
 
       // Валидация обязательных полей
