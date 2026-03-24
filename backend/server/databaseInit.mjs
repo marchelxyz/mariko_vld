@@ -485,6 +485,41 @@ const INDEXES = [
     `CREATE INDEX IF NOT EXISTS idx_booking_notifications_platform ON booking_notifications(platform);`,
 ];
 
+const normalizeConstraintDefinition = (value) =>
+  String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+
+const dropLegacyAdminUsersTelegramNotNullChecks = async () => {
+  const constraints = await query(
+    `SELECT conname, pg_get_constraintdef(oid) AS definition
+     FROM pg_constraint
+     WHERE conrelid = 'admin_users'::regclass
+       AND contype = 'c'`,
+  );
+
+  for (const row of constraints.rows ?? []) {
+    const definition = normalizeConstraintDefinition(row?.definition);
+    const isLegacyTelegramNotNullCheck =
+      definition === "CHECK ((TELEGRAM_ID IS NOT NULL))" ||
+      definition === "CHECK (TELEGRAM_ID IS NOT NULL)";
+
+    if (!isLegacyTelegramNotNullCheck) {
+      continue;
+    }
+
+    const constraintName = String(row?.conname ?? "").trim();
+    if (!constraintName) {
+      continue;
+    }
+
+    const escapedConstraintName = constraintName.replace(/"/g, "\"\"");
+    await query(`ALTER TABLE admin_users DROP CONSTRAINT IF EXISTS "${escapedConstraintName}"`);
+    console.log(`✅ Удалён legacy constraint ${constraintName} из admin_users`);
+  }
+};
+
 /**
  * Инициализирует базу данных, создавая все необходимые таблицы и индексы
  */
@@ -651,6 +686,15 @@ export async function initializeDatabase() {
       await query(`ALTER TABLE admin_users ALTER COLUMN telegram_id DROP NOT NULL`);
     } catch (error) {
       console.warn("⚠️  Не удалось снять NOT NULL с admin_users.telegram_id:", error?.message || error);
+    }
+
+    try {
+      await dropLegacyAdminUsersTelegramNotNullChecks();
+    } catch (error) {
+      console.warn(
+        "⚠️  Не удалось удалить legacy constraint'ы telegram_id из admin_users:",
+        error?.message || error,
+      );
     }
 
     try {

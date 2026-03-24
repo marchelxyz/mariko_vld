@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-25 00:01
+**Последнее обновление:** 2026-03-25 22:14
 
 ---
 
@@ -35,6 +35,55 @@
 ---
 
 ## Admin Panel
+
+### ❌ Проблема: в test TG/VK админка показывала пустой список ролей, а сохранение роли и доступа к доставке падало
+
+**Дата:** 2026-03-25
+**Симптомы:**
+- во VK в `Управление ролями` список пользователей был пустым, хотя в `Гостевой базе` данные были;
+- в TG и VK при изменении роли всплывало `Не удалось сохранить роль`;
+- в TG и VK при переключении доступа к доставке всплывало `Не удалось обновить доступ пользователя`;
+- в test backend логах повторялось:
+  - `[CORS] Origin отклонен: https://ineedaglokk-marikotest-3474.twc1.net`
+  - `Error: Not allowed by CORS`
+- в test БД у `admin_users` оставались старые auto-generated constraints вида `CHECK ((telegram_id IS NOT NULL))`, хотя колонка уже была nullable.
+
+**Причина:**
+- backend CORS allowlist не включал текущий test origin, если он приходил только через `WEBAPP_URL` / `SERVER_API_URL`;
+- из-за этого `GET/PATCH` admin-запросы с custom headers (`X-Telegram-Init-Data`, `X-VK-Init-Data`) падали на preflight ещё до бизнес-логики;
+- дополнительно часть старых БД хранила legacy constraints на `admin_users.telegram_id`, которые ломали запись VK-админов даже после `ALTER COLUMN DROP NOT NULL`;
+- `Гостевая база` по умолчанию открывалась на фильтре `Все платформы`, поэтому во VK визуально смешивала VK- и TG-гостей.
+
+**Решение:**
+- в `backend/server/cart-server.mjs` добавить env-derived CORS origins из:
+  - `WEBAPP_URL`
+  - `SERVER_API_URL`
+  - `VITE_SERVER_API_URL`
+- в `backend/server/databaseInit.mjs` добавить миграцию, которая на старте вычищает legacy constraints `CHECK (telegram_id IS NOT NULL)` из `admin_users`;
+- в `frontend/src/features/admin/guests/GuestDatabaseManagement.tsx` выставить platform filter по умолчанию в текущую платформу (`telegram` / `vk`), а не `all`.
+
+**Проверка:**
+```bash
+# preflight к admin route больше не должен падать по CORS
+curl -i -X OPTIONS \
+  -H 'Origin: https://ineedaglokk-marikotest-3474.twc1.net' \
+  -H 'Access-Control-Request-Method: PATCH' \
+  -H 'Access-Control-Request-Headers: content-type,x-vk-id,x-vk-init-data' \
+  https://ineedaglokk-marikotest-3474.twc1.net/api/cart/admin/users/110044092
+
+# в admin_users не должно остаться legacy constraints на telegram_id
+SELECT conname, pg_get_constraintdef(oid)
+FROM pg_constraint
+WHERE conrelid = 'admin_users'::regclass;
+```
+
+Ручная проверка:
+1. Открыть test TG mini app и сменить роль пользователю.
+2. Открыть test TG mini app и переключить доступ к доставке.
+3. Открыть test VK mini app и убедиться, что в `Управление ролями` появились VK-пользователи.
+4. Открыть `Гостевую базу` в VK и убедиться, что по умолчанию стоит фильтр `VK`.
+
+**Связанный commit:** `в работе`
 
 ### ❌ Проблема: Пользователи и обычные админы видят технические ошибки и служебные поля
 
