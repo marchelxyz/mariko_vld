@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-25 22:14
+**Последнее обновление:** 2026-03-25 22:41
 
 ---
 
@@ -52,6 +52,7 @@
 - backend CORS allowlist не включал текущий test origin, если он приходил только через `WEBAPP_URL` / `SERVER_API_URL`;
 - из-за этого `GET/PATCH` admin-запросы с custom headers (`X-Telegram-Init-Data`, `X-VK-Init-Data`) падали на preflight ещё до бизнес-логики;
 - дополнительно часть старых БД хранила legacy constraints на `admin_users.telegram_id`, которые ломали запись VK-админов даже после `ALTER COLUMN DROP NOT NULL`;
+- backend `listUserProfiles()` не выбирал `vk_id` из `user_profiles`, поэтому раздел `Управление ролями` терял VK-пользователей, а при попытке сохранить роль VK-профилю сервер подставлял `userIdentifier` в `telegram_id`;
 - `Гостевая база` по умолчанию открывалась на фильтре `Все платформы`, поэтому во VK визуально смешивала VK- и TG-гостей.
 
 **Решение:**
@@ -60,6 +61,7 @@
   - `SERVER_API_URL`
   - `VITE_SERVER_API_URL`
 - в `backend/server/databaseInit.mjs` добавить миграцию, которая на старте вычищает legacy constraints `CHECK (telegram_id IS NOT NULL)` из `admin_users`;
+- в `backend/server/services/profileService.mjs` добавить `vk_id` в `PROFILE_SELECT_FIELDS`, чтобы admin routes получали полноценную платформенную идентичность пользователя;
 - в `frontend/src/features/admin/guests/GuestDatabaseManagement.tsx` выставить platform filter по умолчанию в текущую платформу (`telegram` / `vk`), а не `all`.
 
 **Проверка:**
@@ -82,6 +84,7 @@ WHERE conrelid = 'admin_users'::regclass;
 2. Открыть test TG mini app и переключить доступ к доставке.
 3. Открыть test VK mini app и убедиться, что в `Управление ролями` появились VK-пользователи.
 4. Открыть `Гостевую базу` в VK и убедиться, что по умолчанию стоит фильтр `VK`.
+5. Сохранить роль TG- и VK-пользователю и убедиться, что в `admin_users` не создаются записи с перепутанными `telegram_id`/`vk_id`.
 
 **Связанный commit:** `в работе`
 
