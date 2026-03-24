@@ -6,6 +6,9 @@ import { logger } from "@/lib/logger";
 import { sanitizeUserFacingMessage } from "@shared/utils";
 import bridge from "@vkontakte/vk-bridge";
 import { isInVk } from "@/lib/vkCore";
+import { installLocalSmokeMode } from "./dev/localSmokeMode";
+
+installLocalSmokeMode();
 
 const CHUNK_RECOVERY_STORAGE_KEY = "mariko_chunk_recovery_once_v1";
 const CONSOLE_ERROR_DEDUPLICATION_MS = 15_000;

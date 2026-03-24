@@ -11,6 +11,7 @@ import {
   buildUserWithRole,
   getAdminIdentityFromRequest,
   listAdminRecords,
+  fetchAdminRecordById,
   fetchAdminRecordByIdentity,
   resolveAdminContext,
   ADMIN_PERMISSION,
@@ -624,9 +625,19 @@ export function createAdminRouter() {
       return res.status(400).json({ success: false, message: "Некорректная роль" });
     }
     const profile = await fetchUserProfile(userIdentifier);
-    const telegramId = profile?.telegram_id ? String(profile.telegram_id) : normaliseAdminExternalId(userIdentifier);
-    const vkId = profile?.vk_id ? String(profile.vk_id) : null;
-    const existingAdminRecord = await fetchAdminRecordByIdentity({ telegramId, vkId });
+    const directAdminRecord = profile ? null : await fetchAdminRecordById(userIdentifier);
+    const telegramId = profile?.telegram_id
+      ? String(profile.telegram_id)
+      : directAdminRecord?.telegram_id
+        ? String(directAdminRecord.telegram_id)
+        : normaliseAdminExternalId(userIdentifier);
+    const vkId = profile?.vk_id
+      ? String(profile.vk_id)
+      : directAdminRecord?.vk_id
+        ? String(directAdminRecord.vk_id)
+        : null;
+    const existingAdminRecord =
+      directAdminRecord ?? (await fetchAdminRecordByIdentity({ telegramId, vkId }));
     if (!profile && !existingAdminRecord && !telegramId && !vkId) {
       return res.status(404).json({ success: false, message: "Пользователь не найден" });
     }

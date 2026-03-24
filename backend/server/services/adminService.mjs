@@ -381,6 +381,23 @@ export const fetchAdminRecordByVk = async (vkId) => {
   }
 };
 
+export const fetchAdminRecordById = async (adminId) => {
+  if (!db || !adminId) {
+    return null;
+  }
+  try {
+    const normalized = String(adminId).trim();
+    if (!normalized) {
+      return null;
+    }
+    const result = await queryOne(`SELECT * FROM admin_users WHERE id = $1 LIMIT 1`, [normalized]);
+    return parseAdminRecord(result);
+  } catch (error) {
+    console.error("Ошибка получения admin_users по id:", error);
+    return null;
+  }
+};
+
 export const fetchAdminRecordByIdentity = async ({ telegramId = null, vkId = null } = {}) => {
   if (!db) {
     return null;

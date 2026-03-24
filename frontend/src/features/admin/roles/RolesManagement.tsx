@@ -6,6 +6,13 @@ import { getAllCitiesAsync, type City } from "@shared/data";
 import { useAdmin } from "@shared/hooks";
 import { Permission, UserRole } from "@shared/types";
 import {
+  getPlatformIdentitySearchLabel,
+  getPlatformIdentitySearchValues,
+  getPlatformIdentityText,
+  getPreferredPlatformMutationId,
+  isVisibleInPlatformList,
+} from "@shared/utils";
+import {
   Button,
   Input,
   Label,
@@ -24,6 +31,7 @@ import {
   AlertDialogTitle,
   Checkbox,
 } from "@shared/ui";
+import { getPlatform } from "@/lib/platform";
 
 const ROLE_ORDER: UserRole[] = [
   UserRole.SUPER_ADMIN,
@@ -36,6 +44,7 @@ const ROLE_ORDER: UserRole[] = [
 ];
 
 export function RolesManagement(): JSX.Element {
+  const currentPlatform = getPlatform();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<AdminPanelUser | null>(null);
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.USER);
@@ -97,18 +106,23 @@ export function RolesManagement(): JSX.Element {
     }
   }, [showDialog]);
 
+  const platformScopedUsers = useMemo(
+    () => users.filter((user) => isVisibleInPlatformList(user, currentPlatform)),
+    [currentPlatform, users],
+  );
+
   const filteredUsers = useMemo(() => {
-    if (!searchQuery) return users;
+    if (!searchQuery) return platformScopedUsers;
     const query = searchQuery.toLowerCase();
-    return users.filter((user) => {
+    return platformScopedUsers.filter((user) => {
+      const platformIdentityValues = getPlatformIdentitySearchValues(user, currentPlatform);
       return (
         user.name.toLowerCase().includes(query) ||
-        user.id.includes(query) ||
         user.phone?.includes(query) ||
-        user.telegramId?.toString().includes(query)
+        platformIdentityValues.some((value) => value.toLowerCase().includes(query))
       );
     });
-  }, [users, searchQuery]);
+  }, [currentPlatform, platformScopedUsers, searchQuery]);
 
   const scopedRestaurantOptions = useMemo(() => {
     if (isSuperAdminUser || userRole === UserRole.ADMIN) {
@@ -332,7 +346,7 @@ export function RolesManagement(): JSX.Element {
     if (!selectedUser) return;
     setIsSaving(true);
     try {
-      await adminServerApi.updateUserRole(selectedUser.id || selectedUser.telegramId || "", {
+      await adminServerApi.updateUserRole(getPreferredPlatformMutationId(selectedUser, currentPlatform), {
         role: selectedRole,
         allowedRestaurants: roleRequiresRestaurants(selectedRole) ? selectedRestaurants : [],
       });
@@ -365,13 +379,13 @@ export function RolesManagement(): JSX.Element {
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div>
           <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold">Управление ролями</h2>
-          <p className="text-white/70 mt-1">Всего пользователей: {users.length}</p>
+          <p className="text-white/70 mt-1">Всего пользователей: {platformScopedUsers.length}</p>
         </div>
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60 pointer-events-none" />
           <Input
             type="text"
-            placeholder="Поиск по имени, ID или телефону..."
+            placeholder={`Поиск по имени, телефону или ${getPlatformIdentitySearchLabel(currentPlatform)}...`}
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             className="w-full bg-white/10 border-white/20 text-white placeholder:text-white/60 pl-9"
@@ -387,9 +401,7 @@ export function RolesManagement(): JSX.Element {
           >
             <div>
               <p className="text-white font-semibold">{user.name || "Без имени"}</p>
-              <p className="text-white/70 text-sm">
-                ID: {user.id} {user.telegramId ? `· TG: ${user.telegramId}` : ""}
-              </p>
+              <p className="text-white/70 text-sm">{getPlatformIdentityText(user, currentPlatform)}</p>
               {user.phone && <p className="text-white/70 text-sm">Телефон: {user.phone}</p>}
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">

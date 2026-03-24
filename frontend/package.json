@@ -4,11 +4,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:smoke": "VITE_LOCAL_SMOKE_MOCKS=true VITE_FORCE_SERVER_API=true vite",
     "build": "npm run typecheck && vite build",
+    "build:smoke": "VITE_LOCAL_SMOKE_MOCKS=true VITE_FORCE_SERVER_API=true npm run build",
     "start": "vite preview --host 0.0.0.0 --port ${PORT:-4173}",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext ts,tsx --max-warnings 50",
     "preview": "vite preview",
+    "preview:smoke": "VITE_LOCAL_SMOKE_MOCKS=true VITE_FORCE_SERVER_API=true vite preview --host 127.0.0.1 --port 4173",
     "optimize-images": "node ../scripts/optimize-images.js",
     "build:optimized": "npm run optimize-images && npm run build",
     "create:actions-card": "node ../scripts/create-actions-card.js"
