@@ -24,6 +24,7 @@ import { getAllCitiesAsync, type City } from "@shared/data";
 import { useAdmin } from "@shared/hooks";
 import { Permission, UserRole } from "@shared/types";
 import { logger } from "@/lib/logger";
+import { getPlatform } from "@/lib/platform";
 import {
   Button,
   Input,
@@ -309,6 +310,10 @@ function escapeHtml(text: string): string {
  * Компонент управления гостевой базой
  */
 export function GuestDatabaseManagement(): JSX.Element {
+  const currentPlatform = getPlatform();
+  const initialPlatformFilter = currentPlatform === 'vk' || currentPlatform === 'telegram'
+    ? currentPlatform
+    : 'all';
   const { userId, allowedRestaurants, isSuperAdmin, userRole, hasPermission, isLoading: isAdminLoading } = useAdmin();
   const canManageUsers = hasPermission(Permission.MANAGE_USERS);
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -316,7 +321,7 @@ export function GuestDatabaseManagement(): JSX.Element {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCityId, setSelectedCityId] = useState<string>('all');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
-  const [selectedPlatform, setSelectedPlatform] = useState<'all' | 'telegram' | 'vk'>('all');
+  const [selectedPlatform, setSelectedPlatform] = useState<'all' | 'telegram' | 'vk'>(initialPlatformFilter);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const [guestBookings, setGuestBookings] = useState<GuestBooking[]>([]);

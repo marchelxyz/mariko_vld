@@ -74,9 +74,29 @@ const parseOriginList = (value) =>
     .map((origin) => origin.trim())
     .filter(Boolean);
 
+const extractOriginFromUrl = (value) => {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) {
+    return null;
+  }
+  try {
+    return new URL(normalized).origin;
+  } catch {
+    return null;
+  }
+};
+
 const configuredCorsAllowedOrigins = parseOriginList(process.env.CORS_ALLOWED_ORIGINS);
+const envDerivedCorsOrigins = [
+  extractOriginFromUrl(process.env.WEBAPP_URL),
+  extractOriginFromUrl(process.env.SERVER_API_URL),
+  extractOriginFromUrl(process.env.VITE_SERVER_API_URL),
+].filter(Boolean);
 const allowedCorsOrigins = new Set(
-  configuredCorsAllowedOrigins.length > 0 ? configuredCorsAllowedOrigins : DEFAULT_CORS_ALLOWED_ORIGINS,
+  [
+    ...(configuredCorsAllowedOrigins.length > 0 ? configuredCorsAllowedOrigins : DEFAULT_CORS_ALLOWED_ORIGINS),
+    ...envDerivedCorsOrigins,
+  ],
 );
 
 const parseBooleanEnv = (value, fallback = false) => {
