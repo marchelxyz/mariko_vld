@@ -2,6 +2,10 @@ import crypto from "node:crypto";
 
 const VK_SECRET_KEY = process.env.VK_SECRET_KEY ?? null;
 const VK_SERVICE_KEY = process.env.VK_SERVICE_KEY ?? null;
+const isUnsafeHeaderModeEnabled = () =>
+  String(process.env.ALLOW_UNSAFE_ADMIN_VK_ID_HEADER ?? "").trim().toLowerCase() === "true";
+const appEnv = String(process.env.NODE_ENV ?? "").trim().toLowerCase();
+const isDevelopmentLikeEnv = appEnv === "development" || appEnv === "test";
 
 /**
  * Проверяет подпись VK initData.
@@ -65,6 +69,13 @@ export function verifyVKInitData(rawInitData) {
     return null;
   }
 }
+
+/**
+ * В production-like средах при наличии VK_SECRET_KEY требуем подписанный VK initData.
+ * Небезопасный fallback по голому X-VK-Id можно включить отдельным флагом.
+ */
+export const shouldRequireVerifiedVKInitData = () =>
+  Boolean(VK_SECRET_KEY) && !isUnsafeHeaderModeEnabled() && !isDevelopmentLikeEnv;
 
 /**
  * Парсит VK initData без проверки подписи.

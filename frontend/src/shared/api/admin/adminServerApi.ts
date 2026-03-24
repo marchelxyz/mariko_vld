@@ -2,7 +2,7 @@ import { getCartApiBaseUrl } from "@shared/api/cart";
 import type { CartOrderRecord } from "@shared/api/cart";
 import type { Permission, UserRole } from "@shared/types";
 import type { AppSettings } from "@shared/api/settings";
-import { getPlatform, getUser } from "@/lib/platform";
+import { getInitData, getPlatform, getUser } from "@/lib/platform";
 import { getTg, getUser as getTelegramUser } from "@/lib/telegramCore";
 import { getVk } from "@/lib/vkCore";
 import { logger } from "@/lib/logger";
@@ -108,6 +108,7 @@ export type AdminRole = UserRole;
 export type AdminPanelUser = {
   id: string;
   telegramId: string | null;
+  vkId: string | null;
   name: string;
   phone: string | null;
   role: UserRole;
@@ -328,22 +329,6 @@ type FetchBookingsParams = {
   toDate?: string;
 };
 
-// Получаем первый Telegram ID из списка как fallback
-const getFallbackTelegramId = (): string | undefined => {
-  if (ADMIN_TELEGRAM_IDS.size > 0) {
-    return Array.from(ADMIN_TELEGRAM_IDS)[0];
-  }
-  return undefined;
-};
-
-// Получаем первый VK ID из списка как fallback
-const getFallbackVkId = (): string | undefined => {
-  if (ADMIN_VK_IDS.size > 0) {
-    return Array.from(ADMIN_VK_IDS)[0];
-  }
-  return undefined;
-};
-
 const resolveTelegramId = (override?: string): string | undefined => {
   logger.debug('admin-api', 'resolveTelegramId', {
     override,
@@ -365,18 +350,18 @@ const resolveTelegramId = (override?: string): string | undefined => {
     return cachedTelegramUserId;
   }
   const platform = getPlatform();
-  // Для Telegram платформы используем ID пользователя
-  if (platform !== "vk") {
-    const user = getUser();
-    if (user?.id) {
-      logger.debug('admin-api', 'Using Telegram user ID', { userId: user.id });
-      return user.id.toString();
-    }
+  if (platform === "vk") {
+    logger.debug('admin-api', 'Skipping Telegram ID resolution on VK platform');
+    return undefined;
   }
-  // Fallback: используем первый ID из списка администраторов
-  const fallback = getFallbackTelegramId();
-  logger.debug('admin-api', 'Using fallback ID', { fallback });
-  return fallback;
+  // Для Telegram платформы используем ID пользователя
+  const user = getUser();
+  if (user?.id) {
+    logger.debug('admin-api', 'Using Telegram user ID', { userId: user.id });
+    return user.id.toString();
+  }
+  logger.debug('admin-api', 'Telegram ID is unavailable');
+  return undefined;
 };
 
 const TELEGRAM_INIT_DATA_STORAGE_KEY = "mariko_tg_init_data";
@@ -530,12 +515,6 @@ const resolveVkId = (override?: string): string | undefined => {
       hasInitData: !!getVkUserId(),
       hasUser: !!user,
     });
-    // Fallback: используем первый ID из списка администраторов, если доступен
-    const fallback = getFallbackVkId();
-    if (fallback) {
-      logger.debug('admin-api', 'Using fallback VK ID', { fallback });
-      return fallback;
-    }
   }
   return undefined;
 };
@@ -544,6 +523,20 @@ const buildHeaders = (overrideTelegramId?: string, overrideVkId?: string): Recor
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
+  const platform = getPlatform();
+
+  if (platform === "vk") {
+    const vkId = resolveVkId(overrideVkId);
+    if (vkId) {
+      headers["X-VK-Id"] = vkId;
+    }
+    const vkInitData = getInitData();
+    if (vkInitData) {
+      headers["X-VK-Init-Data"] = vkInitData;
+    }
+    return headers;
+  }
+
   const telegramId = resolveTelegramId(overrideTelegramId);
   if (telegramId) {
     headers["X-Telegram-Id"] = telegramId;
@@ -551,10 +544,6 @@ const buildHeaders = (overrideTelegramId?: string, overrideVkId?: string): Recor
   const telegramInitData = getTelegramInitData();
   if (telegramInitData) {
     headers["X-Telegram-Init-Data"] = telegramInitData;
-  }
-  const vkId = resolveVkId(overrideVkId);
-  if (vkId) {
-    headers["X-VK-Id"] = vkId;
   }
   return headers;
 };

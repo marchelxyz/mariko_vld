@@ -206,10 +206,10 @@ export function setupFullscreenHandlers(): void {
 /**
  * Открывает ссылку через платформенный API.
  */
-export function safeOpenLink(url: string): boolean {
+export function safeOpenLink(url: string, options?: { try_instant_view?: boolean }): boolean {
   const platform = getPlatform();
   if (platform === "telegram") {
-    return safeTelegramOpenLink(url);
+    return safeTelegramOpenLink(url, options);
   }
   const vk = getVk();
   try {

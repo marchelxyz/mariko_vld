@@ -952,7 +952,7 @@ export function BookingForm({ onSuccess }: BookingFormProps) {
         time: selectedTime,
         guestsCount: guestsCount,
         comment: fullComment || undefined,
-        source: "telegram",
+        source: "mobile_app",
         duration: duration,
       };
 

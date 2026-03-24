@@ -1,5 +1,5 @@
 import { type MenuItem } from "@shared/data";
-import { getInitData, getPlatform, getUser } from "@/lib/platform";
+import { buildPlatformAuthHeaders } from "./platformAuth";
 import { sanitizeAdminFacingMessage } from "@shared/utils";
 
 const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
@@ -42,32 +42,9 @@ function resolveServerUrl(path: string): string {
 }
 
 function buildAdminHeaders(initial?: Record<string, string>): Record<string, string> {
-  const headers: Record<string, string> = {
+  return buildPlatformAuthHeaders({
     ...(initial ?? {}),
-  };
-
-  const platform = getPlatform();
-  const initData = getInitData();
-  const user = getUser();
-
-  if (platform === "vk") {
-    if (initData) {
-      headers["X-VK-Init-Data"] = initData;
-    }
-    if (user?.id) {
-      headers["X-VK-Id"] = String(user.id);
-    }
-    return headers;
-  }
-
-  if (initData) {
-    headers["X-Telegram-Init-Data"] = initData;
-  }
-  if (user?.id) {
-    headers["X-Telegram-Id"] = String(user.id);
-  }
-
-  return headers;
+  });
 }
 
 async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<T> {

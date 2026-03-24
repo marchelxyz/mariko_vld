@@ -17,8 +17,7 @@ import {
 } from "@shared/ui";
 import { PromotionsCarousel, type PromotionSlide } from "./PromotionsCarousel";
 import { toast } from "@/hooks/use-toast";
-import { safeOpenLink, storage } from "@/lib/telegram";
-import { getPlatform } from "@/lib/platform";
+import { getPlatform, safeOpenLink, storage } from "@/lib/platform";
 import { fetchPromotions } from "@shared/api/promotionsApi";
 import { fetchRecommendedDishes } from "@shared/api/recommendedDishesApi";
 import { useBookingSlotsPrefetch, useDeliveryAccess } from "@shared/hooks";

@@ -1,8 +1,8 @@
 import type { City } from "@shared/data";
 import { resolveServerUrl, RAW_SERVER_API_BASE } from "./config";
-import { getInitData, getUser, getPlatform } from "@/lib/platform";
 import { logger } from "@/lib/logger";
 import { sanitizeAdminFacingMessage } from "@shared/utils";
+import { buildPlatformAuthHeaders } from "../platformAuth";
 
 function parseErrorPayload(payload?: string): string | null {
   if (!payload) {
@@ -17,26 +17,7 @@ function parseErrorPayload(payload?: string): string | null {
 }
 
 function appendPlatformAuthHeaders(headers: Record<string, string>): void {
-  const platform = getPlatform();
-  const initData = getInitData();
-  const user = getUser();
-
-  if (platform === "vk") {
-    if (initData) {
-      headers["X-VK-Init-Data"] = initData;
-    }
-    if (user?.id) {
-      headers["X-VK-Id"] = String(user.id);
-    }
-    return;
-  }
-
-  if (initData) {
-    headers["X-Telegram-Init-Data"] = initData;
-  }
-  if (user?.id) {
-    headers["X-Telegram-Id"] = String(user.id);
-  }
+  Object.assign(headers, buildPlatformAuthHeaders(headers));
 }
 
 async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<T> {

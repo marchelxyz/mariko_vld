@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-24 18:59
+**Последнее обновление:** 2026-03-24 22:31
 
 ---
 
@@ -379,6 +379,33 @@
    - устаревшие запросы отменяются без пользовательских ошибок;
    - фоновые prefetch-сбои больше не создают отдельные `error`-записи в журнале;
    - рабочий сценарий бронирования по-прежнему загружает токен и слоты
+
+**Связанный commit:** нет
+
+### ❌ Проблема: VK runtime-ошибки могли уходить в `/api/logs` без `X-VK-Init-Data`
+
+**Дата:** 2026-03-24
+**Симптомы:**
+- frontend-ошибки во VK могли логироваться в общий журнал только с `X-VK-Id`, без полного `VK initData`;
+- backend `/api/logs` получал неполный платформенный auth-контекст;
+- TG path при этом работал корректнее, потому что `logger` отдельно собирал Telegram initData.
+
+**Причина:**
+- `frontend/src/lib/logger.ts` собирал заголовки для `/api/logs` вручную;
+- для VK добавлялся только `X-VK-Id`, а `X-VK-Init-Data` не отправлялся;
+- общий platform-aware helper уже существовал, но `logger` на него ещё не был переведён.
+
+**Решение:**
+- перевести `frontend/src/lib/logger.ts` на `buildPlatformAuthHeaders(...)`;
+- перестать держать в `logger` отдельные Telegram/VK helper'ы для auth-заголовков;
+- формировать заголовки к `/api/logs` через единый платформенный контракт для TG и VK.
+
+**Проверка:**
+1. `cd frontend && npm exec tsc --noEmit --pretty false`
+2. `cd frontend && npm run build`
+3. `git diff --check`
+4. `rg "X-VK-Init-Data|X-Telegram-Init-Data" frontend/src/lib/logger.ts`
+5. Убедиться, что `logger` больше не собирает VK/TG auth-заголовки вручную, а использует общий helper
 
 **Связанный commit:** нет
 
@@ -1647,6 +1674,85 @@ curl -X POST "https://<your-domain>/api/db/fix-profile-duplicates?key=CHANGE_ME_
 
 ## API Endpoints
 
+### ❌ Проблема: shared UI и support-настройки остаются Telegram-centric даже после выравнивания TG/VK auth
+
+**Дата:** 2026-03-24
+**Симптомы:**
+- общие экраны `Home`, `Settings`, `Blocked` напрямую импортируют Telegram helper-ы;
+- общие API (`onboarding`, `delivery access`, `recommended dishes`, `menu`) вручную собирают Telegram/VK заголовки вместо единого platform-layer;
+- поле поддержки называется только `supportTelegramUrl`, из-за чего VK-контур вынужден использовать Telegram-centric настройку даже там, где нужен отдельный support-link;
+- при дальнейшем выравнивании VK/TG появляется риск, что shared UI формально общий, но реально зависит от Telegram-специфичного слоя.
+
+**Причина:**
+- часть экранов и API исторически строилась вокруг Telegram Mini App и позже была только частично обёрнута в `platform.ts`;
+- support settings не были выделены в платформенно-явную модель, поэтому VK мог жить только на fallback к Telegram-ссылке;
+- platform-aware helper уже существовал, но использовался не во всех shared-модулях.
+
+**Решение:**
+- перевести `Home`, `SettingsPage`, `BlockedPage` на `@/lib/platform` вместо прямых импортов из `telegramCore`/`telegram`;
+- перевести `onboarding.server`, `deliveryAccessApi`, `recommendedDishesApi`, `menuApi` на общий helper `frontend/src/shared/api/platformAuth.ts`;
+- расширить app settings новым полем `supportVkUrl`, сохранив fallback на `supportTelegramUrl`, чтобы не ломать текущий TG-поток;
+- в пользовательских экранах и админке выбирать support-link по платформе, а не по Telegram-centric имени поля.
+
+**Проверка:**
+```bash
+node --check backend/server/services/appSettingsService.mjs
+node --check backend/server/routes/adminRoutes.mjs
+node --check backend/server/databaseInit.mjs
+cd frontend && npm exec tsc --noEmit --pretty false
+cd frontend && npm run build
+git diff --check
+
+# Дополнительно:
+# rg -n "@/lib/telegramCore|@/lib/telegram\\b" frontend/src/features frontend/src/pages frontend/src/shared/api
+# Ожидаемо: остаются только platform/admin-specific участки, а не shared UI
+```
+
+**Связанный commit:** `N/A` (локально, до коммита)
+
+---
+
+### ❌ Проблема: после выравнивания админки TG/VK пользовательские сценарии всё ещё остаются Telegram-only
+
+**Дата:** 2026-03-24
+**Симптомы:**
+- VK-пользователь не подтягивает свои заказы, хотя backend уже умеет хранить `vk_id`;
+- корзина, бронь и оформление заказа продолжают зависеть от `X-Telegram-Id` и `customerTelegramId`;
+- локально при same-origin отладке TG и VK могут подмешивать друг другу корзину через общий `localStorage` ключ;
+- default profile для VK может выглядеть как профиль с `telegramId`, хотя пользователь пришёл из VK.
+
+**Причина:**
+- после перевода admin/auth на платформенно-универсальную модель в пользовательских flow оставался TG-hardcode:
+  - `CartContext` писал общий ключ корзины и слал только Telegram headers;
+  - `bookingApi`, `cartApi`, `ordersApi` строили запросы как для Telegram;
+  - `OrdersPage` и `CartDrawer` искали пользователя только через `telegramId`;
+  - backend `/api/cart/orders` и `/api/cart/user-orders` искал только `telegramUserId`;
+  - `bookingRoutes` брал сырой `X-VK-Id` без верификации и не обновлял профиль VK-пользователя после брони;
+  - default profile на frontend/backend оставался TG-biased.
+
+**Решение:**
+- перевести `CartContext`, `bookingApi`, `cartApi`, `ordersApi` на общий platform-aware helper `frontend/src/shared/api/platformAuth.ts`;
+- в `CartContext` разнести storage key корзины по платформам, чтобы TG и VK не делили один `localStorage` namespace;
+- в `CartDrawer` и `OrdersPage` использовать `platformUserId`, `telegramId` и `vkId` в зависимости от текущей платформы;
+- расширить backend `/api/cart/orders` и `/api/cart/user-orders` поддержкой `vkId`;
+- в `bookingRoutes` перейти на проверенный VK `initData` и обновлять профиль после успешного бронирования и для TG, и для VK;
+- в default profile перестать заполнять `telegramId` для VK-пользователя.
+
+**Проверка:**
+```bash
+node --check backend/server/routes/cartRoutes.mjs
+node --check backend/server/routes/bookingRoutes.mjs
+node --check backend/server/cart-server.mjs
+node --check backend/server/services/profileService.mjs
+cd frontend && npm exec tsc --noEmit --pretty false
+cd frontend && npm run build
+git diff --check
+```
+
+**Связанный commit:** `N/A` (локально, до коммита)
+
+---
+
 ### ⚠️ Проблема: согласия/онбординг «сбрасываются» из-за placeholder userId (`default`, `demo_user`) и гонки инициализации
 
 **Дата:** 2026-02-26  
@@ -2287,6 +2393,43 @@ node scripts/iiko/onboard-network.mjs \
 5. `cd frontend && npm run build`
 
 **Связанный commit:** `da15016` `fix(admin): исправлен ранний старт tg-контекста`
+
+### ❌ Проблема: admin auth и `admin_users` завязаны только на Telegram ID, из-за чего VK-админка не может безопасно выйти на паритет с TG
+
+**Дата:** 2026-03-24
+**Симптомы:**
+- backend admin auth принимает только Telegram-контекст;
+- `admin_users` хранит только `telegram_id`, поэтому VK-only админ не может быть полноценной записью роли;
+- frontend admin client во VK мог отправлять fallback `X-Telegram-Id`, что создавало риск смешения платформенных контекстов;
+- `/api/admin/me` и обновление ролей опирались только на `telegram_id`.
+
+**Причина:**
+- `backend/server/services/adminService.mjs` был реализован как Telegram-only слой;
+- таблица `admin_users` была создана с `telegram_id BIGINT UNIQUE NOT NULL` без `vk_id`;
+- update/create роли использовали `ON CONFLICT (telegram_id)`;
+- frontend `adminServerApi` не отправлял `X-VK-Init-Data` и мог утащить Telegram fallback даже во VK-сценарии.
+
+**Решение:**
+- добавить в `admin_users` поле `vk_id`, снять обязательность `telegram_id` и зафиксировать constraint `telegram_id IS NOT NULL OR vk_id IS NOT NULL`;
+- переписать `adminService` на платформенно-универсальный admin identity:
+  - `getAdminIdentityFromRequest`
+  - `fetchAdminRecordByVk`
+  - `fetchAdminRecordByIdentity`
+  - `resolveAdminContext({ telegramId, vkId })`
+- сохранить строгую Telegram-проверку и добавить симметричную строгую VK-проверку через `x-vk-init-data`, если включен `VK_SECRET_KEY`;
+- перевести admin routes на `insert/update` по найденной admin-записи, а не только на `ON CONFLICT (telegram_id)`;
+- во frontend admin client перестать слать cross-platform fallback Telegram-заголовки из VK и начать отправлять `X-VK-Init-Data`.
+
+**Проверка:**
+- `node --check backend/server/services/adminService.mjs`
+- `node --check backend/server/routes/adminRoutes.mjs`
+- `node --check backend/server/databaseInit.mjs`
+- `node --check backend/server/cart-server.mjs`
+- `cd frontend && npm exec tsc --noEmit --pretty false`
+- `cd frontend && npm run build`
+- `git diff --check`
+
+**Связанный commit:** нет
 
 ---
 

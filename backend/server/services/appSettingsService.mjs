@@ -2,12 +2,14 @@ import { query, queryMany } from "../postgresClient.mjs";
 
 export const SETTINGS_KEYS = {
   supportTelegramUrl: "support_telegram_url",
+  supportVkUrl: "support_vk_url",
   personalDataConsentUrl: "personal_data_consent_url",
   personalDataPolicyUrl: "personal_data_policy_url",
 };
 
 export const DEFAULT_SETTINGS = {
   supportTelegramUrl: "",
+  supportVkUrl: "",
   personalDataConsentUrl: "https://vhachapuri.ru/policy",
   personalDataPolicyUrl: "https://vhachapuri.ru/policy",
 };
@@ -27,6 +29,8 @@ export const getAppSettings = async () => {
   return {
     supportTelegramUrl:
       mapped.get(SETTINGS_KEYS.supportTelegramUrl) ?? DEFAULT_SETTINGS.supportTelegramUrl,
+    supportVkUrl:
+      mapped.get(SETTINGS_KEYS.supportVkUrl) ?? DEFAULT_SETTINGS.supportVkUrl,
     personalDataConsentUrl:
       mapped.get(SETTINGS_KEYS.personalDataConsentUrl) ?? DEFAULT_SETTINGS.personalDataConsentUrl,
     personalDataPolicyUrl:
@@ -38,6 +42,9 @@ export const updateAppSettings = async (updates = {}) => {
   const entries = [];
   if (updates.supportTelegramUrl !== undefined) {
     entries.push([SETTINGS_KEYS.supportTelegramUrl, String(updates.supportTelegramUrl).trim()]);
+  }
+  if (updates.supportVkUrl !== undefined) {
+    entries.push([SETTINGS_KEYS.supportVkUrl, String(updates.supportVkUrl).trim()]);
   }
   if (updates.personalDataConsentUrl !== undefined) {
     entries.push([SETTINGS_KEYS.personalDataConsentUrl, String(updates.personalDataConsentUrl).trim()]);

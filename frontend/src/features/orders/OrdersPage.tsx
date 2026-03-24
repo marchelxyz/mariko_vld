@@ -6,7 +6,7 @@ import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import type { CartItem } from "@/contexts";
 import { fetchMyOrdersWithStatus, type CartOrderRecord } from "@/shared/api/cart/ordersApi";
 import { cn } from "@shared/utils";
-import { getUser } from "@/lib/platform";
+import { getPlatform, getUser } from "@/lib/platform";
 import { useProfile } from "@entities/user";
 import { getCleanPhoneNumber } from "@shared/hooks/usePhoneInput";
 
@@ -189,8 +189,11 @@ export default function OrdersPage() {
   const navigate = useNavigate();
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
 
+  const platform = getPlatform();
   const user = getUser();
-  const telegramId = user?.id?.toString().trim() ?? "";
+  const platformUserId = user?.id?.toString().trim() ?? "";
+  const telegramId = platform === "telegram" ? platformUserId : "";
+  const vkId = platform === "vk" ? platformUserId : "";
   const { profile, isInitialized } = useProfile();
   const userPhone = useMemo(() => {
     if (!isInitialized || profile.id === "default") {
@@ -200,13 +203,14 @@ export default function OrdersPage() {
     return rawPhone ? getCleanPhoneNumber(rawPhone) : "";
   }, [isInitialized, profile.id, profile.phone]);
 
-  const hasIdentity = Boolean(telegramId || userPhone);
+  const hasIdentity = Boolean(telegramId || vkId || userPhone);
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["user-orders", telegramId, userPhone],
+    queryKey: ["user-orders", platform, telegramId, vkId, userPhone],
     queryFn: async () =>
       fetchMyOrdersWithStatus({
         telegramId: telegramId || undefined,
+        vkId: vkId || undefined,
         phone: userPhone || undefined,
         limit: 20,
       }),
@@ -269,7 +273,7 @@ export default function OrdersPage() {
             <div className="bg-white rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.08)] px-6 py-6 text-center">
               <p className="text-mariko-dark font-semibold">Не удалось определить пользователя</p>
               <p className="text-mariko-dark/70 text-sm mt-2">
-                Откройте приложение через Telegram или укажите телефон в профиле.
+                Откройте приложение через Telegram или VK, либо укажите телефон в профиле.
               </p>
             </div>
           ) : isLoading ? (

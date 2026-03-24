@@ -1,5 +1,6 @@
 import type { UserProfile } from "@shared/types";
-import { getInitData, getPlatform, getUser, getUserId } from "@/lib/platform";
+import { getPlatform, getUser, getUserId } from "@/lib/platform";
+import { buildPlatformAuthHeaders } from "../platformAuth";
 import { sanitizeUserFacingMessage } from "@shared/utils";
 
 function getProfileApiBaseUrl(): string {
@@ -56,27 +57,15 @@ type ProfileResponse = {
 };
 
 const buildHeaders = (userId: string): Record<string, string> => {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-
-  const platform = getPlatform();
-  const initData = getInitData();
-
-  if (platform === "vk") {
-    headers["X-VK-Id"] = userId;
-    if (initData) {
-      headers["X-VK-Init-Data"] = initData;
-    }
-  } else {
-    // Для Telegram и web fallback отправляем Telegram ID.
-    headers["X-Telegram-Id"] = userId;
-    if (platform === "telegram" && initData) {
-      headers["X-Telegram-Init-Data"] = initData;
-    }
-  }
-
-  return headers;
+  return buildPlatformAuthHeaders(
+    {
+      "Content-Type": "application/json",
+    },
+    {
+      userId,
+      webFallbackPlatform: "telegram",
+    },
+  );
 };
 
 const handleResponse = async (response: Response): Promise<ProfileResponse> => {
@@ -107,7 +96,9 @@ const buildEmptyProfile = (userId: string): UserProfile => ({
   isBanned: false,
   bannedAt: null,
   bannedReason: null,
-  telegramId: Number.isFinite(Number(userId)) ? Number(userId) : undefined,
+  telegramId:
+    getPlatform() === "telegram" && Number.isFinite(Number(userId)) ? Number(userId) : undefined,
+  vkId: getPlatform() === "vk" && Number.isFinite(Number(userId)) ? Number(userId) : undefined,
   favoriteCityId: null,
   favoriteCityName: null,
   favoriteRestaurantId: null,
