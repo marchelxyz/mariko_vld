@@ -507,7 +507,12 @@ export function createAdminRouter() {
         user: updated,
       });
     } catch (error) {
-      console.error("Ошибка обновления доступа к доставке:", error);
+      console.error("Ошибка обновления доступа к доставке:", {
+        message: error?.message || String(error),
+        code: error?.code,
+        detail: error?.detail,
+        constraint: error?.constraint,
+      });
       return res.status(500).json({ success: false, message: "Не удалось обновить доступ" });
     }
   });
@@ -755,7 +760,12 @@ export function createAdminRouter() {
         user: buildUserWithRole(enrichedProfile, adminRecord),
       });
     } catch (error) {
-      console.error("Ошибка сохранения роли:", error);
+      console.error("Ошибка сохранения роли:", {
+        message: error?.message || String(error),
+        code: error?.code,
+        detail: error?.detail,
+        constraint: error?.constraint,
+      });
       return res.status(500).json({ success: false, message: "Не удалось сохранить роль" });
     }
   });
