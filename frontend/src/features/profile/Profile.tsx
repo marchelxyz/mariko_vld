@@ -399,24 +399,6 @@ const Profile = () => {
             {renderEditableProfileField("Телефон", profile.phone, "phone")}
           </div>
         </div>
-
-        {/* Decorative Georgian Pottery Image - Позиционируем ниже, чтобы не перекрывать контент профиля */}
-        <div
-          className="absolute right-0 z-10 pointer-events-none"
-          style={{ bottom: "calc(var(--app-bottom-bar-height) - 40px)" }}
-        >
-          <img
-            src="/images/characters/character-bonus.png"
-            alt="Грузинские кувшины"
-            className="w-auto h-auto max-w-xs md:max-w-lg"
-            style={{
-              objectFit: "contain",
-              // Позиционируем так, чтобы кувшины заходили под оба нижних блока навигации
-              transform: "translateX(5%) translateY(20%) scale(0.8) md:translateX(0%) md:translateY(15%) md:scale(1.0)",
-            }}
-          />
-        </div>
-
         {/* НАВИГАЦИЯ: позиционирована поверх белого фона */}
         <BottomNavigation currentPage="profile" />
       </div>

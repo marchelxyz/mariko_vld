@@ -323,25 +323,22 @@ export function getInitData(): string | undefined {
     return result;
   }
   
-  // Fallback: пытаемся получить initData из URL параметров
+  // Fallback: пытаемся получить initData из URL параметров.
+  // Для проверки подписи на backend нужен полный query string, включая `sign`.
   if (typeof window !== "undefined") {
-    const urlParams = new URLSearchParams(window.location.search);
-    const vkParams = new URLSearchParams();
-    
-    // Собираем все параметры, начинающиеся с vk_
-    urlParams.forEach((value, key) => {
-      if (key.startsWith('vk_')) {
-        vkParams.append(key, value);
-      }
-    });
-    
-    // Если нашли хотя бы один параметр VK, возвращаем их как строку
-    if (vkParams.toString()) {
-      const result = vkParams.toString();
+    const rawSearch = window.location.search.startsWith("?")
+      ? window.location.search.slice(1)
+      : window.location.search;
+    const urlParams = new URLSearchParams(rawSearch);
+    const hasVkPayload = urlParams.has("vk_user_id") || urlParams.has("vk_app_id") || urlParams.has("sign");
+
+    if (hasVkPayload && rawSearch) {
+      const result = rawSearch;
       
       // Логируем для диагностики (только в режиме разработки)
       if (import.meta.env.DEV) {
         console.log('[platform] getInitData из URL параметров:', {
+          keys: Array.from(urlParams.keys()),
           resultLength: result.length,
           resultPreview: result.substring(0, 100)
         });

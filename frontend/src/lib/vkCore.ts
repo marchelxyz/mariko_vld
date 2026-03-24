@@ -72,20 +72,20 @@ export const getInitData = (): VKInitData | undefined => {
     return vk.initData;
   }
   
-  // Fallback: пытаемся получить initData из URL параметров
+  // Fallback: пытаемся получить initData из URL параметров.
+  // Для верификации на backend критично не потерять `sign`, поэтому
+  // забираем не только `vk_*`, а весь query string VK mini app iframe.
   if (typeof window !== "undefined") {
     const urlParams = new URLSearchParams(window.location.search);
     const initData: VKInitData = {};
     
-    // Собираем все параметры, начинающиеся с vk_
+    // Сохраняем все query-параметры, включая sign.
     urlParams.forEach((value, key) => {
-      if (key.startsWith('vk_')) {
-        (initData as Record<string, string>)[key] = value;
-      }
+      (initData as Record<string, string>)[key] = value;
     });
     
     // Если нашли хотя бы один параметр VK, возвращаем initData
-    if (Object.keys(initData).length > 0) {
+    if (initData.vk_user_id || initData.vk_app_id || initData.sign) {
       return initData;
     }
   }
