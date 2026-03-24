@@ -7,7 +7,6 @@ import {
 import {
   authoriseAdmin,
   authoriseSuperAdmin,
-  authoriseAnyAdmin,
   buildUserWithRole,
   getAdminIdentityFromRequest,
   listAdminRecords,
@@ -805,11 +804,9 @@ export function createAdminRouter() {
     if (!ensureDatabase(res)) {
       return;
     }
-    // Используем мягкую проверку - права уже проверены при входе в админ-панель
-    const admin = await authoriseAnyAdmin(req, res, ADMIN_PERMISSION.MANAGE_DELIVERIES);
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_DELIVERIES);
     if (!admin) {
-      // Если пользователь не админ, возвращаем пустой список
-      return res.json({ success: true, orders: [] });
+      return;
     }
     const limitRaw = Number.parseInt(req.query?.limit ?? "", 10);
     const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 200) : 100;
@@ -903,9 +900,9 @@ export function createAdminRouter() {
     if (!ensureDatabase(res)) {
       return;
     }
-    const admin = await authoriseAnyAdmin(req, res, ADMIN_PERMISSION.MANAGE_BOOKINGS);
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_BOOKINGS);
     if (!admin) {
-      return res.json({ success: true, bookings: [] });
+      return;
     }
     const limitRaw = Number.parseInt(req.query?.limit ?? "", 10);
     const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 200) : 100;
@@ -1043,7 +1040,7 @@ export function createAdminRouter() {
     if (!ensureDatabase(res)) {
       return;
     }
-    const admin = await authoriseAnyAdmin(req, res, ADMIN_PERMISSION.MANAGE_BOOKINGS);
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_BOOKINGS);
     if (!admin) {
       return;
     }
@@ -1291,9 +1288,9 @@ export function createAdminRouter() {
     if (!ensureDatabase(res)) {
       return;
     }
-    const admin = await authoriseAnyAdmin(req, res);
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.VIEW_USERS);
     if (!admin) {
-      return res.json({ success: true, bookings: [] });
+      return;
     }
 
     try {
@@ -1412,9 +1409,9 @@ export function createAdminRouter() {
     if (!ensureDatabase(res)) {
       return;
     }
-    const admin = await authoriseAnyAdmin(req, res);
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.VIEW_USERS);
     if (!admin) {
-      return res.json({ success: true, guests: [] });
+      return;
     }
 
     try {
