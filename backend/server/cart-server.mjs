@@ -28,6 +28,10 @@ import { createStorageRouter } from "./routes/storageRoutes.mjs";
 import { logger } from "./utils/logger.mjs";
 import { sanitizeSensitiveText } from "./utils/sensitiveDataSanitizer.mjs";
 import {
+  shouldRequireVerifiedTelegramInitData,
+  verifyTelegramInitData,
+} from "./utils/telegramAuth.mjs";
+import {
   getVKUserIdFromInitData,
   shouldRequireVerifiedVKInitData,
   verifyVKInitData,
@@ -53,6 +57,27 @@ import {
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = String(process.env.NODE_ENV ?? "").trim().toLowerCase() === "production";
+const DEFAULT_CORS_ALLOWED_ORIGINS = [
+  "https://tg.marikorest.ru",
+  "https://mariko-vld.vercel.app",
+  "https://mariko-vld-vk.vercel.app",
+  "https://marchelxyz-mariko-vld-b4a1.twc1.net",
+  "https://apps.vhachapuri.ru",
+  "https://vk.com",
+  "https://m.vk.com",
+  "https://ok.ru",
+];
+
+const parseOriginList = (value) =>
+  String(value ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+const configuredCorsAllowedOrigins = parseOriginList(process.env.CORS_ALLOWED_ORIGINS);
+const allowedCorsOrigins = new Set(
+  configuredCorsAllowedOrigins.length > 0 ? configuredCorsAllowedOrigins : DEFAULT_CORS_ALLOWED_ORIGINS,
+);
 
 const parseBooleanEnv = (value, fallback = false) => {
   if (typeof value === "boolean") {
@@ -79,6 +104,24 @@ const normalizeIp = (value) => {
     return normalized.slice("::ffff:".length);
   }
   return normalized;
+};
+
+const isAllowedDevelopmentOrigin = (origin) =>
+  /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(String(origin ?? "").trim());
+
+const getVerifiedTelegramIdFromRequest = (req) => {
+  const headerTelegramId = String(req.get("x-telegram-id") ?? "").trim();
+  const rawInitData = req.get("x-telegram-init-data");
+
+  if (rawInitData) {
+    const verifiedInitData = verifyTelegramInitData(rawInitData);
+    if (verifiedInitData?.telegramId) {
+      return verifiedInitData.telegramId;
+    }
+    logger.warn("[auth] Проверка подписи Telegram initData не прошла");
+  }
+
+  return shouldRequireVerifiedTelegramInitData() ? "" : headerTelegramId;
 };
 
 const DB_ADMIN_ROUTES_ENABLED = parseBooleanEnv(
@@ -514,31 +557,20 @@ const corsOptions = {
       return callback(null, true);
     }
     
-    // Список разрешенных origins для VK Mini App и других платформ
-    const allowedOrigins = [
-      'https://mariko-vld-vk.vercel.app',
-      'https://vk.com',
-      'https://m.vk.com',
-      'https://ok.ru', // Одноклассники тоже используют VK Mini Apps
-    ];
-    
     // Проверяем точное совпадение origin с разрешенными доменами
-    const isAllowed = allowedOrigins.some(allowed => origin === allowed);
-    
+    const isAllowed = allowedCorsOrigins.has(origin);
+
     if (isAllowed) {
       logger.info(`[CORS] Разрешен origin: ${origin}`);
-      callback(null, origin);
+      return callback(null, origin);
+    }
+
+    if (!isProduction && isAllowedDevelopmentOrigin(origin)) {
+      logger.warn(`[CORS] Разрешен origin из dev режима: ${origin}`);
+      return callback(null, origin);
     } else {
-      // Для разработки разрешаем все origins, но логируем предупреждение
-      if (process.env.NODE_ENV !== 'production') {
-        logger.warn(`[CORS] Разрешен origin из dev режима: ${origin}`);
-        callback(null, origin);
-      } else {
-        // В production: временно разрешаем все origins для диагностики, но логируем
-        // TODO: после диагностики вернуть строгую проверку
-        logger.warn(`[CORS] Разрешен origin в production (временно для диагностики): ${origin}`);
-        callback(null, origin);
-      }
+      logger.warn(`[CORS] Origin отклонен: ${origin}`);
+      return callback(new Error("Not allowed by CORS"));
     }
   },
   credentials: true,
@@ -724,7 +756,7 @@ app.get("/api/cart/user-orders", async (req, res) => {
       return res.status(503).json({ success: false, message: "База данных недоступна" });
     }
 
-    const rawTelegramId = req.query?.telegramId ?? req.get("x-telegram-id");
+    const rawTelegramId = req.query?.telegramId ?? getVerifiedTelegramIdFromRequest(req);
     const rawVkId = req.query?.vkId ?? req.get("x-vk-id");
     const rawPhone = req.query?.phone;
     const rawLimit = req.query?.limit;

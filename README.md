@@ -35,7 +35,7 @@ docs/                  # Документация
 - **Frontend**: Vercel (static build из `frontend/`, конфиг в `vercel.json`).  
 - **Backend**: Railway (сервис из `backend/server`, порт из `$PORT`).  
 - **Bot**: Railway отдельным сервисом из `backend/bot` (порт `$PORT`/`API_PORT`).  
-- **Timeweb**: зеркало/фолбэк через `scripts/deploy-local.sh` и `scripts/push-env.sh` (используйте `.env.deploy`). Для бесплатного auto-failover через Nginx gateway см. `TIMEWEB_FAILOVER.md`.
+- **Timeweb**: зеркало/фолбэк через `scripts/deploy-local.sh` и `scripts/push-env.sh` (локально создайте `.env.deploy` из `.env.deploy.example`). Для бесплатного auto-failover через Nginx gateway см. `TIMEWEB_FAILOVER.md`.
 
 📚 **Документация:**
 - [`DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md) — полное руководство по развертыванию

@@ -460,12 +460,6 @@ const resolveAdminIdentityInput = (input) => {
 
 export const resolveAdminContext = async (input) => {
   const { telegramId, vkId } = resolveAdminIdentityInput(input);
-  console.log('[adminService] resolveAdminContext', {
-    telegramId,
-    vkId,
-    adminTelegramIds: Array.from(ADMIN_TELEGRAM_IDS),
-    adminVkIds: Array.from(ADMIN_VK_IDS),
-  });
 
   if (!telegramId && !vkId) {
     return { role: "user", allowedRestaurants: [], permissions: [] };
@@ -474,12 +468,10 @@ export const resolveAdminContext = async (input) => {
   await ensureRolePermissionsCache();
 
   if (telegramId && ADMIN_TELEGRAM_IDS.has(telegramId)) {
-    console.log('[adminService] Telegram ID found in ADMIN_TELEGRAM_IDS, returning super_admin', { telegramId });
     return { role: "super_admin", allowedRestaurants: [], permissions: getPermissionsForRole("super_admin") };
   }
 
   if (vkId && ADMIN_VK_IDS.has(vkId)) {
-    console.log('[adminService] VK ID found in ADMIN_VK_IDS, returning super_admin', { vkId });
     return { role: "super_admin", allowedRestaurants: [], permissions: getPermissionsForRole("super_admin") };
   }
 

@@ -24,12 +24,18 @@ dist-ssr
 *.sw?
 .env
 .env.secrets
+.env.deploy
 
 
 # Удалённые папки (для предотвращения повторного добавления)
 docs/
 dev-tools/
 netlify/
+playwright-report/
+test-results/
+backups/*.dump
+*.backup
+*.backup*
 
 # Файлы для других платформ
 netlify.toml
