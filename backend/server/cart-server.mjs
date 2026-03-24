@@ -27,6 +27,11 @@ import { createIikoWebhookRouter } from "./routes/iikoWebhookRoutes.mjs";
 import { createStorageRouter } from "./routes/storageRoutes.mjs";
 import { logger } from "./utils/logger.mjs";
 import { sanitizeSensitiveText } from "./utils/sensitiveDataSanitizer.mjs";
+import {
+  getVKUserIdFromInitData,
+  shouldRequireVerifiedVKInitData,
+  verifyVKInitData,
+} from "./utils/vkAuth.mjs";
 import { startBookingNotificationWorker } from "./workers/bookingNotificationWorker.mjs";
 import { startIikoMenuSyncWorker } from "./workers/iikoMenuSyncWorker.mjs";
 import { startIikoRetryWorker } from "./workers/iikoRetryWorker.mjs";
@@ -720,6 +725,7 @@ app.get("/api/cart/user-orders", async (req, res) => {
     }
 
     const rawTelegramId = req.query?.telegramId ?? req.get("x-telegram-id");
+    const rawVkId = req.query?.vkId ?? req.get("x-vk-id");
     const rawPhone = req.query?.phone;
     const rawLimit = req.query?.limit;
 
@@ -729,6 +735,15 @@ app.get("/api/cart/user-orders", async (req, res) => {
         : Array.isArray(rawTelegramId)
           ? String(rawTelegramId[0] ?? "").trim()
           : "";
+    const unsafeVkId =
+      typeof rawVkId === "string"
+        ? rawVkId.trim()
+        : Array.isArray(rawVkId)
+          ? String(rawVkId[0] ?? "").trim()
+          : "";
+    const verifiedVkInitData = verifyVKInitData(req.get("x-vk-init-data"));
+    const verifiedVkId = getVKUserIdFromInitData(verifiedVkInitData);
+    const vkId = verifiedVkId || (shouldRequireVerifiedVKInitData() ? "" : unsafeVkId);
     const phone =
       typeof rawPhone === "string"
         ? rawPhone.trim()
@@ -747,8 +762,8 @@ app.get("/api/cart/user-orders", async (req, res) => {
     const safeLimit = Math.min(Math.max(requestedLimit, 1), MAX_ORDERS_LIMIT);
 
     // Требуется хотя бы один идентификатор
-    if (!telegramId && !phone) {
-      return res.status(400).json({ success: false, message: "Не указан Telegram ID или номер телефона" });
+    if (!telegramId && !vkId && !phone) {
+      return res.status(400).json({ success: false, message: "Не указан telegramId, vkId или номер телефона" });
     }
 
     const normalizedPhone = phone.replace(/\D/g, "");
@@ -769,6 +784,17 @@ app.get("/api/cart/user-orders", async (req, res) => {
         LIMIT $4
       `;
       queryParams = [telegramId, `%${normalizedPhone}%`, `%${phone}%`, safeLimit];
+    } else if (vkId && phone) {
+      sqlQuery = `
+        SELECT *
+        FROM ${CART_ORDERS_TABLE}
+        WHERE
+          meta->>'vkUserId' = $1
+          OR (customer_phone LIKE $2 OR customer_phone LIKE $3)
+        ORDER BY created_at DESC
+        LIMIT $4
+      `;
+      queryParams = [vkId, `%${normalizedPhone}%`, `%${phone}%`, safeLimit];
     } else if (telegramId) {
       // Поиск по Telegram ID (основной способ) - найдет ВСЕ заказы пользователя
       sqlQuery = `
@@ -779,6 +805,15 @@ app.get("/api/cart/user-orders", async (req, res) => {
         LIMIT $2
       `;
       queryParams = [telegramId, safeLimit];
+    } else if (vkId) {
+      sqlQuery = `
+        SELECT *
+        FROM ${CART_ORDERS_TABLE}
+        WHERE meta->>'vkUserId' = $1
+        ORDER BY created_at DESC
+        LIMIT $2
+      `;
+      queryParams = [vkId, safeLimit];
     } else {
       // Fallback: поиск по номеру телефона
       sqlQuery = `
@@ -1339,22 +1374,41 @@ app.post("/api/db/add-admin", async (req, res) => {
     }
 
     const { query } = await import("./postgresClient.mjs");
-    const { telegram_id, name, role = "super_admin" } = req.body;
+    const { telegram_id, vk_id, name, role = "super_admin" } = req.body;
 
-    if (!telegram_id) {
+    if (!telegram_id && !vk_id) {
       return res.status(400).json({
         success: false,
-        message: "Обязательное поле: telegram_id"
+        message: "Обязательное поле: telegram_id или vk_id"
       });
     }
 
-    const result = await query(`
-      INSERT INTO admin_users (telegram_id, name, role, created_at, updated_at)
-      VALUES ($1, $2, $3, NOW(), NOW())
-      ON CONFLICT (telegram_id)
-      DO UPDATE SET name = $2, role = $3, updated_at = NOW()
-      RETURNING *
-    `, [telegram_id, name || "Admin", role]);
+    const existing = await query(
+      `SELECT id FROM admin_users
+       WHERE ($1::bigint IS NOT NULL AND telegram_id = $1::bigint)
+          OR ($2::bigint IS NOT NULL AND vk_id = $2::bigint)
+       LIMIT 1`,
+      [telegram_id ?? null, vk_id ?? null],
+    );
+
+    const result = existing.rows[0]?.id
+      ? await query(
+          `UPDATE admin_users
+           SET telegram_id = $2,
+               vk_id = $3,
+               name = $4,
+               role = $5,
+               updated_at = NOW()
+           WHERE id = $1
+           RETURNING *`,
+          [existing.rows[0].id, telegram_id ?? null, vk_id ?? null, name || "Admin", role],
+        )
+      : await query(
+          `INSERT INTO admin_users (telegram_id, vk_id, name, role, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, NOW(), NOW())
+           RETURNING *`,
+          [telegram_id ?? null, vk_id ?? null, name || "Admin", role],
+        );
 
     return res.json({
       success: true,

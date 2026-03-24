@@ -1,69 +1,11 @@
 import type { RestaurantMenu } from "@shared/data";
-import { getInitData, getPlatform, getUser } from "@/lib/platform";
+import { buildPlatformAuthHeaders } from "./platformAuth";
 import { sanitizeAdminFacingMessage } from "@shared/utils";
 
 const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
 const RAW_SERVER_API_BASE = rawServerEnv ? (rawServerEnv.endsWith("/") ? rawServerEnv.slice(0, -1) : rawServerEnv) : "/api";
 const USE_SERVER_API = (import.meta.env.VITE_USE_SERVER_API ?? "true") !== "false";
 const FORCE_SERVER_API_IN_DEV = import.meta.env.VITE_FORCE_SERVER_API === "true";
-const ADMIN_TELEGRAM_IDS = parseAdminTelegramIds(import.meta.env.VITE_ADMIN_TELEGRAM_IDS);
-
-function parseAdminTelegramIds(raw: string | undefined): string[] {
-  if (!raw) {
-    return [];
-  }
-  return raw
-    .split(",")
-    .map((id) => id.trim())
-    .filter((id) => /^\d+$/.test(id));
-}
-
-function getFallbackTelegramId(): string | undefined {
-  return ADMIN_TELEGRAM_IDS[0];
-}
-
-function parseTelegramUserIdFromInitData(rawInitData?: string): string | undefined {
-  if (!rawInitData) {
-    return undefined;
-  }
-  try {
-    const params = new URLSearchParams(rawInitData);
-    const userRaw = params.get("user");
-    if (!userRaw) {
-      return undefined;
-    }
-    const user = JSON.parse(userRaw) as { id?: string | number };
-    if (!user?.id) {
-      return undefined;
-    }
-    const normalized = String(user.id);
-    return /^\d+$/.test(normalized) ? normalized : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function resolveTelegramAdminId(initData?: string): string | undefined {
-  if (getPlatform() === "vk") {
-    return undefined;
-  }
-
-  const platformUser = getUser();
-  if (platformUser?.id) {
-    const normalized = String(platformUser.id);
-    if (/^\d+$/.test(normalized)) {
-      return normalized;
-    }
-  }
-
-  const parsedFromInitData = parseTelegramUserIdFromInitData(initData);
-  if (parsedFromInitData) {
-    return parsedFromInitData;
-  }
-
-  return getFallbackTelegramId();
-}
-
 function shouldUseServerApi(): boolean {
   if (typeof window === "undefined") {
     return false;
@@ -159,32 +101,9 @@ export async function fetchMenuByRestaurantId(restaurantId: string): Promise<Res
 export const fetchRestaurantMenu = fetchMenuByRestaurantId;
 
 function buildAdminHeaders(initial?: Record<string, string>): Record<string, string> {
-  const headers: Record<string, string> = {
+  return buildPlatformAuthHeaders({
     ...(initial ?? {}),
-  };
-
-  const platform = getPlatform();
-  const initData = getInitData();
-  if (platform === "vk") {
-    if (initData) {
-      headers["X-VK-Init-Data"] = initData;
-    }
-    const vkUser = getUser();
-    if (vkUser?.id) {
-      headers["X-VK-Id"] = String(vkUser.id);
-    }
-    return headers;
-  }
-
-  const telegramId = resolveTelegramAdminId(initData);
-  if (telegramId) {
-    headers["X-Telegram-Id"] = telegramId;
-  }
-  if (initData) {
-    headers["X-Telegram-Init-Data"] = initData;
-  }
-
-  return headers;
+  });
 }
 
 export type SaveMenuResult = {

@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { logger } from "@/lib/logger";
 import { getInitData, getPlatform, getUser } from "@/lib/platform";
 import type { MenuItem } from "@/shared/data/menuTypes";
+import { buildPlatformAuthHeaders } from "@/shared/api/platformAuth";
 
 export type CartItem = {
   id: string;
@@ -34,7 +35,8 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
 
-const CART_STORAGE_KEY = "mariko_cart_v1";
+const LEGACY_CART_STORAGE_KEY = "mariko_cart_v1";
+const CART_STORAGE_KEY_PREFIX = "mariko_cart_v2";
 
 /**
  * Получает базовый URL API корзины
@@ -45,19 +47,20 @@ function getCartApiBaseUrl(): string {
 }
 
 function buildCartHeaders(userId: string, initial?: Record<string, string>): Record<string, string> {
-  const headers: Record<string, string> = {
-    ...(initial ?? {}),
-    "X-Telegram-Id": userId,
-  };
+  return buildPlatformAuthHeaders(
+    {
+      ...(initial ?? {}),
+    },
+    {
+      userId,
+      includeInitData: Boolean(getInitData()),
+      webFallbackPlatform: "telegram",
+    },
+  );
+}
 
-  if (getPlatform() === "telegram") {
-    const initData = getInitData();
-    if (initData) {
-      headers["X-Telegram-Init-Data"] = initData;
-    }
-  }
-
-  return headers;
+function getCartStorageKey(): string {
+  return `${CART_STORAGE_KEY_PREFIX}:${getPlatform()}`;
 }
 
 /**
@@ -142,8 +145,10 @@ const loadCartFromStorage = (): CartItem[] => {
     return [];
   }
   try {
-    // Используем localStorage для постоянного хранения корзины между сессиями
-    const raw = window.localStorage?.getItem(CART_STORAGE_KEY);
+    const storageKey = getCartStorageKey();
+    const raw =
+      window.localStorage?.getItem(storageKey) ??
+      window.localStorage?.getItem(LEGACY_CART_STORAGE_KEY);
     if (!raw) {
       return [];
     }
@@ -171,8 +176,11 @@ const saveCartToStorage = (items: CartItem[]) => {
   }
   try {
     const payload = JSON.stringify(items);
-    // Используем localStorage для постоянного хранения корзины между сессиями
-    window.localStorage?.setItem(CART_STORAGE_KEY, payload);
+    const storageKey = getCartStorageKey();
+    window.localStorage?.setItem(storageKey, payload);
+    if (storageKey !== LEGACY_CART_STORAGE_KEY) {
+      window.localStorage?.removeItem(LEGACY_CART_STORAGE_KEY);
+    }
   } catch (error) {
     logger.warn('cart', 'Не удалось сохранить корзину в хранилище', undefined, error instanceof Error ? error : new Error(String(error)));
   }

@@ -1,4 +1,5 @@
 import type { CartItem } from "@/contexts";
+import { buildPlatformAuthHeaders } from "../platformAuth";
 import { sanitizeUserFacingMessage } from "@shared/utils";
 
 export type CartOrderPayload = {
@@ -9,8 +10,10 @@ export type CartOrderPayload = {
   customerName: string;
   customerPhone: string;
   customerTelegramId?: string;
+  customerVkId?: string;
   customerTelegramUsername?: string;
   customerTelegramName?: string;
+  customerPlatform?: "telegram" | "vk" | "web";
   deliveryAddress?: string;
   deliveryLatitude?: number;
   deliveryLongitude?: number;
@@ -92,11 +95,18 @@ function parseServerErrorText(payload: string | null): string | null {
 }
 
 export async function submitCartOrder(payload: CartOrderPayload): Promise<CartOrderResponse> {
+  const authUserId = payload.customerVkId ?? payload.customerTelegramId;
   const response = await fetch(CART_SUBMIT_ENDPOINT, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: buildPlatformAuthHeaders(
+      {
+        "Content-Type": "application/json",
+      },
+      {
+        userId: authUserId,
+        webFallbackPlatform: "telegram",
+      },
+    ),
     body: JSON.stringify(payload),
   });
 
@@ -123,9 +133,14 @@ export async function recalculateCart(
 ): Promise<CartRecalcResponse> {
   const response = await fetch(CART_RECALC_ENDPOINT, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: buildPlatformAuthHeaders(
+      {
+        "Content-Type": "application/json",
+      },
+      {
+        webFallbackPlatform: "telegram",
+      },
+    ),
     body: JSON.stringify(payload),
     signal,
   });

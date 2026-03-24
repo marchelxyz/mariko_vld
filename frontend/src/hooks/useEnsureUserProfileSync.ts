@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { getUser, getUserAsync, getPlatform, getInitData } from "@/lib/platform";
+import { buildPlatformAuthHeaders } from "@/shared/api/platformAuth";
 
 function getProfileSyncApiBaseUrl(): string {
   // Используем VITE_SERVER_API_URL если он установлен (предпочтительный вариант)
@@ -90,30 +91,36 @@ function syncProfile(
       photo,
     };
 
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
+    const headers = buildPlatformAuthHeaders(
+      {
+        "Content-Type": "application/json",
+      },
+      {
+        platform,
+        userId,
+      },
+    );
 
     if (platform === "vk") {
       body.vkId = user.id;
-      headers["X-VK-Id"] = userId;
       const initData = getInitData();
       if (initData) {
-        headers["X-VK-Init-Data"] = initData;
+        console.log("[profile-sync] Отправка VK запроса синхронизации профиля", {
+          userId,
+          hasInitData: true,
+          initDataPreview: initData.substring(0, 100),
+          endpoint,
+        });
+      } else {
+        console.log("[profile-sync] Отправка VK запроса синхронизации профиля", {
+          userId,
+          hasInitData: false,
+          endpoint,
+        });
       }
-      console.log("[profile-sync] Отправка VK запроса синхронизации профиля", {
-        userId,
-        hasInitData: !!initData,
-        initDataPreview: initData ? initData.substring(0, 100) : undefined,
-        endpoint,
-      });
     } else {
       body.telegramId = user.id;
-      headers["X-Telegram-Id"] = userId;
       const initData = getInitData();
-      if (initData) {
-        headers["X-Telegram-Init-Data"] = initData;
-      }
       console.log("[profile-sync] Отправка Telegram запроса синхронизации профиля", {
         userId,
         hasInitData: !!initData,

@@ -20,6 +20,8 @@ type AdminContextValue = {
 const AdminContext = createContext<AdminContextValue | undefined>(undefined);
 
 const ADMIN_STORAGE_KEY = "mariko_admin_roles_v1";
+const TELEGRAM_INIT_DATA_STORAGE_KEY = "mariko_tg_init_data";
+const TELEGRAM_USER_ID_STORAGE_KEY = "mariko_tg_user_id";
 
 type AdminStorageData = {
   isAdmin: boolean;
@@ -27,15 +29,17 @@ type AdminStorageData = {
   permissions: Permission[];
   userId: string;
   allowedRestaurants: string[];
+  platform: ReturnType<typeof getPlatform>;
+  telegramId: string | null;
+  vkId: string | null;
   timestamp: number;
 };
 
 const ADMIN_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 часа
 const TELEGRAM_ADMIN_RETRY_DELAYS_MS = [0, 350, 900, 1800, 3200, 5000, 7500];
+const VK_ADMIN_RETRY_DELAYS_MS = [0, 200, 500, 1000, 1800];
 const DEFAULT_ADMIN_RETRY_DELAYS_MS = [0];
 const TELEGRAM_ADMIN_SYNC_INTERVAL_MS = 30_000;
-const TELEGRAM_INIT_DATA_STORAGE_KEY = "mariko_tg_init_data";
-const TELEGRAM_USER_ID_STORAGE_KEY = "mariko_tg_user_id";
 const TELEGRAM_BOOTSTRAP_ATTEMPTS = 20;
 const TELEGRAM_BOOTSTRAP_DELAY_MS = 250;
 
@@ -48,6 +52,7 @@ const parseAdminTelegramIds = (raw: string | undefined): Set<string> =>
   );
 
 const CLIENT_ADMIN_TELEGRAM_IDS = parseAdminTelegramIds(import.meta.env.VITE_ADMIN_TELEGRAM_IDS);
+const CLIENT_ADMIN_VK_IDS = parseAdminTelegramIds(import.meta.env.VITE_ADMIN_VK_IDS);
 
 const loadAdminFromStorage = (): AdminStorageData | null => {
   if (typeof window === "undefined") {
@@ -85,6 +90,45 @@ const saveAdminToStorage = (data: Omit<AdminStorageData, 'timestamp'>) => {
   } catch (error) {
     logger.warn('admin', 'Не удалось сохранить данные админа в хранилище', undefined, error instanceof Error ? error : new Error(String(error)));
   }
+};
+
+const isAdminCacheCompatible = (
+  cached: AdminStorageData | null,
+  context: ReturnType<typeof resolveAdminRuntimeContext>,
+): boolean => {
+  if (!cached) {
+    return false;
+  }
+
+  if (cached.platform !== context.platform) {
+    return false;
+  }
+
+  if (context.platform === "telegram") {
+    if (
+      context.currentUserId &&
+      cached.telegramId &&
+      cached.telegramId !== context.currentUserId &&
+      cached.userId !== context.currentUserId
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  if (context.platform === "vk") {
+    if (
+      context.currentUserId &&
+      cached.vkId &&
+      cached.vkId !== context.currentUserId &&
+      cached.userId !== context.currentUserId
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  return !context.currentUserId || cached.userId === context.currentUserId;
 };
 
 const derivePermissions = (role: UserRole): Permission[] => {
@@ -235,6 +279,37 @@ const isKnownTelegramSeedAdmin = (): boolean => {
   return Boolean(telegramUserId && CLIENT_ADMIN_TELEGRAM_IDS.has(telegramUserId));
 };
 
+const resolveKnownVkUserId = (): string | null => {
+  if (getPlatform() !== "vk") {
+    return null;
+  }
+
+  const currentUserId = getUserId();
+  if (currentUserId && /^\d+$/.test(currentUserId)) {
+    return currentUserId;
+  }
+
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = new URLSearchParams(window.location.search).get("vk_user_id");
+    if (raw && /^\d+$/.test(raw)) {
+      return raw;
+    }
+  } catch {
+    // ignore URL parsing problems
+  }
+
+  return null;
+};
+
+const isKnownVkSeedAdmin = (): boolean => {
+  const vkUserId = resolveKnownVkUserId();
+  return Boolean(vkUserId && CLIENT_ADMIN_VK_IDS.has(vkUserId));
+};
+
 const getAdminRequestStatus = (error: unknown): number | null => {
   if (!error || typeof error !== "object") {
     return null;
@@ -249,14 +324,18 @@ const delay = (ms: number): Promise<void> =>
 const resolveAdminRuntimeContext = () => {
   const platform = getPlatform();
   const isTelegramPlatform = platform === "telegram";
+  const isVkPlatform = platform === "vk";
   const currentUserId = getUserId() || "";
 
   return {
     platform,
     isTelegramPlatform,
+    isVkPlatform,
     currentUserId,
     hasTelegramPayload: isTelegramPlatform && hasTelegramAuthPayload(),
     knownTelegramSeedAdmin: isTelegramPlatform && isKnownTelegramSeedAdmin(),
+    hasVkPayload: isVkPlatform && Boolean(currentUserId),
+    knownVkSeedAdmin: isVkPlatform && isKnownVkSeedAdmin(),
   };
 };
 
@@ -266,8 +345,11 @@ const waitForTelegramBootstrap = async () => {
   for (let attempt = 0; attempt < TELEGRAM_BOOTSTRAP_ATTEMPTS; attempt += 1) {
     if (
       context.isTelegramPlatform ||
+      context.isVkPlatform ||
       context.hasTelegramPayload ||
       context.knownTelegramSeedAdmin ||
+      context.hasVkPayload ||
+      context.knownVkSeedAdmin ||
       Boolean(context.currentUserId)
     ) {
       return context;
@@ -308,9 +390,12 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
       const {
         platform,
         isTelegramPlatform,
+        isVkPlatform,
         currentUserId,
         hasTelegramPayload,
         knownTelegramSeedAdmin,
+        hasVkPayload,
+        knownVkSeedAdmin,
       } = runtimeContext;
 
       if (currentUserId && currentUserId !== userId) {
@@ -324,15 +409,20 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
       logger.debug("admin-context", "Resolved admin runtime context", {
         platform,
         isTelegramPlatform,
+        isVkPlatform,
         hasTelegramPayload,
         knownTelegramSeedAdmin,
+        hasVkPayload,
+        knownVkSeedAdmin,
         hasUserId: Boolean(currentUserId),
         silent,
       });
 
       const retryDelays = isTelegramPlatform
         ? TELEGRAM_ADMIN_RETRY_DELAYS_MS
-        : DEFAULT_ADMIN_RETRY_DELAYS_MS;
+        : isVkPlatform
+          ? VK_ADMIN_RETRY_DELAYS_MS
+          : DEFAULT_ADMIN_RETRY_DELAYS_MS;
       let loaded = false;
 
       if (isTelegramPlatform && !hasTelegramPayload) {
@@ -343,6 +433,20 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
           setAllowedRestaurants([]);
         }
         logger.debug('admin-context', 'Skip admin probe: Telegram init data unavailable');
+        if (!silent) {
+          setIsLoading(false);
+        }
+        return false;
+      }
+
+      if (isVkPlatform && !hasVkPayload) {
+        if (knownVkSeedAdmin) {
+          setIsAdmin(true);
+          setUserRole(UserRole.SUPER_ADMIN);
+          setPermissions(derivePermissions(UserRole.SUPER_ADMIN));
+          setAllowedRestaurants([]);
+        }
+        logger.debug('admin-context', 'Skip admin probe: VK init data unavailable');
         if (!silent) {
           setIsLoading(false);
         }
@@ -376,6 +480,9 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
             permissions: nextPermissions,
             userId: currentUserId,
             allowedRestaurants: nextAllowedRestaurants,
+            platform,
+            telegramId: platform === "telegram" ? currentUserId || null : null,
+            vkId: platform === "vk" ? currentUserId || null : null,
           });
 
           logger.debug('admin-context', 'Admin data loaded', {
@@ -409,6 +516,11 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
           setUserRole(UserRole.SUPER_ADMIN);
           setPermissions(derivePermissions(UserRole.SUPER_ADMIN));
           setAllowedRestaurants([]);
+        } else if (knownVkSeedAdmin) {
+          setIsAdmin(true);
+          setUserRole(UserRole.SUPER_ADMIN);
+          setPermissions(derivePermissions(UserRole.SUPER_ADMIN));
+          setAllowedRestaurants([]);
         } else {
           // Если ошибка, считаем пользователя обычным пользователем
           setIsAdmin(false);
@@ -426,13 +538,16 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
     const initialContext = resolveAdminRuntimeContext();
     const cachedAdmin = loadAdminFromStorage();
     const isTelegramPlatform = initialContext.isTelegramPlatform;
+    const isVkPlatform = initialContext.isVkPlatform;
     const knownTelegramSeedAdmin = initialContext.knownTelegramSeedAdmin;
+    const knownVkSeedAdmin = initialContext.knownVkSeedAdmin;
+    const compatibleCachedAdmin = isAdminCacheCompatible(cachedAdmin, initialContext) ? cachedAdmin : null;
 
-    if (cachedAdmin) {
-      setIsAdmin(cachedAdmin.isAdmin);
-      setUserRole(cachedAdmin.userRole);
-      setPermissions(cachedAdmin.permissions || []);
-      setAllowedRestaurants(cachedAdmin.allowedRestaurants || []);
+    if (compatibleCachedAdmin) {
+      setIsAdmin(compatibleCachedAdmin.isAdmin);
+      setUserRole(compatibleCachedAdmin.userRole);
+      setPermissions(compatibleCachedAdmin.permissions || []);
+      setAllowedRestaurants(compatibleCachedAdmin.allowedRestaurants || []);
       setIsLoading(false);
     } else if (knownTelegramSeedAdmin) {
       setIsAdmin(true);
@@ -440,9 +555,17 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
       setPermissions(derivePermissions(UserRole.SUPER_ADMIN));
       setAllowedRestaurants([]);
       setIsLoading(false);
+    } else if (knownVkSeedAdmin) {
+      setIsAdmin(true);
+      setUserRole(UserRole.SUPER_ADMIN);
+      setPermissions(derivePermissions(UserRole.SUPER_ADMIN));
+      setAllowedRestaurants([]);
+      setIsLoading(false);
     }
 
-    const shouldResetOnInitialFailure = !isTelegramPlatform || (!cachedAdmin && !knownTelegramSeedAdmin);
+    const shouldResetOnInitialFailure =
+      (!isTelegramPlatform && !isVkPlatform) ||
+      (!compatibleCachedAdmin && !knownTelegramSeedAdmin && !knownVkSeedAdmin);
     void loadAdminData({ resetOnFailure: shouldResetOnInitialFailure });
 
     const refreshAdminDataSilently = () => {
@@ -451,7 +574,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }): JSX.Elemen
 
     let intervalId: number | null = null;
     const hasDom = typeof window !== "undefined" && typeof document !== "undefined";
-    if (isTelegramPlatform && hasDom) {
+    if ((isTelegramPlatform || isVkPlatform) && hasDom) {
       intervalId = window.setInterval(refreshAdminDataSilently, TELEGRAM_ADMIN_SYNC_INTERVAL_MS);
       const handleFocus = () => refreshAdminDataSilently();
       const handleVisibilityChange = () => {

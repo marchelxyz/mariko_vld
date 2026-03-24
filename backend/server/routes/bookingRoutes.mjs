@@ -2,6 +2,11 @@ import express from "express";
 import { db, ensureDatabase, query, queryOne } from "../postgresClient.mjs";
 import { upsertUserProfileRecord } from "../services/profileService.mjs";
 import { createLogger } from "../utils/logger.mjs";
+import {
+  getVKUserIdFromInitData,
+  shouldRequireVerifiedVKInitData,
+  verifyVKInitData,
+} from "../utils/vkAuth.mjs";
 
 const logger = createLogger('booking');
 
@@ -9,6 +14,22 @@ const REMARKED_API_BASE = "https://app.remarked.ru/api/v1";
 const FETCH_TIMEOUT = 30000; // 30 секунд (увеличено для медленных ответов от Remarked API)
 const MAX_RETRIES = 3;
 const RETRY_DELAY_BASE = 1000; // 1 секунда базовая задержка
+
+const getTelegramIdFromHeaders = (req) => {
+  const raw = req.get("x-telegram-id");
+  return typeof raw === "string" ? raw.trim() : null;
+};
+
+const getVerifiedVkIdFromHeaders = (req) => {
+  const rawHeaderVkId = req.get("x-vk-id");
+  const unsafeVkId = typeof rawHeaderVkId === "string" ? rawHeaderVkId.trim() : null;
+  const verifiedInitData = verifyVKInitData(req.get("x-vk-init-data"));
+  const verifiedVkId = getVKUserIdFromInitData(verifiedInitData);
+  if (verifiedVkId) {
+    return verifiedVkId;
+  }
+  return shouldRequireVerifiedVKInitData() ? null : unsafeVkId;
+};
 
 /**
  * Проверяет, является ли ошибка временной сетевой ошибкой
@@ -869,14 +890,8 @@ export function createBookingRouter() {
         duration: bookingDuration,
       } = req.body ?? {};
 
-      const headerTelegramId = (() => {
-        const raw = req.get("x-telegram-id");
-        return typeof raw === "string" ? raw.trim() : null;
-      })();
-      const headerVkId = (() => {
-        const raw = req.get("x-vk-id");
-        return typeof raw === "string" ? raw.trim() : null;
-      })();
+      const headerTelegramId = getTelegramIdFromHeaders(req);
+      const headerVkId = getVerifiedVkIdFromHeaders(req);
 
       // Валидация обязательных полей
       if (!restaurantId || typeof restaurantId !== "string") {
@@ -907,20 +922,6 @@ export function createBookingRouter() {
       }
 
       if (!date || typeof date !== "string") {
-      if (headerTelegramId) {
-        try {
-          await upsertUserProfileRecord({
-            id: headerTelegramId,
-            telegramId: headerTelegramId,
-            name: name?.trim(),
-            phone: phone?.trim(),
-          });
-        } catch (error) {
-          logger.warn("booking", "Не удалось обновить профиль по Telegram ID", {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
         const duration = Date.now() - startTime;
         logger.requestError('POST', '/', new Error('Не указана дата'), 400);
         return res.status(400).json({ 
@@ -1063,6 +1064,24 @@ export function createBookingRouter() {
 
       if (!booking || !booking.id) {
         throw new Error('Не удалось сохранить бронирование в базу данных');
+      }
+
+      if (headerTelegramId || headerVkId) {
+        try {
+          await upsertUserProfileRecord({
+            id: headerTelegramId ?? headerVkId,
+            telegramId: headerTelegramId,
+            vkId: headerVkId,
+            name: name?.trim(),
+            phone: phone?.trim(),
+          });
+        } catch (error) {
+          logger.warn("booking", "Не удалось обновить профиль пользователя после бронирования", {
+            error: error instanceof Error ? error.message : String(error),
+            telegramId: headerTelegramId,
+            vkId: headerVkId,
+          });
+        }
       }
 
       logger.info('Бронирование сохранено в БД', { 

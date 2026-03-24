@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { getTg, getUser } from "@/lib/telegramCore";
+import { buildPlatformAuthHeaders } from "./platformAuth";
 import { sanitizeUserFacingMessage } from "@shared/utils";
 
 function normalizeBaseUrl(base: string): string {
@@ -69,21 +69,17 @@ async function fetchFromServer<T>(path: string, options?: BookingRequestOptions)
   const fetchOptions: RequestInit = {
     credentials: "include",
     method: options?.method,
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      ...(options?.headers ?? {}),
-    },
+    headers: buildPlatformAuthHeaders(
+      {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        ...(options?.headers ?? {}),
+      },
+      {
+        webFallbackPlatform: "telegram",
+      },
+    ),
   };
-
-  const telegramUser = getUser();
-  if (telegramUser?.id) {
-    (fetchOptions.headers as Record<string, string>)["X-Telegram-Id"] = String(telegramUser.id);
-  }
-  const telegramApp = getTg();
-  if (telegramApp?.initData) {
-    (fetchOptions.headers as Record<string, string>)["X-Telegram-Init-Data"] = telegramApp.initData;
-  }
 
   if (options?.body) {
     fetchOptions.body = options.body;

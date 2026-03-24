@@ -65,12 +65,14 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   const { selectedRestaurant, selectedCity } = useCityContext();
   const navigate = useNavigate();
   const platform = getPlatform();
-  const telegramUser = getUser();
-  const rawTelegramUserId = telegramUser?.id?.toString() ?? "";
-  const telegramUserId = rawTelegramUserId || (platform === "web" ? "demo_user" : "");
-  const telegramUsername = telegramUser?.username ?? undefined;
-  const telegramFullName = (() => {
-    const parts = [telegramUser?.first_name, telegramUser?.last_name].filter(
+  const platformUser = getUser();
+  const rawPlatformUserId = platformUser?.id?.toString() ?? "";
+  const platformUserId = rawPlatformUserId || (platform === "web" ? "demo_user" : "");
+  const telegramUserId = platform === "telegram" ? platformUserId : "";
+  const vkUserId = platform === "vk" ? platformUserId : "";
+  const platformUsername = platformUser?.username ?? undefined;
+  const platformFullName = (() => {
+    const parts = [platformUser?.first_name, platformUser?.last_name].filter(
       (value): value is string => Boolean(value && value.trim()),
     );
     if (!parts.length) {
@@ -430,12 +432,18 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
     setIsSubmitting(true);
     setLastSubmitStatus("idle");
     setLastSubmitMessage(null);
+    const normalizedPlatformUserId =
+      platformUserId && platformUserId !== "demo_user" ? platformUserId : undefined;
     const normalizedTelegramId = telegramUserId && telegramUserId !== "demo_user" ? telegramUserId : undefined;
+    const normalizedVkId = vkUserId && vkUserId !== "demo_user" ? vkUserId : undefined;
     const orderMeta = {
       clientApp: "mini-app",
+      platform,
+      platformUserId: normalizedPlatformUserId,
       telegramUserId: normalizedTelegramId,
-      telegramUsername,
-      telegramFullName,
+      vkUserId: normalizedVkId,
+      telegramUsername: platform === "telegram" ? platformUsername : undefined,
+      telegramFullName: platform === "telegram" ? platformFullName : undefined,
       paymentMethod,
       restaurantName: selectedRestaurant?.name,
       restaurantAddress: selectedRestaurant?.address,
@@ -456,8 +464,10 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
         customerName: customerName.trim(),
         customerPhone: formattedPhone,
         customerTelegramId: normalizedTelegramId,
-        customerTelegramUsername: telegramUsername,
-        customerTelegramName: telegramFullName,
+        customerVkId: normalizedVkId,
+        customerTelegramUsername: platform === "telegram" ? platformUsername : undefined,
+        customerTelegramName: platform === "telegram" ? platformFullName : undefined,
+        customerPlatform: platform,
         paymentMethod,
         deliveryAddress: orderType === "delivery" ? resolvedDeliveryAddress : undefined,
         deliveryLatitude: addressCoords?.lat,
@@ -485,9 +495,11 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
       );
       setLastSubmitMessage(successMessage);
       // Если в профиле не было адреса, сохраним то, что ввёл пользователь
-      if (!profileHasAddress && normalizedTelegramId && resolvedDeliveryAddress) {
+      if (!profileHasAddress && normalizedPlatformUserId && resolvedDeliveryAddress) {
         profileApi
-          .updateUserProfile(normalizedTelegramId, {
+          .updateUserProfile(normalizedPlatformUserId, {
+            telegramId: normalizedTelegramId,
+            vkId: normalizedVkId,
             lastAddressText: resolvedDeliveryAddress,
             lastAddressLat: addressCoords?.lat,
             lastAddressLon: addressCoords?.lon,
@@ -606,7 +618,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
       return;
     }
     setPrefillAttempted(true);
-    const userId = telegramUserId && telegramUserId !== "demo_user" ? telegramUserId : "";
+    const userId = platformUserId && platformUserId !== "demo_user" ? platformUserId : "";
     if (!userId) {
       setIsPrefilling(false);
       return;
@@ -669,7 +681,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
     orderType,
     phoneDigits,
     prefillAttempted,
-    telegramUserId,
+    platformUserId,
   ]);
 
   // Автоопределение локации один раз при открытии оформления доставки

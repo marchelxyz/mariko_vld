@@ -6,8 +6,8 @@ import { Button, Input } from "@shared/ui";
 import { useAdmin } from "@shared/hooks";
 import { UserRole } from "@shared/types";
 
-const isTelegramLinkLike = (value: string) =>
-  /^https?:\/\/t\.me\/|^tg:\/\//i.test(value);
+const isLikelyUrl = (value: string) =>
+  /^https?:\/\/|^tg:\/\//i.test(value);
 
 export default function AppSettingsManagement(): JSX.Element {
   const { userRole } = useAdmin();
@@ -34,6 +34,7 @@ export default function AppSettingsManagement(): JSX.Element {
     }
     return (
       data.supportTelegramUrl !== formValues.supportTelegramUrl ||
+      data.supportVkUrl !== formValues.supportVkUrl ||
       data.personalDataConsentUrl !== formValues.personalDataConsentUrl ||
       data.personalDataPolicyUrl !== formValues.personalDataPolicyUrl
     );
@@ -46,6 +47,9 @@ export default function AppSettingsManagement(): JSX.Element {
     const updates: Partial<AppSettings> = {};
     if (canEditSupportLink && data.supportTelegramUrl !== formValues.supportTelegramUrl) {
       updates.supportTelegramUrl = formValues.supportTelegramUrl.trim();
+    }
+    if (canEditSupportLink && data.supportVkUrl !== formValues.supportVkUrl) {
+      updates.supportVkUrl = formValues.supportVkUrl.trim();
     }
     if (canEditPolicyLinks && data.personalDataConsentUrl !== formValues.personalDataConsentUrl) {
       updates.personalDataConsentUrl = formValues.personalDataConsentUrl.trim();
@@ -88,7 +92,7 @@ export default function AppSettingsManagement(): JSX.Element {
 
       <div className="bg-white/10 border border-white/15 rounded-2xl p-5 space-y-4">
         <div className="space-y-2">
-          <p className="text-white/80 text-sm">Поддержка (Telegram ссылка)</p>
+          <p className="text-white/80 text-sm">Поддержка TG</p>
           <Input
             value={formValues.supportTelegramUrl}
             onChange={(event) =>
@@ -101,8 +105,27 @@ export default function AppSettingsManagement(): JSX.Element {
           {!canEditSupportLink && (
             <p className="text-xs text-white/50">Редактировать может только супер-админ</p>
           )}
-          {formValues.supportTelegramUrl && !isTelegramLinkLike(formValues.supportTelegramUrl) && (
-            <p className="text-xs text-red-300">Похоже на некорректную ссылку Telegram</p>
+          {formValues.supportTelegramUrl && !isLikelyUrl(formValues.supportTelegramUrl) && (
+            <p className="text-xs text-red-300">Похоже на некорректную ссылку</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-white/80 text-sm">Поддержка VK</p>
+          <Input
+            value={formValues.supportVkUrl}
+            onChange={(event) =>
+              setFormValues((prev) => ({ ...prev, supportVkUrl: event.target.value }))
+            }
+            disabled={!canEditSupportLink}
+            placeholder="https://vk.me/... или https://vk.com/..."
+            className="bg-white/10 border-white/20 text-white"
+          />
+          {!canEditSupportLink && (
+            <p className="text-xs text-white/50">Редактировать может только супер-админ</p>
+          )}
+          {formValues.supportVkUrl && !isLikelyUrl(formValues.supportVkUrl) && (
+            <p className="text-xs text-red-300">Похоже на некорректную ссылку</p>
           )}
         </div>
 

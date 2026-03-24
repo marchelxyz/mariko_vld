@@ -1,5 +1,6 @@
 import { getCartApiBaseUrl } from "@shared/api/cart";
 import { getInitData, getPlatform, getUser, getUserId } from "@/lib/platform";
+import { buildPlatformAuthHeaders } from "../platformAuth";
 
 export type DeliveryAccessMode = "list" | "all_on" | "all_off";
 
@@ -42,27 +43,17 @@ export async function fetchDeliveryAccessStatus(userIdOverride?: string): Promis
     search.set("vkId", platformUserId);
   }
 
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-  };
-  if (platform === "vk") {
-    const initData = getInitData();
-    if (initData) {
-      headers["X-VK-Init-Data"] = initData;
-    }
-    if (platformUserId) {
-      headers["X-VK-Id"] = platformUserId;
-    }
-  } else if (platform === "telegram") {
-    const initData = getInitData();
-    if (initData) {
-      headers["X-Telegram-Init-Data"] = initData;
-    }
-    const telegramId = platformUserId || userId;
-    if (telegramId) {
-      headers["X-Telegram-Id"] = telegramId;
-    }
-  }
+  const headers = buildPlatformAuthHeaders(
+    {
+      Accept: "application/json",
+    },
+    {
+      userId: platformUserId || userId,
+      includeInitData: Boolean(getInitData()),
+      platform,
+      webFallbackPlatform: "telegram",
+    },
+  );
 
   const response = await fetch(
     `${DELIVERY_ACCESS_ENDPOINT}${search.toString() ? `?${search.toString()}` : ""}`,

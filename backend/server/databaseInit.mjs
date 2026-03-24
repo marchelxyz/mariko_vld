@@ -110,7 +110,8 @@ const SCHEMAS = {
   admin_users: `
     CREATE TABLE IF NOT EXISTS admin_users (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      telegram_id BIGINT UNIQUE NOT NULL,
+      telegram_id BIGINT UNIQUE,
+      vk_id BIGINT UNIQUE,
       name VARCHAR(255) NOT NULL,
       role VARCHAR(50) NOT NULL DEFAULT 'admin' CHECK (
         role IN (
@@ -124,6 +125,9 @@ const SCHEMAS = {
         )
       ),
       permissions JSONB DEFAULT '{}'::jsonb,
+      CONSTRAINT admin_users_identity_check CHECK (
+        telegram_id IS NOT NULL OR vk_id IS NOT NULL
+      ),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
@@ -441,6 +445,7 @@ const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_cart_orders_created_at ON ${CART_ORDERS_TABLE}(created_at DESC);`,
   `CREATE INDEX IF NOT EXISTS idx_cart_orders_meta_telegram_user ON ${CART_ORDERS_TABLE} USING GIN (meta jsonb_path_ops);`,
   `CREATE INDEX IF NOT EXISTS idx_admin_users_telegram_id ON admin_users(telegram_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_admin_users_vk_id ON admin_users(vk_id);`,
   `CREATE INDEX IF NOT EXISTS idx_restaurant_integrations_restaurant_provider ON restaurant_integrations(restaurant_id, provider);`,
   `CREATE INDEX IF NOT EXISTS idx_integration_job_logs_provider_order_created_at ON integration_job_logs(provider, order_id, created_at DESC);`,
   `CREATE INDEX IF NOT EXISTS idx_app_error_logs_status_created_at ON app_error_logs(status, created_at DESC);`,
@@ -634,6 +639,30 @@ export async function initializeDatabase() {
       );
     } catch (error) {
       console.warn("⚠️  Не удалось обновить constraint ролей админов:", error?.message || error);
+    }
+
+    try {
+      await query(`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS vk_id BIGINT UNIQUE`);
+    } catch (error) {
+      console.warn("⚠️  Не удалось добавить поле vk_id в admin_users:", error?.message || error);
+    }
+
+    try {
+      await query(`ALTER TABLE admin_users ALTER COLUMN telegram_id DROP NOT NULL`);
+    } catch (error) {
+      console.warn("⚠️  Не удалось снять NOT NULL с admin_users.telegram_id:", error?.message || error);
+    }
+
+    try {
+      await query(`ALTER TABLE admin_users DROP CONSTRAINT IF EXISTS admin_users_identity_check`);
+      await query(
+        `ALTER TABLE admin_users
+         ADD CONSTRAINT admin_users_identity_check CHECK (
+           telegram_id IS NOT NULL OR vk_id IS NOT NULL
+         )`,
+      );
+    } catch (error) {
+      console.warn("⚠️  Не удалось обновить constraint идентификаторов admin_users:", error?.message || error);
     }
 
     // Миграция: сидируем матрицу прав ролей по умолчанию
@@ -1031,6 +1060,7 @@ export async function initializeDatabase() {
         `INSERT INTO app_settings (key, value)
          VALUES
            ('support_telegram_url', ''),
+           ('support_vk_url', ''),
            ('personal_data_consent_url', 'https://vhachapuri.ru/policy'),
            ('personal_data_policy_url', 'https://vhachapuri.ru/policy'),
            ('delivery_access_mode', 'list')
@@ -1304,6 +1334,7 @@ export async function initializeDatabase() {
         `INSERT INTO app_settings (key, value)
          VALUES
            ('support_telegram_url', ''),
+           ('support_vk_url', ''),
            ('personal_data_consent_url', 'https://vhachapuri.ru/policy'),
            ('personal_data_policy_url', 'https://vhachapuri.ru/policy'),
            ('delivery_access_mode', 'list')

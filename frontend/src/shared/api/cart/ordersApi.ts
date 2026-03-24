@@ -1,5 +1,6 @@
 import type { CartItem } from "@/contexts";
 import { getCartApiBaseUrl } from "./cartApi";
+import { buildPlatformAuthHeaders } from "../platformAuth";
 
 export type OrderStatus =
   | "processing"
@@ -47,6 +48,7 @@ type OrdersResponse = {
 
 export type FetchOrdersParams = {
   telegramId?: string;
+  vkId?: string;
   phone?: string;
   limit?: number;
   signal?: AbortSignal;
@@ -70,17 +72,21 @@ const CART_ORDERS_ENDPOINT = resolveOrdersEndpoint();
 const CART_USER_ORDERS_ENDPOINT = resolveUserOrdersEndpoint();
 
 export async function fetchMyOrders(params: FetchOrdersParams): Promise<CartOrderRecord[]> {
-  const { telegramId, phone, limit, signal } = params;
-  const hasIdentifier = Boolean(telegramId?.trim() || phone?.trim());
+  const { telegramId, vkId, phone, limit, signal } = params;
+  const hasIdentifier = Boolean(telegramId?.trim() || vkId?.trim() || phone?.trim());
 
   if (!hasIdentifier) {
-    throw new Error("Не хватает данных для поиска заказов (telegramId или телефон)");
+    throw new Error("Не хватает данных для поиска заказов (telegramId, vkId или телефон)");
   }
 
   const searchParams = new URLSearchParams();
   if (telegramId?.trim()) {
     searchParams.set("telegramId", telegramId.trim());
-  } else if (phone?.trim()) {
+  }
+  if (vkId?.trim()) {
+    searchParams.set("vkId", vkId.trim());
+  }
+  if (phone?.trim()) {
     searchParams.set("phone", phone.trim());
   }
 
@@ -89,7 +95,13 @@ export async function fetchMyOrders(params: FetchOrdersParams): Promise<CartOrde
   }
 
   const url = `${CART_ORDERS_ENDPOINT}?${searchParams.toString()}`;
-  const response = await fetch(url, { signal });
+  const response = await fetch(url, {
+    signal,
+    headers: buildPlatformAuthHeaders({}, {
+      userId: vkId?.trim() || telegramId?.trim(),
+      webFallbackPlatform: "telegram",
+    }),
+  });
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");
     throw new Error(errorText || "Не удалось получить список заказов");
@@ -100,16 +112,19 @@ export async function fetchMyOrders(params: FetchOrdersParams): Promise<CartOrde
 }
 
 export async function fetchMyOrdersWithStatus(params: FetchOrdersParams): Promise<CartOrderRecord[]> {
-  const { telegramId, phone, limit, signal } = params;
-  const hasIdentifier = Boolean(telegramId?.trim() || phone?.trim());
+  const { telegramId, vkId, phone, limit, signal } = params;
+  const hasIdentifier = Boolean(telegramId?.trim() || vkId?.trim() || phone?.trim());
 
   if (!hasIdentifier) {
-    throw new Error("Не хватает данных для поиска заказов (telegramId или телефон)");
+    throw new Error("Не хватает данных для поиска заказов (telegramId, vkId или телефон)");
   }
 
   const searchParams = new URLSearchParams();
   if (telegramId?.trim()) {
     searchParams.set("telegramId", telegramId.trim());
+  }
+  if (vkId?.trim()) {
+    searchParams.set("vkId", vkId.trim());
   }
   if (phone?.trim()) {
     searchParams.set("phone", phone.trim());
@@ -119,7 +134,13 @@ export async function fetchMyOrdersWithStatus(params: FetchOrdersParams): Promis
   }
 
   const url = `${CART_USER_ORDERS_ENDPOINT}?${searchParams.toString()}`;
-  const response = await fetch(url, { signal });
+  const response = await fetch(url, {
+    signal,
+    headers: buildPlatformAuthHeaders({}, {
+      userId: vkId?.trim() || telegramId?.trim(),
+      webFallbackPlatform: "telegram",
+    }),
+  });
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");
     throw new Error(errorText || "Не удалось получить список заказов");

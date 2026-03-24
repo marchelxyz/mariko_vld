@@ -54,11 +54,12 @@ export const mapProfileRowToClient = (row, fallbackId = "") => ({
   updatedAt: row?.updated_at ?? null,
 });
 
-export const buildDefaultProfile = (id, telegramId) =>
+export const buildDefaultProfile = (id, identity = {}) =>
   mapProfileRowToClient(
     {
       id,
-      telegram_id: telegramId ? Number(telegramId) : null,
+      telegram_id: identity.telegramId ? Number(identity.telegramId) : null,
+      vk_id: identity.vkId ? Number(identity.vkId) : null,
     },
     id,
   );

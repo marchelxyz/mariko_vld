@@ -3,8 +3,7 @@
  */
 
 import { getPlatform, getUser, getUserId } from "@/lib/platform";
-import { getTg } from "@/lib/telegramCore";
-import { getVk } from "@/lib/vkCore";
+import { buildPlatformAuthHeaders } from "@/shared/api/platformAuth";
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -32,8 +31,6 @@ interface LogEntry {
   telegramId?: string;
   vkId?: string;
 }
-
-const TELEGRAM_INIT_DATA_STORAGE_KEY = "mariko_tg_init_data";
 
 function serializeValue(value: unknown, depth = 0, seen = new WeakSet<object>()): unknown {
   if (value === null || value === undefined) {
@@ -83,54 +80,6 @@ function serializeValue(value: unknown, depth = 0, seen = new WeakSet<object>())
   return String(value);
 }
 
-function getTelegramInitData(): string | undefined {
-  const initData = getTg()?.initData;
-  if (initData && typeof initData === "string") {
-    try {
-      window.sessionStorage.setItem(TELEGRAM_INIT_DATA_STORAGE_KEY, initData);
-    } catch {
-      // ignore storage write errors
-    }
-    return initData;
-  }
-
-  if (typeof window === "undefined") {
-    return undefined;
-  }
-
-  try {
-    const fromUrl = new URLSearchParams(window.location.search).get("tgWebAppData");
-    if (fromUrl) {
-      window.sessionStorage.setItem(TELEGRAM_INIT_DATA_STORAGE_KEY, fromUrl);
-      return fromUrl;
-    }
-  } catch {
-    // ignore URL parse errors
-  }
-
-  try {
-    return window.sessionStorage.getItem(TELEGRAM_INIT_DATA_STORAGE_KEY) ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function getVkUserId(): string | undefined {
-  const vkUserId = getVk()?.initData?.vk_user_id;
-  if (vkUserId) {
-    return String(vkUserId);
-  }
-  if (typeof window === "undefined") {
-    return undefined;
-  }
-  try {
-    const paramId = new URLSearchParams(window.location.search).get("vk_user_id");
-    return paramId ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 class Logger {
   private sessionId: string;
   private userId?: string;
@@ -156,6 +105,7 @@ class Logger {
   private formatMessage(level: LogLevel, category: string, message: string, data?: unknown, error?: Error): LogEntry {
     const platform = getPlatform();
     const user = getUser();
+    const platformUserId = getUserId();
 
     return {
       timestamp: new Date().toISOString(),
@@ -178,8 +128,8 @@ class Logger {
       pathname: typeof window !== "undefined" ? window.location.pathname : undefined,
       pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
       userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
-      telegramId: platform === "telegram" ? getUserId() : undefined,
-      vkId: platform === "vk" ? getVkUserId() ?? getUserId() : undefined,
+      telegramId: platform === "telegram" ? platformUserId : undefined,
+      vkId: platform === "vk" ? platformUserId : undefined,
     };
   }
 
@@ -230,23 +180,18 @@ class Logger {
       const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
       const baseUrl = rawServerEnv ? rawServerEnv.replace(/\/$/, '') : '';
       const url = baseUrl ? `${baseUrl}/logs` : '/api/logs';
-      
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-
-      const telegramInitData = getTelegramInitData();
-      if (telegramInitData) {
-        headers['X-Telegram-Init-Data'] = telegramInitData;
-      }
-
-      if (entry.telegramId) {
-        headers['X-Telegram-Id'] = entry.telegramId;
-      }
-
-      if (entry.vkId) {
-        headers['X-VK-Id'] = entry.vkId;
-      }
+      const requestPlatform =
+        entry.platform === "telegram" || entry.platform === "vk" ? entry.platform : getPlatform();
+      const requestUserId = requestPlatform === "vk" ? entry.vkId : entry.telegramId;
+      const headers = buildPlatformAuthHeaders(
+        {
+          'Content-Type': 'application/json',
+        },
+        {
+          platform: requestPlatform,
+          userId: requestUserId,
+        },
+      );
 
       await fetch(url, {
         method: 'POST',
