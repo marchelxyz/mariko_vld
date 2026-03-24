@@ -28,41 +28,46 @@ export function verifyVKInitData(rawInitData) {
   }
 
   try {
-    const params = new URLSearchParams(rawInitData);
+    const params = new URLSearchParams(
+      String(rawInitData).startsWith("?") ? String(rawInitData).slice(1) : String(rawInitData),
+    );
     const receivedSign = params.get("sign");
-    
+
     if (!receivedSign) {
       console.warn("[vkAuth] Параметр 'sign' отсутствует в initData");
       return null;
     }
 
-    // Удаляем sign из параметров для проверки
-    params.delete("sign");
-
-    // Сортируем параметры по ключу и создаём строку для проверки
+    // В подписи участвуют только launch params с префиксом vk_.
     const dataCheckString = Array.from(params.entries())
+      .filter(([key]) => key.startsWith("vk_"))
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, value]) => `${key}=${value}`)
-      .join("\n");
+      .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+      .join("&");
 
-    // Вычисляем HMAC-SHA256
-    // VK использует защищённый ключ напрямую (не через WebAppData как Telegram)
+    if (!dataCheckString) {
+      console.warn("[vkAuth] В initData отсутствуют параметры vk_* для проверки подписи");
+      return null;
+    }
+
     const secretKey = Buffer.from(VK_SECRET_KEY, "utf-8");
     const calculatedSign = crypto
       .createHmac("sha256", secretKey)
       .update(dataCheckString)
-      .digest("hex");
+      .digest("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/g, "");
 
-    // Сравниваем подписи (без учёта регистра, так как VK может возвращать в разных форматах)
-    if (calculatedSign.toLowerCase() !== receivedSign.toLowerCase()) {
+    if (calculatedSign !== receivedSign) {
       console.warn("[vkAuth] Подпись не совпадает", {
-        calculated: calculatedSign,
-        received: receivedSign,
+        hasSign: true,
+        signLength: receivedSign.length,
+        vkParamsCount: dataCheckString.split("&").length,
       });
       return null;
     }
 
-    // Если проверка прошла, возвращаем распарсенные данные
     return parseVKInitData(rawInitData);
   } catch (error) {
     console.error("[vkAuth] Ошибка проверки VK initData:", error);
