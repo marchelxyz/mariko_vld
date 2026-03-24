@@ -3086,6 +3086,30 @@ open "http://127.0.0.1:4174/?smoke_platform=vk&smoke_role=admin#/admin"
 
 **Связанный commit:** `1a97444`, последующий hardening после аудита от `2026-03-25`
 
+### ❌ Проблема: test admin runtime падал внутри `GET /admin/orders` из-за отсутствующего импорта `ORDER_STATUS_VALUES`
+
+**Дата:** 2026-03-25
+**Симптомы:**
+- в test mini app часть admin-экранов начинала вести себя нестабильно после открытия;
+- в логах backend появлялся runtime crash:
+  - `ReferenceError: ORDER_STATUS_VALUES is not defined`
+- падение происходило внутри `backend/server/routes/adminRoutes.mjs` на маршруте `GET /admin/orders`.
+
+**Причина:**
+- в `adminRoutes.mjs` использовался `ORDER_STATUS_VALUES`, но он не был импортирован из `backend/server/config.mjs`;
+- из-за этого при реальном выполнении фильтра по статусам маршрут падал уже на сервере.
+
+**Решение:**
+- добавить импорт `ORDER_STATUS_VALUES` в `backend/server/routes/adminRoutes.mjs`;
+- перепроверить `node --check` и повторно выкатить только в `test`.
+
+**Проверка:**
+- `node --check backend/server/routes/adminRoutes.mjs`
+- открыть test mini app и убедиться, что в Timeweb логах больше нет `ReferenceError: ORDER_STATUS_VALUES is not defined`
+- проверить, что админские экраны не валятся из-за backend runtime error после открытия
+
+**Связанный commit:** `855bd8b`, последующий фикс от `2026-03-25`
+
 ---
 
 ## См. также
@@ -3097,5 +3121,5 @@ open "http://127.0.0.1:4174/?smoke_platform=vk&smoke_role=admin#/admin"
 
 ---
 
-**Последнее обновление:** 2026-03-25 01:18
+**Последнее обновление:** 2026-03-25 01:25
 **Автор:** Codex (GPT-5)

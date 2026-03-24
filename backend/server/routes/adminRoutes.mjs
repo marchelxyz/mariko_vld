@@ -3,6 +3,7 @@ import { ensureDatabase, queryMany, queryOne, query } from "../postgresClient.mj
 import {
   CART_ORDERS_TABLE,
   ADMIN_ROLE_VALUES,
+  ORDER_STATUS_VALUES,
 } from "../config.mjs";
 import {
   authoriseAdmin,
