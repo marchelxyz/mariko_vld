@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-23 00:33
+**Последнее обновление:** 2026-03-24 18:59
 
 ---
 
@@ -1524,6 +1524,58 @@ curl -H "X-Telegram-Id: 577222108" \
 - `role-permissions` отвечает `200` для супер-админа (или `401` без авторизации).
 
 **Связанный commit:** `N/A` (операционные изменения env/deploy в TimeWeb)
+
+---
+
+### ❌ Проблема: TG mini app падает из-за деградации подключения к Postgres (`EAI_AGAIN`/timeout), хотя `/tg/api/health` показывает `database: true`
+
+**Дата:** 2026-03-24
+**Симптомы:**
+- бот и mini app визуально "ломаются" одновременно: в mini app не грузятся города, профиль, корзина и доступ к доставке;
+- в server logs массово повторяются ошибки по хосту Postgres вида:
+  - `getaddrinfo EAI_AGAIN 6523d05839239485c7996ff2.twc1.net`
+  - `Connection terminated due to connection timeout`
+  - `timeout exceeded when trying to connect`
+- в логах падают конкретные пользовательские маршруты:
+  - `GET /api/cities/active -> 500`
+  - загрузка профиля
+  - проверка доступа к доставке
+  - получение корзины
+- публичный health при этом может отвечать `{"status":"ok","database":true}`, хотя БД фактически недоступна.
+
+**Причина:**
+- backend создаёт объект пула `pg`, поэтому `healthPayload()` считает `database: true`, даже если живое подключение к Postgres уже не работает;
+- фактическая проблема находится на сетевом слое Timeweb/контейнера или DNS-резолвинге хоста Postgres (`*.twc1.net`);
+- после начальной фазы `EAI_AGAIN` деградация переходит в таймауты коннекта, то есть приложение уже не может стабильно ни зарезолвить, ни открыть соединение с БД.
+
+**Решение:**
+1. Не ориентироваться только на `/tg/api/health`; проверять реальный публичный маршрут, который ходит в БД:
+```bash
+curl -i https://tg.marikorest.ru/tg/api/cities/active
+```
+2. Если на маршрутах виден `EAI_AGAIN`, выполнить runtime DNS-фикс через debug-роут с секретом:
+```bash
+curl -X POST \
+  -H "X-DB-Admin-Key: ${DB_ADMIN_ROUTE_SECRET_KEY}" \
+  "https://tg.marikorest.ru/tg/api/db/fix-dns"
+```
+3. Если после DNS-фикса ошибки сменились на `Connection terminated due to connection timeout` или `timeout exceeded when trying to connect`, перезапустить/перекатить TG-приложение в Timeweb: контейнер уже в деградировавшем состоянии.
+4. Если после рестарта проблема возвращается, эскалировать в Timeweb как сетевую проблему доступа контейнера к хосту Postgres `*.twc1.net`.
+5. Отдельно для кода: заменить health-проверку с `Boolean(db)` на реальный `SELECT 1` / `checkConnection()`, чтобы такие сбои не маскировались.
+
+**Проверка:**
+```bash
+curl https://tg.marikorest.ru/tg/api/health
+curl -i https://tg.marikorest.ru/tg/api/cities/active
+curl -H "X-DB-Admin-Key: ${DB_ADMIN_ROUTE_SECRET_KEY}" \
+  https://tg.marikorest.ru/tg/api/db/check
+```
+Ожидаемо:
+- `cities/active` отвечает `200`, а не `500`;
+- `/api/db/check` отвечает `success: true`;
+- в логах больше нет `EAI_AGAIN`, `Connection terminated due to connection timeout`, `timeout exceeded when trying to connect`.
+
+**Связанный commit:** нет (операционный инцидент)
 
 ---
 

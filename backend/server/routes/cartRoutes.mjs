@@ -1,4 +1,4 @@
-import { db, ensureDatabase } from "../postgresClient.mjs";
+import { checkConnection, db, ensureDatabase } from "../postgresClient.mjs";
 import { CART_ORDERS_TABLE, MAX_ORDERS_LIMIT } from "../config.mjs";
 import { queryMany, queryOne, query } from "../postgresClient.mjs";
 import {
@@ -15,7 +15,10 @@ import { normaliseNullableString } from "../utils.mjs";
 import { addressService } from "../services/addressService.mjs";
 import { verifyVKInitData, getVKUserIdFromInitData } from "../utils/vkAuth.mjs";
 
-const healthPayload = () => ({ status: "ok", database: Boolean(db) });
+const healthPayload = async () => ({
+  status: "ok",
+  database: db ? await checkConnection() : false,
+});
 
 const getTelegramIdFromHeaders = (req) => {
   const raw = req.get("x-telegram-id");
@@ -162,16 +165,16 @@ const resolveCanonicalProfileId = async ({ requestedId, telegramId, vkId }) => {
 };
 
 export function registerCartRoutes(app) {
-  app.get("/health", (req, res) => {
-    res.json(healthPayload());
+  app.get("/health", async (req, res) => {
+    res.json(await healthPayload());
   });
 
-  app.get("/api/health", (req, res) => {
-    res.json(healthPayload());
+  app.get("/api/health", async (req, res) => {
+    res.json(await healthPayload());
   });
 
-  app.get("/api/cart/health", (req, res) => {
-    res.json(healthPayload());
+  app.get("/api/cart/health", async (req, res) => {
+    res.json(await healthPayload());
   });
 
   app.get("/api/cart/settings", async (req, res) => {

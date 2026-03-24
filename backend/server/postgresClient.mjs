@@ -60,6 +60,36 @@ if (DATABASE_URL) {
 
 export const db = pool;
 
+const TRANSIENT_DB_ERROR_CODES = new Set([
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "EHOSTUNREACH",
+  "ENOTFOUND",
+  "ETIMEDOUT",
+]);
+
+const TRANSIENT_DB_ERROR_MESSAGES = [
+  /connection terminated due to connection timeout/i,
+  /connection terminated unexpectedly/i,
+  /getaddrinfo\s+eai_again/i,
+  /timeout exceeded when trying to connect/i,
+];
+
+const isTransientDatabaseConnectionError = (error) => {
+  const code = typeof error?.code === "string" ? error.code.toUpperCase() : "";
+  if (TRANSIENT_DB_ERROR_CODES.has(code)) {
+    return true;
+  }
+
+  const message = typeof error?.message === "string" ? error.message : "";
+  if (TRANSIENT_DB_ERROR_MESSAGES.some((pattern) => pattern.test(message))) {
+    return true;
+  }
+
+  const causeMessage = typeof error?.cause?.message === "string" ? error.cause.message : "";
+  return TRANSIENT_DB_ERROR_MESSAGES.some((pattern) => pattern.test(causeMessage));
+};
+
 /**
  * Закрывает пул подключений к базе данных
  */
@@ -134,17 +164,11 @@ export const query = async (text, params, retries = 1) => {
       lastError = error;
       
       // Если это ошибка подключения и есть попытки, ждем и повторяем
-      if (
-        (error.code === "ETIMEDOUT" || 
-         error.code === "ECONNREFUSED" || 
-         error.code === "ENOTFOUND" ||
-         error.code === "EHOSTUNREACH") &&
-        attempt < retries
-      ) {
+      if (isTransientDatabaseConnectionError(error) && attempt < retries) {
         const waitTime = (attempt + 1) * 1000; // Экспоненциальная задержка
         console.warn(
           `⚠️ Ошибка подключения к БД (попытка ${attempt + 1}/${retries + 1}). Повтор через ${waitTime}мс...`,
-          { code: error.code, message: error.message }
+          { code: error?.code, message: error?.message }
         );
         await new Promise((resolve) => setTimeout(resolve, waitTime));
         continue;
