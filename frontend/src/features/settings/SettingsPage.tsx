@@ -6,7 +6,6 @@ import { Button } from "@shared/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { useProfile } from "@/entities/user";
 import { useAppSettings } from "@/hooks";
-import { profileApi } from "@/shared/api/profile";
 import { resolveSupportUrl } from "@/shared/api/settings";
 import { cn } from "@shared/utils";
 import { useOnboardingContext } from "@/contexts/OnboardingContext";
@@ -14,7 +13,7 @@ import { getPlatform, safeOpenLink } from "@/lib/platform";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
-  const { profile, reload: refetchProfile } = useProfile();
+  const { profile, reload: refetchProfile, updateProfile } = useProfile();
   const { settings } = useAppSettings();
   const platform = getPlatform();
   const { setOnboardingTourShown } = useOnboardingContext();
@@ -101,10 +100,13 @@ export default function SettingsPage() {
   const handleRevokePolicyConsent = async () => {
     setIsProcessing(true);
     try {
-      await profileApi.updateUserProfile(profile.id, {
+      const success = await updateProfile({
         personalDataPolicyConsentGiven: false,
         personalDataPolicyConsentDate: null,
       });
+      if (!success) {
+        throw new Error("Не удалось обновить профиль");
+      }
       toast({
         title: "Согласие отозвано",
         description:
@@ -128,10 +130,13 @@ export default function SettingsPage() {
   const handleGivePolicyConsent = async () => {
     setIsProcessing(true);
     try {
-      await profileApi.updateUserProfile(profile.id, {
+      const success = await updateProfile({
         personalDataPolicyConsentGiven: true,
         personalDataPolicyConsentDate: new Date().toISOString(),
       });
+      if (!success) {
+        throw new Error("Не удалось обновить профиль");
+      }
       toast({
         title: "Согласие дано",
         description: "Согласие с политикой обработки персональных данных сохранено",
@@ -152,10 +157,13 @@ export default function SettingsPage() {
     setIsProcessing(true);
     try {
       // Отзываем согласие на обработку данных
-      await profileApi.updateUserProfile(profile.id, {
+      const success = await updateProfile({
         personalDataConsentGiven: false,
         personalDataConsentDate: null,
       });
+      if (!success) {
+        throw new Error("Не удалось обновить профиль");
+      }
       
       toast({
         title: "Согласие отозвано",
@@ -179,10 +187,13 @@ export default function SettingsPage() {
     setIsProcessing(true);
     try {
       // Даем согласие на обработку данных
-      await profileApi.updateUserProfile(profile.id, {
+      const success = await updateProfile({
         personalDataConsentGiven: true,
         personalDataConsentDate: new Date().toISOString(),
       });
+      if (!success) {
+        throw new Error("Не удалось обновить профиль");
+      }
       
       toast({
         title: "Согласие дано",

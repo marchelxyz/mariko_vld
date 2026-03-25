@@ -308,6 +308,9 @@ export function registerCartRoutes(app) {
     const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getVerifiedTelegramIdFromHeaders(req);
     const headerVkId = getVerifiedVkIdFromHeaders(req);
+    const incomingVkId = body.vkId ?? headerVkId ?? undefined;
+    const incomingTelegramId =
+      body.telegramId ?? headerTelegramId ?? (incomingVkId ? undefined : body.id);
     try {
       const effectiveId = await resolveCanonicalProfileId({
         requestedId:
@@ -315,15 +318,16 @@ export function registerCartRoutes(app) {
           headerUserId ||
           (typeof body.telegramId === "string" && body.telegramId.trim()) ||
           (typeof body.vkId === "string" && body.vkId.trim()),
-        telegramId: body.telegramId ?? headerTelegramId,
-        vkId: body.vkId ?? headerVkId,
+        telegramId: incomingTelegramId,
+        vkId: incomingVkId,
       });
       if (!effectiveId) {
         return res.status(400).json({ success: false, message: "Не удалось определить пользователя" });
       }
       const row = await upsertUserProfileRecord({
         id: effectiveId,
-        telegramId: body.telegramId ?? headerTelegramId ?? body.id,
+        telegramId: incomingTelegramId,
+        vkId: incomingVkId,
         name: body.name,
         phone: body.phone ?? body.customerPhone,
         primaryAddressId: body.primaryAddressId,
@@ -412,20 +416,24 @@ export function registerCartRoutes(app) {
     const headerUserId = getUserIdFromHeaders(req);
     const headerTelegramId = getVerifiedTelegramIdFromHeaders(req);
     const headerVkId = getVerifiedVkIdFromHeaders(req);
+    const incomingVkId = body.vkId ?? headerVkId ?? undefined;
     try {
       const effectiveId = await resolveCanonicalProfileId({
         requestedId: normaliseNullableString(body.id) ?? headerUserId,
         telegramId: body.telegramId ?? headerTelegramId,
-        vkId: body.vkId ?? headerVkId,
+        vkId: incomingVkId,
       });
       if (!effectiveId) {
         return res
           .status(400)
           .json({ success: false, message: "Передайте ID пользователя для обновления" });
       }
+      const incomingTelegramId =
+        body.telegramId ?? headerTelegramId ?? (incomingVkId ? undefined : effectiveId);
       const row = await upsertUserProfileRecord({
         id: effectiveId,
-        telegramId: body.telegramId ?? headerTelegramId ?? effectiveId,
+        telegramId: incomingTelegramId,
+        vkId: incomingVkId,
         name: body.name,
         phone: body.phone,
         primaryAddressId: body.primaryAddressId,

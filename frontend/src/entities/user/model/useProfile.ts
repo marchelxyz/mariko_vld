@@ -4,6 +4,10 @@ import type { UserProfile } from "@shared/types";
 import { getUser, getUserAsync, getUserId, storage, getPlatform } from "@/lib/platform";
 
 const inflightProfileRequests = new Map<string, Promise<UserProfile>>();
+const PLACEHOLDER_PROFILE_IDS = new Set(["", "default", "demo_user", "anonymous", "null", "undefined"]);
+
+const isPlaceholderProfileId = (value: unknown): boolean =>
+  PLACEHOLDER_PROFILE_IDS.has(String(value ?? "").trim().toLowerCase());
 
 const getUserProfileShared = (userId: string): Promise<UserProfile> => {
   const existing = inflightProfileRequests.get(userId);
@@ -27,7 +31,7 @@ const resolveUserId = (): string => {
     return resolvedPlatformUserId;
   }
   const platform = getPlatform();
-  if (platform === "telegram") {
+  if (platform === "telegram" || platform === "vk") {
     return "";
   }
   return "demo_user";
@@ -294,8 +298,8 @@ export const useProfile = () => {
       const updatedProfile = { ...profile, ...restUpdates, photo: resolvedPhoto };
 
       // Используем правильный userId
-      const resolvedUserId = userId || resolveUserId();
-      if (!resolvedUserId) {
+      const resolvedUserId = !isPlaceholderProfileId(userId) ? userId : resolveUserId();
+      if (!resolvedUserId || isPlaceholderProfileId(resolvedUserId)) {
         setError("Не удалось определить пользователя");
         return false;
       }
