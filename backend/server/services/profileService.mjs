@@ -4,6 +4,45 @@ import { normaliseNullableString, normalisePhone, normaliseTelegramId } from "..
 export const PROFILE_SELECT_FIELDS =
   "id,name,phone,birth_date,gender,photo,telegram_id,vk_id,notifications_enabled,onboarding_tour_shown,personal_data_consent_given,personal_data_consent_date,personal_data_policy_consent_given,personal_data_policy_consent_date,is_banned,banned_at,banned_reason,favorite_city_id,favorite_city_name,favorite_restaurant_id,favorite_restaurant_name,favorite_restaurant_address,primary_address_id,last_address_text,last_address_lat,last_address_lon,last_address_updated_at,created_at,updated_at";
 
+const PROFILE_UUID_REGEXP =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const normaliseProfileIdentifier = (value) => {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  return String(value).trim();
+};
+
+const normalisePlatformNumericId = (value) => {
+  const normalized = normaliseProfileIdentifier(value);
+  if (!normalized) {
+    return null;
+  }
+  const numeric = Number(normalized);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const fetchUserProfileByIdValue = async (id) => {
+  const normalizedId = normaliseProfileIdentifier(id);
+  if (!normalizedId) {
+    return null;
+  }
+  return queryOne(`SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles WHERE id = $1 LIMIT 1`, [
+    normalizedId,
+  ]);
+};
+
+const fetchUserProfileByField = async (field, value) => {
+  const numeric = normalisePlatformNumericId(value);
+  if (numeric === null) {
+    return null;
+  }
+  return queryOne(`SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles WHERE ${field} = $1 LIMIT 1`, [
+    numeric,
+  ]);
+};
+
 export const mapProfileRowToClient = (row, fallbackId = "") => ({
   id: row?.id ?? fallbackId,
   name: row?.name ?? "",
@@ -202,49 +241,58 @@ export const upsertUserProfileRecord = async (input) => {
 };
 
 export const fetchUserProfile = async (identifier) => {
+  return fetchUserProfileByIdentity({ identifier });
+};
+
+export const fetchUserProfileByIdentity = async ({
+  platform = null,
+  identifier = null,
+  profileId = null,
+  telegramId = null,
+  vkId = null,
+} = {}) => {
   if (!db) {
     return null;
   }
   try {
-    const asString = identifier ? String(identifier) : "";
-    const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(asString);
-    
-    if (looksLikeUuid) {
-      const result = await queryOne(
-        `SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles WHERE id = $1 LIMIT 1`,
-        [asString],
-      );
-      if (result) {
-        return result;
+    const normalizedPlatform = platform === "telegram" || platform === "vk" ? platform : null;
+    const normalizedIdentifier = normaliseProfileIdentifier(identifier);
+    const normalizedProfileId = normaliseProfileIdentifier(profileId);
+    const directProfileId = normalizedProfileId || normalizedIdentifier;
+
+    if (directProfileId && PROFILE_UUID_REGEXP.test(directProfileId)) {
+      const byId = await fetchUserProfileByIdValue(directProfileId);
+      if (byId) {
+        return byId;
       }
     }
 
-    const numeric = Number(asString);
-    if (Number.isFinite(numeric)) {
-      // Сначала ищем по telegram_id
-      const telegramResult = await queryOne(
-        `SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles WHERE telegram_id = $1 LIMIT 1`,
-        [numeric],
-      );
+    const telegramCandidate = telegramId ?? normalizedIdentifier;
+    const vkCandidate = vkId ?? normalizedIdentifier;
+
+    if (normalizedPlatform === "telegram") {
+      return fetchUserProfileByField("telegram_id", telegramCandidate);
+    }
+
+    if (normalizedPlatform === "vk") {
+      return fetchUserProfileByField("vk_id", vkCandidate);
+    }
+
+    const numericIdentifier = normalisePlatformNumericId(normalizedIdentifier);
+    if (numericIdentifier !== null) {
+      const telegramResult = await fetchUserProfileByField("telegram_id", numericIdentifier);
       if (telegramResult) {
         return telegramResult;
       }
-      
-      // Если не найдено, ищем по vk_id
-      const vkResult = await queryOne(
-        `SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles WHERE vk_id = $1 LIMIT 1`,
-        [numeric],
-      );
+
+      const vkResult = await fetchUserProfileByField("vk_id", numericIdentifier);
       if (vkResult) {
         return vkResult;
       }
     }
 
-    if (asString) {
-      const idMatch = await queryOne(
-        `SELECT ${PROFILE_SELECT_FIELDS} FROM user_profiles WHERE id = $1 LIMIT 1`,
-        [asString],
-      );
+    if (normalizedIdentifier) {
+      const idMatch = await fetchUserProfileByIdValue(normalizedIdentifier);
       if (idMatch) {
         return idMatch;
       }

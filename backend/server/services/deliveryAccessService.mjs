@@ -1,5 +1,5 @@
 import { db, query, queryOne, queryMany } from "../postgresClient.mjs";
-import { fetchUserProfile } from "./profileService.mjs";
+import { fetchUserProfile, fetchUserProfileByIdentity } from "./profileService.mjs";
 import { normaliseNullableString, normaliseTelegramId } from "../utils.mjs";
 
 export const DELIVERY_ACCESS_MODE = {
@@ -93,12 +93,12 @@ export const setDeliveryAccessForAll = async (enabled) => {
   return setDeliveryAccessMode(mode);
 };
 
-export const setUserDeliveryAccess = async ({ userId, enabled, grantedByTelegramId }) => {
+export const setUserDeliveryAccess = async ({ userId, enabled, grantedByTelegramId, platform = null }) => {
   if (!db) {
     return null;
   }
 
-  const profile = await fetchUserProfile(userId);
+  const profile = await fetchUserProfileByIdentity({ platform, identifier: userId });
   if (!profile?.id) {
     return null;
   }

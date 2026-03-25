@@ -19,7 +19,10 @@ import {
   listKnownAdminPermissions,
   upsertRolePermissions,
 } from "../services/adminService.mjs";
-import { listUserProfiles, fetchUserProfile } from "../services/profileService.mjs";
+import {
+  listUserProfiles,
+  fetchUserProfileByIdentity,
+} from "../services/profileService.mjs";
 import { enqueueBookingNotification } from "../services/bookingNotificationService.mjs";
 import {
   getAppSettings,
@@ -59,6 +62,35 @@ const buildAdminSeenKeys = (user) =>
     user?.telegramId ? `tg:${user.telegramId}` : null,
     user?.vkId ? `vk:${user.vkId}` : null,
   ].filter(Boolean);
+
+const normaliseAdminPlatform = (value) =>
+  value === "telegram" || value === "vk" ? value : null;
+
+const pickProfileAdminRecordForPlatform = ({
+  platform,
+  profile,
+  recordById,
+  recordByTelegram,
+  recordByVk,
+}) => {
+  const telegramId = profile?.telegram_id ? String(profile.telegram_id) : null;
+  const vkId = profile?.vk_id ? String(profile.vk_id) : null;
+
+  if (platform === "telegram") {
+    return (telegramId && recordByTelegram.get(telegramId)) || null;
+  }
+
+  if (platform === "vk") {
+    return (vkId && recordByVk.get(vkId)) || null;
+  }
+
+  return (
+    (telegramId && recordByTelegram.get(telegramId)) ||
+    (vkId && recordByVk.get(vkId)) ||
+    recordById.get(profile?.id) ||
+    null
+  );
+};
 
 const formatBookingDate = (value) => {
   if (!value) return "Дата не указана";
@@ -237,15 +269,19 @@ export function createAdminRouter() {
       }
     });
 
-    const result = profiles.map((profile) => {
-      const telegramId = profile.telegram_id ? String(profile.telegram_id) : null;
-      const vkId = profile.vk_id ? String(profile.vk_id) : null;
-      const record =
-        (telegramId && recordByTelegram.get(telegramId)) ||
-        (vkId && recordByVk.get(vkId)) ||
-        recordById.get(profile.id);
-      return buildUserWithRole(profile, record ?? null);
-    });
+    const currentPlatform = normaliseAdminPlatform(admin.platform);
+    const result = profiles.map((profile) =>
+      buildUserWithRole(
+        profile,
+        pickProfileAdminRecordForPlatform({
+          platform: currentPlatform,
+          profile,
+          recordById,
+          recordByTelegram,
+          recordByVk,
+        }),
+      ),
+    );
 
     // Добавляем админов без профиля (например, созданных вручную)
     const seenKeys = new Set(result.flatMap((user) => buildAdminSeenKeys(user)));
@@ -495,6 +531,7 @@ export function createAdminRouter() {
         userId,
         enabled,
         grantedByTelegramId: admin.telegramId,
+        platform: normaliseAdminPlatform(admin.platform),
       });
       if (!updated) {
         return res.status(404).json({ success: false, message: "Пользователь не найден" });
@@ -625,24 +662,30 @@ export function createAdminRouter() {
       return;
     }
     const userIdentifier = req.params.userId;
+    const targetPlatform = normaliseAdminPlatform(admin.platform);
     const { role: incomingRole, allowedRestaurants = [], name: overrideName } = req.body ?? {};
     if (!incomingRole || !ADMIN_ROLE_VALUES.has(incomingRole)) {
       return res.status(400).json({ success: false, message: "Некорректная роль" });
     }
-    const profile = await fetchUserProfile(userIdentifier);
+    const profile = await fetchUserProfileByIdentity({ platform: targetPlatform, identifier: userIdentifier });
     const directAdminRecord = profile ? null : await fetchAdminRecordById(userIdentifier);
+    const fallbackPlatformId = normaliseAdminExternalId(userIdentifier);
     const telegramId = profile?.telegram_id
       ? String(profile.telegram_id)
       : directAdminRecord?.telegram_id
         ? String(directAdminRecord.telegram_id)
-        : normaliseAdminExternalId(userIdentifier);
+        : targetPlatform === "telegram"
+          ? fallbackPlatformId
+          : null;
     const vkId = profile?.vk_id
       ? String(profile.vk_id)
       : directAdminRecord?.vk_id
         ? String(directAdminRecord.vk_id)
-        : null;
+        : targetPlatform === "vk"
+          ? fallbackPlatformId
+          : null;
     const existingAdminRecord =
-      directAdminRecord ?? (await fetchAdminRecordByIdentity({ telegramId, vkId }));
+      directAdminRecord ?? (await fetchAdminRecordByIdentity({ platform: targetPlatform, telegramId, vkId }));
     if (!profile && !existingAdminRecord && !telegramId && !vkId) {
       return res.status(404).json({ success: false, message: "Пользователь не найден" });
     }
@@ -783,7 +826,10 @@ export function createAdminRouter() {
     if (typeof isBanned !== "boolean") {
       return res.status(400).json({ success: false, message: "Некорректный статус блокировки" });
     }
-    const profile = await fetchUserProfile(userIdentifier);
+    const profile = await fetchUserProfileByIdentity({
+      platform: normaliseAdminPlatform(admin.platform),
+      identifier: userIdentifier,
+    });
     if (!profile?.id) {
       return res.status(404).json({ success: false, message: "Пользователь не найден" });
     }
