@@ -3,7 +3,7 @@ import { CART_ORDERS_TABLE, MAX_ORDERS_LIMIT } from "../config.mjs";
 import { queryMany, queryOne, query } from "../postgresClient.mjs";
 import {
   upsertUserProfileRecord,
-  fetchUserProfile,
+  fetchUserProfileByIdentity,
   buildDefaultProfile,
   mapProfileRowToClient,
 } from "../services/profileService.mjs";
@@ -161,10 +161,32 @@ const fetchRestaurantDeliveryState = async (restaurantId) => {
   };
 };
 
-const resolveCanonicalProfileId = async ({ requestedId, telegramId, vkId }) => {
+const resolveProfilePlatform = ({ telegramId, vkId, requestedPlatform = null } = {}) => {
+  if (requestedPlatform === "telegram" || requestedPlatform === "vk") {
+    return requestedPlatform;
+  }
+  if (normaliseNullableString(vkId)) {
+    return "vk";
+  }
+  if (normaliseNullableString(telegramId)) {
+    return "telegram";
+  }
+  return null;
+};
+
+const resolveCanonicalProfileId = async ({ requestedId, telegramId, vkId, platform = null }) => {
+  const normalizedPlatform = resolveProfilePlatform({
+    telegramId,
+    vkId,
+    requestedPlatform: platform,
+  });
   const normalizedTelegramId = normaliseNullableString(telegramId);
   if (normalizedTelegramId) {
-    const existingByTelegram = await fetchUserProfile(normalizedTelegramId);
+    const existingByTelegram = await fetchUserProfileByIdentity({
+      platform: "telegram",
+      identifier: normalizedTelegramId,
+      telegramId: normalizedTelegramId,
+    });
     if (existingByTelegram?.id) {
       return String(existingByTelegram.id);
     }
@@ -173,14 +195,31 @@ const resolveCanonicalProfileId = async ({ requestedId, telegramId, vkId }) => {
 
   const normalizedVkId = normaliseNullableString(vkId);
   if (normalizedVkId) {
-    const existingByVk = await fetchUserProfile(normalizedVkId);
+    const existingByVk = await fetchUserProfileByIdentity({
+      platform: "vk",
+      identifier: normalizedVkId,
+      vkId: normalizedVkId,
+    });
     if (existingByVk?.id) {
       return String(existingByVk.id);
     }
     return normalizedVkId;
   }
 
-  return normaliseNullableString(requestedId) ?? "";
+  const normalizedRequestedId = normaliseNullableString(requestedId);
+  if (normalizedPlatform && normalizedRequestedId) {
+    const existingByPlatform = await fetchUserProfileByIdentity({
+      platform: normalizedPlatform,
+      identifier: normalizedRequestedId,
+      telegramId: normalizedPlatform === "telegram" ? normalizedRequestedId : null,
+      vkId: normalizedPlatform === "vk" ? normalizedRequestedId : null,
+    });
+    if (existingByPlatform?.id) {
+      return String(existingByPlatform.id);
+    }
+  }
+
+  return normalizedRequestedId ?? "";
 };
 
 export function registerCartRoutes(app) {
@@ -312,6 +351,10 @@ export function registerCartRoutes(app) {
     const incomingTelegramId =
       body.telegramId ?? headerTelegramId ?? (incomingVkId ? undefined : body.id);
     try {
+      const effectivePlatform = resolveProfilePlatform({
+        telegramId: incomingTelegramId,
+        vkId: incomingVkId,
+      });
       const effectiveId = await resolveCanonicalProfileId({
         requestedId:
           (typeof body.id === "string" && body.id.trim()) ||
@@ -320,6 +363,7 @@ export function registerCartRoutes(app) {
           (typeof body.vkId === "string" && body.vkId.trim()),
         telegramId: incomingTelegramId,
         vkId: incomingVkId,
+        platform: effectivePlatform,
       });
       if (!effectiveId) {
         return res.status(400).json({ success: false, message: "Не удалось определить пользователя" });
@@ -389,7 +433,15 @@ export function registerCartRoutes(app) {
         .json({ success: false, message: "Передайте Telegram ID, VK ID или userId пользователя" });
     }
     try {
-      const row = await fetchUserProfile(requestedId);
+      const row = await fetchUserProfileByIdentity({
+        platform: resolveProfilePlatform({
+          telegramId: headerTelegramId,
+          vkId: headerVkId,
+        }),
+        identifier: requestedId,
+        telegramId: headerTelegramId,
+        vkId: headerVkId,
+      });
       if (row) {
         return res.json({ success: true, profile: mapProfileRowToClient(row, requestedId) });
       }
@@ -418,10 +470,15 @@ export function registerCartRoutes(app) {
     const headerVkId = getVerifiedVkIdFromHeaders(req);
     const incomingVkId = body.vkId ?? headerVkId ?? undefined;
     try {
+      const effectivePlatform = resolveProfilePlatform({
+        telegramId: body.telegramId ?? headerTelegramId,
+        vkId: incomingVkId,
+      });
       const effectiveId = await resolveCanonicalProfileId({
         requestedId: normaliseNullableString(body.id) ?? headerUserId,
         telegramId: body.telegramId ?? headerTelegramId,
         vkId: incomingVkId,
+        platform: effectivePlatform,
       });
       if (!effectiveId) {
         return res
@@ -498,7 +555,15 @@ export function registerCartRoutes(app) {
         .json({ success: false, message: "Передайте VK ID, Telegram ID или userId пользователя" });
     }
     try {
-      const row = await fetchUserProfile(requestedId);
+      const row = await fetchUserProfileByIdentity({
+        platform: resolveProfilePlatform({
+          telegramId: headerTelegramId,
+          vkId: headerVkId,
+        }),
+        identifier: requestedId,
+        telegramId: headerTelegramId,
+        vkId: headerVkId,
+      });
       const shown = row?.onboarding_tour_shown === true;
       return res.json({ success: true, shown });
     } catch (error) {
@@ -519,6 +584,10 @@ export function registerCartRoutes(app) {
     const headerTelegramId = getVerifiedTelegramIdFromHeaders(req);
     const headerVkId = getVerifiedVkIdFromHeaders(req);
     try {
+      const effectivePlatform = resolveProfilePlatform({
+        telegramId: body.telegramId ?? headerTelegramId,
+        vkId: body.vkId ?? headerVkId ?? headerUserId,
+      });
       const resolvedId = await resolveCanonicalProfileId({
         requestedId:
           (typeof body.id === "string" && body.id.trim()) ||
@@ -528,6 +597,7 @@ export function registerCartRoutes(app) {
             (typeof body.userId === "string" && body.userId.trim())),
         telegramId: body.telegramId ?? headerTelegramId,
         vkId: body.vkId ?? headerVkId ?? headerUserId,
+        platform: effectivePlatform,
       });
       if (!resolvedId) {
         return res.status(400).json({ success: false, message: "Не удалось определить пользователя" });

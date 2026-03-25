@@ -2,7 +2,7 @@ import { getCartApiBaseUrl } from "@shared/api/cart";
 import type { CartOrderRecord } from "@shared/api/cart";
 import type { Permission, UserRole } from "@shared/types";
 import type { AppSettings } from "@shared/api/settings";
-import { getInitData, getPlatform, getUser } from "@/lib/platform";
+import { getInitData, getPlatform, getUser, getUserId as getPlatformUserId } from "@/lib/platform";
 import { getTg, getUser as getTelegramUser } from "@/lib/telegramCore";
 import { getVk } from "@/lib/vkCore";
 import { logger } from "@/lib/logger";
@@ -86,22 +86,6 @@ const parseAdminVkIds = (raw: string | undefined): Set<string> => {
   );
 };
 const ADMIN_VK_IDS = parseAdminVkIds(import.meta.env.VITE_ADMIN_VK_IDS);
-
-const getVkUserId = (): string | undefined => {
-  const vk = getVk();
-  const initUserId = vk?.initDataUnsafe?.user?.id;
-  if (initUserId) {
-    return String(initUserId);
-  }
-  if (typeof window !== "undefined") {
-    const urlParams = new URLSearchParams(window.location.search);
-    const paramId = urlParams.get("vk_user_id");
-    if (paramId && /^\d+$/.test(paramId)) {
-      return paramId;
-    }
-  }
-  return undefined;
-};
 
 export type AdminRole = UserRole;
 
@@ -494,25 +478,34 @@ const resolveVkId = (override?: string): string | undefined => {
   const platform = getPlatform();
   // Для VK платформы используем VK ID пользователя
   if (platform === "vk") {
-    // Сначала пытаемся получить из initData (основной источник)
-    const vkUserId = getVkUserId();
-    if (vkUserId) {
-      logger.debug('admin-api', 'Using VK user ID from initData', { vkUserId });
+    const cachedPlatformUserId = getPlatformUserId();
+    if (cachedPlatformUserId && /^\d+$/.test(cachedPlatformUserId)) {
+      logger.debug('admin-api', 'Using VK user ID from platform context', {
+        vkUserId: cachedPlatformUserId,
+      });
+      return cachedPlatformUserId;
+    }
+
+    const vk = getVk();
+    const initUserId = vk?.initDataUnsafe?.user?.id;
+    if (initUserId) {
+      const vkUserId = String(initUserId);
+      logger.debug('admin-api', 'Using VK user ID from initDataUnsafe', { vkUserId });
       return vkUserId;
     }
-    
+
     // Fallback: пытаемся получить ID из объекта пользователя
-    // (может быть получен через VKWebAppGetUserInfo)
     const user = getUser();
     if (user?.id) {
       const userIdStr = String(user.id);
       logger.debug('admin-api', 'Using VK user ID from getUser()', { vkUserId: userIdStr });
       return userIdStr;
     }
-    
+
     logger.warn('admin-api', 'VK ID не найден ни в initData, ни в getUser()', {
       platform,
-      hasInitData: !!getVkUserId(),
+      hasPlatformUserId: !!cachedPlatformUserId,
+      hasInitDataUnsafe: !!initUserId,
       hasUser: !!user,
     });
   }
