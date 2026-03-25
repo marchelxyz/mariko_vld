@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-25 13:51
+**Последнее обновление:** 2026-03-25 14:27
 
 ---
 
@@ -35,6 +35,40 @@
 ---
 
 ## Admin Panel
+
+### ❌ Проблема: в prod VK/TG админка могла искать пользователя по чужому platform ID, а смена роли снова падала
+
+**Дата:** 2026-03-25
+**Симптомы:**
+- во VK нужно было жёстко искать и авторизовать admin-only сущности по `vk_id`, а не по `telegram_id`;
+- в TG наоборот поиск должен был идти только по `telegram_id`, а не по `vk_id`;
+- в `Управление ролями` ошибка `Не удалось сохранить роль` возвращалась повторно даже после предыдущего фикса;
+- в смежных admin-операциях (`бан`, `доступ к доставке`) оставался риск задеть профиль другой платформы, если числовой ID совпадал.
+
+**Причина:**
+- backend `fetchAdminRecordByIdentity()` по умолчанию всё ещё искал `admin_users` в порядке `telegram_id -> vk_id`, даже когда текущая платформа уже была известна;
+- backend `fetchUserProfile()` по numeric `identifier` тоже искал сначала по `telegram_id`, затем по `vk_id`, и это использовалось в admin routes без platform scope;
+- в `PATCH /api/cart/admin/users/:userId` fallback по-прежнему мог подставить `userIdentifier` в `telegram_id` даже для VK-запроса;
+- `delivery access` и `ban` использовали тот же generic lookup и не были жёстко привязаны к текущей платформе mini app.
+
+**Решение:**
+- в `backend/server/services/profileService.mjs` добавить `fetchUserProfileByIdentity({ platform, ... })` и для админских сценариев искать профиль только по текущему platform ID;
+- в `backend/server/services/adminService.mjs` сделать `fetchAdminRecordByIdentity({ platform, ... })` platform-aware и передавать туда `platform` из verified admin identity;
+- в `backend/server/routes/adminRoutes.mjs` перевести `GET /users`, `PATCH /users/:userId`, `PATCH /users/:userId/ban` на строгий platform-specific lookup;
+- в `backend/server/services/deliveryAccessService.mjs` и `PATCH /delivery-access/users/:userId` тоже передавать текущую платформу, чтобы VK/TG больше не смешивались.
+
+**Проверка:**
+- `node --check backend/server/services/profileService.mjs`
+- `node --check backend/server/services/adminService.mjs`
+- `node --check backend/server/services/deliveryAccessService.mjs`
+- `node --check backend/server/routes/adminRoutes.mjs`
+- `git diff --check`
+- ручная проверка:
+  1. во VK сменить роль VK-пользователю и убедиться, что запрос больше не падает;
+  2. в TG сменить роль TG-пользователю и убедиться, что его запись не получает `vk_id` из чужого контекста;
+  3. во VK проверить `бан` и `доступ к доставке` для пользователя с `vk_id`, не имеющего `telegram_id`.
+
+**Связанный commit:** `5bb2318` `fix(admin): разделен поиск админов по платформам`
 
 ### ❌ Проблема: во VK не сохраняются избранный ресторан и согласия профиля, а админка пропадает у владельца
 
@@ -3346,5 +3380,5 @@ open "http://127.0.0.1:4174/?smoke_platform=vk&smoke_role=admin#/admin"
 
 ---
 
-**Последнее обновление:** 2026-03-25 13:15
+**Последнее обновление:** 2026-03-25 14:27
 **Автор:** Codex (GPT-5)
