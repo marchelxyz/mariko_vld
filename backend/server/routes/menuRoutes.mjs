@@ -809,12 +809,21 @@ export const mergePreparedMenuWithExisting = (menu, existingByIikoId) => {
 
       const existing = existingByIikoId.get(iikoProductId);
       if (!existing) {
-        return item;
+        return {
+          ...item,
+          // Фото блюд ведём вручную в админке: iiko sync не должен подставлять или менять image_url.
+          imageUrl: undefined,
+        };
       }
+
+      const existingImageUrl =
+        typeof existing.image_url === "string" && existing.image_url.trim()
+          ? existing.image_url.trim()
+          : undefined;
 
       return {
         ...item,
-        imageUrl: item.imageUrl || existing.image_url || undefined,
+        imageUrl: existingImageUrl,
         calories: item.calories || existing.calories || undefined,
         weight: item.weight || existing.weight || undefined,
         proteins: item.proteins || existing.proteins || undefined,

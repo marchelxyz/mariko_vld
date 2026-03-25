@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-25 22:41
+**Последнее обновление:** 2026-03-25 13:15
 
 ---
 
@@ -822,6 +822,35 @@ curl -X POST "https://your-test-app.example.com/api/db/sync-external-menu?key=CH
 
 **Коммит:** будет добавлен после фиксации изменений
 
+### ✅ Решение: фото блюд нужно вести вручную в админке, а iiko sync не должен их подменять
+
+**Дата:** 2026-03-25
+**Симптомы:**
+- администратор хочет вручную выставлять `image_url` для блюд в админке;
+- при sync меню из iiko есть риск, что фото будут автоматически подтягиваться из `external_menu` / `nomenclature`;
+- после очередного sync ручные фото могут измениться или вернуться к картинкам из iiko.
+
+**Причина:**
+- при подготовке меню sync извлекает `imageUrl` из iiko;
+- при merge существующих блюд с новыми данными фото из iiko имело приоритет над текущим `menu_items.image_url`.
+
+**Решение:**
+- считать `image_url` локальным админским полем, а не частью iiko-мэппинга;
+- при sync:
+  - для существующих блюд сохранять текущее фото из БД;
+  - для новых блюд не подставлять фото из iiko автоматически;
+- ручное редактирование фото продолжает идти через админку и сохраняется в `menu_items.image_url`.
+
+**Проверка:**
+- `node --check backend/server/routes/menuRoutes.mjs`
+- выполнить `sync-iiko` в dry-run и с `apply=true`
+- убедиться, что:
+  - у блюда с уже выставленным фото `imageUrl` не меняется после sync;
+  - новое блюдо после sync приходит без auto-photo из iiko;
+  - после ручной установки фото в админке следующий sync его не сбрасывает.
+
+**Коммит:** будет добавлен после фиксации изменений
+
 ### ✅ Решение: БЖУ и аллергены из iiko нужно хранить в `menu_items`, иначе они теряются после sync
 
 **Дата:** 2026-03-14
@@ -1531,6 +1560,119 @@ curl -H "Authorization: Bearer ${TIMEWEB_TOKEN}" \
 - Остановить приложение
 - Удалить и пересоздать
 - Или добавить `--no-cache` в Dockerfile build
+
+---
+
+### ❌ Проблема: перевод prod app с `vk_app` на `main` в Timeweb может оставить старый commit, пока не вызвать явный deploy
+
+**Дата:** 2026-03-25
+**Симптомы:**
+- в Timeweb у приложения уже стоит `branch: main`, но `commit_sha` и последний `success` deploy остаются от старой ветки;
+- `PATCH /api/v1/apps/{app_id}` со сменой `branch` перезапускает приложение, но не гарантирует выкладку актуального head целевой ветки;
+- после переключения branch app может продолжать работать на старом commit, хотя `prodrepo/main` уже обновлён.
+
+**Причина:**
+- одного только переключения `branch` в Timeweb недостаточно, если нужно гарантированно развернуть конкретный свежий commit;
+- фактический переход на новый revision надёжно фиксируется только через явный `POST /api/v1/apps/{app_id}/deploy` с нужным `commit_sha`.
+
+**Решение:**
+1. Сначала отправить нужный commit в целевую ветку репозитория (`prodrepo/main`).
+2. Затем, если app была на другой ветке, переключить `branch` на `main`.
+3. После этого обязательно вызвать:
+   - `POST /api/v1/apps/{app_id}/deploy`
+   - с `commit_sha` актуального commit из `prodrepo/main`.
+4. Дождаться `deploys[0].status = success` и только потом считать rollout завершённым.
+
+**Проверка:**
+```bash
+TOKEN="..."
+COMMIT_SHA="5862482de929f357da3051e1e406d03b2cc515fc"
+
+# 1. Убедиться, что branch уже main
+curl -H "Authorization: Bearer ${TOKEN}" \
+  "https://api.timeweb.cloud/api/v1/apps/<app_id>"
+
+# 2. Явно запустить deploy нужного commit
+curl -X POST \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d "{\"commit_sha\":\"${COMMIT_SHA}\"}" \
+  "https://api.timeweb.cloud/api/v1/apps/<app_id>/deploy"
+
+# 3. Дождаться success по deploy history
+curl -H "Authorization: Bearer ${TOKEN}" \
+  "https://api.timeweb.cloud/api/v1/apps/<app_id>/deploys"
+```
+
+Ожидаемо:
+- `deploys[0].status = success`;
+- `app.commit_sha` совпадает с нужным commit;
+- `app.branch = main`;
+- `GET /tg/api/cart/admin/error-logs` и `GET /vk/api/cart/admin/error-logs` без авторизации отвечают `401`, а не `404`.
+
+**Связанный commit:** `N/A` (операционный кейс Timeweb без отдельного git-коммита)
+
+---
+
+### ❌ Проблема: Timeweb deploy может зависнуть на `Build started` и не переключить app на новый runtime
+
+**Дата:** 2026-03-25
+**Симптомы:**
+- `GET /api/v1/apps/{app_id}/deploys` показывает верхний deploy в статусе `building` заметно дольше обычного;
+- `GET /api/v1/apps/{app_id}/deploy/{deploy_id}/logs` возвращает только одну строку вида `Build started`;
+- приложение продолжает обслуживать старый runtime, хотя env в конфигурации app уже обновлён;
+- live-проверка показывает старое поведение, например VK `iiko webhook` продолжает отвечать `503 IIKO_WEBHOOK_TOKEN не настроен`.
+
+**Причина:**
+- конкретный deploy job в Timeweb может зависнуть ещё до завершения build-stage и не дойти до `Build succeeded` / `Starting container`;
+- пока новый deploy не завершён, Timeweb не переключает трафик на новый runtime, поэтому снаружи продолжает жить предыдущий контейнер.
+
+**Решение:**
+1. Проверить логи зависшего deploy через:
+   - `GET /api/v1/apps/{app_id}/deploy/{deploy_id}/logs`
+2. Если спустя несколько минут там по-прежнему только `Build started`, остановить зависший deploy:
+   - `POST /api/v1/apps/{app_id}/deploy/{deploy_id}/stop`
+3. Сразу после этого заново запустить deploy того же самого `commit_sha`:
+   - `POST /api/v1/apps/{app_id}/deploy`
+4. Дождаться `deploys[0].status = success` и только потом проверять live-runtime.
+
+**Проверка:**
+```bash
+TOKEN="..."
+APP_ID="<app_id>"
+DEPLOY_ID="<stuck_deploy_id>"
+COMMIT_SHA="<target_commit_sha>"
+
+# 1. Посмотреть логи зависшего deploy
+curl -H "Authorization: Bearer ${TOKEN}" \
+  "https://api.timeweb.cloud/api/v1/apps/${APP_ID}/deploy/${DEPLOY_ID}/logs"
+
+# 2. Остановить зависший deploy
+curl -X POST \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"description":"Остановка зависшего build и перевыпуск того же commit"}' \
+  "https://api.timeweb.cloud/api/v1/apps/${APP_ID}/deploy/${DEPLOY_ID}/stop"
+
+# 3. Перезапустить deploy на том же коммите
+curl -X POST \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d "{\"commit_sha\":\"${COMMIT_SHA}\"}" \
+  "https://api.timeweb.cloud/api/v1/apps/${APP_ID}/deploy"
+
+# 4. Дождаться success
+curl -H "Authorization: Bearer ${TOKEN}" \
+  "https://api.timeweb.cloud/api/v1/apps/${APP_ID}/deploys"
+```
+
+Ожидаемо:
+- верхний deploy получает `status = success`;
+- `GET /api/v1/apps/{app_id}` возвращает `status = active`;
+- `start_time` у app обновляется;
+- live-endpoint начинает вести себя как новый runtime, например `iiko webhook` отдаёт `401 Некорректный webhook token`, а не `503 IIKO_WEBHOOK_TOKEN не настроен`.
+
+**Связанный commit:** `N/A` (операционный кейс Timeweb без отдельного git-коммита)
 
 ---
 
@@ -3173,5 +3315,5 @@ open "http://127.0.0.1:4174/?smoke_platform=vk&smoke_role=admin#/admin"
 
 ---
 
-**Последнее обновление:** 2026-03-25 01:25
+**Последнее обновление:** 2026-03-25 13:15
 **Автор:** Codex (GPT-5)
