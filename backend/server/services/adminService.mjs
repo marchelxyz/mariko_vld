@@ -398,12 +398,26 @@ export const fetchAdminRecordById = async (adminId) => {
   }
 };
 
-export const fetchAdminRecordByIdentity = async ({ telegramId = null, vkId = null } = {}) => {
+export const fetchAdminRecordByIdentity = async ({
+  platform = null,
+  telegramId = null,
+  vkId = null,
+} = {}) => {
   if (!db) {
     return null;
   }
 
+  const normalizedPlatform = platform === "telegram" || platform === "vk" ? platform : null;
   const normalizedTelegramId = normalisePlatformUserId(telegramId);
+  if (normalizedPlatform === "telegram") {
+    return normalizedTelegramId ? fetchAdminRecordByTelegram(normalizedTelegramId) : null;
+  }
+
+  const normalizedVkId = normalisePlatformUserId(vkId);
+  if (normalizedPlatform === "vk") {
+    return normalizedVkId ? fetchAdminRecordByVk(normalizedVkId) : null;
+  }
+
   if (normalizedTelegramId) {
     const byTelegram = await fetchAdminRecordByTelegram(normalizedTelegramId);
     if (byTelegram) {
@@ -411,7 +425,6 @@ export const fetchAdminRecordByIdentity = async ({ telegramId = null, vkId = nul
     }
   }
 
-  const normalizedVkId = normalisePlatformUserId(vkId);
   if (normalizedVkId) {
     const byVk = await fetchAdminRecordByVk(normalizedVkId);
     if (byVk) {
@@ -441,25 +454,27 @@ export const listAdminRecords = async () => {
 
 const resolveAdminIdentityInput = (input) => {
   if (!input) {
-    return { telegramId: null, vkId: null };
+    return { platform: null, telegramId: null, vkId: null };
   }
   if (typeof input === "string" || typeof input === "number") {
     return {
+      platform: null,
       telegramId: normalisePlatformUserId(input),
       vkId: null,
     };
   }
   if (typeof input === "object") {
     return {
+      platform: input.platform === "telegram" || input.platform === "vk" ? input.platform : null,
       telegramId: normalisePlatformUserId(input.telegramId),
       vkId: normalisePlatformUserId(input.vkId),
     };
   }
-  return { telegramId: null, vkId: null };
+  return { platform: null, telegramId: null, vkId: null };
 };
 
 export const resolveAdminContext = async (input) => {
-  const { telegramId, vkId } = resolveAdminIdentityInput(input);
+  const { platform, telegramId, vkId } = resolveAdminIdentityInput(input);
 
   if (!telegramId && !vkId) {
     return { role: "user", allowedRestaurants: [], permissions: [] };
@@ -475,7 +490,7 @@ export const resolveAdminContext = async (input) => {
     return { role: "super_admin", allowedRestaurants: [], permissions: getPermissionsForRole("super_admin") };
   }
 
-  const record = await fetchAdminRecordByIdentity({ telegramId, vkId });
+  const record = await fetchAdminRecordByIdentity({ platform, telegramId, vkId });
   const permissions = record?.permissions ?? {};
   const allowedRestaurants = parseRestaurantPermissions(permissions);
   const role = ADMIN_ROLE_VALUES.has(record?.role) ? record.role : "user";
