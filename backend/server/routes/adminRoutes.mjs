@@ -741,8 +741,14 @@ export function createAdminRouter() {
     }
 
     const payload = {
-      telegram_id: telegramId ? Number(telegramId) : null,
-      vk_id: vkId ? Number(vkId) : null,
+      telegram_id:
+        targetPlatform === "telegram" && telegramId
+          ? Number(telegramId)
+          : null,
+      vk_id:
+        targetPlatform === "vk" && vkId
+          ? Number(vkId)
+          : null,
       name: overrideName ?? profile?.name ?? existingAdminRecord?.name ?? "Admin",
       role: incomingRole,
       permissions: {

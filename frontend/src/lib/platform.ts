@@ -37,6 +37,110 @@ export type PlatformUser = {
 
 const TELEGRAM_INIT_DATA_STORAGE_KEY = "mariko_tg_init_data";
 const TELEGRAM_USER_ID_STORAGE_KEY = "mariko_tg_user_id";
+const VK_INIT_DATA_STORAGE_KEY = "mariko_vk_init_data";
+const VK_USER_ID_STORAGE_KEY = "mariko_vk_user_id";
+
+const readSessionStorageValue = (key: string): string | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    const value = window.sessionStorage?.getItem(key);
+    return typeof value === "string" && value.trim() ? value : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeSessionStorageValue = (key: string, value: string | undefined): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const normalized = String(value ?? "").trim();
+  if (!normalized) {
+    return;
+  }
+  try {
+    window.sessionStorage?.setItem(key, normalized);
+  } catch {
+    // ignore sessionStorage write failures
+  }
+};
+
+const parseVkUserIdFromInitData = (initData?: string): string | undefined => {
+  if (!initData) {
+    return undefined;
+  }
+  try {
+    const params = new URLSearchParams(initData.startsWith("?") ? initData.slice(1) : initData);
+    const rawUserId = params.get("vk_user_id");
+    return rawUserId && /^\d+$/.test(rawUserId) ? rawUserId : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const cacheVkInitData = (initData?: string): void => {
+  writeSessionStorageValue(VK_INIT_DATA_STORAGE_KEY, initData);
+};
+
+const getCachedVkInitData = (): string | undefined => {
+  return readSessionStorageValue(VK_INIT_DATA_STORAGE_KEY) ?? undefined;
+};
+
+const cacheVkUserId = (userId?: string): void => {
+  const normalized = String(userId ?? "").trim();
+  if (!/^\d+$/.test(normalized)) {
+    return;
+  }
+  writeSessionStorageValue(VK_USER_ID_STORAGE_KEY, normalized);
+};
+
+const getCachedVkUserId = (): string | undefined => {
+  const value = readSessionStorageValue(VK_USER_ID_STORAGE_KEY);
+  return value && /^\d+$/.test(value) ? value : undefined;
+};
+
+const resolveVkInitData = (): string | undefined => {
+  if (typeof window !== "undefined") {
+    const rawSearch = window.location.search.startsWith("?")
+      ? window.location.search.slice(1)
+      : window.location.search;
+    const urlParams = new URLSearchParams(rawSearch);
+    const hasVkPayload =
+      urlParams.has("vk_user_id") || urlParams.has("vk_app_id") || urlParams.has("sign");
+
+    if (hasVkPayload && rawSearch) {
+      cacheVkInitData(rawSearch);
+      const vkUserId = parseVkUserIdFromInitData(rawSearch);
+      if (vkUserId) {
+        cacheVkUserId(vkUserId);
+      }
+      return rawSearch;
+    }
+  }
+
+  const vk = getVk();
+  if (vk?.initData) {
+    const params = new URLSearchParams();
+    Object.entries(vk.initData).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        params.append(key, String(value));
+      }
+    });
+    const serializedInitData = params.toString();
+    if (serializedInitData) {
+      cacheVkInitData(serializedInitData);
+      const vkUserId = parseVkUserIdFromInitData(serializedInitData);
+      if (vkUserId) {
+        cacheVkUserId(vkUserId);
+      }
+      return serializedInitData;
+    }
+  }
+
+  return getCachedVkInitData();
+};
 
 function isVkDesktopClient(): boolean {
   const vk = getVk();
@@ -105,7 +209,17 @@ export async function getUserAsync(): Promise<PlatformUser | undefined> {
 export function getUserId(): string | undefined {
   const platform = getPlatform();
   if (platform === "vk") {
-    return getVkUserId();
+    const fromInitData = parseVkUserIdFromInitData(resolveVkInitData());
+    if (fromInitData) {
+      cacheVkUserId(fromInitData);
+      return fromInitData;
+    }
+    const vkUserId = getVkUserId();
+    if (vkUserId) {
+      cacheVkUserId(vkUserId);
+      return vkUserId;
+    }
+    return getCachedVkUserId();
   }
   if (platform === "telegram") {
     const user = getUser();
@@ -298,61 +412,24 @@ export function getInitData(): string | undefined {
   if (platform === "telegram") {
     return resolveTelegramInitData();
   }
-  const vk = getVk();
-  // VK initData находится в vk.initData, но это объект, нужно сериализовать
-  if (vk?.initData) {
-    // Преобразуем объект initData в строку query string
-    const params = new URLSearchParams();
-    Object.entries(vk.initData).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        params.append(key, String(value));
-      }
-    });
-    const result = params.toString();
-    
-    // Логируем для диагностики (только в режиме разработки)
+  const result = resolveVkInitData();
+  if (result) {
     if (import.meta.env.DEV) {
-      console.log('[platform] getInitData из vk.initData:', {
-        hasInitData: !!vk.initData,
-        initDataKeys: Object.keys(vk.initData),
+      const urlParams = new URLSearchParams(result.startsWith("?") ? result.slice(1) : result);
+      console.log("[platform] getInitData для VK:", {
+        keys: Array.from(urlParams.keys()),
         resultLength: result.length,
-        resultPreview: result.substring(0, 100)
+        resultPreview: result.substring(0, 100),
+        fromCache: result === getCachedVkInitData(),
       });
     }
-    
     return result;
   }
-  
-  // Fallback: пытаемся получить initData из URL параметров.
-  // Для проверки подписи на backend нужен полный query string, включая `sign`.
-  if (typeof window !== "undefined") {
-    const rawSearch = window.location.search.startsWith("?")
-      ? window.location.search.slice(1)
-      : window.location.search;
-    const urlParams = new URLSearchParams(rawSearch);
-    const hasVkPayload = urlParams.has("vk_user_id") || urlParams.has("vk_app_id") || urlParams.has("sign");
 
-    if (hasVkPayload && rawSearch) {
-      const result = rawSearch;
-      
-      // Логируем для диагностики (только в режиме разработки)
-      if (import.meta.env.DEV) {
-        console.log('[platform] getInitData из URL параметров:', {
-          keys: Array.from(urlParams.keys()),
-          resultLength: result.length,
-          resultPreview: result.substring(0, 100)
-        });
-      }
-      
-      return result;
-    }
-  }
-  
-  // Логируем предупреждение, если initData не найден
   if (import.meta.env.DEV && isInVk()) {
     console.warn('[platform] getInitData: initData не найден, хотя платформа определена как VK');
   }
-  
+
   return undefined;
 }
 
