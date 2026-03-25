@@ -9,7 +9,6 @@ import { useDeliveryAccess } from "@shared/hooks";
 import { getMenuByRestaurantId, type MenuItem, type RestaurantMenu } from "@shared/data";
 import { MenuItemComponent, DishCardSkeleton, DishDetailsFacts } from "@shared/ui";
 import { toast } from "@/hooks/use-toast";
-import { getPlatform } from "@/lib/platform";
 
 /**
  * Отображает меню выбранного ресторана с навигацией по категориям и карточками блюд.
@@ -18,12 +17,11 @@ const Menu = (): JSX.Element => {
   const navigate = useNavigate();
   const { selectedRestaurant, selectedCity } = useCityContext();
   const { hasAccess: hasDeliveryAccess } = useDeliveryAccess();
-  const isVkPlatform = getPlatform() === "vk";
   const isMarikoDeliveryEnabled = isMarikoDeliveryEnabledForCity(
     selectedCity?.id,
     selectedRestaurant,
   );
-  const isDeliveryOrderingEnabled = !isVkPlatform && hasDeliveryAccess && isMarikoDeliveryEnabled;
+  const isDeliveryOrderingEnabled = hasDeliveryAccess && isMarikoDeliveryEnabled;
   const {
     addItem: addCartItem,
     removeItem: removeCartItem,
@@ -166,10 +164,8 @@ const Menu = (): JSX.Element => {
     (dish: MenuItem) => {
       if (!isDeliveryOrderingEnabled) {
         toast({
-          title: isVkPlatform ? "Недоступно во VK" : "Доставка недоступна",
-          description: isVkPlatform
-            ? "Доставка и оформление заказа во VK временно отключены."
-            : "Оформление заказа сейчас недоступно.",
+          title: "Доставка недоступна",
+          description: "Оформление заказа сейчас недоступно.",
           variant: "destructive",
         });
         return;
@@ -203,7 +199,6 @@ const Menu = (): JSX.Element => {
       getItemCount,
       isDeliveryOrderingEnabled,
       isDishOrderable,
-      isVkPlatform,
       maxCartItemQuantity,
     ],
   );

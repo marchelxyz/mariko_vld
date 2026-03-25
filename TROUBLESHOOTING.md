@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-25 16:06
+**Последнее обновление:** 2026-03-25 16:02
 
 ---
 
@@ -35,6 +35,87 @@
 ---
 
 ## Admin Panel
+
+### ❌ Проблема: в реальном VK Mini App любые browser-записи падали, хотя прямые signed запросы уже проходили
+
+**Дата:** 2026-03-25
+**Симптомы:**
+- в реальном VK Mini App по-прежнему не работали:
+  - ⭐ избранного города;
+  - выдача/отзыв согласий в `Настройки`;
+  - сохранение ролей в `Управление ролями`;
+- снаружи это выглядело как обычные toast/alert ошибки `Не удалось ...`, хотя предыдущие backend-фиксы уже были выкачены;
+- прямые signed запросы без browser `Origin` могли отвечать `200`, из-за чего создавалось ложное ощущение, что проблема уже решена;
+- browser `OPTIONS`/`PATCH` с `Origin: https://vk.marikorest.ru` отвечали HTML `500 Internal Server Error`.
+
+**Причина:**
+- на prod VK app в Timeweb отсутствовали `WEBAPP_URL` и `CORS_ALLOWED_ORIGINS`;
+- из-за этого `backend/server/cart-server.mjs` не добавлял `https://vk.marikorest.ru` в CORS allowlist;
+- реальные browser-запросы из VK Mini App отправляли `Origin: https://vk.marikorest.ru`, упирались в CORS middleware и падали ещё до `cart/profile/me` и `admin/users`;
+- shell/curl-проверки без `Origin` не воспроизводили этот слой и давали частично ложноположительную картину.
+
+**Решение:**
+1. Через Timeweb API получить полный текущий env набор prod VK app `152601`.
+2. Обновить app целиком через `PATCH /api/v1/apps/{app_id}` и передать полный `envs`, а не частичный merge.
+3. Добавить:
+   - `WEBAPP_URL=https://vk.marikorest.ru/vk`
+   - `CORS_ALLOWED_ORIGINS=https://tg.marikorest.ru,https://vk.marikorest.ru,https://mariko-vld.vercel.app,https://mariko-vld-vk.vercel.app,https://marchelxyz-mariko-vld-b4a1.twc1.net,https://apps.vhachapuri.ru,https://vk.com,https://m.vk.com,https://ok.ru`
+4. Дождаться нового deploy и обновления `start_time` у VK app.
+
+**Проверка:**
+- `OPTIONS https://vk.marikorest.ru/vk/api/cart/profile/me` с:
+  - `Origin: https://vk.marikorest.ru`
+  - `Access-Control-Request-Method: PATCH`
+  - `Access-Control-Request-Headers: content-type,x-vk-id,x-vk-init-data`
+  должен вернуть `204` и `access-control-allow-origin: https://vk.marikorest.ru`;
+- `OPTIONS https://vk.marikorest.ru/vk/api/cart/admin/users/:vkId` с тем же origin тоже должен вернуть `204`;
+- browser-origin проверки после deploy:
+  - `PATCH /vk/api/cart/profile/me` на согласия -> `200`
+  - `PATCH /vk/api/cart/profile/me` на избранный город -> `200`
+  - `PATCH /vk/api/cart/admin/users/:vkId` на смену роли -> `200`
+- `GET /api/v1/apps/152601` должен показывать:
+  - `status = active`
+  - новый `start_time`
+  - заполненные `WEBAPP_URL` и `CORS_ALLOWED_ORIGINS`.
+
+**Связанный commit:** `N/A` (операционный фикс env/deploy в Timeweb)
+
+### ❌ Проблема: в VK delivery access уже был включён, но сама доставка всё равно оставалась недоступной
+
+**Дата:** 2026-03-25
+**Симптомы:**
+- в админке `Доступ к доставке` переключался и сервер показывал `mode=all_on`, но в VK Mini App доставка визуально не появлялась;
+- `GET /api/cart/delivery-access/me` для VK-пользователя уже возвращал `hasAccess=true`, но:
+  - маршрут `/delivery` в VK редиректил на главную;
+  - на главной кнопка доставки не показывалась;
+  - в меню попытка заказать блюдо давала `Недоступно во VK`.
+
+**Причина:**
+- проблема была не в admin toggle и не в backend delivery access;
+- во фронтенде остались старые жёсткие VK-блокировки:
+  - в `frontend/src/App.tsx` маршрут `/delivery` был закрыт для VK через `Navigate`;
+  - в `frontend/src/features/home/Home.tsx` кнопка доставки скрывалась через `!isVkPlatform`;
+  - в `frontend/src/features/menu/Menu.tsx` заказ был запрещён через `!isVkPlatform && hasDeliveryAccess ...`.
+
+**Решение:**
+- удалить отдельный VK-запрет на маршрут `/delivery`;
+- показывать кнопку доставки на главной одинаково для TG и VK;
+- включать оформление заказа по единому условию:
+  - `hasDeliveryAccess && isMarikoDeliveryEnabled`
+  - без дополнительного `!isVkPlatform`.
+
+**Проверка:**
+- signed `POST /api/cart/admin/delivery-access/enable-all` во VK возвращает `200` и `mode=all_on`;
+- signed `GET /api/cart/delivery-access/me` для VK-пользователя возвращает:
+  - `mode=all_on`
+  - `hasAccess=true`
+  - `source=global_all_on`;
+- после нового frontend deploy во VK:
+  1. открывается `/delivery` без редиректа;
+  2. на главной видна кнопка доставки;
+  3. в меню добавление блюда в корзину больше не блокируется сообщением `Недоступно во VK`.
+
+**Связанный commit:** `TBD`
 
 ### ❌ Проблема: во VK после внутренних переходов снова падали избранный город, согласия и смена роли
 
@@ -3414,5 +3495,5 @@ open "http://127.0.0.1:4174/?smoke_platform=vk&smoke_role=admin#/admin"
 
 ---
 
-**Последнее обновление:** 2026-03-25 14:27
+**Последнее обновление:** 2026-03-25 16:02
 **Автор:** Codex (GPT-5)
