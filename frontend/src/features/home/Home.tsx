@@ -17,7 +17,7 @@ import {
 } from "@shared/ui";
 import { PromotionsCarousel, type PromotionSlide } from "./PromotionsCarousel";
 import { toast } from "@/hooks/use-toast";
-import { getPlatform, safeOpenLink, storage } from "@/lib/platform";
+import { safeOpenLink, storage } from "@/lib/platform";
 import { fetchPromotions } from "@shared/api/promotionsApi";
 import { fetchRecommendedDishes } from "@shared/api/recommendedDishesApi";
 import { useBookingSlotsPrefetch, useDeliveryAccess } from "@shared/hooks";
@@ -74,12 +74,11 @@ const Index = () => {
   const { selectedRestaurant, selectedCity } = useCityContext();
   const { addItem, removeItem, getItemCount } = useCart();
   const { hasAccess: hasDeliveryAccess } = useDeliveryAccess();
-  const isVkPlatform = getPlatform() === "vk";
   const isMarikoDeliveryEnabled = isMarikoDeliveryEnabledForCity(
     selectedCity?.id,
     selectedRestaurant,
   );
-  const canShowDeliveryButton = Boolean(selectedRestaurant?.id) && !isVkPlatform;
+  const canShowDeliveryButton = Boolean(selectedRestaurant?.id);
   const canUseCartFeatures = hasDeliveryAccess && isMarikoDeliveryEnabled;
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
   const [dishModalImageFailed, setDishModalImageFailed] = useState(false);
