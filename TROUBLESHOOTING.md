@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-25 14:27
+**Последнее обновление:** 2026-03-25 16:06
 
 ---
 
@@ -35,6 +35,40 @@
 ---
 
 ## Admin Panel
+
+### ❌ Проблема: во VK после внутренних переходов снова падали избранный город, согласия и смена роли
+
+**Дата:** 2026-03-25
+**Симптомы:**
+- во VK кнопка ⭐ в селекторе города не сохраняла избранный ресторан;
+- в `Настройки` согласия снова показывали `Не удалось дать согласие. Попробуйте позже.`;
+- в `Управление ролями` во VK повторно всплывало `Не удалось сохранить роль`;
+- проблема воспроизводилась даже после предыдущих backend-фиксов, хотя прямые signed `PATCH` на prod уже проходили успешно.
+
+**Причина:**
+- на фронтенде для VK не было устойчивого кэша `initData` и `vk_user_id`, поэтому после части переходов/реинициализаций клиент мог отправлять запросы уже без валидного `X-VK-Init-Data`;
+- `adminServerApi` использовал свой локальный способ получения VK ID и мог расходиться с общим platform context;
+- `cartRoutes` в profile endpoints всё ещё местами использовал generic profile lookup без жёсткого platform scope;
+- в `adminRoutes` при сохранении роли во VK legacy `telegram_id` мог снова оставаться в той же `admin_users` записи, даже если текущий запрос был чисто VK-контекстом.
+
+**Решение:**
+- в `frontend/src/lib/platform.ts` добавить session cache для `mariko_vk_init_data` и `mariko_vk_user_id`, а для запросов сначала использовать raw VK launch params, затем `vk.initData`, затем кэш;
+- в `frontend/src/shared/api/admin/adminServerApi.ts` перевести определение текущего VK ID на общий `getUserId()` из platform layer;
+- в `backend/server/routes/cartRoutes.mjs` перевести `profile/sync`, `profile/me` и onboarding profile lookup на `fetchUserProfileByIdentity({ platform })`;
+- в `backend/server/routes/adminRoutes.mjs` при сохранении роли писать только platform-specific admin ID: для VK только `vk_id`, для TG только `telegram_id`.
+
+**Проверка:**
+- `node --check backend/server/routes/cartRoutes.mjs`
+- `node --check backend/server/routes/adminRoutes.mjs`
+- `npm run typecheck --prefix frontend`
+- `npm run frontend:build`
+- `git diff --check`
+- после деплоя:
+  1. во VK нажать ⭐ у ресторана и убедиться, что избранное сохраняется без ошибки;
+  2. во VK дать оба согласия и убедиться, что toast ошибки не появляется;
+  3. во VK сменить роль пользователю и убедиться, что `PATCH /api/cart/admin/users/:vkId` проходит без alert-ошибки.
+
+**Связанный commit:** `0050ee4` `fix(vk): закреплена auth-сессия и разделены admin id`
 
 ### ❌ Проблема: в prod VK/TG админка могла искать пользователя по чужому platform ID, а смена роли снова падала
 
