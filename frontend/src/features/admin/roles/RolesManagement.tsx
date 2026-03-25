@@ -43,8 +43,11 @@ const ROLE_ORDER: UserRole[] = [
   UserRole.USER,
 ];
 
+type RoleListScope = "staff" | "all";
+
 export function RolesManagement(): JSX.Element {
   const currentPlatform = getPlatform();
+  const [listScope, setListScope] = useState<RoleListScope>("staff");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<AdminPanelUser | null>(null);
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.USER);
@@ -111,10 +114,20 @@ export function RolesManagement(): JSX.Element {
     [currentPlatform, users],
   );
 
+  const staffUsers = useMemo(
+    () => platformScopedUsers.filter((user) => user.role !== UserRole.USER),
+    [platformScopedUsers],
+  );
+
+  const usersForCurrentScope = useMemo(
+    () => (listScope === "staff" ? staffUsers : platformScopedUsers),
+    [listScope, platformScopedUsers, staffUsers],
+  );
+
   const filteredUsers = useMemo(() => {
-    if (!searchQuery) return platformScopedUsers;
+    if (!searchQuery) return usersForCurrentScope;
     const query = searchQuery.toLowerCase();
-    return platformScopedUsers.filter((user) => {
+    return usersForCurrentScope.filter((user) => {
       const platformIdentityValues = getPlatformIdentitySearchValues(user, currentPlatform);
       return (
         user.name.toLowerCase().includes(query) ||
@@ -122,7 +135,7 @@ export function RolesManagement(): JSX.Element {
         platformIdentityValues.some((value) => value.toLowerCase().includes(query))
       );
     });
-  }, [currentPlatform, platformScopedUsers, searchQuery]);
+  }, [currentPlatform, searchQuery, usersForCurrentScope]);
 
   const scopedRestaurantOptions = useMemo(() => {
     if (isSuperAdminUser || userRole === UserRole.ADMIN) {
@@ -374,12 +387,19 @@ export function RolesManagement(): JSX.Element {
     );
   }
 
+  const listScopeTitle =
+    listScope === "staff" ? "Сотрудники с доступом в админку" : "Все пользователи";
+  const listScopeDescription =
+    listScope === "staff"
+      ? "Здесь отображаются только сотрудники с любой ролью, кроме пользователя."
+      : "Полный список пользователей текущей платформы, включая обычных гостей.";
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div>
           <h2 className="text-white font-el-messiri text-2xl md:text-3xl font-bold">Управление ролями</h2>
-          <p className="text-white/70 mt-1">Всего пользователей: {platformScopedUsers.length}</p>
+          <p className="text-white/70 mt-1">{listScopeTitle}: {usersForCurrentScope.length}</p>
         </div>
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60 pointer-events-none" />
@@ -391,6 +411,54 @@ export function RolesManagement(): JSX.Element {
             className="w-full bg-white/10 border-white/20 text-white placeholder:text-white/60 pl-9"
           />
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setListScope("staff")}
+            className={`rounded-2xl px-4 py-4 text-left transition ${
+              listScope === "staff"
+                ? "bg-mariko-primary text-white"
+                : "bg-white/5 text-white/80 hover:bg-white/10"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-semibold">Сотрудники</span>
+              <span className="rounded-full bg-black/15 px-2.5 py-1 text-xs font-semibold">
+                {staffUsers.length}
+              </span>
+            </div>
+            <p className="mt-2 text-sm text-current/80">
+              Только пользователи с ролью и доступом в админку.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setListScope("all")}
+            className={`rounded-2xl px-4 py-4 text-left transition ${
+              listScope === "all"
+                ? "bg-mariko-primary text-white"
+                : "bg-white/5 text-white/80 hover:bg-white/10"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-semibold">Все пользователи</span>
+              <span className="rounded-full bg-black/15 px-2.5 py-1 text-xs font-semibold">
+                {platformScopedUsers.length}
+              </span>
+            </div>
+            <p className="mt-2 text-sm text-current/80">
+              Полная база пользователей текущей платформы.
+            </p>
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/75">
+        {listScopeDescription}
       </div>
 
       <div className="space-y-3">
@@ -425,7 +493,9 @@ export function RolesManagement(): JSX.Element {
         ))}
         {!filteredUsers.length && (
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-center text-white/70">
-            Пользователей по запросу не найдено
+            {listScope === "staff"
+              ? "Сотрудники по текущему запросу не найдены"
+              : "Пользователи по запросу не найдены"}
           </div>
         )}
       </div>
