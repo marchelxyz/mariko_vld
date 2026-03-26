@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-26 12:37
+**Последнее обновление:** 2026-03-26 13:21
 
 ---
 
@@ -1593,6 +1593,36 @@ curl "https://<backend>/api/db/check-terminal-groups?key=CHANGE_ME_DB_ADMIN_ROUT
 ---
 
 ## Timeweb Deployment
+
+### ❌ Проблема: в prod TG/VK загрузка изображений акций падала с `413 Request Entity Too Large`, а toast показывал сырой HTML nginx
+
+**Дата:** 2026-03-26
+**Симптомы:**
+- в `Управление акциями` загрузка фото с устройства и загрузка в библиотеку одинаково падали;
+- в toast показывалось `Не удалось загрузить изображение`, а ниже рендерился HTML вида `413 Request Entity Too Large ... nginx`;
+- проблема воспроизводилась и на `tg.marikorest.ru`, и на `vk.marikorest.ru`;
+- прямой probe на prod показывал, что multipart примерно до `~800KB` доходит до backend и отвечает `401` без авторизации, а запросы от `~1.2MB` уже режутся на nginx слое с `413`.
+
+**Причина:**
+- backend `multer` уже принимал до `10MB`, и отдельные server-side nginx-конфиги в `scripts/timeweb/*` тоже содержали `client_max_body_size 25m`;
+- но реальный runtime-конфиг nginx для Timeweb app генерируется прямо в `Dockerfile`, и в этом шаблоне отсутствовал `client_max_body_size`;
+- из-за этого внутри контейнера действовал дефолтный лимит nginx около `1MB`, поэтому upload обрывался до попадания в Express route;
+- `sanitizeAdminFacingMessage()` не распознавал HTML-ответы nginx как технические и пропускал их в toast почти без фильтрации.
+
+**Решение:**
+1. В `Dockerfile` добавить `client_max_body_size 25m;` в runtime nginx template, который обслуживает `/api` и `${APP_BASE_PATH}/api`.
+2. В `frontend/src/shared/utils/userFacingError.ts` пометить HTML-ответы (`<html>`, `<body>`, `<!doctype html>`) и `Request Entity Too Large` / `nginx` как технические сообщения, чтобы пользователю показывался нормальный fallback-текст.
+3. Пересобрать и перевыкатить оба prod приложения Timeweb: TG и VK.
+
+**Проверка:**
+- локально:
+  - `git diff --check`
+- после prod deploy:
+  1. отправить probe на `https://tg.marikorest.ru/api/storage/promotions/ufa` и `https://vk.marikorest.ru/api/storage/promotions/ufa` с multipart телом около `1.2MB`;
+  2. убедиться, что вместо `413` приходит backend-ответ `401 Требуется подтверждённая авторизация администратора`, то есть upload больше не режется на nginx слое;
+  3. вручную в админке проверить загрузку фото в библиотеку и загрузку с устройства в карточку акции.
+
+**Связанный commit:** `0a44978` `fix(deploy): увеличен лимит загрузки файлов`
 
 ### ❌ Проблема: test TG/VK нельзя выкатить автоматически, если Timeweb не видит `origin` репозиторий и упирается в лимит App Platform
 
