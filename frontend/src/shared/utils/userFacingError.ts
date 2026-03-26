@@ -1,5 +1,10 @@
 const TECHNICAL_MESSAGE_PATTERNS = [
   /http\s*\d+/i,
+  /<!doctype html/i,
+  /<html\b/i,
+  /<head\b/i,
+  /<body\b/i,
+  /<title\b/i,
   /server api responded/i,
   /\btypeerror\b/i,
   /\breferenceerror\b/i,
@@ -14,6 +19,7 @@ const TECHNICAL_MESSAGE_PATTERNS = [
   /\bcors\b/i,
   /\bjson\b/i,
   /\bpayload\b/i,
+  /\brequest entity too large\b/i,
   /\bwebhook\b/i,
   /\biiko\b/i,
   /\bprovider_status\b/i,
@@ -26,6 +32,7 @@ const TECHNICAL_MESSAGE_PATTERNS = [
   /\binvalid key\b/i,
   /\bnot found\b/i,
   /\bremarked\b/i,
+  /\bnginx\b/i,
 ];
 
 const normalizeMessage = (value: unknown): string =>
