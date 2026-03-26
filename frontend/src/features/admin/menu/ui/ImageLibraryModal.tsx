@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { Trash2, X } from 'lucide-react';
 import type { MenuImageAsset } from '@/shared/api/menuApi';
 import { Button, Input } from '@shared/ui';
 
@@ -12,6 +12,9 @@ type ImageLibraryModalProps = {
   emptyStateDescription?: string;
   isUploading?: boolean;
   onUpload?: () => void;
+  onDelete?: (image: MenuImageAsset) => void;
+  canDeleteImage?: (image: MenuImageAsset) => boolean;
+  deletingImagePath?: string | null;
   onSelect: (url: string) => void;
   onSearchChange: (value: string) => void;
   onClose: () => void;
@@ -41,6 +44,9 @@ export function ImageLibraryModal({
   emptyStateDescription,
   isUploading = false,
   onUpload,
+  onDelete,
+  canDeleteImage,
+  deletingImagePath,
   onSelect,
   onSearchChange,
   onClose,
@@ -98,20 +104,38 @@ export function ImageLibraryModal({
             {filteredImages.map((image) => {
               const isActive = selectedUrl === image.url;
               const displayName = image.path.split('/').pop() ?? image.path;
+              const isDeleting = deletingImagePath === image.path;
+              const canDelete = onDelete && (canDeleteImage ? canDeleteImage(image) : true);
               return (
-                <button
+                <div
                   key={image.path}
-                  onClick={() => onSelect(image.url)}
                   className={`rounded-2xl overflow-hidden border transition-all ${
                     isActive ? 'border-mariko-primary ring-2 ring-mariko-primary/40' : 'border-white/10'
                   }`}
                 >
-                  <img src={image.url} alt={displayName} className="w-full h-32 object-cover" loading="lazy" />
-                  <div className="p-2 text-left">
-                    <p className="text-white text-sm truncate">{displayName}</p>
-                    <p className="text-white/60 text-xs">{formatFileSize(image.size)}</p>
+                  <div className="relative">
+                    <button type="button" onClick={() => onSelect(image.url)} className="block w-full">
+                      <img src={image.url} alt={displayName} className="w-full h-32 object-cover" loading="lazy" />
+                    </button>
+                    {canDelete && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => onDelete?.(image)}
+                        disabled={isDeleting}
+                        className="absolute right-2 top-2 h-8 w-8 rounded-full bg-black/50 p-0 text-white hover:bg-red-600 hover:text-white disabled:opacity-60"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
-                </button>
+                  <button type="button" onClick={() => onSelect(image.url)} className="block w-full p-2 text-left">
+                    <p className="text-white text-sm truncate">{displayName}</p>
+                    <p className="text-white/60 text-xs">
+                      {isDeleting ? "Удаляем..." : formatFileSize(image.size)}
+                    </p>
+                  </button>
+                </div>
               );
             })}
           </div>

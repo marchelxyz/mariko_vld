@@ -5,13 +5,31 @@ import { useAdmin, useCities } from "@shared/hooks";
 import { Permission, UserRole } from "@shared/types";
 import { type PromotionCardData } from "@shared/data";
 import {
+  deletePromotionImage,
   fetchPromotionImageLibrary,
   fetchPromotions,
   savePromotions,
   uploadPromotionImage,
   type PromotionImageAsset,
 } from "@shared/api/promotionsApi";
-import { Button, Input, Label, Textarea, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@shared/ui";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+} from "@shared/ui";
 import { useToast } from "@/hooks";
 import { ImageLibraryModal } from "../menu/ui";
 
@@ -91,6 +109,26 @@ const shouldAddPromotionImageToLibrary = (raw?: string | null) => {
   if (!raw) return false;
   const trimmed = raw.trim();
   return Boolean(trimmed) && !trimmed.startsWith("data:");
+};
+
+const PROMOTION_IMAGE_MAX_FILE_SIZE_MB = 10;
+const PROMOTION_IMAGE_MAX_FILE_SIZE_BYTES = PROMOTION_IMAGE_MAX_FILE_SIZE_MB * 1024 * 1024;
+const PROMOTION_IMAGE_SIZE_LIMIT_MESSAGE = `Файл больше допустимого размера, загрузите файл до ${PROMOTION_IMAGE_MAX_FILE_SIZE_MB} MB`;
+
+const isStorageBackedPromotionImage = (asset: PromotionImageAsset) =>
+  asset.path.trim().startsWith("promotions/");
+
+const countPromotionsUsingImage = (
+  promotions: PromotionCardData[],
+  targetUrl: string,
+) => {
+  if (!targetUrl) {
+    return 0;
+  }
+
+  return promotions.filter(
+    (promo) => normalizeImageUrl(resolvePromotionImageUrl(promo.imageUrl)) === targetUrl,
+  ).length;
 };
 
 const getPromotionLibraryPath = (
@@ -262,6 +300,8 @@ function PromotionsManagementContent({
   const [isLibraryUploading, setIsLibraryUploading] = useState(false);
   const [uploadingPromoId, setUploadingPromoId] = useState<string | null>(null);
   const [openLibraryForId, setOpenLibraryForId] = useState<string | null>(null);
+  const [libraryImageToDelete, setLibraryImageToDelete] = useState<PromotionImageAsset | null>(null);
+  const [deletingLibraryImagePath, setDeletingLibraryImagePath] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const uploadContextRef = useRef<PromotionUploadContext | null>(null);
   const noPromotionsAccess = !hasPermission(Permission.MANAGE_PROMOTIONS);
@@ -400,7 +440,8 @@ function PromotionsManagementContent({
     () => mergePromotionImagesIntoLibrary(imageLibrary, promotions),
     [imageLibrary, promotions],
   );
-  const isAnyUploadInProgress = Boolean(uploadingPromoId) || isLibraryUploading;
+  const isAnyImageOperationInProgress =
+    Boolean(uploadingPromoId) || isLibraryUploading || Boolean(deletingLibraryImagePath);
 
   const filteredLibrary = useMemo(() => {
     if (!librarySearch.trim()) return mergedLibrary;
@@ -416,6 +457,16 @@ function PromotionsManagementContent({
       })),
     [filteredLibrary],
   );
+  const deletingLibraryImageUsageCount = useMemo(() => {
+    if (!libraryImageToDelete) {
+      return 0;
+    }
+
+    const targetUrl = normalizeImageUrl(
+      libraryImageToDelete.url || buildLibraryImageUrl(libraryImageToDelete),
+    );
+    return countPromotionsUsingImage(promotions, targetUrl);
+  }, [libraryImageToDelete, promotions]);
 
   if (noPromotionsAccess) {
     return null;
@@ -605,6 +656,15 @@ function PromotionsManagementContent({
     event.target.value = "";
     uploadContextRef.current = null;
 
+    if (file.size > PROMOTION_IMAGE_MAX_FILE_SIZE_BYTES) {
+      toast({
+        title: "Файл больше допустимого размера",
+        description: `Загрузите файл до ${PROMOTION_IMAGE_MAX_FILE_SIZE_MB} MB.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     const previousUrl =
       context.mode === "card"
         ? promotions.find((promo) => promo.id === context.promoId)?.imageUrl ?? ""
@@ -617,6 +677,10 @@ function PromotionsManagementContent({
         quality: 0.9,
         maxSizeMB: 4,
       });
+
+      if (optimizedFile.size > PROMOTION_IMAGE_MAX_FILE_SIZE_BYTES) {
+        throw new Error(PROMOTION_IMAGE_SIZE_LIMIT_MESSAGE);
+      }
 
       if (context.mode === "card") {
         setUploadingPromoId(context.promoId);
@@ -673,6 +737,59 @@ function PromotionsManagementContent({
     }
   };
 
+  const handleDeleteLibraryImage = async () => {
+    if (!libraryImageToDelete) {
+      return;
+    }
+
+    const fileKey = libraryImageToDelete.path.trim();
+    if (!fileKey || !isStorageBackedPromotionImage(libraryImageToDelete)) {
+      setLibraryImageToDelete(null);
+      return;
+    }
+
+    const targetUrl = normalizeImageUrl(
+      libraryImageToDelete.url || buildLibraryImageUrl(libraryImageToDelete),
+    );
+    const affectedPromoIds = promotions
+      .filter((promo) => normalizeImageUrl(resolvePromotionImageUrl(promo.imageUrl)) === targetUrl)
+      .map((promo) => promo.id);
+
+    setDeletingLibraryImagePath(fileKey);
+    setLibraryError(null);
+
+    try {
+      await deletePromotionImage(fileKey);
+      setImageLibrary((prev) => prev.filter((asset) => asset.path !== fileKey));
+
+      if (affectedPromoIds.length > 0) {
+        const affectedSet = new Set(affectedPromoIds);
+        setPromotions((prev) =>
+          prev.map((promo) =>
+            affectedSet.has(promo.id) ? { ...promo, imageUrl: "" } : promo,
+          ),
+        );
+      }
+
+      toast({
+        title: "Фото удалено из библиотеки",
+        description:
+          affectedPromoIds.length > 0
+            ? `Файл удален из Storage. Поле изображения очищено в ${affectedPromoIds.length} карточках текущего города, не забудьте нажать «Сохранить».`
+            : "Файл удален из библиотеки и из Storage.",
+      });
+      setLibraryImageToDelete(null);
+    } catch (error) {
+      toast({
+        title: "Не удалось удалить фото",
+        description: error instanceof Error ? error.message : "Попробуйте ещё раз.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingLibraryImagePath(null);
+    }
+  };
+
   if (isLoadingPromos && !promotions.length) {
     return (
       <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-white flex items-center gap-3">
@@ -711,10 +828,10 @@ function PromotionsManagementContent({
               variant="default"
               onClick={handleManualSave}
               className="bg-mariko-primary"
-              disabled={isSaving || isAnyUploadInProgress}
+              disabled={isSaving || isAnyImageOperationInProgress}
             >
               <Save className="h-4 w-4 mr-2" />
-              {isAnyUploadInProgress ? "Загрузка изображения..." : isSaving ? "Сохранение..." : "Сохранить"}
+              {isAnyImageOperationInProgress ? "Обработка изображения..." : isSaving ? "Сохранение..." : "Сохранить"}
             </Button>
           </div>
         </div>
@@ -749,13 +866,13 @@ function PromotionsManagementContent({
               variant="secondary"
               onClick={handleLibraryUploadClick}
               className="bg-white/10 text-white"
-              disabled={!currentCityId || isAnyUploadInProgress}
+              disabled={!currentCityId || isAnyImageOperationInProgress}
             >
               <Upload className="h-4 w-4 mr-2" />
               {isLibraryUploading ? "Загружаем в библиотеку..." : "Загрузить фото в библиотеку"}
             </Button>
             <p className="text-xs text-white/60">
-              Загрузите изображения заранее, чтобы затем быстро подставлять их в карточки акций.
+              Загрузите изображения заранее, чтобы затем быстро подставлять их в карточки акций. Допустимый размер файла — до {PROMOTION_IMAGE_MAX_FILE_SIZE_MB} MB.
             </p>
           </div>
 
@@ -928,7 +1045,7 @@ function PromotionsManagementContent({
                       variant="secondary"
                       onClick={() => handleUploadFileClick(promo.id)}
                       className="bg-white/10 text-white"
-                      disabled={isAnyUploadInProgress}
+                      disabled={isAnyImageOperationInProgress}
                     >
                       <Upload className="h-4 w-4 mr-2" />
                       Загрузить с устройства
@@ -944,12 +1061,15 @@ function PromotionsManagementContent({
                         }
                       }}
                       className="bg-white/10 text-white"
-                      disabled={isAnyUploadInProgress}
+                      disabled={isAnyImageOperationInProgress}
                     >
                       <ImageIcon className="h-4 w-4 mr-2" />
                       Выбрать из библиотеки
                     </Button>
                   </div>
+                  <p className="mt-2 text-xs text-white/50">
+                    Допустимый размер файла — до {PROMOTION_IMAGE_MAX_FILE_SIZE_MB} MB.
+                  </p>
                 </div>
               </div>
             </div>
@@ -969,6 +1089,9 @@ function PromotionsManagementContent({
         uploadButtonLabel={isLibraryUploading ? "Загружаем..." : "Загрузить в библиотеку"}
         isUploading={isLibraryUploading}
         emptyStateDescription="Пока библиотека пуста. Загрузите фото в библиотеку или прикрепите файл к конкретной карточке акции."
+        onDelete={(image) => setLibraryImageToDelete(image)}
+        canDeleteImage={(image) => isStorageBackedPromotionImage(image)}
+        deletingImagePath={deletingLibraryImagePath}
         onSelect={(url) => {
           if (openLibraryForId) {
             handleSelectLibraryImage(openLibraryForId, url);
@@ -978,8 +1101,35 @@ function PromotionsManagementContent({
         onClose={() => {
           setIsLibraryOpen(false);
           setOpenLibraryForId(null);
+          setLibraryImageToDelete(null);
         }}
       />
+      <AlertDialog
+        open={Boolean(libraryImageToDelete)}
+        onOpenChange={(open) => !open && !deletingLibraryImagePath && setLibraryImageToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить фото из библиотеки?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deletingLibraryImageUsageCount > 0
+                ? `Файл будет удален из библиотеки и из Yandex Storage. Сейчас он используется в ${deletingLibraryImageUsageCount} карточках текущего города, поэтому после удаления эти карточки нужно будет сохранить с новым фото.`
+                : "Файл будет удален из библиотеки и из Yandex Storage. Это действие нельзя отменить."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={Boolean(deletingLibraryImagePath)}>Отмена</AlertDialogCancel>
+            <Button
+              type="button"
+              onClick={handleDeleteLibraryImage}
+              disabled={Boolean(deletingLibraryImagePath)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deletingLibraryImagePath ? "Удаляем..." : "Удалить"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
