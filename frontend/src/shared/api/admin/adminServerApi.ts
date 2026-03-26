@@ -369,6 +369,12 @@ const getTelegramInitDataFromUrl = (): string | undefined => {
 };
 
 const getTelegramInitData = (): string | undefined => {
+  const platformInitData = getPlatform() === "telegram" ? getInitData() : undefined;
+  if (platformInitData && platformInitData.trim()) {
+    cacheTelegramInitData(platformInitData);
+    return platformInitData;
+  }
+
   const tg = getTg();
   const initData = tg?.initData;
   if (initData && typeof initData === "string") {

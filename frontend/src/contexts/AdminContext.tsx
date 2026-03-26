@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Permission } from "@shared/types";
 import { UserRole } from "@shared/types/admin";
-import { getPlatform, getUserId } from "@/lib/platform";
+import { getInitData, getPlatform, getUserId } from "@/lib/platform";
 import { getTg } from "@/lib/telegramCore";
 import { adminServerApi } from "@shared/api/admin/adminServerApi";
 import { logger } from "@/lib/logger";
@@ -193,13 +193,13 @@ const mapRole = (value: string): UserRole => {
 };
 
 const hasTelegramAuthPayload = (): boolean => {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  const initData = getTg()?.initData;
+  const initData = getInitData();
   if (typeof initData === "string" && initData.trim()) {
     return true;
+  }
+
+  if (typeof window === "undefined") {
+    return false;
   }
 
   try {
