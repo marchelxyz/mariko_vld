@@ -245,10 +245,11 @@ export async function deletePromotionImage(fileKey: string): Promise<void> {
   }
 
   const headers = buildAdminHeaders();
+  const query = new URLSearchParams({ key: fileKey });
 
   try {
     const response = await fetch(
-      resolveServerUrl(`/storage/${encodeURIComponent(fileKey)}`),
+      resolveServerUrl(`/storage?${query.toString()}`),
       {
         method: "DELETE",
         credentials: "include",

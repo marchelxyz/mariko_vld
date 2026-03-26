@@ -430,11 +430,11 @@ export function createStorageRouter() {
 
   /**
    * Удалить файл
-   * DELETE /storage/:key
+   * DELETE /storage?key=...
    */
-  router.delete("/:key", async (req, res) => {
+  const handleDeleteStorageFile = async (req, res, keySource, routeLabel) => {
     const startTime = Date.now();
-    const key = decodeURIComponent(req.params.key);
+    const key = typeof keySource === "string" ? keySource.trim() : "";
 
     const isMenuKey = key.startsWith("menu/");
     const isPromotionKey = key.startsWith("promotions/");
@@ -444,13 +444,13 @@ export function createStorageRouter() {
     const admin = await authoriseAdmin(req, res, requiredPermission);
     if (!admin) {
       const duration = Date.now() - startTime;
-      logger.requestError('DELETE', '/:key', new Error('Не авторизован'), 401);
+      logger.requestError('DELETE', routeLabel, new Error('Не авторизован'), 401);
       return res.status(401).json({ success: false, message: "Не авторизован" });
     }
 
     if (!key) {
       const duration = Date.now() - startTime;
-      logger.requestError('DELETE', '/:key', new Error('Не указан key'), 400);
+      logger.requestError('DELETE', routeLabel, new Error('Не указан key'), 400);
       return res.status(400).json({ success: false, message: "Необходимо передать key файла" });
     }
 
@@ -460,7 +460,7 @@ export function createStorageRouter() {
         const restaurantId = match?.[1];
         if (restaurantId && !admin.allowedRestaurants?.includes(restaurantId)) {
           const duration = Date.now() - startTime;
-          logger.requestError('DELETE', '/:key', new Error('Нет доступа к ресторану'), 403);
+          logger.requestError('DELETE', routeLabel, new Error('Нет доступа к ресторану'), 403);
           return res.status(403).json({ success: false, message: "Нет доступа к этому ресторану" });
         }
       } else if (isPromotionKey) {
@@ -470,7 +470,7 @@ export function createStorageRouter() {
           const allowedCities = await resolveAllowedCitiesByRestaurants(admin.allowedRestaurants ?? []);
           if (!allowedCities.includes(cityId)) {
             const duration = Date.now() - startTime;
-            logger.requestError('DELETE', '/:key', new Error('Нет доступа к городу'), 403);
+            logger.requestError('DELETE', routeLabel, new Error('Нет доступа к городу'), 403);
             return res.status(403).json({ success: false, message: "Нет доступа к этому городу" });
           }
         }
@@ -505,17 +505,27 @@ export function createStorageRouter() {
       }
 
       const duration = Date.now() - startTime;
-      logger.requestSuccess('DELETE', '/:key', duration, 200);
+      logger.requestSuccess('DELETE', routeLabel, duration, 200);
       return res.json({ success: true });
     } catch (error) {
       const duration = Date.now() - startTime;
-      logger.requestError('DELETE', '/:key', error, 500);
+      logger.requestError('DELETE', routeLabel, error, 500);
       return res.status(500).json({ 
         success: false, 
         message: "Не удалось удалить файл",
         error: error?.message || "Неизвестная ошибка",
       });
     }
+  };
+
+  router.delete("/", async (req, res) => {
+    const key = typeof req.query.key === "string" ? req.query.key : "";
+    return handleDeleteStorageFile(req, res, key, "/");
+  });
+
+  router.delete("/:key", async (req, res) => {
+    const key = decodeURIComponent(req.params.key);
+    return handleDeleteStorageFile(req, res, key, "/:key");
   });
 
   return router;
