@@ -68,6 +68,7 @@ RUN mkdir -p /etc/nginx/templates && \
     echo '    server_name _;' >> /etc/nginx/templates/default.conf.template && \
     echo '    root /usr/share/nginx/html;' >> /etc/nginx/templates/default.conf.template && \
     echo '    index index.html;' >> /etc/nginx/templates/default.conf.template && \
+    echo '    client_max_body_size 25m;' >> /etc/nginx/templates/default.conf.template && \
     echo '' >> /etc/nginx/templates/default.conf.template && \
     echo '    location = / {' >> /etc/nginx/templates/default.conf.template && \
     echo '        return 301 ${APP_BASE_PATH}/$is_args$args;' >> /etc/nginx/templates/default.conf.template && \
