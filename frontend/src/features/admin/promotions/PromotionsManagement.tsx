@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Image as ImageIcon, Megaphone, Plus, Save, Trash2, Copy, Upload } from "lucide-react";
+import { compressImage } from "@/lib/imageCompression";
 import { useAdmin, useCities } from "@shared/hooks";
 import { Permission, UserRole } from "@shared/types";
 import { type PromotionCardData } from "@shared/data";
@@ -81,6 +82,75 @@ function readFileAsDataUrl(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+
+type PromotionUploadContext =
+  | { mode: "card"; promoId: string }
+  | { mode: "library" };
+
+const shouldAddPromotionImageToLibrary = (raw?: string | null) => {
+  if (!raw) return false;
+  const trimmed = raw.trim();
+  return Boolean(trimmed) && !trimmed.startsWith("data:");
+};
+
+const getPromotionLibraryPath = (
+  promo: PromotionCardData,
+  index: number,
+  normalizedUrl: string,
+) => {
+  const fallbackName = promo.title?.trim() || `promotion-${index + 1}`;
+  if (normalizedUrl.startsWith("/")) {
+    return normalizedUrl.replace(/^\/+/, "");
+  }
+  try {
+    const parsed = new URL(normalizedUrl);
+    const fileName = parsed.pathname.split("/").pop();
+    return fileName ? decodeURIComponent(fileName) : fallbackName;
+  } catch {
+    return fallbackName;
+  }
+};
+
+const mergePromotionImagesIntoLibrary = (
+  assets: PromotionImageAsset[],
+  promotions: PromotionCardData[],
+) => {
+  const merged: PromotionImageAsset[] = [];
+  const seen = new Set<string>();
+
+  const registerAsset = (asset: PromotionImageAsset) => {
+    const normalizedUrl = normalizeImageUrl(asset.url || buildLibraryImageUrl(asset));
+    if (!normalizedUrl || normalizedUrl.startsWith("data:") || seen.has(normalizedUrl)) {
+      return;
+    }
+    seen.add(normalizedUrl);
+    merged.push({
+      ...asset,
+      url: normalizedUrl,
+    });
+  };
+
+  assets.forEach(registerAsset);
+
+  promotions.forEach((promo, index) => {
+    if (!shouldAddPromotionImageToLibrary(promo.imageUrl)) {
+      return;
+    }
+    const normalizedUrl = normalizeImageUrl(resolvePromotionImageUrl(promo.imageUrl));
+    if (!normalizedUrl || seen.has(normalizedUrl)) {
+      return;
+    }
+    seen.add(normalizedUrl);
+    merged.push({
+      path: getPromotionLibraryPath(promo, index, normalizedUrl),
+      url: normalizedUrl,
+      size: 0,
+      updatedAt: null,
+    });
+  });
+
+  return merged;
+};
 
 type PromotionsErrorContext = {
   currentCityId: string | null;
@@ -184,14 +254,16 @@ function PromotionsManagementContent({
   const [sourcePromotions, setSourcePromotions] = useState<PromotionCardData[]>([]);
   const [imageLibrary, setImageLibrary] = useState<PromotionImageAsset[]>([]);
   const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
   const [librarySearch, setLibrarySearch] = useState("");
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isLoadingPromos, setIsLoadingPromos] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLibraryUploading, setIsLibraryUploading] = useState(false);
   const [uploadingPromoId, setUploadingPromoId] = useState<string | null>(null);
-  const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
   const [openLibraryForId, setOpenLibraryForId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadContextRef = useRef<PromotionUploadContext | null>(null);
   const noPromotionsAccess = !hasPermission(Permission.MANAGE_PROMOTIONS);
 
   const accessibleCities = useMemo(() => {
@@ -324,12 +396,17 @@ function PromotionsManagementContent({
   }, [currentCityId, noPromotionsAccess]);
 
   const emptyState = useMemo(() => promotions.length === 0, [promotions.length]);
+  const mergedLibrary = useMemo(
+    () => mergePromotionImagesIntoLibrary(imageLibrary, promotions),
+    [imageLibrary, promotions],
+  );
+  const isAnyUploadInProgress = Boolean(uploadingPromoId) || isLibraryUploading;
 
   const filteredLibrary = useMemo(() => {
-    if (!librarySearch.trim()) return imageLibrary;
+    if (!librarySearch.trim()) return mergedLibrary;
     const query = librarySearch.trim().toLowerCase();
-    return imageLibrary.filter((img) => img.path.toLowerCase().includes(query));
-  }, [imageLibrary, librarySearch]);
+    return mergedLibrary.filter((img) => img.path.toLowerCase().includes(query));
+  }, [mergedLibrary, librarySearch]);
 
   const preparedLibrary = useMemo(
     () =>
@@ -379,7 +456,7 @@ function PromotionsManagementContent({
     );
   };
 
-  const handleManualSave = () => {
+  const handleManualSave = async () => {
     if (!currentCityId) {
       toast({ title: "Выберите город", description: "Перед сохранением выберите город.", variant: "destructive" });
       return;
@@ -393,27 +470,30 @@ function PromotionsManagementContent({
       isActive: promo.isActive !== false,
       displayOrder: index + 1,
     }));
-    savePromotions(currentCityId, payload)
-      .then((result) => {
-        if (result?.success === false) {
-          toast({
-            title: "Не удалось сохранить акции",
-            description: result.errorMessage || "Проверьте подключение или права.",
-            variant: "destructive",
-          });
-        } else {
-          toast({ title: "Сохранено", description: "Акции обновлены для главной страницы." });
-        }
-      })
-      .catch((error: unknown) => {
-        console.error("Ошибка сохранения акций:", error);
+
+    try {
+      const result = await savePromotions(currentCityId, payload);
+      if (result?.success === false) {
         toast({
-          title: "Не удалось сохранить",
-          description: "Попробуйте ещё раз.",
+          title: "Не удалось сохранить акции",
+          description: result.errorMessage || "Проверьте подключение или права.",
           variant: "destructive",
         });
-      })
-      .finally(() => setIsSaving(false));
+        return;
+      }
+
+      setPromotions(payload);
+      toast({ title: "Сохранено", description: "Акции обновлены для главной страницы." });
+    } catch (error: unknown) {
+      console.error("Ошибка сохранения акций:", error);
+      toast({
+        title: "Не удалось сохранить",
+        description: "Попробуйте ещё раз.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCopyFrom = () => {
@@ -478,11 +558,13 @@ function PromotionsManagementContent({
   const loadImageLibrary = async () => {
     if (!currentCityId) return;
     setLibraryLoading(true);
+    setLibraryError(null);
     try {
       const images = await fetchPromotionImageLibrary(currentCityId, "city");
       setImageLibrary(images ?? []);
     } catch (error) {
       console.error("Ошибка загрузки библиотеки изображений:", error);
+      setLibraryError("Не удалось загрузить библиотеку изображений.");
       toast({
         title: "Не удалось загрузить библиотеку",
         description: "Попробуйте позже.",
@@ -501,49 +583,93 @@ function PromotionsManagementContent({
     setIsLibraryOpen(false);
   };
 
-  const handleUploadFileClick = (promoId: string) => {
-    setUploadTargetId(promoId);
+  const openFileDialog = (context: PromotionUploadContext) => {
+    uploadContextRef.current = context;
     fileInputRef.current?.click();
+  };
+
+  const handleUploadFileClick = (promoId: string) => {
+    openFileDialog({ mode: "card", promoId });
+  };
+
+  const handleLibraryUploadClick = () => {
+    openFileDialog({ mode: "library" });
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !uploadTargetId || !currentCityId) {
+    const context = uploadContextRef.current;
+    if (!file || !context || !currentCityId) {
       return;
     }
     event.target.value = "";
+    uploadContextRef.current = null;
+
     const previousUrl =
-      promotions.find((promo) => promo.id === uploadTargetId)?.imageUrl ?? "";
+      context.mode === "card"
+        ? promotions.find((promo) => promo.id === context.promoId)?.imageUrl ?? ""
+        : "";
+
     try {
-      setUploadingPromoId(uploadTargetId);
-      const previewUrl = await readFileAsDataUrl(file);
-      setPromotions((prev) =>
-        prev.map((promo) =>
-          promo.id === uploadTargetId ? { ...promo, imageUrl: previewUrl } : promo,
-        ),
-      );
-      const uploaded = await uploadPromotionImage(file, currentCityId);
-      if (uploaded?.url) {
-        handleSelectLibraryImage(uploadTargetId, uploaded.url);
-        toast({ title: "Изображение загружено", description: "Ссылка проставлена в карточку." });
-        // Обновим библиотеку, чтобы появилось новое изображение
-        void loadImageLibrary();
+      const optimizedFile = await compressImage(file, {
+        maxWidth: 1920,
+        maxHeight: 1440,
+        quality: 0.9,
+        maxSizeMB: 4,
+      });
+
+      if (context.mode === "card") {
+        setUploadingPromoId(context.promoId);
+        const previewUrl = await readFileAsDataUrl(optimizedFile);
+        setPromotions((prev) =>
+          prev.map((promo) =>
+            promo.id === context.promoId ? { ...promo, imageUrl: previewUrl } : promo,
+          ),
+        );
+      } else {
+        setIsLibraryUploading(true);
       }
+
+      const uploaded = await uploadPromotionImage(optimizedFile, currentCityId);
+      if (!uploaded?.url) {
+        throw new Error("Сервер не вернул URL загруженного изображения.");
+      }
+
+      if (context.mode === "card") {
+        setPromotions((prev) =>
+          prev.map((promo) =>
+            promo.id === context.promoId ? { ...promo, imageUrl: uploaded.url } : promo,
+          ),
+        );
+        toast({
+          title: "Изображение загружено",
+          description: "Фото добавлено в библиотеку и прикреплено к карточке.",
+        });
+      } else {
+        toast({
+          title: "Фото загружено в библиотеку",
+          description: "Теперь его можно выбирать для карточек акций.",
+        });
+      }
+
+      await loadImageLibrary();
     } catch (error) {
       console.error("Ошибка загрузки изображения акции:", error);
-      setPromotions((prev) =>
-        prev.map((promo) =>
-          promo.id === uploadTargetId ? { ...promo, imageUrl: previousUrl } : promo,
-        ),
-      );
+      if (context.mode === "card") {
+        setPromotions((prev) =>
+          prev.map((promo) =>
+            promo.id === context.promoId ? { ...promo, imageUrl: previousUrl } : promo,
+          ),
+        );
+      }
       toast({
         title: "Не удалось загрузить изображение",
-        description: "Попробуйте ещё раз.",
+        description: error instanceof Error ? error.message : "Попробуйте ещё раз.",
         variant: "destructive",
       });
     } finally {
       setUploadingPromoId(null);
-      setUploadTargetId(null);
+      setIsLibraryUploading(false);
     }
   };
 
@@ -585,10 +711,10 @@ function PromotionsManagementContent({
               variant="default"
               onClick={handleManualSave}
               className="bg-mariko-primary"
-              disabled={isSaving || Boolean(uploadingPromoId)}
+              disabled={isSaving || isAnyUploadInProgress}
             >
               <Save className="h-4 w-4 mr-2" />
-              {uploadingPromoId ? "Загрузка изображения..." : isSaving ? "Сохранение..." : "Сохранить"}
+              {isAnyUploadInProgress ? "Загрузка изображения..." : isSaving ? "Сохранение..." : "Сохранить"}
             </Button>
           </div>
         </div>
@@ -621,13 +747,16 @@ function PromotionsManagementContent({
             )}
             <Button
               variant="secondary"
-              onClick={loadImageLibrary}
+              onClick={handleLibraryUploadClick}
               className="bg-white/10 text-white"
-              disabled={!currentCityId || libraryLoading}
+              disabled={!currentCityId || isAnyUploadInProgress}
             >
               <Upload className="h-4 w-4 mr-2" />
-              {libraryLoading ? "Обновляем библиотеку..." : "Обновить библиотеку изображений"}
+              {isLibraryUploading ? "Загружаем в библиотеку..." : "Загрузить фото в библиотеку"}
             </Button>
+            <p className="text-xs text-white/60">
+              Загрузите изображения заранее, чтобы затем быстро подставлять их в карточки акций.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -771,8 +900,25 @@ function PromotionsManagementContent({
 
                 <div className="space-y-2">
                   <Label className="text-white/80">Ссылка на изображение</Label>
+                  <div className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
+                    {promo.imageUrl ? (
+                      <img
+                        src={resolvePromotionImageUrl(promo.imageUrl)}
+                        alt={promo.title || `Акция ${idx + 1}`}
+                        className="h-44 w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="flex h-44 w-full items-center justify-center text-white/50">
+                        <div className="flex flex-col items-center gap-2 text-center">
+                          <ImageIcon className="h-8 w-8" />
+                          <span className="text-sm">Изображение пока не выбрано</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <Input
-                    value={promo.imageUrl}
+                    value={promo.imageUrl ?? ""}
                     onChange={(e) => handleChange(promo.id, 'imageUrl', e.target.value)}
                     placeholder="/images/promotions/..."
                     className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
@@ -782,6 +928,7 @@ function PromotionsManagementContent({
                       variant="secondary"
                       onClick={() => handleUploadFileClick(promo.id)}
                       className="bg-white/10 text-white"
+                      disabled={isAnyUploadInProgress}
                     >
                       <Upload className="h-4 w-4 mr-2" />
                       Загрузить с устройства
@@ -797,6 +944,7 @@ function PromotionsManagementContent({
                         }
                       }}
                       className="bg-white/10 text-white"
+                      disabled={isAnyUploadInProgress}
                     >
                       <ImageIcon className="h-4 w-4 mr-2" />
                       Выбрать из библиотеки
@@ -813,10 +961,14 @@ function PromotionsManagementContent({
         images={preparedLibrary}
         searchQuery={librarySearch}
         isLoading={libraryLoading}
-        error={null}
+        error={libraryError}
         selectedUrl={
           promotions.find((p) => p.id === openLibraryForId)?.imageUrl ?? undefined
         }
+        onUpload={handleLibraryUploadClick}
+        uploadButtonLabel={isLibraryUploading ? "Загружаем..." : "Загрузить в библиотеку"}
+        isUploading={isLibraryUploading}
+        emptyStateDescription="Пока библиотека пуста. Загрузите фото в библиотеку или прикрепите файл к конкретной карточке акции."
         onSelect={(url) => {
           if (openLibraryForId) {
             handleSelectLibraryImage(openLibraryForId, url);

@@ -9,9 +9,13 @@ type ImageLibraryModalProps = {
   isLoading: boolean;
   error: string | null;
   selectedUrl?: string | null;
+  emptyStateDescription?: string;
+  isUploading?: boolean;
+  onUpload?: () => void;
   onSelect: (url: string) => void;
   onSearchChange: (value: string) => void;
   onClose: () => void;
+  uploadButtonLabel?: string;
 };
 
 const formatFileSize = (size: number): string => {
@@ -34,9 +38,13 @@ export function ImageLibraryModal({
   isLoading,
   error,
   selectedUrl,
+  emptyStateDescription,
+  isUploading = false,
+  onUpload,
   onSelect,
   onSearchChange,
   onClose,
+  uploadButtonLabel = "Загрузить фото",
 }: ImageLibraryModalProps): JSX.Element | null {
   if (!isOpen) {
     return null;
@@ -60,12 +68,24 @@ export function ImageLibraryModal({
           </Button>
         </div>
 
-        <Input
-          value={searchQuery}
-          onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Поиск по названию файла"
-          className="bg-white/10 border-white/10 text-white placeholder:text-white/60"
-        />
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <Input
+            value={searchQuery}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder="Поиск по названию файла"
+            className="bg-white/10 border-white/10 text-white placeholder:text-white/60"
+          />
+          {onUpload && (
+            <Button
+              variant="secondary"
+              onClick={onUpload}
+              disabled={isUploading}
+              className="bg-white/10 text-white md:flex-shrink-0"
+            >
+              {isUploading ? "Загрузка..." : uploadButtonLabel}
+            </Button>
+          )}
+        </div>
 
         {error && <div className="p-3 rounded-xl bg-red-500/10 text-red-200 text-sm">{error}</div>}
 
@@ -97,7 +117,7 @@ export function ImageLibraryModal({
           </div>
         ) : (
           <div className="bg-white/5 rounded-2xl p-8 text-center text-white/70">
-            Пока нет загруженных изображений. Добавьте фото через кнопку «Загрузить фото».
+            {emptyStateDescription ?? "Пока нет загруженных изображений."}
           </div>
         )}
 
