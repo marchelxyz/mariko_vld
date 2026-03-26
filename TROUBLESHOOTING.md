@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-26 19:00
+**Последнее обновление:** 2026-03-26 19:35
 
 ---
 
@@ -48,19 +48,22 @@
 - backend `/api/cart/admin/users` и `/api/cart/admin/delivery-access/users` требуют валидный signed `X-Telegram-Init-Data`;
 - `AdminContext` мог открыть админку по seed-admin ID даже без подтверждённого Telegram payload;
 - `adminServerApi` и `AdminContext` использовали собственный sessionStorage-кэш Telegram initData и не опирались на общий `platform`-layer;
-- если `tg.initData` в конкретном Telegram wrapper был недоступен, но payload уже лежал в общем Telegram storage/localStorage, админка считала пользователя админом, а списковые запросы уходили без signed payload и тихо падали в пустые массивы.
+- если `tg.initData` в конкретном Telegram wrapper появлялся не сразу, админка считала пользователя админом раньше, чем для server-запросов появлялся signed payload;
+- списковые запросы уходили слишком рано, получали `401/403`, а интерфейс молча рисовал `0`, потому что ошибки загрузки не показывались отдельно от пустого списка.
 
 **Решение:**
 1. В `frontend/src/shared/api/admin/adminServerApi.ts` брать Telegram initData через общий `getInitData()` из `frontend/src/lib/platform.ts`, а не только из локального sessionStorage-кэша.
 2. В `frontend/src/contexts/AdminContext.tsx` проверять наличие Telegram auth payload через тот же `getInitData()`.
 3. Оставить существующий fallback по seed-admin ID только как вспомогательный, но синхронизировать источник signed payload между admin-layer и platform-layer.
+4. Добавить короткий retry/polling перед каждым admin server request, чтобы дождаться поздно инициализируемого Telegram `initData`, а не отправлять запрос сразу без signed payload.
+5. На страницах `Управление ролями` и `Доступ к доставке` показывать явную ошибку загрузки пользователей и кнопку повтора, а не подменять `401/403` на визуальный `0`.
 
 **Проверка:**
 - в prod БД убедиться, что `user_profiles` не пустая;
 - проверить `GET /tg/api/cart/admin/users` с валидным `X-Telegram-Init-Data` и убедиться, что backend возвращает непустой `users`;
 - открыть Telegram Mini App, зайти в `Управление ролями` и `Доступ к доставке`, убедиться, что вместо `0` показываются реальные пользователи.
 
-**Связанный commit:** `N/A` (локальный фикс, без commit на момент записи)
+**Связанный commit:** `2645766` `fix(admin): исправлена загрузка списков пользователей в Telegram`
 
 ### ❌ Проблема: в «Управление акциями» библиотека изображений выглядела пустой, советовала несуществующую кнопку, а загрузка фото из устройства воспринималась как несохранённая
 
