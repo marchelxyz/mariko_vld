@@ -36,6 +36,8 @@ export function DeliveryAccessManagement(): JSX.Element {
     data,
     isLoading,
     isFetching,
+    error,
+    isError,
     refetch,
   } = useQuery({
     queryKey: ["admin-delivery-access-users"],
@@ -67,6 +69,8 @@ export function DeliveryAccessManagement(): JSX.Element {
     () => platformScopedUsers.filter((user) => user.hasAccess).length,
     [platformScopedUsers],
   );
+  const errorMessage =
+    error instanceof Error ? error.message : "Не удалось загрузить список пользователей.";
 
   const handleEnableAll = async () => {
     setIsUpdatingAll(true);
@@ -174,6 +178,16 @@ export function DeliveryAccessManagement(): JSX.Element {
       </div>
 
       <div className="space-y-3">
+        {isError && (
+          <div className="rounded-2xl border border-rose-300/30 bg-rose-500/15 p-4 text-white">
+            <p className="font-semibold">Не удалось загрузить пользователей</p>
+            <p className="mt-1 text-sm text-white/80">{errorMessage}</p>
+            <Button type="button" variant="outline" className="mt-3" onClick={() => void refetch()}>
+              Повторить загрузку
+            </Button>
+          </div>
+        )}
+
         {filteredUsers.map((user) => {
           const isPending = updatingUserId === user.userId || isUpdatingAll;
           return (
@@ -208,7 +222,7 @@ export function DeliveryAccessManagement(): JSX.Element {
           );
         })}
 
-        {!filteredUsers.length && (
+        {!isError && !filteredUsers.length && (
           <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center text-white/70">
             <Users className="w-8 h-8 mx-auto mb-2 opacity-70" />
             Пользователи не найдены
