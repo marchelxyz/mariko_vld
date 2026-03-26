@@ -5,11 +5,13 @@ import { Button, Input } from '@shared/ui';
 type ImageLibraryModalProps = {
   isOpen: boolean;
   images: MenuImageAsset[];
+  title?: string;
   searchQuery: string;
   isLoading: boolean;
   error: string | null;
   selectedUrl?: string | null;
   emptyStateDescription?: string;
+  selectionEnabled?: boolean;
   isUploading?: boolean;
   onUpload?: () => void;
   onDelete?: (image: MenuImageAsset) => void;
@@ -37,11 +39,13 @@ const formatFileSize = (size: number): string => {
 export function ImageLibraryModal({
   isOpen,
   images,
+  title = "Выбор фото",
   searchQuery,
   isLoading,
   error,
   selectedUrl,
   emptyStateDescription,
+  selectionEnabled = true,
   isUploading = false,
   onUpload,
   onDelete,
@@ -68,7 +72,7 @@ export function ImageLibraryModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
       <div className="bg-mariko-secondary rounded-[24px] p-6 w-full max-w-3xl space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-white font-el-messiri text-2xl font-bold">Выбор фото</h3>
+          <h3 className="text-white font-el-messiri text-2xl font-bold">{title}</h3>
           <Button variant="ghost" onClick={onClose}>
             <X className="w-5 h-5" />
           </Button>
@@ -114,9 +118,13 @@ export function ImageLibraryModal({
                   }`}
                 >
                   <div className="relative">
-                    <button type="button" onClick={() => onSelect(image.url)} className="block w-full">
+                    {selectionEnabled ? (
+                      <button type="button" onClick={() => onSelect(image.url)} className="block w-full">
+                        <img src={image.url} alt={displayName} className="w-full h-32 object-cover" loading="lazy" />
+                      </button>
+                    ) : (
                       <img src={image.url} alt={displayName} className="w-full h-32 object-cover" loading="lazy" />
-                    </button>
+                    )}
                     {canDelete && (
                       <Button
                         type="button"
@@ -129,12 +137,21 @@ export function ImageLibraryModal({
                       </Button>
                     )}
                   </div>
-                  <button type="button" onClick={() => onSelect(image.url)} className="block w-full p-2 text-left">
-                    <p className="text-white text-sm truncate">{displayName}</p>
-                    <p className="text-white/60 text-xs">
-                      {isDeleting ? "Удаляем..." : formatFileSize(image.size)}
-                    </p>
-                  </button>
+                  {selectionEnabled ? (
+                    <button type="button" onClick={() => onSelect(image.url)} className="block w-full p-2 text-left">
+                      <p className="text-white text-sm truncate">{displayName}</p>
+                      <p className="text-white/60 text-xs">
+                        {isDeleting ? "Удаляем..." : formatFileSize(image.size)}
+                      </p>
+                    </button>
+                  ) : (
+                    <div className="p-2 text-left">
+                      <p className="text-white text-sm truncate">{displayName}</p>
+                      <p className="text-white/60 text-xs">
+                        {isDeleting ? "Удаляем..." : formatFileSize(image.size)}
+                      </p>
+                    </div>
+                  )}
                 </div>
               );
             })}

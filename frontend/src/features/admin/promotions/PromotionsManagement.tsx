@@ -105,6 +105,8 @@ type PromotionUploadContext =
   | { mode: "card"; promoId: string }
   | { mode: "library" };
 
+type PromotionLibraryMode = "manage" | "select";
+
 const shouldAddPromotionImageToLibrary = (raw?: string | null) => {
   if (!raw) return false;
   const trimmed = raw.trim();
@@ -300,6 +302,7 @@ function PromotionsManagementContent({
   const [isLibraryUploading, setIsLibraryUploading] = useState(false);
   const [uploadingPromoId, setUploadingPromoId] = useState<string | null>(null);
   const [openLibraryForId, setOpenLibraryForId] = useState<string | null>(null);
+  const [libraryMode, setLibraryMode] = useState<PromotionLibraryMode>("manage");
   const [libraryImageToDelete, setLibraryImageToDelete] = useState<PromotionImageAsset | null>(null);
   const [deletingLibraryImagePath, setDeletingLibraryImagePath] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -467,6 +470,7 @@ function PromotionsManagementContent({
     );
     return countPromotionsUsingImage(promotions, targetUrl);
   }, [libraryImageToDelete, promotions]);
+  const isLibraryManagerMode = libraryMode === "manage";
 
   if (noPromotionsAccess) {
     return null;
@@ -631,6 +635,7 @@ function PromotionsManagementContent({
       prev.map((promo) => (promo.id === promoId ? { ...promo, imageUrl: url } : promo)),
     );
     setOpenLibraryForId(null);
+    setLibraryMode("manage");
     setIsLibraryOpen(false);
   };
 
@@ -645,6 +650,26 @@ function PromotionsManagementContent({
 
   const handleLibraryUploadClick = () => {
     openFileDialog({ mode: "library" });
+  };
+
+  const openLibraryManager = () => {
+    setLibraryMode("manage");
+    setOpenLibraryForId(null);
+    setLibrarySearch("");
+    setIsLibraryOpen(true);
+    if (!imageLibrary.length) {
+      void loadImageLibrary();
+    }
+  };
+
+  const openLibrarySelector = (promoId: string) => {
+    setLibraryMode("select");
+    setOpenLibraryForId(promoId);
+    setLibrarySearch("");
+    setIsLibraryOpen(true);
+    if (!imageLibrary.length) {
+      void loadImageLibrary();
+    }
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -864,15 +889,15 @@ function PromotionsManagementContent({
             )}
             <Button
               variant="secondary"
-              onClick={handleLibraryUploadClick}
+              onClick={openLibraryManager}
               className="bg-white/10 text-white"
               disabled={!currentCityId || isAnyImageOperationInProgress}
             >
-              <Upload className="h-4 w-4 mr-2" />
-              {isLibraryUploading ? "Загружаем в библиотеку..." : "Загрузить фото в библиотеку"}
+              <ImageIcon className="h-4 w-4 mr-2" />
+              Открыть библиотеку изображений
             </Button>
             <p className="text-xs text-white/60">
-              Загрузите изображения заранее, чтобы затем быстро подставлять их в карточки акций. Допустимый размер файла — до {PROMOTION_IMAGE_MAX_FILE_SIZE_MB} MB.
+              Откройте библиотеку, чтобы загружать и удалять изображения централизованно. Допустимый размер файла — до {PROMOTION_IMAGE_MAX_FILE_SIZE_MB} MB.
             </p>
           </div>
 
@@ -1052,14 +1077,7 @@ function PromotionsManagementContent({
                     </Button>
                     <Button
                       variant="secondary"
-                      onClick={() => {
-                        setOpenLibraryForId(promo.id);
-                        setIsLibraryOpen(true);
-                        setLibrarySearch('');
-                        if (!imageLibrary.length) {
-                          void loadImageLibrary();
-                        }
-                      }}
+                      onClick={() => openLibrarySelector(promo.id)}
                       className="bg-white/10 text-white"
                       disabled={isAnyImageOperationInProgress}
                     >
@@ -1079,19 +1097,27 @@ function PromotionsManagementContent({
       <ImageLibraryModal
         isOpen={isLibraryOpen}
         images={preparedLibrary}
+        title={isLibraryManagerMode ? "Библиотека изображений" : "Выбор фото"}
         searchQuery={librarySearch}
         isLoading={libraryLoading}
         error={libraryError}
         selectedUrl={
-          promotions.find((p) => p.id === openLibraryForId)?.imageUrl ?? undefined
+          isLibraryManagerMode
+            ? undefined
+            : promotions.find((p) => p.id === openLibraryForId)?.imageUrl ?? undefined
         }
-        onUpload={handleLibraryUploadClick}
-        uploadButtonLabel={isLibraryUploading ? "Загружаем..." : "Загрузить в библиотеку"}
+        selectionEnabled={!isLibraryManagerMode}
+        onUpload={isLibraryManagerMode ? handleLibraryUploadClick : undefined}
+        uploadButtonLabel={isLibraryUploading ? "Загружаем..." : "Загрузить"}
         isUploading={isLibraryUploading}
-        emptyStateDescription="Пока библиотека пуста. Загрузите фото в библиотеку или прикрепите файл к конкретной карточке акции."
-        onDelete={(image) => setLibraryImageToDelete(image)}
-        canDeleteImage={(image) => isStorageBackedPromotionImage(image)}
-        deletingImagePath={deletingLibraryImagePath}
+        emptyStateDescription={
+          isLibraryManagerMode
+            ? "Пока библиотека пуста. Загрузите фото в библиотеку."
+            : "Пока библиотека пуста. Сначала откройте библиотеку изображений и загрузите туда фото."
+        }
+        onDelete={isLibraryManagerMode ? (image) => setLibraryImageToDelete(image) : undefined}
+        canDeleteImage={isLibraryManagerMode ? (image) => isStorageBackedPromotionImage(image) : undefined}
+        deletingImagePath={isLibraryManagerMode ? deletingLibraryImagePath : null}
         onSelect={(url) => {
           if (openLibraryForId) {
             handleSelectLibraryImage(openLibraryForId, url);
@@ -1101,6 +1127,7 @@ function PromotionsManagementContent({
         onClose={() => {
           setIsLibraryOpen(false);
           setOpenLibraryForId(null);
+          setLibraryMode("manage");
           setLibraryImageToDelete(null);
         }}
       />
