@@ -235,6 +235,44 @@ export async function fetchPromotionImageLibrary(
   }
 }
 
+export async function deletePromotionImage(fileKey: string): Promise<void> {
+  if (!shouldUseServerApi()) {
+    throw new Error("Серверный API выключен");
+  }
+
+  if (!fileKey) {
+    throw new Error("Не указан ключ файла");
+  }
+
+  const headers = buildAdminHeaders();
+
+  try {
+    const response = await fetch(
+      resolveServerUrl(`/storage/${encodeURIComponent(fileKey)}`),
+      {
+        method: "DELETE",
+        credentials: "include",
+        headers,
+      },
+    );
+
+    const text = await response.text();
+    if (!response.ok) {
+      const errorMessage = sanitizeAdminFacingMessage(
+        parseErrorPayload(text),
+        "Не удалось удалить изображение. Попробуйте ещё раз.",
+      );
+      throw new Error(errorMessage);
+    }
+  } catch (error) {
+    const message = sanitizeAdminFacingMessage(
+      error instanceof Error ? error.message : null,
+      "Не удалось удалить изображение. Попробуйте ещё раз.",
+    );
+    throw new Error(message);
+  }
+}
+
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
