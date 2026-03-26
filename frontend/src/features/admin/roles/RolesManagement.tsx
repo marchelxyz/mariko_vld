@@ -65,7 +65,13 @@ export function RolesManagement(): JSX.Element {
   const canManageRoles = hasPermission(Permission.MANAGE_ROLES);
   const isSuperAdminUser = isSuperAdmin();
 
-  const { data: users = [], isLoading, refetch } = useQuery({
+  const {
+    data: users = [],
+    isLoading,
+    error: usersError,
+    isError: isUsersError,
+    refetch,
+  } = useQuery({
     queryKey: ["admin-users"],
     queryFn: () => adminServerApi.getUsers(),
     enabled: canManageRoles,
@@ -393,6 +399,8 @@ export function RolesManagement(): JSX.Element {
     listScope === "staff"
       ? "Здесь отображаются только сотрудники с любой ролью, кроме пользователя."
       : "Полный список пользователей текущей платформы, включая обычных гостей.";
+  const usersErrorMessage =
+    usersError instanceof Error ? usersError.message : "Не удалось загрузить список пользователей.";
 
   return (
     <div className="space-y-6">
@@ -462,6 +470,16 @@ export function RolesManagement(): JSX.Element {
       </div>
 
       <div className="space-y-3">
+        {isUsersError && (
+          <div className="rounded-2xl border border-rose-300/30 bg-rose-500/15 p-4 text-white">
+            <p className="font-semibold">Не удалось загрузить список пользователей</p>
+            <p className="mt-1 text-sm text-white/80">{usersErrorMessage}</p>
+            <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+              Повторить загрузку
+            </Button>
+          </div>
+        )}
+
         {filteredUsers.map((user) => (
           <div
             key={user.id}
@@ -491,7 +509,7 @@ export function RolesManagement(): JSX.Element {
             </div>
           </div>
         ))}
-        {!filteredUsers.length && (
+        {!isUsersError && !filteredUsers.length && (
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-center text-white/70">
             {listScope === "staff"
               ? "Сотрудники по текущему запросу не найдены"

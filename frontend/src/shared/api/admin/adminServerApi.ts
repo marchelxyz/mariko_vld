@@ -350,6 +350,7 @@ const resolveTelegramId = (override?: string): string | undefined => {
 
 const TELEGRAM_INIT_DATA_STORAGE_KEY = "mariko_tg_init_data";
 const TELEGRAM_USER_ID_STORAGE_KEY = "mariko_tg_user_id";
+const ADMIN_AUTH_HEADER_RETRY_DELAYS_MS = [0, 200, 500, 1000, 1800];
 
 const getTelegramInitDataFromUrl = (): string | undefined => {
   if (typeof window === "undefined") {
@@ -471,6 +472,9 @@ const getCachedTelegramUserId = (): string | undefined => {
   }
 };
 
+const waitForMs = (ms: number): Promise<void> =>
+  new Promise((resolve) => window.setTimeout(resolve, ms));
+
 const resolveVkId = (override?: string): string | undefined => {
   logger.debug('admin-api', 'resolveVkId', {
     override,
@@ -518,7 +522,29 @@ const resolveVkId = (override?: string): string | undefined => {
   return undefined;
 };
 
-const buildHeaders = (overrideTelegramId?: string, overrideVkId?: string): Record<string, string> => {
+const waitForPlatformInitData = async (): Promise<string | undefined> => {
+  const platform = getPlatform();
+  for (let attempt = 0; attempt < ADMIN_AUTH_HEADER_RETRY_DELAYS_MS.length; attempt += 1) {
+    const initData = getInitData();
+    if (typeof initData === "string" && initData.trim()) {
+      return initData;
+    }
+
+    const delay = ADMIN_AUTH_HEADER_RETRY_DELAYS_MS[attempt] ?? 0;
+    const isLastAttempt = attempt === ADMIN_AUTH_HEADER_RETRY_DELAYS_MS.length - 1;
+    if (
+      delay > 0 &&
+      !isLastAttempt &&
+      (platform === "telegram" || platform === "vk")
+    ) {
+      await waitForMs(delay);
+    }
+  }
+
+  return getInitData();
+};
+
+const buildHeaders = async (overrideTelegramId?: string, overrideVkId?: string): Promise<Record<string, string>> => {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -529,7 +555,7 @@ const buildHeaders = (overrideTelegramId?: string, overrideVkId?: string): Recor
     if (vkId) {
       headers["X-VK-Id"] = vkId;
     }
-    const vkInitData = getInitData();
+    const vkInitData = await waitForPlatformInitData();
     if (vkInitData) {
       headers["X-VK-Init-Data"] = vkInitData;
     }
@@ -540,11 +566,17 @@ const buildHeaders = (overrideTelegramId?: string, overrideVkId?: string): Recor
   if (telegramId) {
     headers["X-Telegram-Id"] = telegramId;
   }
-  const telegramInitData = getTelegramInitData();
+  const telegramInitData = await waitForPlatformInitData();
   if (telegramInitData) {
     headers["X-Telegram-Init-Data"] = telegramInitData;
   }
   return headers;
+};
+
+const buildRequestError = (response: Response, message: string): Error & { status?: number } => {
+  const requestError = new Error(message) as Error & { status?: number };
+  requestError.status = response.status;
+  return requestError;
 };
 
 const handleResponse = async <T>(response: Response): Promise<T> => {
@@ -569,27 +601,41 @@ const handleResponse = async <T>(response: Response): Promise<T> => {
         });
       }
     }
-    
-    throw new Error(errorMessage);
+
+    throw buildRequestError(response, errorMessage);
   }
   return (await response.json()) as T;
+};
+
+const fetchAdmin = async (
+  input: string,
+  init: RequestInit = {},
+  options: { overrideTelegramId?: string; overrideVkId?: string } = {},
+): Promise<Response> => {
+  const authHeaders = await buildHeaders(options.overrideTelegramId, options.overrideVkId);
+  const mergedHeaders =
+    init.headers && typeof init.headers === "object"
+      ? { ...authHeaders, ...(init.headers as Record<string, string>) }
+      : authHeaders;
+
+  return fetch(input, {
+    ...init,
+    headers: mergedHeaders,
+  });
 };
 
 export const adminServerApi = {
   async getCurrentAdmin(overrideTelegramId?: string, overrideVkId?: string): Promise<AdminMeResponse> {
     const url = `${ADMIN_API_BASE}/me`;
     logger.debug('admin-api', 'getCurrentAdmin', { url });
-    const response = await fetch(url, {
-      headers: buildHeaders(overrideTelegramId, overrideVkId),
-    });
+    const response = await fetchAdmin(url, {}, { overrideTelegramId, overrideVkId });
     if (!response.ok) {
       const errorText = await response.text().catch(() => "");
       const errorMessage = sanitizeAdminFacingMessage(
         errorText,
         "Не удалось выполнить действие. Попробуйте ещё раз.",
       );
-      const requestError = new Error(errorMessage) as Error & { status?: number };
-      requestError.status = response.status;
+      const requestError = buildRequestError(response, errorMessage);
       const logPayload = {
         status: response.status,
         statusText: response.statusText,
@@ -607,9 +653,7 @@ export const adminServerApi = {
   },
 
   async getUsers(): Promise<AdminPanelUser[]> {
-    const response = await fetch(`${ADMIN_API_BASE}/users`, {
-      headers: buildHeaders(undefined, undefined),
-    });
+    const response = await fetchAdmin(`${ADMIN_API_BASE}/users`);
     const data = await handleResponse<{ success: boolean; users: AdminPanelUser[] }>(response);
     return data.users ?? [];
   },
@@ -618,9 +662,7 @@ export const adminServerApi = {
     roles: RolePermissionsMatrixItem[];
     availablePermissions: Permission[];
   }> {
-    const response = await fetch(`${ADMIN_API_BASE}/role-permissions`, {
-      headers: buildHeaders(),
-    });
+    const response = await fetchAdmin(`${ADMIN_API_BASE}/role-permissions`);
     const data = await handleResponse<RolePermissionsMatrixResponse>(response);
     return {
       roles: data.roles ?? [],
@@ -629,9 +671,8 @@ export const adminServerApi = {
   },
 
   async updateRolePermissions(role: UserRole, permissions: Permission[]): Promise<RolePermissionsMatrixItem> {
-    const response = await fetch(`${ADMIN_API_BASE}/role-permissions/${encodeURIComponent(role)}`, {
+    const response = await fetchAdmin(`${ADMIN_API_BASE}/role-permissions/${encodeURIComponent(role)}`, {
       method: "PATCH",
-      headers: buildHeaders(),
       body: JSON.stringify({ permissions }),
     });
     const data = await handleResponse<{ success: boolean; role: UserRole; permissions: Permission[] }>(response);
@@ -645,9 +686,7 @@ export const adminServerApi = {
     mode: DeliveryAccessMode;
     users: AdminDeliveryAccessUser[];
   }> {
-    const response = await fetch(`${ADMIN_API_BASE}/delivery-access/users`, {
-      headers: buildHeaders(undefined, undefined),
-    });
+    const response = await fetchAdmin(`${ADMIN_API_BASE}/delivery-access/users`);
     const data = await handleResponse<DeliveryAccessSnapshotResponse>(response);
     return {
       mode: data.mode ?? "list",
@@ -656,11 +695,10 @@ export const adminServerApi = {
   },
 
   async setDeliveryAccessForUser(userId: string, enabled: boolean): Promise<DeliveryAccessMode> {
-    const response = await fetch(
+    const response = await fetchAdmin(
       `${ADMIN_API_BASE}/delivery-access/users/${encodeURIComponent(userId)}`,
       {
         method: "PATCH",
-        headers: buildHeaders(undefined, undefined),
         body: JSON.stringify({ enabled }),
       },
     );
@@ -669,27 +707,24 @@ export const adminServerApi = {
   },
 
   async enableDeliveryForAll(): Promise<DeliveryAccessMode> {
-    const response = await fetch(`${ADMIN_API_BASE}/delivery-access/enable-all`, {
+    const response = await fetchAdmin(`${ADMIN_API_BASE}/delivery-access/enable-all`, {
       method: "POST",
-      headers: buildHeaders(undefined, undefined),
     });
     const data = await handleResponse<{ success: boolean; mode: DeliveryAccessMode }>(response);
     return data.mode ?? "all_on";
   },
 
   async disableDeliveryForAll(): Promise<DeliveryAccessMode> {
-    const response = await fetch(`${ADMIN_API_BASE}/delivery-access/disable-all`, {
+    const response = await fetchAdmin(`${ADMIN_API_BASE}/delivery-access/disable-all`, {
       method: "POST",
-      headers: buildHeaders(undefined, undefined),
     });
     const data = await handleResponse<{ success: boolean; mode: DeliveryAccessMode }>(response);
     return data.mode ?? "all_off";
   },
 
   async updateUserRole(userId: string, payload: UpdateRolePayload): Promise<AdminPanelUser> {
-    const response = await fetch(`${ADMIN_API_BASE}/users/${encodeURIComponent(userId)}`, {
+    const response = await fetchAdmin(`${ADMIN_API_BASE}/users/${encodeURIComponent(userId)}`, {
       method: "PATCH",
-      headers: buildHeaders(undefined, undefined),
       body: JSON.stringify(payload),
     });
     const data = await handleResponse<{ success: boolean; user: AdminPanelUser }>(response);
@@ -707,22 +742,18 @@ export const adminServerApi = {
     if (params.limit) {
       search.set("limit", String(params.limit));
     }
-    const response = await fetch(
+    const response = await fetchAdmin(
       `${ADMIN_API_BASE}/orders${search.toString() ? `?${search.toString()}` : ""}`,
-      {
-        headers: buildHeaders(undefined, undefined),
-      },
     );
     const data = await handleResponse<AdminOrdersResponse>(response);
     return data.orders ?? [];
   },
 
   async updateRestaurantStatus(restaurantId: string, isActive: boolean): Promise<void> {
-    const response = await fetch(
+    const response = await fetchAdmin(
       `${ADMIN_API_BASE}/restaurants/${encodeURIComponent(restaurantId)}/status`,
       {
         method: "PATCH",
-        headers: buildHeaders(undefined, undefined),
         body: JSON.stringify({ isActive }),
       },
     );
@@ -748,22 +779,16 @@ export const adminServerApi = {
     if (params.platform) {
       search.set("platform", params.platform);
     }
-    const response = await fetch(
+    const response = await fetchAdmin(
       `${ADMIN_API_BASE}/guests${search.toString() ? `?${search.toString()}` : ""}`,
-      {
-        headers: buildHeaders(undefined, undefined),
-      },
     );
     const data = await handleResponse<AdminGuestsResponse>(response);
     return data.guests ?? [];
   },
 
   async getGuestBookings(guestId: string): Promise<GuestBooking[]> {
-    const response = await fetch(
+    const response = await fetchAdmin(
       `${ADMIN_API_BASE}/guests/${encodeURIComponent(guestId)}/bookings`,
-      {
-        headers: buildHeaders(undefined, undefined),
-      },
     );
     const data = await handleResponse<GuestBookingsResponse>(response);
     return data.bookings ?? [];
@@ -773,9 +798,8 @@ export const adminServerApi = {
     guestId: string,
     payload: { isBanned: boolean; reason?: string },
   ): Promise<Pick<Guest, "id" | "isBanned" | "bannedAt" | "bannedReason">> {
-    const response = await fetch(`${ADMIN_API_BASE}/users/${encodeURIComponent(guestId)}/ban`, {
+    const response = await fetchAdmin(`${ADMIN_API_BASE}/users/${encodeURIComponent(guestId)}/ban`, {
       method: "PATCH",
-      headers: buildHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await handleResponse<UpdateGuestBanResponse>(response);
@@ -799,11 +823,8 @@ export const adminServerApi = {
     if (params.toDate) {
       search.set("toDate", params.toDate);
     }
-    const response = await fetch(
+    const response = await fetchAdmin(
       `${ADMIN_API_BASE}/bookings${search.toString() ? `?${search.toString()}` : ""}`,
-      {
-        headers: buildHeaders(),
-      },
     );
     const data = await handleResponse<AdminBookingsResponse>(response);
     return data.bookings ?? [];
@@ -818,11 +839,10 @@ export const adminServerApi = {
       platform?: "telegram" | "vk" | null;
     },
   ): Promise<UpdateBookingStatusResponse> {
-    const response = await fetch(
+    const response = await fetchAdmin(
       `${ADMIN_API_BASE}/bookings/${encodeURIComponent(bookingId)}/status`,
       {
         method: "PATCH",
-        headers: buildHeaders(),
         body: JSON.stringify(payload),
       },
     );
@@ -837,25 +857,20 @@ export const adminServerApi = {
       status,
       platform,
     });
-    const response = await fetch(`${ADMIN_API_BASE}/bookings/status-message?${search.toString()}`, {
-      headers: buildHeaders(undefined, undefined),
-    });
+    const response = await fetchAdmin(`${ADMIN_API_BASE}/bookings/status-message?${search.toString()}`);
     const data = await handleResponse<{ success: boolean; message?: string | null }>(response);
     return typeof data?.message === "string" ? data.message : null;
   },
 
   async getSettings(): Promise<AppSettings> {
-    const response = await fetch(`${ADMIN_API_BASE}/settings`, {
-      headers: buildHeaders(),
-    });
+    const response = await fetchAdmin(`${ADMIN_API_BASE}/settings`);
     const data = await handleResponse<AdminSettingsResponse>(response);
     return data.settings;
   },
 
   async updateSettings(payload: Partial<AppSettings>): Promise<AppSettings> {
-    const response = await fetch(`${ADMIN_API_BASE}/settings`, {
+    const response = await fetchAdmin(`${ADMIN_API_BASE}/settings`, {
       method: "PATCH",
-      headers: buildHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await handleResponse<AdminSettingsResponse>(response);
@@ -889,11 +904,8 @@ export const adminServerApi = {
       search.set("limit", String(params.limit));
     }
 
-    const response = await fetch(
+    const response = await fetchAdmin(
       `${ADMIN_API_BASE}/error-logs${search.toString() ? `?${search.toString()}` : ""}`,
-      {
-        headers: buildHeaders(),
-      },
     );
     const data = await handleResponse<AppErrorLogsResponse>(response);
     return {
@@ -903,9 +915,8 @@ export const adminServerApi = {
   },
 
   async updateErrorLogStatus(logId: string, status: AppErrorLogStatus): Promise<AppErrorLogRecord> {
-    const response = await fetch(`${ADMIN_API_BASE}/error-logs/${encodeURIComponent(logId)}/status`, {
+    const response = await fetchAdmin(`${ADMIN_API_BASE}/error-logs/${encodeURIComponent(logId)}/status`, {
       method: "PATCH",
-      headers: buildHeaders(),
       body: JSON.stringify({ status }),
     });
     const data = await handleResponse<{ success: boolean; log: AppErrorLogRecord }>(response);
@@ -934,11 +945,8 @@ export const adminServerApi = {
     }
     search.set("format", params.format ?? "txt");
 
-    const response = await fetch(
+    const response = await fetchAdmin(
       `${ADMIN_API_BASE}/error-logs/export${search.toString() ? `?${search.toString()}` : ""}`,
-      {
-        headers: buildHeaders(),
-      },
     );
 
     if (!response.ok) {
