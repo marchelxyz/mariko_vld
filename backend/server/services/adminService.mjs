@@ -2,6 +2,7 @@ import { queryOne, queryMany, query, db } from "../postgresClient.mjs";
 import { ADMIN_TELEGRAM_IDS, ADMIN_VK_IDS, ADMIN_ROLE_VALUES } from "../config.mjs";
 import { normaliseTelegramId } from "../utils.mjs";
 import {
+  inspectTelegramInitData,
   verifyTelegramInitData,
   shouldRequireVerifiedTelegramInitData,
 } from "../utils/telegramAuth.mjs";
@@ -291,6 +292,20 @@ export const getTelegramIdFromRequest = (req) => {
     if (verified?.telegramId) {
       return verified.telegramId;
     }
+
+    // Telegram desktop/mobile может отдавать валидно подписанный initData
+    // с "старым" auth_date. Если подпись корректна, принимаем такой payload
+    // для админ-панели, чтобы не ломать постоянные рабочие сессии сотрудников.
+    const allowExpired = verifyTelegramInitData(initData, { allowExpired: true });
+    if (allowExpired?.telegramId) {
+      console.warn("[adminService] Telegram initData просрочен по auth_date, но подпись валидна");
+      return allowExpired.telegramId;
+    }
+
+    const inspection = inspectTelegramInitData(initData);
+    console.warn("[adminService] Telegram initData не прошел проверку", {
+      reason: inspection?.reason ?? "unknown",
+    });
     return null;
   }
 
@@ -548,6 +563,14 @@ export const authoriseAdmin = async (req, res, requiredPermission = null) => {
   const identity = getAdminIdentityFromRequest(req);
 
   if (!identity.telegramId && !identity.vkId) {
+    console.warn("[adminService] authoriseAdmin: отсутствует подтвержденная identity", {
+      hasTelegramInitData: Boolean(req.get("x-telegram-init-data")),
+      hasTelegramIdHeader: Boolean(req.get("x-telegram-id") || req.get("x-admin-telegram")),
+      hasVkInitData: Boolean(req.get("x-vk-init-data")),
+      hasVkIdHeader: Boolean(req.get("x-vk-id")),
+      path: req.originalUrl || req.url,
+      method: req.method,
+    });
     res.status(401).json({ success: false, message: "Требуется подтверждённая авторизация администратора" });
     return null;
   }

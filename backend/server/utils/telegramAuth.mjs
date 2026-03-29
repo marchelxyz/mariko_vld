@@ -46,16 +46,15 @@ const buildDataCheckString = (params) =>
     .sort()
     .join("\n");
 
-/**
- * Проверяет подпись Telegram WebApp initData и возвращает telegramId пользователя.
- */
-export const verifyTelegramInitData = (rawInitData) => {
+const verifyTelegramInitDataInternal = (rawInitData, options = {}) => {
+  const allowExpired = Boolean(options?.allowExpired);
+
   if (!rawInitData || typeof rawInitData !== "string") {
-    return null;
+    return { ok: false, reason: "invalid_input" };
   }
 
   if (!TELEGRAM_BOT_TOKEN) {
-    return null;
+    return { ok: false, reason: "missing_bot_token" };
   }
 
   try {
@@ -63,7 +62,7 @@ export const verifyTelegramInitData = (rawInitData) => {
     const receivedHash = params.get("hash");
 
     if (!receivedHash) {
-      return null;
+      return { ok: false, reason: "missing_hash" };
     }
 
     params.delete("hash");
@@ -78,38 +77,67 @@ export const verifyTelegramInitData = (rawInitData) => {
       .digest("hex");
 
     if (!timingSafeHexEquals(calculatedHash, receivedHash)) {
-      return null;
+      return { ok: false, reason: "invalid_hash" };
     }
 
+    let authDate = null;
     const rawAuthDate = params.get("auth_date");
     if (rawAuthDate) {
-      const authDate = Number(rawAuthDate);
+      authDate = Number(rawAuthDate);
       if (Number.isFinite(authDate)) {
         const nowSeconds = Math.floor(Date.now() / 1000);
         if (nowSeconds - authDate > TELEGRAM_INIT_DATA_MAX_AGE_SECONDS) {
-          return null;
+          if (!allowExpired) {
+            return { ok: false, reason: "expired", authDate };
+          }
         }
       }
     }
 
     const userRaw = params.get("user");
     if (!userRaw) {
-      return null;
+      return { ok: false, reason: "missing_user", authDate };
     }
     const user = JSON.parse(userRaw);
     const telegramId = normaliseTelegramIdStrict(user?.id);
     if (!telegramId) {
-      return null;
+      return { ok: false, reason: "invalid_user", authDate };
     }
 
     return {
+      ok: true,
       telegramId,
       user,
+      authDate,
     };
-  } catch {
-    return null;
+  } catch (error) {
+    return {
+      ok: false,
+      reason: "parse_error",
+      errorMessage: error instanceof Error ? error.message : String(error),
+    };
   }
 };
+
+/**
+ * Проверяет подпись Telegram WebApp initData и возвращает telegramId пользователя.
+ */
+export const verifyTelegramInitData = (rawInitData, options = {}) => {
+  const result = verifyTelegramInitDataInternal(rawInitData, options);
+  if (!result.ok) {
+    return null;
+  }
+  return {
+    telegramId: result.telegramId,
+    user: result.user,
+  };
+};
+
+/**
+ * Возвращает подробный результат проверки initData для серверной диагностики.
+ */
+export const inspectTelegramInitData = (rawInitData, options = {}) =>
+  verifyTelegramInitDataInternal(rawInitData, options);
 
 /**
  * В production по умолчанию требуем только подписанный Telegram initData.
