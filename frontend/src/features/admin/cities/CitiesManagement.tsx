@@ -116,7 +116,11 @@ export function CitiesManagement(): JSX.Element {
         setCitiesWithStatus(nextCitiesWithStatus);
       } catch (error) {
         logger.error('cities', error instanceof Error ? error : new Error('Ошибка загрузки городов'));
-        alert('❌ Не удалось загрузить города. Проверьте подключение к серверу.');
+        const message = sanitizeAdminFacingMessage(
+          error instanceof Error ? error.message : null,
+          'Не удалось загрузить города. Проверьте подключение к серверу.',
+        );
+        alert(`❌ ${message}`);
       } finally {
         if (showLoader) {
           setIsLoading(false);

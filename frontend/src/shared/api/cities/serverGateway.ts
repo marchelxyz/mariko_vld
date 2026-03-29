@@ -2,7 +2,7 @@ import type { City } from "@shared/data";
 import { resolveServerUrl, RAW_SERVER_API_BASE } from "./config";
 import { logger } from "@/lib/logger";
 import { sanitizeAdminFacingMessage } from "@shared/utils";
-import { buildPlatformAuthHeaders } from "../platformAuth";
+import { buildPlatformAuthHeadersAsync } from "../platformAuth";
 
 function parseErrorPayload(payload?: string): string | null {
   if (!payload) {
@@ -14,10 +14,6 @@ function parseErrorPayload(payload?: string): string | null {
   } catch {
     return payload;
   }
-}
-
-function appendPlatformAuthHeaders(headers: Record<string, string>): void {
-  Object.assign(headers, buildPlatformAuthHeaders(headers));
 }
 
 async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<T> {
@@ -32,7 +28,7 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
     Accept: 'application/json',
     ...(options?.headers ?? {}),
   };
-  appendPlatformAuthHeaders(headers);
+  Object.assign(headers, await buildPlatformAuthHeadersAsync(headers));
   
   // Логируем заголовки для диагностики (только в режиме разработки)
   if (import.meta.env.DEV) {
@@ -88,10 +84,9 @@ export async function setCityStatusViaServer(
   cityId: string,
   isActive: boolean,
 ): Promise<{ success: boolean; errorMessage?: string }> {
-  const headers: Record<string, string> = {
+  const headers = await buildPlatformAuthHeadersAsync({
     'Content-Type': 'application/json',
-  };
-  appendPlatformAuthHeaders(headers);
+  });
 
   const response = await fetch(resolveServerUrl('/cities/status'), {
     method: 'POST',
@@ -129,10 +124,9 @@ export async function createCityViaServer(
   try {
     logger.info('cities', 'Создание города через сервер', { city, url });
     
-    const headers: Record<string, string> = {
+    const headers = await buildPlatformAuthHeadersAsync({
       'Content-Type': 'application/json',
-    };
-    appendPlatformAuthHeaders(headers);
+    });
 
     logger.debug('cities', 'Отправка запроса на создание города', { 
       url,
@@ -225,10 +219,9 @@ export async function createRestaurantViaServer(
   }
 ): Promise<{ success: boolean; restaurantId?: string; errorMessage?: string }> {
   try {
-    const headers: Record<string, string> = {
+    const headers = await buildPlatformAuthHeadersAsync({
       'Content-Type': 'application/json',
-    };
-    appendPlatformAuthHeaders(headers);
+    });
 
     const response = await fetch(resolveServerUrl('/cities/restaurants'), {
       method: 'POST',
@@ -280,10 +273,9 @@ export async function updateRestaurantViaServer(
   }
 ): Promise<{ success: boolean; errorMessage?: string }> {
   try {
-    const headers: Record<string, string> = {
+    const headers = await buildPlatformAuthHeadersAsync({
       'Content-Type': 'application/json',
-    };
-    appendPlatformAuthHeaders(headers);
+    });
 
     const response = await fetch(resolveServerUrl(`/cities/restaurants/${restaurantId}`), {
       method: 'PATCH',
