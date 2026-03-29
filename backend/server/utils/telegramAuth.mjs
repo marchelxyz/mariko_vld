@@ -47,7 +47,11 @@ const buildDataCheckString = (params) =>
     .join("\n");
 
 const verifyTelegramInitDataInternal = (rawInitData, options = {}) => {
-  const allowExpired = Boolean(options?.allowExpired);
+  const maxAgeFromOptions = Number.parseInt(String(options?.maxAgeSeconds ?? ""), 10);
+  const effectiveMaxAgeSeconds =
+    Number.isFinite(maxAgeFromOptions) && maxAgeFromOptions > 0
+      ? maxAgeFromOptions
+      : TELEGRAM_INIT_DATA_MAX_AGE_SECONDS;
 
   if (!rawInitData || typeof rawInitData !== "string") {
     return { ok: false, reason: "invalid_input" };
@@ -86,10 +90,9 @@ const verifyTelegramInitDataInternal = (rawInitData, options = {}) => {
       authDate = Number(rawAuthDate);
       if (Number.isFinite(authDate)) {
         const nowSeconds = Math.floor(Date.now() / 1000);
-        if (nowSeconds - authDate > TELEGRAM_INIT_DATA_MAX_AGE_SECONDS) {
-          if (!allowExpired) {
-            return { ok: false, reason: "expired", authDate };
-          }
+        const ageSeconds = nowSeconds - authDate;
+        if (ageSeconds > effectiveMaxAgeSeconds) {
+          return { ok: false, reason: "expired", authDate, ageSeconds };
         }
       }
     }

@@ -27,6 +27,9 @@ const ROLE_PERMISSIONS_TABLE = "admin_role_permissions";
 const ADMIN_PERMISSION_VALUES = new Set(Object.values(ADMIN_PERMISSION));
 const ROLE_PERMISSIONS_CACHE_TTL_MS =
   Number.parseInt(process.env.ADMIN_ROLE_PERMISSIONS_CACHE_TTL_MS ?? "", 10) || 5_000;
+const TELEGRAM_ADMIN_RELAXED_INIT_DATA_MAX_AGE_SECONDS =
+  Number.parseInt(process.env.TELEGRAM_ADMIN_RELAXED_INIT_DATA_MAX_AGE_SECONDS ?? "", 10) ||
+  30 * 24 * 60 * 60;
 
 export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
   super_admin: [
@@ -294,11 +297,13 @@ export const getTelegramIdFromRequest = (req) => {
     }
 
     // Telegram desktop/mobile может отдавать валидно подписанный initData
-    // с "старым" auth_date. Если подпись корректна, принимаем такой payload
-    // для админ-панели, чтобы не ломать постоянные рабочие сессии сотрудников.
-    const allowExpired = verifyTelegramInitData(initData, { allowExpired: true });
+    // со "старым" auth_date. Для админки применяем расширенное окно по времени,
+    // но подпись остаётся обязательной.
+    const allowExpired = verifyTelegramInitData(initData, {
+      maxAgeSeconds: TELEGRAM_ADMIN_RELAXED_INIT_DATA_MAX_AGE_SECONDS,
+    });
     if (allowExpired?.telegramId) {
-      console.warn("[adminService] Telegram initData просрочен по auth_date, но подпись валидна");
+      console.warn("[adminService] Telegram initData принят по расширенному окну auth_date");
       return allowExpired.telegramId;
     }
 
