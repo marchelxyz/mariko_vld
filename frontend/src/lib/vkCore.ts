@@ -36,30 +36,94 @@ export const isBridgeAvailable = (): boolean => {
   }
 };
 
+const VK_SESSION_DETECTED_KEY = "mariko_vk_session_detected";
+
+const resolvePathPlatformHint = (): "vk" | "telegram" | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const pathname = String(window.location.pathname || "").trim().toLowerCase();
+  if (pathname === "/vk" || pathname.startsWith("/vk/")) {
+    return "vk";
+  }
+  if (pathname === "/tg" || pathname.startsWith("/tg/")) {
+    return "telegram";
+  }
+  return null;
+};
+
+const setVkSessionFlag = (): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.sessionStorage?.setItem(VK_SESSION_DETECTED_KEY, "1");
+  } catch {
+    // ignore sessionStorage errors
+  }
+};
+
+const clearVkSessionFlag = (): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.sessionStorage?.removeItem(VK_SESSION_DETECTED_KEY);
+  } catch {
+    // ignore sessionStorage errors
+  }
+};
+
+const getVkSessionFlag = (): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  try {
+    return window.sessionStorage?.getItem(VK_SESSION_DETECTED_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+
 /**
  * Проверяет, запущено ли приложение в VK.
  * Проверяет как наличие window.vk.WebApp, так и URL параметры для надежности.
  */
 export const isInVk = (): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const pathPlatformHint = resolvePathPlatformHint();
+  if (pathPlatformHint === "telegram") {
+    clearVkSessionFlag();
+    return false;
+  }
+
   // Сначала проверяем наличие VK WebApp API
   if (getVk()) {
+    setVkSessionFlag();
     return true;
   }
   
   // Если API недоступен, проверяем URL параметры VK
-  if (typeof window !== "undefined") {
-    const urlParams = new URLSearchParams(window.location.search);
-    const hasVkParams =
-      urlParams.has("vk_app_id") ||
-      urlParams.has("vk_user_id") ||
-      urlParams.has("sign");
+  const urlParams = new URLSearchParams(window.location.search);
+  const hasVkParams =
+    urlParams.has("vk_app_id") ||
+    urlParams.has("vk_user_id") ||
+    urlParams.has("sign");
 
-    if (hasVkParams) {
-      return true;
-    }
+  if (hasVkParams) {
+    setVkSessionFlag();
+    return true;
+  }
+
+  if (pathPlatformHint === "vk") {
+    setVkSessionFlag();
+    return true;
   }
   
-  return false;
+  return getVkSessionFlag();
 };
 
 /**

@@ -61,7 +61,8 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
         parseErrorPayload(text),
         "Не удалось получить данные от сервера. Попробуйте ещё раз.",
       );
-      const error = new Error(errorMessage);
+      const error = new Error(errorMessage) as Error & { status?: number };
+      error.status = response.status;
       logger.apiError(method, url, error, response.status);
       throw error;
     }
@@ -72,7 +73,10 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
     const duration = Date.now() - startTime;
     // Обрабатываем ошибки сети и другие ошибки
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      const networkError = new Error('Не удалось подключиться к серверу. Проверьте подключение к интернету.');
+      const networkError = new Error('Не удалось подключиться к серверу. Проверьте подключение к интернету.') as Error & {
+        status?: number;
+      };
+      networkError.status = 0;
       logger.apiError(method, url, networkError);
       throw networkError;
     }

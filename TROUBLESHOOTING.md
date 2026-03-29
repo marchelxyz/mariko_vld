@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-29 15:04
+**Последнее обновление:** 2026-03-29 15:40
 
 ---
 
@@ -1068,6 +1068,45 @@ node --check backend/server/cart-server.mjs
 - `git diff --check`
 
 **Связанный commit:** нет
+
+### ❌ Проблема: повторные 401/403 в админке из-за дрейфа определения платформы между TG и VK
+
+**Дата:** 2026-03-29
+**Симптомы:**
+- в TG/VK админка могла отображать роль `Супер-админ`, но server-backed разделы периодически отвечали `401/403`;
+- после открытия TG, а затем VK в той же сессии иногда отправлялись не те auth-заголовки;
+- в разделе `Города` auth-ошибка могла выглядеть как «Проверьте подключение к серверу».
+
+**Причина:**
+- `frontend/src/lib/vkCore.ts` определял VK только по SDK/URL-параметрам, и после изменения URL навигацией контекст VK мог теряться;
+- `frontend/src/lib/platform.ts` использовал `hasTelegramInitDataInStorage()` на основе persistent storage (localStorage), из-за чего TG-кэш мог переопределять VK-контекст;
+- TG initData/userId кэшировались в localStorage, а часть fallback-логики читала sessionStorage, что давало рассинхрон;
+- `frontend/src/shared/api/cities/serverGateway.ts` не сохранял HTTP-статус в объекте ошибки, поэтому UI не мог явно отделять 401/403 от network ошибок.
+
+**Решение:**
+1. Усилено определение VK в `frontend/src/lib/vkCore.ts`:
+   - добавлен session-флаг `mariko_vk_session_detected`;
+   - добавлены route-hints `/vk` и `/tg`;
+   - при явном TG-контексте VK-флаг очищается.
+2. Стабилизировано определение платформы в `frontend/src/lib/platform.ts`:
+   - добавлены route-hints в `getPlatform()` (ранний выбор `vk`/`telegram`);
+   - TG-кэш (`initData`, `userId`) теперь зеркалируется в sessionStorage;
+   - `hasTelegramInitDataInStorage()` использует только session-сигналы и не переопределяет VK-контекст по localStorage.
+3. Улучшена диагностика городов:
+   - `frontend/src/shared/api/cities/serverGateway.ts` теперь прикрепляет `status` к ошибке;
+   - `frontend/src/features/admin/cities/CitiesManagement.tsx` показывает отдельные тексты для `401` и `403`.
+
+**Проверка:**
+- `npm exec --prefix frontend tsc --noEmit --pretty false`
+- открыть TG mini app, зайти в админку, затем открыть VK mini app в той же сессии и проверить:
+  - `Управление ролями`
+  - `Доступ к доставке`
+  - `Управление городами`
+  - `Управление меню`
+  - `Управление акциями`
+- в `Управление городами` убедиться, что `401/403` отображаются как ошибки авторизации/прав, а не как «нет соединения».
+
+**Связанный commit:** нет (изменения локально, ожидают фиксации)
 
 ## Express Routing
 

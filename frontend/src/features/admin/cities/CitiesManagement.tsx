@@ -40,6 +40,28 @@ interface CityWithStatus extends City {
   restaurants: RestaurantWithStatus[];
 }
 
+const getErrorStatus = (error: unknown): number | null => {
+  if (!error || typeof error !== "object") {
+    return null;
+  }
+  const status = (error as { status?: unknown }).status;
+  return typeof status === "number" ? status : null;
+};
+
+const getCitiesLoadErrorMessage = (error: unknown): string => {
+  const status = getErrorStatus(error);
+  if (status === 401) {
+    return "Требуется подтверждённая авторизация администратора. Обновите страницу и войдите снова.";
+  }
+  if (status === 403) {
+    return "Недостаточно прав для просмотра раздела «Города».";
+  }
+  return sanitizeAdminFacingMessage(
+    error instanceof Error ? error.message : null,
+    "Не удалось загрузить города. Проверьте подключение к серверу.",
+  );
+};
+
 const normalizeRestaurant = (restaurant: RestaurantWithStatus | (RestaurantWithStatus & { is_active?: boolean })): RestaurantWithStatus => ({
   ...restaurant,
   isActive: restaurant.isActive ?? restaurant.is_active ?? true,
@@ -116,10 +138,7 @@ export function CitiesManagement(): JSX.Element {
         setCitiesWithStatus(nextCitiesWithStatus);
       } catch (error) {
         logger.error('cities', error instanceof Error ? error : new Error('Ошибка загрузки городов'));
-        const message = sanitizeAdminFacingMessage(
-          error instanceof Error ? error.message : null,
-          'Не удалось загрузить города. Проверьте подключение к серверу.',
-        );
+        const message = getCitiesLoadErrorMessage(error);
         alert(`❌ ${message}`);
       } finally {
         if (showLoader) {

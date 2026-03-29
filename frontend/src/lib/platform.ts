@@ -37,6 +37,7 @@ export type PlatformUser = {
 
 const TELEGRAM_INIT_DATA_STORAGE_KEY = "mariko_tg_init_data";
 const TELEGRAM_USER_ID_STORAGE_KEY = "mariko_tg_user_id";
+const TG_SESSION_DETECTED_KEY = "mariko_tg_session_detected";
 const VK_INIT_DATA_STORAGE_KEY = "mariko_vk_init_data";
 const VK_USER_ID_STORAGE_KEY = "mariko_vk_user_id";
 
@@ -155,10 +156,31 @@ function isVkDesktopClient(): boolean {
   return platformCandidate.includes("desktop");
 }
 
+const resolvePathPlatformHint = (): Platform | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const pathname = String(window.location.pathname || "").trim().toLowerCase();
+  if (pathname === "/tg" || pathname.startsWith("/tg/")) {
+    return "telegram";
+  }
+  if (pathname === "/vk" || pathname.startsWith("/vk/")) {
+    return "vk";
+  }
+  return null;
+};
+
 /**
  * Определяет текущую платформу.
  */
 export function getPlatform(): Platform {
+  const pathHint = resolvePathPlatformHint();
+  if (pathHint === "vk") {
+    return "vk";
+  }
+  if (pathHint === "telegram") {
+    return "telegram";
+  }
   if (isInVk()) {
     return "vk";
   }
@@ -531,6 +553,8 @@ function parseTelegramUserFromInitData(initData?: string): PlatformUser | undefi
 function cacheTelegramInitData(value: string): void {
   try {
     telegramStorage.setItem(TELEGRAM_INIT_DATA_STORAGE_KEY, value);
+    writeSessionStorageValue(TELEGRAM_INIT_DATA_STORAGE_KEY, value);
+    writeSessionStorageValue(TG_SESSION_DETECTED_KEY, "1");
   } catch (error) {
     console.warn("[platform] failed to cache Telegram init data", error);
   }
@@ -539,6 +563,8 @@ function cacheTelegramInitData(value: string): void {
 function cacheTelegramUserId(value: string): void {
   try {
     telegramStorage.setItem(TELEGRAM_USER_ID_STORAGE_KEY, value);
+    writeSessionStorageValue(TELEGRAM_USER_ID_STORAGE_KEY, value);
+    writeSessionStorageValue(TG_SESSION_DETECTED_KEY, "1");
   } catch (error) {
     console.warn("[platform] failed to cache Telegram user id", error);
   }
@@ -563,5 +589,24 @@ function getCachedTelegramUserId(): string | undefined {
 }
 
 function hasTelegramInitDataInStorage(): boolean {
-  return Boolean(getCachedTelegramInitData() || getCachedTelegramUserId());
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  // Не используем localStorage как сигнал платформы:
+  // старые TG-данные в persistent storage не должны переопределять VK-сессию.
+  const pathHint = resolvePathPlatformHint();
+  if (pathHint === "vk") {
+    return false;
+  }
+
+  try {
+    return (
+      window.sessionStorage?.getItem(TG_SESSION_DETECTED_KEY) === "1" ||
+      Boolean(readSessionStorageValue(TELEGRAM_INIT_DATA_STORAGE_KEY)) ||
+      Boolean(readSessionStorageValue(TELEGRAM_USER_ID_STORAGE_KEY))
+    );
+  } catch {
+    return false;
+  }
 }
