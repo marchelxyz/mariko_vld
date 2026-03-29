@@ -567,7 +567,7 @@ export function CitiesManagement(): JSX.Element {
             }`}
           >
             {/* Заголовок города */}
-            <div className="flex items-start justify-between gap-3 mb-3 md:mb-4">
+            <div className="mb-3 flex flex-col gap-2 md:mb-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
                 <div className="p-1.5 md:p-2 bg-mariko-primary rounded-full flex-shrink-0">
                   <MapPin className="w-4 h-4 md:w-5 md:h-5 text-white" />
@@ -588,7 +588,7 @@ export function CitiesManagement(): JSX.Element {
               </div>
 
               {/* Кнопки управления */}
-              <div className="flex gap-1 md:gap-2 flex-shrink-0">
+              <div className="flex w-full justify-end gap-1 md:gap-2 sm:w-auto sm:justify-start flex-shrink-0">
                 <Button
                   variant="outline"
                   size="sm"
@@ -622,23 +622,25 @@ export function CitiesManagement(): JSX.Element {
               {city.restaurants.map((restaurant) => (
                 <div
                   key={restaurant.id}
-                  className={`flex items-center gap-2 md:gap-3 p-2 md:p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors ${restaurant.isActive ? '' : 'opacity-60'}`}
+                  className={`flex flex-col gap-2 md:gap-3 p-2 md:p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors sm:flex-row sm:items-center ${restaurant.isActive ? '' : 'opacity-60'}`}
                 >
-                  <Building2 className="w-3.5 h-3.5 md:w-4 md:h-4 text-white/50 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white font-medium text-sm md:text-base truncate">
-                      {restaurant.name}
-                    </p>
-                    <p className="text-white/60 text-xs md:text-sm truncate">
-                      {restaurant.address}
-                    </p>
-                    {showTechnicalCityControls && restaurant.remarkedRestaurantId && (
-                      <p className="text-white/50 text-xs mt-1">
-                        ID бронирования: {restaurant.remarkedRestaurantId}
+                  <div className="flex w-full min-w-0 items-start gap-2 md:gap-3 sm:w-auto sm:flex-1">
+                    <Building2 className="w-3.5 h-3.5 md:w-4 md:h-4 text-white/50 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium text-sm md:text-base truncate">
+                        {restaurant.name}
                       </p>
-                    )}
+                      <p className="text-white/60 text-xs md:text-sm truncate">
+                        {restaurant.address}
+                      </p>
+                      {showTechnicalCityControls && restaurant.remarkedRestaurantId && (
+                        <p className="text-white/50 text-xs mt-1">
+                          ID бронирования: {restaurant.remarkedRestaurantId}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex gap-1 md:gap-2 flex-shrink-0">
+                  <div className="flex w-full justify-end gap-1 md:gap-2 sm:w-auto sm:justify-start flex-shrink-0">
                     <Button
                       variant="outline"
                       size="sm"
