@@ -77,12 +77,14 @@
 - список городов загружался через `frontend/src/shared/api/cities/serverGateway.ts`;
 - этот gateway собирал платформенные заголовки синхронно через `buildPlatformAuthHeaders()`;
 - в Telegram `initData` мог появляться с небольшой задержкой после инициализации webview;
+- кроме того, в части Telegram wrapper-сценариев `getPlatform()` на момент раннего запроса мог ещё определяться как `web`;
 - из-за этого первый запрос `/cities/all` иногда уходил без валидного `X-Telegram-Init-Data`, получал `401/403`, а UI маскировал это под общее сообщение про подключение к серверу.
 
 **Решение:**
 1. В `frontend/src/shared/api/platformAuth.ts` добавить асинхронную сборку auth headers с коротким retry-ожиданием `initData`.
 2. Перевести `frontend/src/shared/api/cities/serverGateway.ts` на новый async-helper для всех запросов городов и ресторанов.
-3. В `frontend/src/features/admin/cities/CitiesManagement.tsx` показывать реальный sanitised текст ошибки вместо глухого сообщения про сервер, чтобы повторная диагностика не теряла причину.
+3. Для `cities` запросов включить `webFallbackPlatform: "telegram"`, чтобы ранний Telegram webview не терял auth headers при временном определении платформы как `web`.
+4. В `frontend/src/features/admin/cities/CitiesManagement.tsx` показывать реальный sanitised текст ошибки вместо глухого сообщения про сервер, чтобы повторная диагностика не теряла причину.
 
 **Проверка:**
 - открыть Telegram Mini App и зайти в `Админ-панель -> Управление городами`;

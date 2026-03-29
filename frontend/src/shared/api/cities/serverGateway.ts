@@ -28,7 +28,12 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
     Accept: 'application/json',
     ...(options?.headers ?? {}),
   };
-  Object.assign(headers, await buildPlatformAuthHeadersAsync(headers));
+  Object.assign(
+    headers,
+    await buildPlatformAuthHeadersAsync(headers, {
+      webFallbackPlatform: "telegram",
+    }),
+  );
   
   // Логируем заголовки для диагностики (только в режиме разработки)
   if (import.meta.env.DEV) {
@@ -84,9 +89,14 @@ export async function setCityStatusViaServer(
   cityId: string,
   isActive: boolean,
 ): Promise<{ success: boolean; errorMessage?: string }> {
-  const headers = await buildPlatformAuthHeadersAsync({
-    'Content-Type': 'application/json',
-  });
+  const headers = await buildPlatformAuthHeadersAsync(
+    {
+      'Content-Type': 'application/json',
+    },
+    {
+      webFallbackPlatform: "telegram",
+    },
+  );
 
   const response = await fetch(resolveServerUrl('/cities/status'), {
     method: 'POST',
@@ -124,9 +134,14 @@ export async function createCityViaServer(
   try {
     logger.info('cities', 'Создание города через сервер', { city, url });
     
-    const headers = await buildPlatformAuthHeadersAsync({
-      'Content-Type': 'application/json',
-    });
+    const headers = await buildPlatformAuthHeadersAsync(
+      {
+        'Content-Type': 'application/json',
+      },
+      {
+        webFallbackPlatform: "telegram",
+      },
+    );
 
     logger.debug('cities', 'Отправка запроса на создание города', { 
       url,
@@ -219,9 +234,14 @@ export async function createRestaurantViaServer(
   }
 ): Promise<{ success: boolean; restaurantId?: string; errorMessage?: string }> {
   try {
-    const headers = await buildPlatformAuthHeadersAsync({
-      'Content-Type': 'application/json',
-    });
+    const headers = await buildPlatformAuthHeadersAsync(
+      {
+        'Content-Type': 'application/json',
+      },
+      {
+        webFallbackPlatform: "telegram",
+      },
+    );
 
     const response = await fetch(resolveServerUrl('/cities/restaurants'), {
       method: 'POST',
@@ -273,9 +293,14 @@ export async function updateRestaurantViaServer(
   }
 ): Promise<{ success: boolean; errorMessage?: string }> {
   try {
-    const headers = await buildPlatformAuthHeadersAsync({
-      'Content-Type': 'application/json',
-    });
+    const headers = await buildPlatformAuthHeadersAsync(
+      {
+        'Content-Type': 'application/json',
+      },
+      {
+        webFallbackPlatform: "telegram",
+      },
+    );
 
     const response = await fetch(resolveServerUrl(`/cities/restaurants/${restaurantId}`), {
       method: 'PATCH',
