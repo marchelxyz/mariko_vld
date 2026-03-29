@@ -1,5 +1,5 @@
 import { defaultPromotions, type PromotionCardData } from "@shared/data";
-import { buildPlatformAuthHeaders } from "./platformAuth";
+import { buildPlatformAuthHeadersAsync } from "./platformAuth";
 import { sanitizeAdminFacingMessage } from "@shared/utils";
 
 const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
@@ -52,9 +52,11 @@ function resolveServerUrl(path: string): string {
   return `${RAW_SERVER_API_BASE}${normalizedPath}`;
 }
 
-function buildAdminHeaders(initial?: Record<string, string>): Record<string, string> {
-  return buildPlatformAuthHeaders({
+async function buildAdminHeaders(initial?: Record<string, string>): Promise<Record<string, string>> {
+  return buildPlatformAuthHeadersAsync({
     ...(initial ?? {}),
+  }, {
+    webFallbackPlatform: "telegram",
   });
 }
 
@@ -120,7 +122,7 @@ export async function savePromotions(
     return { success: false, errorMessage: "Не указан cityId" };
   }
 
-  const headers = buildAdminHeaders({
+  const headers = await buildAdminHeaders({
     "Content-Type": "application/json",
   });
 
@@ -156,7 +158,7 @@ export async function uploadPromotionImage(
     throw new Error('Не указан cityId');
   }
 
-  const headers = buildAdminHeaders();
+  const headers = await buildAdminHeaders();
   const formData = new FormData();
   formData.append('file', file);
 
@@ -206,7 +208,7 @@ export async function fetchPromotionImageLibrary(
     return [];
   }
 
-  const headers = buildAdminHeaders();
+  const headers = await buildAdminHeaders();
 
   try {
     const response = await fetch(
@@ -244,7 +246,7 @@ export async function deletePromotionImage(fileKey: string): Promise<void> {
     throw new Error("Не указан ключ файла");
   }
 
-  const headers = buildAdminHeaders();
+  const headers = await buildAdminHeaders();
   const query = new URLSearchParams({ key: fileKey });
 
   try {

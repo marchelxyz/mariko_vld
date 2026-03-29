@@ -1,5 +1,5 @@
 import type { RestaurantMenu } from "@shared/data";
-import { buildPlatformAuthHeaders } from "./platformAuth";
+import { buildPlatformAuthHeadersAsync } from "./platformAuth";
 import { sanitizeAdminFacingMessage } from "@shared/utils";
 
 const rawServerEnv = import.meta.env.VITE_SERVER_API_URL;
@@ -100,9 +100,11 @@ export async function fetchMenuByRestaurantId(restaurantId: string): Promise<Res
  */
 export const fetchRestaurantMenu = fetchMenuByRestaurantId;
 
-function buildAdminHeaders(initial?: Record<string, string>): Record<string, string> {
-  return buildPlatformAuthHeaders({
+async function buildAdminHeaders(initial?: Record<string, string>): Promise<Record<string, string>> {
+  return buildPlatformAuthHeadersAsync({
     ...(initial ?? {}),
+  }, {
+    webFallbackPlatform: "telegram",
   });
 }
 
@@ -122,7 +124,7 @@ export async function saveRestaurantMenu(
     return { success: false, errorMessage: 'Серверный API выключен' };
   }
 
-  const headers = buildAdminHeaders({
+  const headers = await buildAdminHeaders({
     'Content-Type': 'application/json',
   });
 
@@ -208,7 +210,7 @@ export async function uploadMenuImage(
     throw new Error('Серверный API выключен');
   }
 
-  const headers = buildAdminHeaders();
+  const headers = await buildAdminHeaders();
   const formData = new FormData();
   formData.append('file', file);
 
@@ -254,7 +256,7 @@ export async function fetchMenuImageLibrary(
     return [];
   }
 
-  const headers = buildAdminHeaders();
+  const headers = await buildAdminHeaders();
 
   try {
     const url = resolveServerUrl(`/storage/menu/${encodeURIComponent(restaurantId)}?scope=${scope}`);
@@ -319,7 +321,7 @@ export async function syncRestaurantMenuFromIiko(
     throw new Error('Не передан restaurantId');
   }
 
-  const headers = buildAdminHeaders({
+  const headers = await buildAdminHeaders({
     'Content-Type': 'application/json',
   });
 
@@ -343,7 +345,7 @@ export async function fetchIikoReadiness(restaurantId: string): Promise<IikoRead
     throw new Error('Не передан restaurantId');
   }
 
-  const headers = buildAdminHeaders();
+  const headers = await buildAdminHeaders();
   return fetchFromServer<IikoReadinessResponse>(
     `/admin/menu/${encodeURIComponent(restaurantId)}/iiko-readiness`,
     {

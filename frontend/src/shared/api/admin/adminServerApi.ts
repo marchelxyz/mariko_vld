@@ -352,6 +352,17 @@ const TELEGRAM_INIT_DATA_STORAGE_KEY = "mariko_tg_init_data";
 const TELEGRAM_USER_ID_STORAGE_KEY = "mariko_tg_user_id";
 const ADMIN_AUTH_HEADER_RETRY_DELAYS_MS = [0, 200, 500, 1000, 1800];
 
+const hasTelegramInitDataInUrl = (): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  try {
+    return new URLSearchParams(window.location.search).has("tgWebAppData");
+  } catch {
+    return false;
+  }
+};
+
 const getTelegramInitDataFromUrl = (): string | undefined => {
   if (typeof window === "undefined") {
     return undefined;
@@ -522,26 +533,40 @@ const resolveVkId = (override?: string): string | undefined => {
   return undefined;
 };
 
+const shouldWaitForTelegramInitData = (platform: ReturnType<typeof getPlatform>): boolean => {
+  if (platform === "telegram") {
+    return true;
+  }
+
+  if (platform === "vk") {
+    return false;
+  }
+
+  return Boolean(
+    getTg() ||
+      getCachedTelegramInitData() ||
+      getCachedTelegramUserId() ||
+      hasTelegramInitDataInUrl(),
+  );
+};
+
 const waitForPlatformInitData = async (): Promise<string | undefined> => {
   const platform = getPlatform();
+  const shouldWait = platform === "vk" ? true : shouldWaitForTelegramInitData(platform);
   for (let attempt = 0; attempt < ADMIN_AUTH_HEADER_RETRY_DELAYS_MS.length; attempt += 1) {
-    const initData = getInitData();
+    const initData = platform === "vk" ? getInitData() : getTelegramInitData();
     if (typeof initData === "string" && initData.trim()) {
       return initData;
     }
 
     const delay = ADMIN_AUTH_HEADER_RETRY_DELAYS_MS[attempt] ?? 0;
     const isLastAttempt = attempt === ADMIN_AUTH_HEADER_RETRY_DELAYS_MS.length - 1;
-    if (
-      delay > 0 &&
-      !isLastAttempt &&
-      (platform === "telegram" || platform === "vk")
-    ) {
+    if (delay > 0 && !isLastAttempt && shouldWait) {
       await waitForMs(delay);
     }
   }
 
-  return getInitData();
+  return platform === "vk" ? getInitData() : getTelegramInitData();
 };
 
 const buildHeaders = async (overrideTelegramId?: string, overrideVkId?: string): Promise<Record<string, string>> => {
