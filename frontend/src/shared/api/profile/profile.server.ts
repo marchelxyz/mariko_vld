@@ -63,7 +63,7 @@ const buildHeaders = (userId: string): Record<string, string> => {
     },
     {
       userId,
-      webFallbackPlatform: "telegram",
+      webFallbackPlatform: "auto",
     },
   );
 };

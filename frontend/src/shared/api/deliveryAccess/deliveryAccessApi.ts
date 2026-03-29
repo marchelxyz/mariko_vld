@@ -51,7 +51,7 @@ export async function fetchDeliveryAccessStatus(userIdOverride?: string): Promis
       userId: platformUserId || userId,
       includeInitData: Boolean(getInitData()),
       platform,
-      webFallbackPlatform: "telegram",
+      webFallbackPlatform: "auto",
     },
   );
 

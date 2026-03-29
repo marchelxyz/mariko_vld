@@ -64,7 +64,7 @@ const buildHeaders = (userId: string): Record<string, string> => {
       userId,
       includeInitData: Boolean(getInitData()),
       platform: getPlatform(),
-      webFallbackPlatform: "telegram",
+      webFallbackPlatform: "auto",
     },
   );
 };

@@ -45,7 +45,7 @@ async function buildAdminHeaders(initial?: Record<string, string>): Promise<Reco
   return buildPlatformAuthHeadersAsync({
     ...(initial ?? {}),
   }, {
-    webFallbackPlatform: "telegram",
+    webFallbackPlatform: "auto",
   });
 }
 

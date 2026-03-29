@@ -76,7 +76,7 @@ async function fetchFromServer<T>(path: string, options?: BookingRequestOptions)
         ...(options?.headers ?? {}),
       },
       {
-        webFallbackPlatform: "telegram",
+        webFallbackPlatform: "auto",
       },
     ),
   };

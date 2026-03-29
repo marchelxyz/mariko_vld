@@ -49,12 +49,12 @@ export const isInVk = (): boolean => {
   // Если API недоступен, проверяем URL параметры VK
   if (typeof window !== "undefined") {
     const urlParams = new URLSearchParams(window.location.search);
-    const hasVkParams = urlParams.has('vk_app_id') || urlParams.has('vk_user_id');
-    const isVkDomain = window.location.href.includes('vk.com') || 
-                       window.location.href.includes('vk.ru') ||
-                       window.location.hostname.includes('vk');
-    
-    if (hasVkParams || isVkDomain) {
+    const hasVkParams =
+      urlParams.has("vk_app_id") ||
+      urlParams.has("vk_user_id") ||
+      urlParams.has("sign");
+
+    if (hasVkParams) {
       return true;
     }
   }

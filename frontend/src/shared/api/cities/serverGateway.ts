@@ -31,7 +31,7 @@ async function fetchFromServer<T>(path: string, options?: RequestInit): Promise<
   Object.assign(
     headers,
     await buildPlatformAuthHeadersAsync(headers, {
-      webFallbackPlatform: "telegram",
+      webFallbackPlatform: "auto",
     }),
   );
   
@@ -94,7 +94,7 @@ export async function setCityStatusViaServer(
       'Content-Type': 'application/json',
     },
     {
-      webFallbackPlatform: "telegram",
+      webFallbackPlatform: "auto",
     },
   );
 
@@ -139,7 +139,7 @@ export async function createCityViaServer(
         'Content-Type': 'application/json',
       },
       {
-        webFallbackPlatform: "telegram",
+        webFallbackPlatform: "auto",
       },
     );
 
@@ -239,7 +239,7 @@ export async function createRestaurantViaServer(
         'Content-Type': 'application/json',
       },
       {
-        webFallbackPlatform: "telegram",
+        webFallbackPlatform: "auto",
       },
     );
 
@@ -298,7 +298,7 @@ export async function updateRestaurantViaServer(
         'Content-Type': 'application/json',
       },
       {
-        webFallbackPlatform: "telegram",
+        webFallbackPlatform: "auto",
       },
     );
 

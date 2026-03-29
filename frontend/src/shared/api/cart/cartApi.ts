@@ -104,7 +104,7 @@ export async function submitCartOrder(payload: CartOrderPayload): Promise<CartOr
       },
       {
         userId: authUserId,
-        webFallbackPlatform: "telegram",
+        webFallbackPlatform: "auto",
       },
     ),
     body: JSON.stringify(payload),
@@ -138,7 +138,7 @@ export async function recalculateCart(
         "Content-Type": "application/json",
       },
       {
-        webFallbackPlatform: "telegram",
+        webFallbackPlatform: "auto",
       },
     ),
     body: JSON.stringify(payload),

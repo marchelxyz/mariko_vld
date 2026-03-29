@@ -99,7 +99,7 @@ export async function fetchMyOrders(params: FetchOrdersParams): Promise<CartOrde
     signal,
     headers: buildPlatformAuthHeaders({}, {
       userId: vkId?.trim() || telegramId?.trim(),
-      webFallbackPlatform: "telegram",
+      webFallbackPlatform: "auto",
     }),
   });
   if (!response.ok) {
@@ -138,7 +138,7 @@ export async function fetchMyOrdersWithStatus(params: FetchOrdersParams): Promis
     signal,
     headers: buildPlatformAuthHeaders({}, {
       userId: vkId?.trim() || telegramId?.trim(),
-      webFallbackPlatform: "telegram",
+      webFallbackPlatform: "auto",
     }),
   });
   if (!response.ok) {

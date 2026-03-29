@@ -1,16 +1,20 @@
 import { getInitData, getPlatform, getUser, getUserId, type Platform } from "@/lib/platform";
 import { getTg } from "@/lib/telegramCore";
+import { getVk } from "@/lib/vkCore";
 
 type PlatformHeaderOptions = {
   userId?: string | number | null;
   platform?: Platform;
   includeInitData?: boolean;
-  webFallbackPlatform?: "none" | "telegram";
+  webFallbackPlatform?: "none" | "telegram" | "vk" | "auto";
 };
 
 const PLATFORM_AUTH_RETRY_DELAYS_MS = [0, 250, 600, 1200, 2200, 3500];
 const TELEGRAM_INIT_DATA_STORAGE_KEY = "mariko_tg_init_data";
 const TELEGRAM_USER_ID_STORAGE_KEY = "mariko_tg_user_id";
+const VK_INIT_DATA_STORAGE_KEY = "mariko_vk_init_data";
+const VK_USER_ID_STORAGE_KEY = "mariko_vk_user_id";
+type WebFallbackPlatform = NonNullable<PlatformHeaderOptions["webFallbackPlatform"]>;
 
 const normalizeUserId = (value: unknown): string | undefined => {
   if (value === null || value === undefined) {
@@ -52,6 +56,67 @@ const getTelegramFallbackInitData = (): string | undefined => {
   return readSessionStorageValue(TELEGRAM_INIT_DATA_STORAGE_KEY);
 };
 
+const parseVkUserId = (rawInitData?: string): string | undefined => {
+  if (!rawInitData) {
+    return undefined;
+  }
+  try {
+    const params = new URLSearchParams(rawInitData.startsWith("?") ? rawInitData.slice(1) : rawInitData);
+    const value = params.get("vk_user_id");
+    return value && /^\d+$/.test(value) ? value : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const getVkFallbackInitDataFromUrl = (): string | undefined => {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+  try {
+    const rawSearch = window.location.search.startsWith("?")
+      ? window.location.search.slice(1)
+      : window.location.search;
+    if (!rawSearch) {
+      return undefined;
+    }
+    const params = new URLSearchParams(rawSearch);
+    const hasVkPayload =
+      params.has("vk_user_id") || params.has("vk_app_id") || params.has("sign");
+    return hasVkPayload ? rawSearch : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const serializeVkInitData = (payload?: Record<string, unknown> | null): string | undefined => {
+  if (!payload || typeof payload !== "object") {
+    return undefined;
+  }
+  const params = new URLSearchParams();
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      params.append(key, String(value));
+    }
+  });
+  const serialized = params.toString().trim();
+  return serialized || undefined;
+};
+
+const getVkFallbackInitData = (): string | undefined => {
+  const fromUrl = getVkFallbackInitDataFromUrl();
+  if (fromUrl) {
+    return fromUrl;
+  }
+
+  const fromWebApp = serializeVkInitData(getVk()?.initData as Record<string, unknown> | undefined);
+  if (fromWebApp) {
+    return fromWebApp;
+  }
+
+  return readSessionStorageValue(VK_INIT_DATA_STORAGE_KEY);
+};
+
 const parseTelegramUserId = (rawInitData?: string): string | undefined => {
   if (!rawInitData) {
     return undefined;
@@ -84,28 +149,104 @@ const getTelegramFallbackUserId = (): string | undefined => {
   return readSessionStorageValue(TELEGRAM_USER_ID_STORAGE_KEY);
 };
 
+const getVkFallbackUserId = (): string | undefined => {
+  const vkUnsafeUserId = normalizeUserId(getVk()?.initDataUnsafe?.user?.id);
+  if (vkUnsafeUserId) {
+    return vkUnsafeUserId;
+  }
+
+  const parsedVkUserId = parseVkUserId(getVkFallbackInitData());
+  if (parsedVkUserId) {
+    return parsedVkUserId;
+  }
+
+  return readSessionStorageValue(VK_USER_ID_STORAGE_KEY);
+};
+
+const resolvePathPlatformHint = (): Platform | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const pathname = String(window.location.pathname || "").trim().toLowerCase();
+  if (pathname === "/tg" || pathname.startsWith("/tg/")) {
+    return "telegram";
+  }
+  if (pathname === "/vk" || pathname.startsWith("/vk/")) {
+    return "vk";
+  }
+  return null;
+};
+
+const resolveWebFallbackPlatform = (
+  platform: Platform,
+  webFallbackPlatform: WebFallbackPlatform,
+): "none" | "telegram" | "vk" => {
+  if (platform !== "web") {
+    return "none";
+  }
+
+  if (webFallbackPlatform !== "auto") {
+    return webFallbackPlatform;
+  }
+
+  const hint = resolvePathPlatformHint();
+  if (hint === "telegram" || hint === "vk") {
+    return hint;
+  }
+
+  const hasVkRuntimeHints = Boolean(getVk() || getVkFallbackInitData() || getVkFallbackUserId());
+  const hasTelegramRuntimeHints = Boolean(getTg() || getTelegramFallbackInitData() || getTelegramFallbackUserId());
+
+  if (hasVkRuntimeHints && !hasTelegramRuntimeHints) {
+    return "vk";
+  }
+  if (hasTelegramRuntimeHints && !hasVkRuntimeHints) {
+    return "telegram";
+  }
+  if (hasTelegramRuntimeHints) {
+    return "telegram";
+  }
+  if (hasVkRuntimeHints) {
+    return "vk";
+  }
+  return "none";
+};
+
+const resolveEffectivePlatform = (
+  platform: Platform,
+  webFallbackPlatform: WebFallbackPlatform,
+): Platform => {
+  if (platform !== "web") {
+    return platform;
+  }
+  const webResolved = resolveWebFallbackPlatform(platform, webFallbackPlatform);
+  if (webResolved === "telegram" || webResolved === "vk") {
+    return webResolved;
+  }
+  return "web";
+};
+
 const resolveAuthUserId = (
   override: string | number | null | undefined,
   platform: Platform,
-  webFallbackPlatform: "none" | "telegram",
 ): string | undefined => {
   const direct = normalizeUserId(override);
   if (direct) {
     return direct;
   }
 
+  if (platform === "vk") {
+    return getVkFallbackUserId() ?? normalizeUserId(getUserId()) ?? normalizeUserId(getUser()?.id);
+  }
+
+  if (platform === "telegram") {
+    return getTelegramFallbackUserId() ?? normalizeUserId(getUserId()) ?? normalizeUserId(getUser()?.id);
+  }
+
   const platformUserId = normalizeUserId(getUserId());
   if (platformUserId) {
     return platformUserId;
   }
-
-  if (platform === "web" && webFallbackPlatform === "telegram") {
-    const fallbackTelegramUserId = getTelegramFallbackUserId();
-    if (fallbackTelegramUserId) {
-      return fallbackTelegramUserId;
-    }
-  }
-
   return normalizeUserId(getUser()?.id);
 };
 
@@ -115,30 +256,28 @@ const waitForMs = (ms: number): Promise<void> =>
 const shouldWaitForInitData = (
   platform: Platform,
   includeInitData: boolean,
-  webFallbackPlatform: "none" | "telegram",
 ): boolean => {
   if (!includeInitData) {
     return false;
   }
 
-  if (platform === "telegram" || platform === "vk") {
-    return true;
-  }
-
-  return platform === "web" && webFallbackPlatform === "telegram";
+  return platform === "telegram" || platform === "vk";
 };
 
 const resolveInitDataValue = (
   platform: Platform,
   includeInitData: boolean,
-  webFallbackPlatform: "none" | "telegram",
 ): string | undefined => {
   if (!includeInitData) {
     return undefined;
   }
 
-  if (platform === "web" && webFallbackPlatform === "telegram") {
+  if (platform === "telegram") {
     return getTelegramFallbackInitData();
+  }
+
+  if (platform === "vk") {
+    return getVkFallbackInitData();
   }
 
   return getInitData();
@@ -150,10 +289,9 @@ const appendResolvedPlatformAuthHeaders = (
     platform: Platform;
     userId?: string;
     initData?: string;
-    webFallbackPlatform: "none" | "telegram";
   },
 ): Record<string, string> => {
-  const { platform, userId, initData, webFallbackPlatform } = options;
+  const { platform, userId, initData } = options;
 
   if (platform === "vk") {
     if (userId) {
@@ -165,7 +303,7 @@ const appendResolvedPlatformAuthHeaders = (
     return headers;
   }
 
-  if (platform === "telegram" || (platform === "web" && webFallbackPlatform === "telegram")) {
+  if (platform === "telegram") {
     if (userId) {
       headers["X-Telegram-Id"] = userId;
     }
@@ -180,14 +318,13 @@ const appendResolvedPlatformAuthHeaders = (
 async function resolveInitDataWithRetry(
   platform: Platform,
   includeInitData: boolean,
-  webFallbackPlatform: "none" | "telegram",
 ): Promise<string | undefined> {
-  if (!shouldWaitForInitData(platform, includeInitData, webFallbackPlatform)) {
-    return resolveInitDataValue(platform, includeInitData, webFallbackPlatform);
+  if (!shouldWaitForInitData(platform, includeInitData)) {
+    return resolveInitDataValue(platform, includeInitData);
   }
 
   for (let attempt = 0; attempt < PLATFORM_AUTH_RETRY_DELAYS_MS.length; attempt += 1) {
-    const initData = resolveInitDataValue(platform, includeInitData, webFallbackPlatform);
+    const initData = resolveInitDataValue(platform, includeInitData);
     if (typeof initData === "string" && initData.trim()) {
       return initData;
     }
@@ -199,7 +336,7 @@ async function resolveInitDataWithRetry(
     }
   }
 
-  return resolveInitDataValue(platform, includeInitData, webFallbackPlatform);
+  return resolveInitDataValue(platform, includeInitData);
 }
 
 export function appendPlatformAuthHeaders(
@@ -209,13 +346,13 @@ export function appendPlatformAuthHeaders(
   const platform = options.platform ?? getPlatform();
   const includeInitData = options.includeInitData !== false;
   const webFallbackPlatform = options.webFallbackPlatform ?? "none";
-  const userId = resolveAuthUserId(options.userId, platform, webFallbackPlatform);
-  const initData = resolveInitDataValue(platform, includeInitData, webFallbackPlatform);
+  const effectivePlatform = resolveEffectivePlatform(platform, webFallbackPlatform);
+  const userId = resolveAuthUserId(options.userId, effectivePlatform);
+  const initData = resolveInitDataValue(effectivePlatform, includeInitData);
   return appendResolvedPlatformAuthHeaders(headers, {
-    platform,
+    platform: effectivePlatform,
     userId,
     initData,
-    webFallbackPlatform,
   });
 }
 
@@ -233,13 +370,13 @@ export async function buildPlatformAuthHeadersAsync(
   const platform = options.platform ?? getPlatform();
   const includeInitData = options.includeInitData !== false;
   const webFallbackPlatform = options.webFallbackPlatform ?? "none";
-  const userId = resolveAuthUserId(options.userId, platform, webFallbackPlatform);
-  const initData = await resolveInitDataWithRetry(platform, includeInitData, webFallbackPlatform);
+  const effectivePlatform = resolveEffectivePlatform(platform, webFallbackPlatform);
+  const userId = resolveAuthUserId(options.userId, effectivePlatform);
+  const initData = await resolveInitDataWithRetry(effectivePlatform, includeInitData);
 
   return appendResolvedPlatformAuthHeaders({ ...initial }, {
-    platform,
+    platform: effectivePlatform,
     userId,
     initData,
-    webFallbackPlatform,
   });
 }

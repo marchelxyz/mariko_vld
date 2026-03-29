@@ -54,7 +54,7 @@ function buildCartHeaders(userId: string, initial?: Record<string, string>): Rec
     {
       userId,
       includeInitData: Boolean(getInitData()),
-      webFallbackPlatform: "telegram",
+      webFallbackPlatform: "auto",
     },
   );
 }

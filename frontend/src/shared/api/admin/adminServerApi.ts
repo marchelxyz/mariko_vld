@@ -7,6 +7,7 @@ import { getTg, getUser as getTelegramUser } from "@/lib/telegramCore";
 import { getVk } from "@/lib/vkCore";
 import { logger } from "@/lib/logger";
 import { sanitizeAdminFacingMessage } from "@shared/utils";
+import { buildPlatformAuthHeadersAsync } from "../platformAuth";
 
 function normalizeBaseUrl(base: string | undefined): string {
   if (!base || base === "/") {
@@ -570,31 +571,39 @@ const waitForPlatformInitData = async (): Promise<string | undefined> => {
 };
 
 const buildHeaders = async (overrideTelegramId?: string, overrideVkId?: string): Promise<Record<string, string>> => {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  const platform = getPlatform();
+  const headers = await buildPlatformAuthHeadersAsync(
+    {
+      "Content-Type": "application/json",
+    },
+    {
+      webFallbackPlatform: "auto",
+    },
+  );
 
-  if (platform === "vk") {
-    const vkId = resolveVkId(overrideVkId);
-    if (vkId) {
-      headers["X-VK-Id"] = vkId;
-    }
-    const vkInitData = await waitForPlatformInitData();
-    if (vkInitData) {
-      headers["X-VK-Init-Data"] = vkInitData;
-    }
-    return headers;
+  const normalizedVkOverride =
+    overrideVkId && /^\d+$/.test(overrideVkId) ? overrideVkId : undefined;
+  if (normalizedVkOverride) {
+    return {
+      "Content-Type": "application/json",
+      "X-VK-Id": normalizedVkOverride,
+      ...(headers["X-VK-Init-Data"] ? { "X-VK-Init-Data": headers["X-VK-Init-Data"] } : {}),
+    };
   }
 
-  const telegramId = resolveTelegramId(overrideTelegramId);
-  if (telegramId) {
-    headers["X-Telegram-Id"] = telegramId;
+  const normalizedTelegramOverride =
+    overrideTelegramId && /^\d+$/.test(overrideTelegramId)
+      ? overrideTelegramId
+      : undefined;
+  if (normalizedTelegramOverride) {
+    return {
+      "Content-Type": "application/json",
+      "X-Telegram-Id": normalizedTelegramOverride,
+      ...(headers["X-Telegram-Init-Data"]
+        ? { "X-Telegram-Init-Data": headers["X-Telegram-Init-Data"] }
+        : {}),
+    };
   }
-  const telegramInitData = await waitForPlatformInitData();
-  if (telegramInitData) {
-    headers["X-Telegram-Init-Data"] = telegramInitData;
-  }
+
   return headers;
 };
 
