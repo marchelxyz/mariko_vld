@@ -1247,7 +1247,7 @@ curl https://your-test-app.example.com/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_
   - существующий paid online-заказ без `provider_order_id` должен получить `payment_paid_dispatch_requested` и `create_order`;
   - live-check `deliveries/by_id` для pickup-заказа с `whenPacked` должен нормализоваться в `packed`, а в приложении отображаться как `Готов к выдаче`.
 
-**Связанный commit:** `N/A` (будет обновлён после коммита фикса)
+**Связанный commit:** `7bffc16` `fix(iiko): исправлен диспатч оплаченных заказов и статусы самовывоза`
 
 ### ❌ Проблема: Cloud API настроен на внешнее меню, но backend всё равно получает полную номенклатуру
 
