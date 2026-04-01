@@ -286,7 +286,13 @@ export const applyIikoOrderStatusUpdate = async ({
   const normalizedProviderOrderId = normaliseReference(providerOrderId);
   const normalizedExternalId = normaliseReference(externalId);
   const normalizedRawStatus = normaliseReference(rawStatus);
-  const resolvedRawStatus = normaliseReference(resolveIikoRawStatus(payload) || normalizedRawStatus);
+  const payloadStatusSource =
+    payload && typeof payload === "object" && !Array.isArray(payload) && payload.order && typeof payload.order === "object"
+      ? payload.order
+      : payload;
+  const resolvedRawStatus = normaliseReference(
+    resolveIikoRawStatus(payloadStatusSource) || normalizedRawStatus,
+  );
   const order = await findOrderByIntegrationReference({
     providerOrderId: normalizedProviderOrderId,
     externalId: normalizedExternalId,
