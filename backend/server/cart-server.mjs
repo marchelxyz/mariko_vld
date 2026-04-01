@@ -55,6 +55,7 @@ import {
   normalizeIikoOrderStatus,
   resolveIikoRawStatus,
 } from "./services/iikoOrderStatusService.mjs";
+import { serializeCartOrderTimestamps } from "./utils/moscowTimestamp.mjs";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = String(process.env.NODE_ENV ?? "").trim().toLowerCase() === "production";
@@ -828,7 +829,10 @@ app.get("/api/cart/user-orders", async (req, res) => {
     if (telegramId && phone) {
       // При наличии Telegram ID и телефона ищем по обоим идентификаторам (fallback для старых заказов)
       sqlQuery = `
-        SELECT *
+        SELECT *,
+          created_at::text AS created_at_raw,
+          updated_at::text AS updated_at_raw,
+          provider_synced_at::text AS provider_synced_at_raw
         FROM ${CART_ORDERS_TABLE}
         WHERE
           (meta->>'telegramUserId' = $1 OR meta->>'telegram_user_id' = $1)
@@ -839,7 +843,10 @@ app.get("/api/cart/user-orders", async (req, res) => {
       queryParams = [telegramId, `%${normalizedPhone}%`, `%${phone}%`, safeLimit];
     } else if (vkId && phone) {
       sqlQuery = `
-        SELECT *
+        SELECT *,
+          created_at::text AS created_at_raw,
+          updated_at::text AS updated_at_raw,
+          provider_synced_at::text AS provider_synced_at_raw
         FROM ${CART_ORDERS_TABLE}
         WHERE
           meta->>'vkUserId' = $1
@@ -851,7 +858,10 @@ app.get("/api/cart/user-orders", async (req, res) => {
     } else if (telegramId) {
       // Поиск по Telegram ID (основной способ) - найдет ВСЕ заказы пользователя
       sqlQuery = `
-        SELECT *
+        SELECT *,
+          created_at::text AS created_at_raw,
+          updated_at::text AS updated_at_raw,
+          provider_synced_at::text AS provider_synced_at_raw
         FROM ${CART_ORDERS_TABLE}
         WHERE (meta->>'telegramUserId' = $1 OR meta->>'telegram_user_id' = $1)
         ORDER BY created_at DESC
@@ -860,7 +870,10 @@ app.get("/api/cart/user-orders", async (req, res) => {
       queryParams = [telegramId, safeLimit];
     } else if (vkId) {
       sqlQuery = `
-        SELECT *
+        SELECT *,
+          created_at::text AS created_at_raw,
+          updated_at::text AS updated_at_raw,
+          provider_synced_at::text AS provider_synced_at_raw
         FROM ${CART_ORDERS_TABLE}
         WHERE meta->>'vkUserId' = $1
         ORDER BY created_at DESC
@@ -870,7 +883,10 @@ app.get("/api/cart/user-orders", async (req, res) => {
     } else {
       // Fallback: поиск по номеру телефона
       sqlQuery = `
-        SELECT *
+        SELECT *,
+          created_at::text AS created_at_raw,
+          updated_at::text AS updated_at_raw,
+          provider_synced_at::text AS provider_synced_at_raw
         FROM ${CART_ORDERS_TABLE}
         WHERE customer_phone LIKE $1 OR customer_phone LIKE $2
         ORDER BY created_at DESC
@@ -950,7 +966,7 @@ app.get("/api/cart/user-orders", async (req, res) => {
         }
 
         return {
-          ...order,
+          ...serializeCartOrderTimestamps(order),
           status: localStatus ?? order.status,
           iiko_order_id: providerOrderId,
           iiko_status: iikoStatus,

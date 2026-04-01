@@ -110,15 +110,19 @@ const PACKED_TIMESTAMP_PATHS = [
 ];
 
 const KITCHEN_PROGRESS_PATHS = [
-  "order.cookingStartTime",
-  "cookingStartTime",
-  "data.cookingStartTime",
-  "order.whenPrinted",
-  "whenPrinted",
-  "data.whenPrinted",
-  "order.whenConfirmed",
-  "whenConfirmed",
-  "data.whenConfirmed",
+  "order.whenCookingStarted",
+  "whenCookingStarted",
+  "data.whenCookingStarted",
+  "order.whenStartedCooking",
+  "whenStartedCooking",
+  "data.whenStartedCooking",
+];
+
+const ITEM_COLLECTION_PATHS = [
+  "order.items",
+  "items",
+  "data.order.items",
+  "data.items",
 ];
 
 const asObject = (value) => (value && typeof value === "object" && !Array.isArray(value) ? value : null);
@@ -173,6 +177,26 @@ const hasMeaningfulValue = (value) => {
 const hasValueAtPaths = (source, paths) =>
   paths.some((path) => hasMeaningfulValue(getNestedValue(source, path)));
 
+const collectItemStatuses = (source) => {
+  const statuses = [];
+
+  for (const path of ITEM_COLLECTION_PATHS) {
+    const items = getNestedValue(source, path);
+    if (!Array.isArray(items)) {
+      continue;
+    }
+
+    for (const item of items) {
+      const normalized = normalizeStatusKey(item?.status);
+      if (normalized) {
+        statuses.push(normalized);
+      }
+    }
+  }
+
+  return statuses;
+};
+
 const normalizeStatusKey = (value) =>
   normaliseValue(value)
     .toLowerCase()
@@ -203,6 +227,26 @@ const inferProgressStatus = (source) => {
       return "readyforcourier";
     }
     return "ready";
+  }
+  const itemStatuses = collectItemStatuses(source);
+  if (itemStatuses.length > 0) {
+    if (itemStatuses.every((status) => ["cookingcompleted", "ready", "assembled", "packed"].includes(status))) {
+      if (isPickup) {
+        return "readyforpickup";
+      }
+      if (isCourierDelivery) {
+        return "readyforcourier";
+      }
+      return "ready";
+    }
+
+    if (
+      itemStatuses.some((status) =>
+        ["cookingstarted", "preparing", "inprogress", "inwork", "started"].includes(status),
+      )
+    ) {
+      return "cooking";
+    }
   }
   if (hasValueAtPaths(source, KITCHEN_PROGRESS_PATHS)) {
     return "cooking";

@@ -14,8 +14,15 @@ const resolveStatus = (order: CartOrderRecord): string => {
   return resolveEffectiveCartOrderStatus(order);
 };
 
+const normalizeStatusKey = (value?: string | null): string =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+
 const statusLabel = (order: CartOrderRecord, status: string): string => {
   const isPickup = order.order_type === "pickup";
+  const providerStatus = normalizeStatusKey(order.iiko_status ?? order.provider_status ?? null);
 
   if (["completed", "delivered", "closed"].includes(status)) {
     return isPickup ? "Выдан" : "Доставлен";
@@ -23,8 +30,14 @@ const statusLabel = (order: CartOrderRecord, status: string): string => {
   if (["delivery", "ontheway", "courier"].includes(status)) {
     return isPickup ? "Готов к выдаче" : "В пути";
   }
+  if (providerStatus === "readyforcourier") {
+    return "Готов к отправке";
+  }
+  if (providerStatus === "readyforpickup") {
+    return "Готов к выдаче";
+  }
   if (status === "packed") {
-    return isPickup ? "Готов к выдаче" : "Готовится";
+    return isPickup ? "Готов к выдаче" : "Готов к отправке";
   }
   if (["kitchen", "cooking"].includes(status)) return "Готовится";
   if (["cancelled", "canceled", "rejected"].includes(status)) return "Отменён";

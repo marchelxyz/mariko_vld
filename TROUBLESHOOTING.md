@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-04-01 23:04
+**Последнее обновление:** 2026-04-01 23:29
 
 ---
 
@@ -1424,6 +1424,74 @@ curl https://your-test-app.example.com/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_
 **Проверка:**
 - `npm exec --prefix frontend tsc --noEmit --pretty false`
 - открыть `Мои заказы` и убедиться, что заказ с `created_at = 2026-04-01T19:27:25.774Z` отображается как `1 апреля, 22:27`, а не `2 апреля, 01:27`.
+
+**Связанный commit:** `в работе`
+
+### ❌ Проблема: `/api/cart/user-orders` и `/api/cart/orders` отдавали `TIMESTAMP` как ISO c `Z`, из-за чего Mini App показывал время заказа на 3 часа позже
+
+**Дата:** 2026-04-01
+**Симптомы:**
+- в Mini App свежие заказы Жуковского, созданные около `23:08-23:09 МСК`, отображались как `02:08-02:09`;
+- при прямом запросе `prod` API `/api/cart/user-orders` поле `created_at` приходило как:
+  - `2026-04-01T23:08:52.991Z`
+  - `2026-04-01T23:09:11.213Z`
+- frontend уже форматировал даты через `timeZone: "Europe/Moscow"`, но из-за суффикса `Z` честно добавлял ещё `+3 часа`.
+
+**Причина:**
+- поля `created_at`, `updated_at`, `provider_synced_at` в таблицах хранятся как `TIMESTAMP` без timezone;
+- `node-postgres` отдавал их как `Date`, а `res.json(...)` сериализовал их в ISO c `Z`;
+- в результате backend отправлял время так, будто оно уже было `UTC`, хотя фактически это была локальная московская wall-clock дата БД.
+
+**Решение:**
+1. В `/api/cart/user-orders` и `/api/cart/orders` выбирать `created_at::text`, `updated_at::text`, `provider_synced_at::text`.
+2. На backend перед отправкой сериализовать эти значения в явный московский формат `YYYY-MM-DDTHH:mm:ss.SSS+03:00`.
+3. Не полагаться на неявную JSON-сериализацию `Date` для `TIMESTAMP WITHOUT TIME ZONE`.
+
+**Проверка:**
+- `node --check backend/server/utils/moscowTimestamp.mjs`
+- `node --check backend/server/cart-server.mjs`
+- `node --check backend/server/routes/cartRoutes.mjs`
+- `git diff --check`
+- запросить `prod` `/api/cart/user-orders` и убедиться, что `created_at` приходит как `2026-04-01T23:09:11.213+03:00`, а не `...Z`;
+- открыть `Мои заказы` и убедиться, что карточка показывает `1 апреля, 23:08/23:09`, а не `2 апреля, 02:08/02:09`.
+
+**Связанный commit:** `в работе`
+
+### ❌ Проблема: `status_worker` переводил новые заказы в `Готовится` сразу после создания, ещё до реального старта готовки
+
+**Дата:** 2026-04-01
+**Симптомы:**
+- пользователь подтверждал заказ в iiko, но не нажимал `Готовить`, а Mini App уже показывал `Готовится`;
+- это происходило и для `pickup`, и для `delivery`;
+- в `integration_job_logs` для последних заказов Жуковского уже через `4-20 секунд` после `create_order` появлялось:
+  - `rawStatus: "cooking"`
+  - `normalizedStatus: "kitchen"`.
+
+**Причина:**
+- в `backend/server/services/iikoOrderStatusService.mjs` статус `cooking` выводился по слишком ранним полям:
+  - `cookingStartTime`
+  - `whenPrinted`
+  - `whenConfirmed`
+- в live iiko эти поля появляются раньше, чем оператор реально переводит заказ в стадию готовки;
+- из-за этого наш `status_worker` сам создавал ложный переход `processing -> kitchen`, хотя `order.status` в iiko ещё оставался `Waiting`.
+
+**Решение:**
+1. Убрать из kitchen-инференса ранние поля `cookingStartTime`, `whenPrinted`, `whenConfirmed`.
+2. Для стадии `cooking` опираться только на более явные сигналы:
+   - `whenCookingStarted` / `whenStartedCooking`;
+   - item-level statuses вроде `CookingStarted`.
+3. Для ready-стадий использовать:
+   - `whenPacked`
+   - `whenCookingCompleted`
+   - либо item statuses `CookingCompleted`.
+4. Во frontend для delivery-статуса `readyforcourier` показывать `Готов к отправке`, а не `Готовится`.
+
+**Проверка:**
+- `node --check backend/server/services/iikoOrderStatusService.mjs`
+- `npm exec --prefix frontend tsc --noEmit --pretty false`
+- `git diff --check`
+- оформить новый заказ и убедиться, что после создания/подтверждения он остаётся `Принят`, пока в iiko не наступит реальная стадия готовки;
+- перевести delivery в `readyforcourier` и убедиться, что в Mini App отображается `Готов к отправке`, а не `Готовится`.
 
 **Связанный commit:** `в работе`
 

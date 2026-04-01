@@ -18,6 +18,7 @@ import { iikoClient } from "../integrations/iiko-client.mjs";
 import { normaliseNullableString } from "../utils.mjs";
 import { addressService } from "../services/addressService.mjs";
 import { normalizeDeliveryAddressParts } from "../utils/deliveryAddress.mjs";
+import { serializeCartOrderTimestamps } from "../utils/moscowTimestamp.mjs";
 import {
   shouldRequireVerifiedTelegramInitData,
   verifyTelegramInitData,
@@ -1262,7 +1263,11 @@ export function registerCartRoutes(app) {
     const limit = Math.min(Math.max(requestedLimit, 1), MAX_ORDERS_LIMIT);
 
     try {
-      let queryText = `SELECT * FROM ${CART_ORDERS_TABLE} WHERE 1=1`;
+      let queryText = `SELECT *,
+        created_at::text AS created_at_raw,
+        updated_at::text AS updated_at_raw,
+        provider_synced_at::text AS provider_synced_at_raw
+        FROM ${CART_ORDERS_TABLE} WHERE 1=1`;
       const params = [];
       let paramIndex = 1;
 
@@ -1299,7 +1304,7 @@ export function registerCartRoutes(app) {
             order.warnings = JSON.parse(order.warnings);
           } catch {}
         }
-        return order;
+        return serializeCartOrderTimestamps(order);
       });
 
       return res.json({
