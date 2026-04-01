@@ -17,6 +17,7 @@ import { resolveDeliveryAccess } from "../services/deliveryAccessService.mjs";
 import { iikoClient } from "../integrations/iiko-client.mjs";
 import { normaliseNullableString } from "../utils.mjs";
 import { addressService } from "../services/addressService.mjs";
+import { normalizeDeliveryAddressParts } from "../utils/deliveryAddress.mjs";
 import {
   shouldRequireVerifiedTelegramInitData,
   verifyTelegramInitData,
@@ -887,14 +888,32 @@ export function registerCartRoutes(app) {
       }
     }
 
+    const deliveryCity = normaliseNullableString(
+      orderPayload?.deliveryCity ?? orderPayload?.meta?.cityName ?? null,
+    );
     const parsedFromDeliveryAddress = parseStreetAndHouse(orderPayload?.deliveryAddress);
-    const deliveryStreet =
-      String(orderPayload?.deliveryStreet ?? orderPayload?.delivery_street ?? parsedFromDeliveryAddress.street ?? "").trim();
-    const deliveryHouse =
-      String(orderPayload?.deliveryHouse ?? orderPayload?.delivery_house ?? parsedFromDeliveryAddress.house ?? "").trim();
-    const deliveryApartment = String(
-      orderPayload?.deliveryApartment ?? orderPayload?.delivery_apartment ?? "",
-    ).trim();
+    const normalizedDeliveryAddress = normalizeDeliveryAddressParts({
+      city: deliveryCity,
+      street:
+        orderPayload?.deliveryStreet ??
+        orderPayload?.delivery_street ??
+        parsedFromDeliveryAddress.street ??
+        "",
+      house:
+        orderPayload?.deliveryHouse ??
+        orderPayload?.delivery_house ??
+        parsedFromDeliveryAddress.house ??
+        "",
+      apartment: orderPayload?.deliveryApartment ?? orderPayload?.delivery_apartment ?? "",
+    });
+    const deliveryStreet = normalizedDeliveryAddress.street;
+    const deliveryHouse = normalizedDeliveryAddress.house;
+    const deliveryApartment = normalizedDeliveryAddress.apartment;
+    const canonicalDeliveryAddress =
+      orderType === "delivery"
+        ? normalizedDeliveryAddress.full ||
+          normaliseNullableString(orderPayload?.deliveryAddress)
+        : null;
 
     if (orderType === "delivery" && (!deliveryStreet || !deliveryHouse)) {
       return res.status(400).json({
@@ -941,6 +960,7 @@ export function registerCartRoutes(app) {
             }
           : orderPayload?.meta?.deliveryLocation ?? null,
       deliveryAddressParts: {
+        city: deliveryCity ?? null,
         street: deliveryStreet || null,
         house: deliveryHouse || null,
         apartment: deliveryApartment || null,
@@ -1045,7 +1065,7 @@ export function registerCartRoutes(app) {
           orderType,
           orderPayload.customerName,
           orderPayload.customerPhone,
-          orderPayload.deliveryAddress ?? null,
+          canonicalDeliveryAddress,
           orderPayload.comment ?? null,
           subtotal,
           deliveryFee,
@@ -1158,6 +1178,7 @@ export function registerCartRoutes(app) {
                 restaurant_id: restaurantId,
                 city_id: orderPayload.cityId ?? null,
                 order_type: orderType,
+                delivery_city: deliveryCity ?? null,
                 delivery_street: deliveryStreet || null,
                 delivery_house: deliveryHouse || null,
                 delivery_apartment: deliveryApartment || null,

@@ -39,6 +39,7 @@ import {
 import { startBookingNotificationWorker } from "./workers/bookingNotificationWorker.mjs";
 import { startIikoMenuSyncWorker } from "./workers/iikoMenuSyncWorker.mjs";
 import { startIikoRetryWorker } from "./workers/iikoRetryWorker.mjs";
+import { startIikoStatusSyncWorker } from "./workers/iikoStatusSyncWorker.mjs";
 import { startTelegramBot, stopTelegramBot } from "./services/telegramBotService.mjs";
 import { applyIikoOrderStatusUpdate, fetchRestaurantIntegrationConfig } from "./services/integrationService.mjs";
 import { syncRestaurantExternalMenu } from "./services/iikoMenuSyncService.mjs";
@@ -1034,6 +1035,7 @@ if (db) {
   startBookingNotificationWorker();
   startIikoMenuSyncWorker();
   startIikoRetryWorker();
+  startIikoStatusSyncWorker();
 } else {
   logger.warn("app", "База данных недоступна, воркеры не запущены");
 }

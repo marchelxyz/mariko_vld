@@ -2,6 +2,10 @@ import {
   sanitizeSensitiveData,
   sanitizeSensitiveText,
 } from "../utils/sensitiveDataSanitizer.mjs";
+import {
+  normalizeDeliveryAddressParts,
+  normalizeDeliveryCoordinates,
+} from "../utils/deliveryAddress.mjs";
 
 const IIKO_BASE_URL = process.env.IIKO_BASE_URL || "https://api-ru.iiko.services";
 const IIKO_TIMEOUT_MS = Number.parseInt(process.env.IIKO_TIMEOUT_MS ?? "", 10) || 15000;
@@ -17,6 +21,8 @@ const IIKO_STOP_LIST_CACHE_TTL_MS =
   Number.parseInt(process.env.IIKO_STOP_LIST_CACHE_TTL_MS ?? "", 10) || 30 * 1000;
 const IIKO_PAYMENT_TYPES_CACHE_TTL_MS =
   Number.parseInt(process.env.IIKO_PAYMENT_TYPES_CACHE_TTL_MS ?? "", 10) || 10 * 60 * 1000;
+const IIKO_ORDER_TYPES_CACHE_TTL_MS =
+  Number.parseInt(process.env.IIKO_ORDER_TYPES_CACHE_TTL_MS ?? "", 10) || 10 * 60 * 1000;
 const IIKO_PAYMENT_MODE = String(process.env.IIKO_PAYMENT_MODE ?? "")
   .trim()
   .toLowerCase();
@@ -27,6 +33,7 @@ const IIKO_MENU_SOURCE_MODE = String(process.env.IIKO_MENU_SOURCE_MODE ?? "auto"
 const tokenCache = new Map();
 const stopListCache = new Map();
 const paymentTypesCache = new Map();
+const orderTypesCache = new Map();
 
 const sleep = (ms) =>
   new Promise((resolve) => {
@@ -306,7 +313,6 @@ const buildIikoOrderItems = (items) => {
       type: "Product",
       amount,
       price,
-      comment: item?.name,
     };
   });
 
@@ -900,6 +906,8 @@ const findPaymentTypeById = (paymentTypes, paymentTypeId) =>
 const getPaymentTypesCacheKey = (config) =>
   [config?.api_login || "no-login", config?.iiko_organization_id || "no-org"].join(":");
 
+const getOrderTypesCacheKey = getPaymentTypesCacheKey;
+
 const getCachedPaymentTypes = (config) => {
   const cacheKey = getPaymentTypesCacheKey(config);
   const cached = paymentTypesCache.get(cacheKey);
@@ -917,6 +925,23 @@ const setCachedPaymentTypes = (config, paymentTypes) => {
   });
 };
 
+const getCachedOrderTypes = (config) => {
+  const cacheKey = getOrderTypesCacheKey(config);
+  const cached = orderTypesCache.get(cacheKey);
+  if (!cached || cached.expiresAt <= Date.now()) {
+    return null;
+  }
+  return cached.orderTypes;
+};
+
+const setCachedOrderTypes = (config, orderTypes) => {
+  const cacheKey = getOrderTypesCacheKey(config);
+  orderTypesCache.set(cacheKey, {
+    orderTypes,
+    expiresAt: Date.now() + IIKO_ORDER_TYPES_CACHE_TTL_MS,
+  });
+};
+
 const fetchPaymentTypesByToken = async (accessToken, organizationId) => {
   const url = `${IIKO_BASE_URL}/api/1/payment_types`;
   const response = await requestJson(url, {
@@ -928,6 +953,60 @@ const fetchPaymentTypesByToken = async (accessToken, organizationId) => {
     body: JSON.stringify({ organizationIds: [organizationId] }),
   });
   return asArray(response?.paymentTypes);
+};
+
+const fetchOrderTypesByToken = async (accessToken, organizationId) => {
+  const url = `${IIKO_BASE_URL}/api/1/deliveries/order_types`;
+  const response = await requestJson(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ organizationIds: [organizationId] }),
+  });
+
+  return asArray(response?.orderTypes).flatMap((group) => asArray(group?.items));
+};
+
+const normalizeOrderServiceTypeKey = (value) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/gu, "");
+
+const resolveFallbackOrderServiceType = (orderType) =>
+  orderType === "delivery" ? "DeliveryByCourier" : "DeliveryByClient";
+
+const matchesPickupOrderServiceType = (value) => {
+  const normalized = normalizeOrderServiceTypeKey(value);
+  return normalized === "deliverypickup" || normalized === "deliverybyclient";
+};
+
+const resolveIikoOrderTypeConfig = async (config, accessToken, orderType) => {
+  const fallbackOrderServiceType = resolveFallbackOrderServiceType(orderType);
+  let orderTypes = getCachedOrderTypes(config);
+
+  if (!orderTypes) {
+    try {
+      orderTypes = await fetchOrderTypesByToken(accessToken, config.iiko_organization_id);
+      setCachedOrderTypes(config, orderTypes);
+    } catch {
+      orderTypes = [];
+    }
+  }
+
+  const selectedOrderType =
+    orderType === "delivery"
+      ? orderTypes.find(
+          (candidate) => normalizeOrderServiceTypeKey(candidate?.orderServiceType) === "deliverybycourier",
+        ) ?? null
+      : orderTypes.find((candidate) => matchesPickupOrderServiceType(candidate?.orderServiceType)) ?? null;
+
+  return {
+    orderTypeId: normaliseIikoProductId(selectedOrderType?.id) || null,
+    orderServiceType: selectedOrderType?.orderServiceType || fallbackOrderServiceType,
+  };
 };
 
 const resolveIikoPaymentConfig = async (config, accessToken, paymentMethod) => {
@@ -1049,12 +1128,37 @@ const buildIikoDeliveryPayload = async (config, order, accessToken) => {
     }
   }
   const deliveryParts = meta?.deliveryAddressParts ?? {};
-  const deliveryStreet =
-    order.delivery_street || order.deliveryStreet || deliveryParts.street || null;
-  const deliveryHouse =
-    order.delivery_house || order.deliveryHouse || deliveryParts.house || null;
-  const deliveryApartment =
-    order.delivery_apartment || order.deliveryApartment || deliveryParts.apartment || null;
+  const normalizedDelivery = normalizeDeliveryAddressParts({
+    city:
+      order.delivery_city ||
+      order.deliveryCity ||
+      deliveryParts.city ||
+      meta?.cityName ||
+      null,
+    street:
+      order.delivery_street ||
+      order.deliveryStreet ||
+      deliveryParts.street ||
+      null,
+    house:
+      order.delivery_house ||
+      order.deliveryHouse ||
+      deliveryParts.house ||
+      null,
+    apartment:
+      order.delivery_apartment ||
+      order.deliveryApartment ||
+      deliveryParts.apartment ||
+      null,
+  });
+  const deliveryCity = normalizedDelivery.city || null;
+  const deliveryStreet = normalizedDelivery.street || null;
+  const deliveryHouse = normalizedDelivery.house || null;
+  const deliveryApartment = normalizedDelivery.apartment || null;
+  const deliveryLine1 = normalizedDelivery.line1 || null;
+  const deliveryLocation = normalizeDeliveryCoordinates(
+    meta?.deliveryLocation ?? order.deliveryLocation ?? null,
+  );
 
   const paymentMethod = normalisePaymentMethod(
     order.payment_method ?? order.paymentMethod ?? meta?.paymentMethod,
@@ -1075,7 +1179,11 @@ const buildIikoDeliveryPayload = async (config, order, accessToken) => {
 
   // Определяем тип заказа для iiko
   const isDelivery = order.order_type === "delivery";
-  const orderServiceType = isDelivery ? "DeliveryByCourier" : "DeliveryByClient"; // DeliveryByClient = самовывоз
+  const orderTypeConfig = await resolveIikoOrderTypeConfig(
+    config,
+    accessToken,
+    isDelivery ? "delivery" : "pickup",
+  );
 
   // Формируем комментарий с информацией о способе оплаты
   const paymentMethodLabel = resolvePaymentMethodLabel(paymentMethod);
@@ -1091,7 +1199,8 @@ const buildIikoDeliveryPayload = async (config, order, accessToken) => {
       transportToFrontTimeout: 40,
     },
     order: {
-      orderServiceType,
+      orderServiceType: orderTypeConfig.orderServiceType,
+      ...(orderTypeConfig.orderTypeId ? { orderTypeId: orderTypeConfig.orderTypeId } : {}),
       sourceKey: config.source_key ?? undefined,
       phone,
       customer: {
@@ -1105,19 +1214,21 @@ const buildIikoDeliveryPayload = async (config, order, accessToken) => {
   };
 
   // Добавляем адрес доставки только для delivery
-  if (isDelivery && order.delivery_address) {
+  if (isDelivery && (order.delivery_address || deliveryLine1)) {
     if (!deliveryStreet || !deliveryHouse) {
       throw new Error("iiko: Не заполнены улица или дом для доставки");
     }
     payload.order.deliveryPoint = {
+      ...(deliveryLocation ? { coordinates: deliveryLocation } : {}),
       address: {
+        ...(deliveryLine1 ? { line1: deliveryLine1 } : {}),
         street: {
           name: deliveryStreet,
+          ...(deliveryCity ? { city: { name: deliveryCity } } : {}),
         },
         house: String(deliveryHouse),
         ...(deliveryApartment ? { flat: String(deliveryApartment) } : {}),
       },
-      comment: [order.delivery_address, deliveryApartment].filter(Boolean).join(", "),
     };
 
     if (config.delivery_terminal_id) {

@@ -182,7 +182,11 @@ const resolveOrderServiceType = (source) => normalizeStatusKey(pickFirstValue(so
 
 const inferProgressStatus = (source) => {
   const serviceType = resolveOrderServiceType(source);
-  const isPickup = serviceType === "deliverybyclient" || serviceType === "pickup" || serviceType === "carryout";
+  const isPickup =
+    serviceType === "deliverybyclient" ||
+    serviceType === "deliverypickup" ||
+    serviceType === "pickup" ||
+    serviceType === "carryout";
   const isCourierDelivery = serviceType === "deliverybycourier";
 
   if (hasValueAtPaths(source, COMPLETED_TIMESTAMP_PATHS)) {

@@ -33,6 +33,32 @@ const PAYMENT_METHOD_OPTIONS: Array<{ value: PaymentMethod; label: string }> = [
   { value: "online", label: "Онлайн-оплата" },
 ];
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const stripLeadingCityFromStreet = (streetValue: string, cityValue?: string) => {
+  let street = streetValue.trim().replace(/\s+/g, " ").replace(/\s*,\s*/g, ", ");
+  const city = (cityValue ?? "").trim().replace(/\s+/g, " ");
+  if (!street || !city) {
+    return street;
+  }
+
+  const variants = [city, `г ${city}`, `г. ${city}`];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const variant of variants) {
+      const pattern = new RegExp(`^${escapeRegExp(variant)}(?:\\s*,\\s*|\\s+)`, "i");
+      if (!pattern.test(street)) {
+        continue;
+      }
+      street = street.replace(pattern, "").trim().replace(/^,\s*/, "");
+      changed = true;
+    }
+  }
+
+  return street;
+};
+
 const parseAddressLine = (value: string) => {
   const cleaned = value.trim();
   if (!cleaned) {
@@ -179,7 +205,8 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   const isPhoneComplete = phoneDigits.length === 10;
 
   const resolvedDeliveryAddress = (() => {
-    const base = [addressCity, addressStreet, addressHouse]
+    const normalizedStreet = stripLeadingCityFromStreet(addressStreet, addressCity);
+    const base = [addressCity, normalizedStreet, addressHouse]
       .map((value) => value.trim())
       .filter(Boolean)
       .join(", ");
@@ -199,14 +226,15 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
     (calculation?.canSubmit ?? true);
 
   const buildAddressLabel = (street?: string, house?: string, city?: string) => {
-    const parts = [city, street, house].filter(Boolean);
+    const normalizedStreet = stripLeadingCityFromStreet(street ?? "", city);
+    const parts = [city, normalizedStreet, house].filter(Boolean);
     return parts.join(", ");
   };
 
   const applySuggestion = (suggestion: AddressSuggestion) => {
-    const street = suggestion.street ?? "";
-    const house = suggestion.house ?? "";
     const city = suggestion.city ?? "";
+    const street = stripLeadingCityFromStreet(suggestion.street ?? "", city);
+    const house = suggestion.house ?? "";
     const label = suggestion.label || buildAddressLabel(street, house, city);
     setAddressLine(label);
     setAddressCity(city);
@@ -338,7 +366,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
       const parsed = parseYandexAddress(geoObj);
       const label = parsed.label || `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
       setAddressLine(label);
-      setAddressStreet(parsed.street);
+      setAddressStreet(stripLeadingCityFromStreet(parsed.street, parsed.city));
       setAddressHouse(parsed.house);
       if (parsed.city && !addressCity) {
         setAddressCity(parsed.city);
@@ -649,7 +677,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
             setAddressLine(profile.lastAddressText);
             const parsed = parseAddressLine(profile.lastAddressText);
             if (!addressStreet && parsed.street) {
-              setAddressStreet(parsed.street);
+              setAddressStreet(stripLeadingCityFromStreet(parsed.street, profile.favoriteCityName ?? ""));
             }
             if (!addressHouse && parsed.house) {
               setAddressHouse(parsed.house);
@@ -661,7 +689,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
               const composed = [profileCity, profileStreet].filter(Boolean).join(", ");
               setAddressLine(composed);
               setAddressCity(profileCity);
-              setAddressStreet(profileStreet);
+              setAddressStreet(stripLeadingCityFromStreet(profileStreet, profileCity));
             }
           }
         }
@@ -909,7 +937,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                           const nextValue = event.target.value;
                           const parsed = parseAddressLine(nextValue);
                           setAddressLine(nextValue);
-                          setAddressStreet(parsed.street);
+                          setAddressStreet(stripLeadingCityFromStreet(parsed.street, addressCity));
                           setAddressHouse(parsed.house);
                         }}
                         onFocus={() => setIsSuggestOpen(true)}
@@ -945,7 +973,11 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                       <input
                         type="text"
                         value={addressStreet}
-                        onChange={(event) => setAddressStreet(event.target.value)}
+                        onChange={(event) =>
+                          setAddressStreet(
+                            stripLeadingCityFromStreet(event.target.value, addressCity),
+                          )
+                        }
                         className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
                         placeholder="Гагарина"
                         required={orderType === "delivery"}
