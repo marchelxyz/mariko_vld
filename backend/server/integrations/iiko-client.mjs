@@ -628,6 +628,7 @@ const buildErrorResponseMeta = (error, extra = {}) =>
     status: error?.status,
     url: error?.url ? getIikoEndpointPath(error.url) : null,
     correlationId: extractIikoCorrelationId(error?.response),
+    body: error?.response ?? null,
     network: error?.network ?? null,
     ...extra,
   });

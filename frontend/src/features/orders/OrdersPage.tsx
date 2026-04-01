@@ -120,7 +120,7 @@ const OrderCard = ({
     status === "failed"
       ? sanitizeUserFacingMessage(
           order.provider_error,
-          "Не удалось передать заказ в ресторан. Попробуйте позже.",
+          "Ресторан временно не смог принять заказ. Попробуйте через пару минут или обратитесь в поддержку.",
         )
       : status === "cancelled"
         ? sanitizeUserFacingMessage(order.provider_error, "Заказ был отменён.")

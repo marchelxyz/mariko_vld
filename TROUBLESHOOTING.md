@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-04-01 20:03
+**Последнее обновление:** 2026-04-01 22:44
 
 ---
 
@@ -1319,6 +1319,33 @@ curl https://your-test-app.example.com/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_
   - `ОПЛАТА: ...`
   - `Комментарий пользователя`
 - оформить заказ без комментария и убедиться, что остаётся только строка оплаты без пустых строк.
+
+**Связанный commit:** `в работе`
+
+### ❌ Проблема: при `iiko /deliveries/create` с `HTTP 400` backend терял тело ответа, а пользователь видел слишком общий текст ошибки
+
+**Дата:** 2026-04-01
+**Симптомы:**
+- в `Мои заказы` пользователь видел только `Не удалось передать заказ в ресторан. Попробуйте позже.`;
+- в `cart_orders.provider_error` оставалось только общее `iiko: Не удалось создать заказ (HTTP 400)`;
+- в `integration_job_logs` и `provider_payload` сохранялись `status`, `url`, `correlationId` и request payload, но не сохранялось само тело ответа iiko;
+- из-за этого точную причину `HTTP 400` приходилось угадывать по косвенным признакам.
+
+**Причина:**
+- helper `buildErrorResponseMeta(...)` в `backend/server/integrations/iiko-client.mjs` отбрасывал `error.response` и сохранял только метаданные запроса;
+- frontend `OrdersPage` показывал слишком общий fallback-текст для статуса `Ошибка отправки`, даже когда речь шла именно о том, что ресторан временно не принял заказ.
+
+**Решение:**
+1. В `backend/server/integrations/iiko-client.mjs` сохранять sanitized `body` ответа iiko в `provider_payload` и `integration_job_logs`.
+2. В `frontend/src/features/orders/OrdersPage.tsx` заменить пользовательский fallback на более понятный:
+   - `Ресторан временно не смог принять заказ. Попробуйте через пару минут или обратитесь к сотруднику.`
+
+**Проверка:**
+- `node --check backend/server/integrations/iiko-client.mjs`
+- `npm exec --prefix frontend tsc --noEmit --pretty false`
+- `git diff --check`
+- при следующем `HTTP 400` от iiko убедиться, что в `integration_job_logs.payload.body` и `cart_orders.provider_payload.body` присутствует текст причины;
+- в `Мои заказы` убедиться, что карточка ошибки показывает новый human-readable текст.
 
 **Связанный commit:** `в работе`
 
