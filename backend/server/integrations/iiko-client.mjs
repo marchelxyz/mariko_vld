@@ -1188,9 +1188,8 @@ const buildIikoDeliveryPayload = async (config, order, accessToken) => {
   // Формируем комментарий с информацией о способе оплаты
   const paymentMethodLabel = resolvePaymentMethodLabel(paymentMethod);
 
-  const orderComment = order.comment
-    ? `${paymentMethodLabel}\n\n${order.comment}`
-    : paymentMethodLabel;
+  const userComment = String(order.comment ?? "").trim();
+  const orderComment = [paymentMethodLabel, userComment].filter(Boolean).join("\n");
 
   const payload = {
     organizationId: config.iiko_organization_id,
