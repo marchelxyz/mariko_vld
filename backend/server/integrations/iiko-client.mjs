@@ -722,12 +722,12 @@ const normalisePaymentMethod = (value) => {
 
 const resolvePaymentMethodLabel = (paymentMethod) => {
   if (paymentMethod === "card") {
-    return "💳 ОПЛАТА: КАРТОЙ при получении";
+    return "Оплата: карта при получении";
   }
   if (paymentMethod === "online") {
-    return "💳 ОПЛАТА: ОНЛАЙН (уже оплачено)";
+    return "Оплата: онлайн, оплачено";
   }
-  return "💵 ОПЛАТА: НАЛИЧНЫМИ при получении";
+  return "Оплата: наличные";
 };
 
 const normalisePaymentTypeKind = (value, fallback = "Cash") => {
