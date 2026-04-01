@@ -1006,7 +1006,12 @@ const resolveIikoOrderTypeConfig = async (config, accessToken, orderType) => {
 
   return {
     orderTypeId: normaliseIikoProductId(selectedOrderType?.id) || null,
-    orderServiceType: selectedOrderType?.orderServiceType || fallbackOrderServiceType,
+    // iiko may return a pickup order type with orderServiceType "DeliveryPickUp",
+    // but /deliveries/create expects the enum value "DeliveryByClient".
+    orderServiceType:
+      orderType === "pickup"
+        ? "DeliveryByClient"
+        : selectedOrderType?.orderServiceType || fallbackOrderServiceType,
   };
 };
 
@@ -1224,7 +1229,7 @@ const buildIikoDeliveryPayload = async (config, order, accessToken) => {
         ...(deliveryLine1 ? { line1: deliveryLine1 } : {}),
         street: {
           name: deliveryStreet,
-          ...(deliveryCity ? { city: { name: deliveryCity } } : {}),
+          ...(deliveryCity ? { city: deliveryCity } : {}),
         },
         house: String(deliveryHouse),
         ...(deliveryApartment ? { flat: String(deliveryApartment) } : {}),

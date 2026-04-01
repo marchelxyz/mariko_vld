@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-04-01 22:44
+**Последнее обновление:** 2026-04-01 23:02
 
 ---
 
@@ -1346,6 +1346,54 @@ curl https://your-test-app.example.com/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_
 - `git diff --check`
 - при следующем `HTTP 400` от iiko убедиться, что в `integration_job_logs.payload.body` и `cart_orders.provider_payload.body` присутствует текст причины;
 - в `Мои заказы` убедиться, что карточка ошибки показывает новый human-readable текст.
+
+**Связанный commit:** `в работе`
+
+### ❌ Проблема: после правок delivery payload новые `pickup` и `delivery` заказы начали падать на `iiko /deliveries/create` с `INVALID_BODY_JSON_FORMAT`
+
+**Дата:** 2026-04-01
+**Симптомы:**
+- после фиксов адреса и order type новые заказы Жуковского снова начали падать со статусом `Ошибка отправки`;
+- `pickup` и `delivery` падали сразу на `create_order` с `HTTP 400`;
+- в новых `provider_payload.body` появились точные ошибки iiko:
+  - для `pickup`: `Error converting value "DeliveryPickUp" ... Path 'order.orderServiceType'`;
+  - для `delivery`: `Error reading string ... Path 'street.city'`.
+
+**Причина:**
+- backend начал брать `orderTypeId` из live `order_types`, но одновременно без нормализации отправлял `orderServiceType = DeliveryPickUp`;
+- endpoint `POST /api/1/deliveries/create` принимает для самовывоза enum `DeliveryByClient`, а не `DeliveryPickUp`;
+- в адресе доставки поле `street.city` отправлялось объектом `{ name: "Жуковский" }`, хотя iiko ждёт строку города.
+
+**Решение:**
+1. В `backend/server/integrations/iiko-client.mjs` для `pickup` всегда отправлять `orderServiceType: "DeliveryByClient"`, даже если live order type называется `DeliveryPickUp`.
+2. В `deliveryPoint.address.street.city` передавать строку города, а не вложенный объект.
+3. Сохранить `body` ответа iiko в `provider_payload`, чтобы такие ошибки больше не диагностировались вслепую.
+
+**Проверка:**
+- `node --check backend/server/integrations/iiko-client.mjs`
+- оформить новый `pickup` заказ и убедиться, что `create_order` больше не падает на `order.orderServiceType`;
+- оформить новый `delivery` заказ и убедиться, что `create_order` больше не падает на `street.city`;
+- в `integration_job_logs` убедиться, что при ошибке iiko сохраняется `payload.body`.
+
+**Связанный commit:** `в работе`
+
+### ❌ Проблема: в `Мои заказы` время могло отображаться в timezone устройства, а не по Москве
+
+**Дата:** 2026-04-01
+**Симптомы:**
+- заказ, созданный `1 апреля 2026 в 22:27 МСК`, на клиенте мог отображаться как `2 апреля в 01:27`;
+- дата на карточке заказа смещалась вперёд на несколько часов и могла уходить на следующий день.
+
+**Причина:**
+- `frontend/src/features/orders/OrdersPage.tsx` использовал `toLocaleString("ru-RU")` без явного `timeZone`;
+- в результате время форматировалось по timezone конкретного устройства/WebView, а не по рабочей зоне ресторана.
+
+**Решение:**
+1. В `frontend/src/features/orders/OrdersPage.tsx` зафиксировать форматирование времени заказов через `timeZone: "Europe/Moscow"`.
+
+**Проверка:**
+- `npm exec --prefix frontend tsc --noEmit --pretty false`
+- открыть `Мои заказы` и убедиться, что заказ с `created_at = 2026-04-01T19:27:25.774Z` отображается как `1 апреля, 22:27`, а не `2 апреля, 01:27`.
 
 **Связанный commit:** `в работе`
 
