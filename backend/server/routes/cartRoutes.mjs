@@ -1071,7 +1071,7 @@ export function registerCartRoutes(app) {
           subtotal,
           deliveryFee,
           total,
-          orderPayload?.status ?? "processing",
+          orderPayload?.status ?? "pending_confirmation",
           JSON.stringify(normalizedOrderItems),
           JSON.stringify(warnings),
           JSON.stringify(composedMeta),

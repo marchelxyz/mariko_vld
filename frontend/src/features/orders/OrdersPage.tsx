@@ -30,6 +30,9 @@ const statusLabel = (order: CartOrderRecord, status: string): string => {
   if (["delivery", "ontheway", "courier"].includes(status)) {
     return isPickup ? "Готов к выдаче" : "В пути";
   }
+  if (status === "pending_confirmation") {
+    return "В обработке";
+  }
   if (providerStatus === "readyforcourier") {
     return "Готов к отправке";
   }
@@ -39,10 +42,11 @@ const statusLabel = (order: CartOrderRecord, status: string): string => {
   if (status === "packed") {
     return isPickup ? "Готов к выдаче" : "Готов к отправке";
   }
+  if (status === "processing") return "Принят";
   if (["kitchen", "cooking"].includes(status)) return "Готовится";
   if (["cancelled", "canceled", "rejected"].includes(status)) return "Отменён";
   if (["failed", "error"].includes(status)) return "Ошибка отправки";
-  return "Принят";
+  return "В обработке";
 };
 
 const statusClassName = (status: string): string => {

@@ -58,6 +58,7 @@ export const ADMIN_ROLE_VALUES = new Set([
 ]);
 export const ORDER_STATUS_VALUES = new Set([
   "draft",
+  "pending_confirmation",
   "processing",
   "kitchen",
   "packed",

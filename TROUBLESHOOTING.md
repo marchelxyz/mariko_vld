@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-04-01 23:29
+**Последнее обновление:** 2026-04-02 01:45
 
 ---
 
@@ -1492,6 +1492,56 @@ curl https://your-test-app.example.com/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_
 - `git diff --check`
 - оформить новый заказ и убедиться, что после создания/подтверждения он остаётся `Принят`, пока в iiko не наступит реальная стадия готовки;
 - перевести delivery в `readyforcourier` и убедиться, что в Mini App отображается `Готов к отправке`, а не `Готовится`.
+
+**Связанный commit:** `в работе`
+
+### ❌ Проблема: нетронутые заказы сами доходили до `Выдан/Доставлен`, хотя в iiko оставались `Unconfirmed`
+
+**Дата:** 2026-04-02
+**Симптомы:**
+- новые заказы без каких-либо действий в терминале сначала показывались `Принят`, а затем сами доходили до финальных статусов;
+- на скрине пользователя `delivery` отображался как `Доставлен`, а `pickup` как `Выдан`, хотя в терминале их никто не подтверждал и не переводил дальше;
+- live-проверка `prod` по заказам `mock-1775075777082` и `mock-1775075755353` показала:
+  - `provider_payload.order.order.status = "Unconfirmed"`;
+  - `whenConfirmed = null`;
+  - `whenPacked = null`;
+  - `whenDelivered = null`;
+  - `items[0].status = "Added"`;
+  - при этом в БД уже стояли `status = completed`, `iiko_status = Success`, `provider_status = Success`.
+
+**Причина:**
+- `backend/server/services/iikoOrderStatusService.mjs` считал не только реальные order lifecycle поля, но и служебный `creationStatus`;
+- в ответе `checkOrderStatus` от iiko `creationStatus = Success` означает успешную обработку API-запроса, а не стадию заказа;
+- наш `status_worker` брал это значение раньше, чем `order.status = Unconfirmed`, нормализовал `Success -> completed` и сам переводил заказ в финальный статус;
+- дополнительно в проекте не было отдельной внутренней стадии до подтверждения заказа в терминале:
+  - заказ сразу создавался как `processing`;
+  - в клиентском Mini App `processing` подписывался как `Принят`.
+
+**Решение:**
+1. Убрать `creationStatus` из `RAW_STATUS_PATHS` и перестать трактовать `success` как финальный статус заказа.
+2. Предпочитать реальные вложенные lifecycle-поля `order.status/state/deliveryStatus` перед неоднозначными top-level полями.
+3. Добавить отдельную внутреннюю стадию `pending_confirmation`:
+   - при создании заказа записывать её вместо `processing`;
+   - `Unconfirmed / new / created / pending` -> `pending_confirmation`;
+   - `Waiting / accepted / confirmed` -> `processing`.
+4. Выровнять отображение:
+   - `pending_confirmation` -> `В обработке`;
+   - `processing` -> `Принят`.
+5. В админке включить `pending_confirmation` в активные статусы заказа.
+
+**Проверка:**
+- `node --input-type=module` проверить локальные сценарии:
+  - `creationStatus: Success + order.status: Unconfirmed` -> `pending_confirmation`;
+  - `order.status: Waiting` -> `processing`;
+  - `CookingStarted` -> `kitchen`;
+  - `whenPacked` -> `packed`;
+  - `whenSended` -> `delivery`;
+- `npm exec --prefix frontend tsc --noEmit --pretty false`
+- `git diff --check`
+- после деплоя в `prod` оформить новый заказ и проверить цепочку:
+  - сразу после создания `В обработке`;
+  - после подтверждения в терминале `Принят`;
+  - дальше только реальные стадии iiko.
 
 **Связанный commit:** `в работе`
 

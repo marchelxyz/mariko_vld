@@ -3,6 +3,7 @@ import { getCartApiBaseUrl } from "./cartApi";
 import { buildPlatformAuthHeaders } from "../platformAuth";
 
 export type OrderStatus =
+  | "pending_confirmation"
   | "processing"
   | "kitchen"
   | "packed"

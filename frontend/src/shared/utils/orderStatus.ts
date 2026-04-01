@@ -6,13 +6,14 @@ type OrderStatusSource = {
 
 const STATUS_PRIORITY: Record<string, number> = {
   draft: 0,
-  processing: 1,
-  kitchen: 2,
-  packed: 3,
-  delivery: 4,
-  completed: 5,
-  cancelled: 5,
-  failed: 5,
+  pending_confirmation: 1,
+  processing: 2,
+  kitchen: 3,
+  packed: 4,
+  delivery: 5,
+  completed: 6,
+  cancelled: 6,
+  failed: 6,
 };
 
 const normalizeStatusKey = (value: unknown): string =>
@@ -28,7 +29,10 @@ const normalizeCartStatus = (value: unknown): string | null => {
   }
 
   if (normalized === "draft") return "draft";
-  if (["processing", "new", "created", "accepted", "confirmed", "pending", "waiting"].includes(normalized)) {
+  if (["pendingconfirmation", "awaitingconfirmation", "unconfirmed", "new", "created", "pending"].includes(normalized)) {
+    return "pending_confirmation";
+  }
+  if (["processing", "accepted", "confirmed", "waiting"].includes(normalized)) {
     return "processing";
   }
   if (["kitchen", "cooking", "preparing", "inprogress", "inwork", "cooked", "started"].includes(normalized)) {
@@ -40,7 +44,7 @@ const normalizeCartStatus = (value: unknown): string | null => {
   if (["delivery", "ontheway", "onway", "courier", "senttocourier", "outfordelivery"].includes(normalized)) {
     return "delivery";
   }
-  if (["completed", "delivered", "closed", "finished", "done", "success"].includes(normalized)) {
+  if (["completed", "delivered", "closed", "finished", "done"].includes(normalized)) {
     return "completed";
   }
   if (["cancelled", "canceled", "rejected", "declined", "decline", "stopped", "deleted"].includes(normalized)) {
@@ -65,7 +69,7 @@ export const resolveEffectiveCartOrderStatus = (order: OrderStatusSource): strin
     return provider;
   }
   if (!current) {
-    return provider ?? "processing";
+    return provider ?? "pending_confirmation";
   }
   if (!provider) {
     return current;

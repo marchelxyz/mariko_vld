@@ -2,33 +2,33 @@ const FINAL_CART_STATUSES = new Set(["completed", "cancelled", "failed"]);
 
 const STATUS_PRIORITY = {
   draft: 0,
-  processing: 1,
-  kitchen: 2,
-  packed: 3,
-  delivery: 4,
-  completed: 5,
-  cancelled: 5,
-  failed: 5,
+  pending_confirmation: 1,
+  processing: 2,
+  kitchen: 3,
+  packed: 4,
+  delivery: 5,
+  completed: 6,
+  cancelled: 6,
+  failed: 6,
 };
 
 const RAW_STATUS_PATHS = [
-  "status",
-  "state",
-  "deliveryStatus",
-  "creationStatus",
-  "newStatus",
   "order.status",
   "order.state",
   "order.deliveryStatus",
-  "order.creationStatus",
   "orderInfo.status",
   "orderInfo.state",
   "orderInfo.deliveryStatus",
-  "orderInfo.creationStatus",
   "eventInfo.status",
   "eventInfo.state",
   "eventInfo.deliveryStatus",
-  "eventInfo.creationStatus",
+  "data.order.status",
+  "data.order.state",
+  "data.order.deliveryStatus",
+  "status",
+  "state",
+  "deliveryStatus",
+  "newStatus",
   "event.status",
   "event.state",
   "event.deliveryStatus",
@@ -261,7 +261,14 @@ const normalizeCartStatus = (value) => {
   }
 
   if (normalized === "draft") return "draft";
-  if (["processing", "new", "created", "accepted", "confirmed", "pending", "waiting"].includes(normalized)) {
+  if (
+    ["pendingconfirmation", "awaitingconfirmation", "unconfirmed", "new", "created", "pending"].includes(
+      normalized,
+    )
+  ) {
+    return "pending_confirmation";
+  }
+  if (["processing", "accepted", "confirmed", "waiting"].includes(normalized)) {
     return "processing";
   }
   if (
@@ -308,7 +315,6 @@ const normalizeCartStatus = (value) => {
       "closed",
       "finished",
       "done",
-      "success",
     ].includes(normalized)
   ) {
     return "completed";
@@ -352,7 +358,7 @@ export const resolveEffectiveCartOrderStatus = ({
     return provider;
   }
   if (!current) {
-    return provider ?? "processing";
+    return provider ?? "pending_confirmation";
   }
   if (!provider) {
     return current;

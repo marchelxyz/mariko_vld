@@ -18,7 +18,8 @@ import {
 } from "@shared/ui";
 
 const statusLabels: Record<string, string> = {
-  processing: "Обработка",
+  pending_confirmation: "В обработке",
+  processing: "Принят",
   kitchen: "Готовится",
   packed: "Собран",
   delivery: "В пути",
@@ -28,7 +29,7 @@ const statusLabels: Record<string, string> = {
   draft: "Черновик",
 };
 
-const activeStatuses = ["processing", "kitchen", "packed", "delivery"];
+const activeStatuses = ["pending_confirmation", "processing", "kitchen", "packed", "delivery"];
 const historyStatuses = ["completed", "cancelled", "failed"];
 
 const formatDate = (value: string) => {
