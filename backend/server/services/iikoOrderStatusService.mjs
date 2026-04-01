@@ -76,6 +76,51 @@ const EVENT_NAME_PATHS = [
   "eventInfo.name",
 ];
 
+const ORDER_SERVICE_TYPE_PATHS = [
+  "order.orderType.orderServiceType",
+  "order.orderServiceType",
+  "orderInfo.order.orderType.orderServiceType",
+  "orderInfo.order.orderServiceType",
+  "data.order.orderType.orderServiceType",
+  "data.order.orderServiceType",
+];
+
+const COMPLETED_TIMESTAMP_PATHS = [
+  "order.whenClosed",
+  "whenClosed",
+  "data.whenClosed",
+  "order.whenDelivered",
+  "whenDelivered",
+  "data.whenDelivered",
+];
+
+const DELIVERY_TIMESTAMP_PATHS = [
+  "order.whenSended",
+  "whenSended",
+  "data.whenSended",
+];
+
+const PACKED_TIMESTAMP_PATHS = [
+  "order.whenPacked",
+  "whenPacked",
+  "data.whenPacked",
+  "order.whenCookingCompleted",
+  "whenCookingCompleted",
+  "data.whenCookingCompleted",
+];
+
+const KITCHEN_PROGRESS_PATHS = [
+  "order.cookingStartTime",
+  "cookingStartTime",
+  "data.cookingStartTime",
+  "order.whenPrinted",
+  "whenPrinted",
+  "data.whenPrinted",
+  "order.whenConfirmed",
+  "whenConfirmed",
+  "data.whenConfirmed",
+];
+
 const asObject = (value) => (value && typeof value === "object" && !Array.isArray(value) ? value : null);
 
 const normaliseValue = (value) => {
@@ -109,10 +154,57 @@ const pickFirstValue = (source, paths) => {
   return "";
 };
 
+const hasMeaningfulValue = (value) => {
+  if (value === null || value === undefined) {
+    return false;
+  }
+  if (typeof value === "string") {
+    return value.trim().length > 0;
+  }
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+  if (typeof value === "object") {
+    return Object.keys(value).length > 0;
+  }
+  return true;
+};
+
+const hasValueAtPaths = (source, paths) =>
+  paths.some((path) => hasMeaningfulValue(getNestedValue(source, path)));
+
 const normalizeStatusKey = (value) =>
   normaliseValue(value)
     .toLowerCase()
     .replace(/[\s_-]+/g, "");
+
+const resolveOrderServiceType = (source) => normalizeStatusKey(pickFirstValue(source, ORDER_SERVICE_TYPE_PATHS));
+
+const inferProgressStatus = (source) => {
+  const serviceType = resolveOrderServiceType(source);
+  const isPickup = serviceType === "deliverybyclient" || serviceType === "pickup" || serviceType === "carryout";
+  const isCourierDelivery = serviceType === "deliverybycourier";
+
+  if (hasValueAtPaths(source, COMPLETED_TIMESTAMP_PATHS)) {
+    return isPickup ? "closed" : "delivered";
+  }
+  if (hasValueAtPaths(source, DELIVERY_TIMESTAMP_PATHS)) {
+    return "outfordelivery";
+  }
+  if (hasValueAtPaths(source, PACKED_TIMESTAMP_PATHS)) {
+    if (isPickup) {
+      return "readyforpickup";
+    }
+    if (isCourierDelivery) {
+      return "readyforcourier";
+    }
+    return "ready";
+  }
+  if (hasValueAtPaths(source, KITCHEN_PROGRESS_PATHS)) {
+    return "cooking";
+  }
+  return null;
+};
 
 const normalizeCartStatus = (value) => {
   const normalized = normalizeStatusKey(value);
@@ -193,7 +285,7 @@ const normalizeCartStatus = (value) => {
   return null;
 };
 
-export const resolveIikoRawStatus = (payload) => pickFirstValue(payload, RAW_STATUS_PATHS);
+export const resolveIikoRawStatus = (payload) => inferProgressStatus(payload) || pickFirstValue(payload, RAW_STATUS_PATHS);
 
 export const normalizeIikoOrderStatus = (rawStatus) => normalizeCartStatus(rawStatus);
 

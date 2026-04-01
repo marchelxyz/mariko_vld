@@ -1,7 +1,7 @@
 import { INTEGRATION_PROVIDER, INTEGRATION_CACHE_TTL_MS, CART_ORDERS_TABLE } from "../config.mjs";
 import { queryOne, queryMany, query, db } from "../postgresClient.mjs";
 import { iikoClient } from "../integrations/iiko-client.mjs";
-import { mergeCartOrderStatus, normalizeIikoOrderStatus } from "./iikoOrderStatusService.mjs";
+import { mergeCartOrderStatus, normalizeIikoOrderStatus, resolveIikoRawStatus } from "./iikoOrderStatusService.mjs";
 import { hydrateRestaurantIntegrationSecrets } from "./restaurantIntegrationSecrets.mjs";
 
 const integrationConfigCache = new Map();
@@ -286,6 +286,7 @@ export const applyIikoOrderStatusUpdate = async ({
   const normalizedProviderOrderId = normaliseReference(providerOrderId);
   const normalizedExternalId = normaliseReference(externalId);
   const normalizedRawStatus = normaliseReference(rawStatus);
+  const resolvedRawStatus = normaliseReference(resolveIikoRawStatus(payload) || normalizedRawStatus);
   const order = await findOrderByIntegrationReference({
     providerOrderId: normalizedProviderOrderId,
     externalId: normalizedExternalId,
@@ -301,27 +302,27 @@ export const applyIikoOrderStatusUpdate = async ({
       payload: {
         providerOrderId: normalizedProviderOrderId || null,
         externalId: normalizedExternalId || null,
-        rawStatus: normalizedRawStatus || null,
+        rawStatus: resolvedRawStatus || normalizedRawStatus || null,
       },
       error: "order_not_found",
     });
     return { success: false, reason: "order_not_found" };
   }
 
-  const normalizedIncomingStatus = normalizeIikoOrderStatus(normalizedRawStatus);
+  const normalizedIncomingStatus = normalizeIikoOrderStatus(resolvedRawStatus || normalizedRawStatus);
   const nextOrderStatus = mergeCartOrderStatus(order.status, normalizedIncomingStatus);
   const nextFields = {
     provider_payload: payload ?? null,
-    provider_error: normalizedRawStatus ? null : undefined,
+    provider_error: resolvedRawStatus || normalizedRawStatus ? null : undefined,
   };
 
   if (normalizedProviderOrderId) {
     nextFields.provider_order_id = normalizedProviderOrderId;
     nextFields.iiko_order_id = normalizedProviderOrderId;
   }
-  if (normalizedRawStatus) {
-    nextFields.provider_status = normalizedRawStatus;
-    nextFields.iiko_status = normalizedRawStatus;
+  if (resolvedRawStatus || normalizedRawStatus) {
+    nextFields.provider_status = resolvedRawStatus || normalizedRawStatus;
+    nextFields.iiko_status = resolvedRawStatus || normalizedRawStatus;
   }
   if (nextOrderStatus && nextOrderStatus !== order.status) {
     nextFields.status = nextOrderStatus;
@@ -337,7 +338,7 @@ export const applyIikoOrderStatusUpdate = async ({
     payload: {
       providerOrderId: normalizedProviderOrderId || order.provider_order_id || null,
       externalId: order.external_id,
-      rawStatus: normalizedRawStatus || null,
+      rawStatus: resolvedRawStatus || normalizedRawStatus || null,
       normalizedStatus: nextOrderStatus ?? order.status ?? null,
     },
   });
@@ -346,7 +347,7 @@ export const applyIikoOrderStatusUpdate = async ({
     success: true,
     orderId: order.id,
     externalId: order.external_id,
-    rawStatus: normalizedRawStatus || null,
+    rawStatus: resolvedRawStatus || normalizedRawStatus || null,
     normalizedStatus: nextOrderStatus ?? order.status ?? null,
   };
 };

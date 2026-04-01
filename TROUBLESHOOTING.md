@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-04-01 14:35
+**Последнее обновление:** 2026-04-01 17:03
 
 ---
 
@@ -1210,6 +1210,44 @@ curl https://your-test-app.example.com/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_
 ---
 
 ## iiko Integration
+
+### ❌ Проблема: online-заказ после оплаты мог не уйти в iiko, а статусы самовывоза застревали на `Принят`, хотя заказ уже был готов
+
+**Дата:** 2026-04-01
+**Симптомы:**
+- Telegram self-pickup с оплатой `online` после успешной test ЮKassa оставался только со статусом `Оплачено` в приложении и не доходил до терминала;
+- self-pickup с оплатой `cash` успешно создавался в iiko, но в приложении продолжал показываться как `Принят`, даже если в iiko уже были `whenCookingCompleted` и `whenPacked`;
+- пользовательский комментарий казался потерянным, хотя в БД он сохранялся корректно.
+
+**Причина:**
+- в `GET /api/payments/:paymentId` backend после poll-синхронизации статуса ЮKassa делал ранний `return` сразу после `payment_status_synced`;
+- из-за этого ветка повторной отправки оплаченного заказа в iiko не выполнялась, если webhook ЮKassa не пришёл, а `paid` был получен именно через poll;
+- дополнительная проверка на dispatch была привязана к рассинхрону `order.payment_status/payment_id`, поэтому после `updatePaymentStatus(...)` заказ уже считался синхронизированным по оплате и до `enqueueIikoOrder(...)` не доходил;
+- resolver статусов iiko опирался только на сырые `status/state/deliveryStatus/creationStatus`, поэтому для самовывоза с `order.status = Waiting` игнорировал фактический progress по `whenPacked` / `whenCookingCompleted`;
+- live-check по `deliveries/by_id` показал, что пользовательский комментарий в iiko присутствовал, то есть проблема была не в потере комментария на нашей стороне.
+
+**Решение:**
+1. В `backend/server/routes/paymentRoutes.mjs` вынести общий helper dispatch оплаченного заказа и вызывать его:
+   - после webhook ЮKassa;
+   - после poll-синхронизации `paid`;
+   - при повторной проверке уже оплаченного заказа, даже если поля оплаты в `cart_orders` уже синхронизированы.
+2. Отвязать повторную отправку в iiko от условия "изменились ли `payment_status/payment_id` в заказе" и оставить идемпотентность на существующих guard'ах `provider_order_id`, `provider_status`, `provider_synced_at` и enqueue-lock.
+3. В `backend/server/services/iikoOrderStatusService.mjs` добавить вывод стадии заказа из реального progress payload:
+   - `whenPacked` / `whenCookingCompleted` -> `readyforpickup` или `readyforcourier`;
+   - `whenSended` -> `outfordelivery`;
+   - `whenClosed` / `whenDelivered` -> финальный статус.
+4. В `backend/server/services/integrationService.mjs` при сохранении статуса использовать не только переданный `rawStatus`, но и re-resolve статуса из полного payload, чтобы webhook/pull не застревали на `Waiting`.
+
+**Проверка:**
+- `node --check backend/server/routes/paymentRoutes.mjs`
+- `node --check backend/server/services/iikoOrderStatusService.mjs`
+- `node --check backend/server/services/integrationService.mjs`
+- `node --input-type=module -e "import { resolveIikoRawStatus, normalizeIikoOrderStatus } from './backend/server/services/iikoOrderStatusService.mjs'; const pickup={order:{status:'Waiting',whenCookingCompleted:'2026-04-01 16:20:33.344',whenPacked:'2026-04-01 16:20:33.344',orderType:{orderServiceType:'DeliveryByClient'}}}; console.log(resolveIikoRawStatus(pickup), normalizeIikoOrderStatus(resolveIikoRawStatus(pickup)));"`
+- После деплоя:
+  - существующий paid online-заказ без `provider_order_id` должен получить `payment_paid_dispatch_requested` и `create_order`;
+  - live-check `deliveries/by_id` для pickup-заказа с `whenPacked` должен нормализоваться в `packed`, а в приложении отображаться как `Готов к выдаче`.
+
+**Связанный commit:** `N/A` (будет обновлён после коммита фикса)
 
 ### ❌ Проблема: Cloud API настроен на внешнее меню, но backend всё равно получает полную номенклатуру
 
@@ -4014,5 +4052,5 @@ open "http://127.0.0.1:4174/?smoke_platform=vk&smoke_role=admin#/admin"
 
 ---
 
-**Последнее обновление:** 2026-04-01 14:35
+**Последнее обновление:** 2026-04-01 17:03
 **Автор:** Codex (GPT-5)

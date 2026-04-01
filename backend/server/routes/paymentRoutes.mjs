@@ -62,6 +62,104 @@ const isStalePendingStatus = (status, syncedAt, staleMs = IIKO_PENDING_STALE_MS)
   return Date.now() - timestamp >= staleMs;
 };
 
+const isPaidPaymentStatus = (value) => String(value ?? "").trim().toLowerCase() === "paid";
+
+const buildIikoOrderRecord = (order) => ({
+  ...order,
+  id: order?.id,
+  external_id: order?.external_id,
+  items: order?.items ?? [],
+  meta: order?.meta ?? {},
+});
+
+const syncOrderPaymentFields = async (order, payment) => {
+  if (!order?.id || !payment?.id) {
+    return order;
+  }
+
+  const paymentStatus = payment.status ?? null;
+  const paymentProvider = payment.provider_code ?? null;
+  const isAlreadySynced =
+    order.payment_id === payment.id &&
+    order.payment_status === paymentStatus &&
+    order.payment_provider === paymentProvider;
+
+  if (isAlreadySynced) {
+    return order;
+  }
+
+  await query(
+    `UPDATE ${CART_ORDERS_TABLE}
+     SET payment_id = $1, payment_status = $2, payment_provider = $3, updated_at = NOW()
+     WHERE id = $4`,
+    [payment.id, paymentStatus, paymentProvider, order.id],
+  );
+
+  return {
+    ...order,
+    payment_id: payment.id,
+    payment_status: paymentStatus,
+    payment_provider: paymentProvider,
+  };
+};
+
+const dispatchPaidOrderIfNeeded = async ({ payment, order, source }) => {
+  if (!isPaidPaymentStatus(payment?.status) || !order?.restaurant_id) {
+    return { dispatched: false, reason: "payment_not_paid" };
+  }
+
+  const recentlySynced = isRecentProviderSync(order.provider_synced_at);
+  const isLockedError = hasLockedProviderError(order.provider_error);
+  const stalePending = isStalePendingStatus(order.provider_status, order.provider_synced_at);
+  const shouldSend =
+    !order.provider_order_id &&
+    !recentlySynced &&
+    !isLockedError &&
+    (order.provider_status !== "pending" || stalePending) &&
+    order.provider_status !== "sent" &&
+    order.provider_status !== "success";
+
+  if (!shouldSend) {
+    return { dispatched: false, reason: "already_sent_or_locked" };
+  }
+
+  const integrationConfig = await fetchRestaurantIntegrationConfig(order.restaurant_id);
+  if (!integrationConfig) {
+    await logIntegrationJob({
+      provider: "yookassa",
+      restaurantId: order.restaurant_id,
+      orderId: order.id ?? null,
+      action: "payment_paid_dispatch_requested",
+      status: "error",
+      payload: {
+        source,
+        paymentId: payment.id ?? null,
+        providerPaymentId: payment.provider_payment_id ?? null,
+        externalId: order.external_id ?? order.id ?? null,
+      },
+      error: "integration_config_missing",
+    });
+    return { dispatched: false, reason: "integration_config_missing" };
+  }
+
+  await logIntegrationJob({
+    provider: "yookassa",
+    restaurantId: order.restaurant_id,
+    orderId: order.id ?? null,
+    action: "payment_paid_dispatch_requested",
+    status: "pending",
+    payload: {
+      source,
+      paymentId: payment.id ?? null,
+      providerPaymentId: payment.provider_payment_id ?? null,
+      externalId: order.external_id ?? order.id ?? null,
+    },
+  });
+
+  enqueueIikoOrder(integrationConfig, buildIikoOrderRecord(order));
+  return { dispatched: true, reason: null };
+};
+
 // Создание платежа ЮKassa (СБП)
 router.post("/yookassa/create", async (req, res) => {
   if (!ensureDatabase(res)) return;
@@ -305,44 +403,12 @@ router.post("/yookassa/webhook", express.json(), async (req, res) => {
     if (updated?.status === "paid" && updated.order_id && updated.restaurant_id) {
       const order = await findOrderById(updated.order_id);
       if (order) {
-        const integrationConfig = await fetchRestaurantIntegrationConfig(updated.restaurant_id);
-        if (integrationConfig) {
-          await logIntegrationJob({
-            provider: "yookassa",
-            restaurantId: updated.restaurant_id,
-            orderId: order.id ?? null,
-            action: "payment_paid_dispatch_requested",
-            status: "pending",
-            payload: {
-              source: "webhook",
-              paymentId: updated.id,
-              providerPaymentId,
-              externalId: order.external_id ?? order.id,
-            },
-          });
-          const orderRecord = {
-            ...order,
-            id: order.id,
-            external_id: order.external_id,
-            items: order.items ?? [],
-            meta: order.meta ?? {},
-          };
-          enqueueIikoOrder(integrationConfig, orderRecord);
-        } else {
-          await logIntegrationJob({
-            provider: "yookassa",
-            restaurantId: updated.restaurant_id,
-            orderId: order.id ?? null,
-            action: "payment_paid_dispatch_requested",
-            status: "error",
-            payload: {
-              source: "webhook",
-              paymentId: updated.id,
-              externalId: order.external_id ?? order.id,
-            },
-            error: "integration_config_missing",
-          });
-        }
+        const syncedOrder = await syncOrderPaymentFields(order, updated);
+        await dispatchPaidOrderIfNeeded({
+          payment: updated,
+          order: syncedOrder,
+          source: "webhook",
+        });
       }
     }
 
@@ -365,6 +431,9 @@ router.get("/:paymentId", async (req, res) => {
     if (!payment) {
       return res.status(404).json({ success: false, message: "Платеж не найден" });
     }
+    let currentPayment = payment;
+    let responseSource = null;
+    let synced = false;
 
     // если статус не финальный — пробуем синхронизироваться с ЮKassa
     const statusLower = (payment.status || "").toLowerCase();
@@ -396,11 +465,15 @@ router.get("/:paymentId", async (req, res) => {
           });
           const remoteStatus = remote?.status;
           if (remoteStatus && remoteStatus !== payment.status) {
-            await updatePaymentStatus(payment.id, remoteStatus, {
+            const updatedPayment = await updatePaymentStatus(payment.id, remoteStatus, {
               providerPaymentId: remote.id,
               metadata: { synced: true, raw: remote },
             });
-            const refreshed = await findPaymentById(paymentId);
+            if (updatedPayment) {
+              currentPayment = updatedPayment;
+              synced = true;
+              responseSource = "yookassa";
+            }
             await logIntegrationJob({
               provider: "yookassa",
               restaurantId: payment.restaurant_id ?? null,
@@ -414,17 +487,6 @@ router.get("/:paymentId", async (req, res) => {
                 source: "poll",
               },
             });
-            if (refreshed) {
-              if (refreshed.order_id) {
-                await query(
-                  `UPDATE ${CART_ORDERS_TABLE} 
-                   SET payment_id = $1, payment_status = $2, payment_provider = $3, updated_at = NOW() 
-                   WHERE id = $4`,
-                  [refreshed.id, refreshed.status, refreshed.provider_code, refreshed.order_id],
-                );
-              }
-              return res.json({ success: true, payment: refreshed, synced: true, source: "yookassa" });
-            }
           }
         }
       } catch (error) {
@@ -432,73 +494,27 @@ router.get("/:paymentId", async (req, res) => {
       }
     }
 
-    // Если webhook был пропущен, синхронизируем статус заказа с оплатой
-    if (payment?.order_id && payment?.status) {
-      const order = await findOrderById(payment.order_id);
-      if (order && (order.payment_status !== payment.status || order.payment_id !== payment.id)) {
-        const updated = await updatePaymentStatus(payment.id, payment.status, {
-          providerPaymentId: payment.provider_payment_id,
+    if (currentPayment?.order_id && currentPayment?.status) {
+      const order = await findOrderById(currentPayment.order_id);
+      if (order) {
+        const syncedOrder = await syncOrderPaymentFields(order, currentPayment);
+        await dispatchPaidOrderIfNeeded({
+          payment: currentPayment,
+          order: syncedOrder,
+          source: synced ? "poll" : "order_sync",
         });
-        if (updated?.status === "paid" && order.restaurant_id) {
-          const recentlySynced = isRecentProviderSync(order.provider_synced_at);
-          const isLockedError = hasLockedProviderError(order.provider_error);
-          const stalePending = isStalePendingStatus(order.provider_status, order.provider_synced_at);
-          const shouldSend =
-            !order.provider_order_id &&
-            !recentlySynced &&
-            !isLockedError &&
-            (order.provider_status !== "pending" || stalePending) &&
-            order.provider_status !== "sent" &&
-            order.provider_status !== "success";
-          if (shouldSend) {
-            const integrationConfig = await fetchRestaurantIntegrationConfig(order.restaurant_id);
-            if (integrationConfig) {
-              await logIntegrationJob({
-                provider: "yookassa",
-                restaurantId: order.restaurant_id,
-                orderId: order.id ?? null,
-                action: "payment_paid_dispatch_requested",
-                status: "pending",
-                payload: {
-                  source: "order_sync",
-                  paymentId: updated.id,
-                  providerPaymentId: updated.provider_payment_id ?? null,
-                  externalId: order.external_id ?? order.id,
-                },
-              });
-              const orderRecord = {
-                ...order,
-                id: order.id,
-                external_id: order.external_id,
-                items: order.items ?? [],
-                meta: order.meta ?? {},
-              };
-              enqueueIikoOrder(integrationConfig, orderRecord);
-            } else {
-              await logIntegrationJob({
-                provider: "yookassa",
-                restaurantId: order.restaurant_id,
-                orderId: order.id ?? null,
-                action: "payment_paid_dispatch_requested",
-                status: "error",
-                payload: {
-                  source: "order_sync",
-                  paymentId: updated.id,
-                  externalId: order.external_id ?? order.id,
-                },
-                error: "integration_config_missing",
-              });
-            }
-          }
-        }
-        const refreshed = await findPaymentById(paymentId);
-        if (refreshed) {
-          return res.json({ success: true, payment: refreshed, synced: true, source: "order-sync" });
-        }
       }
     }
 
-    return res.json({ success: true, payment });
+    if (synced) {
+      const refreshed = await findPaymentById(paymentId);
+      if (refreshed) {
+        currentPayment = refreshed;
+      }
+      return res.json({ success: true, payment: currentPayment, synced: true, source: responseSource });
+    }
+
+    return res.json({ success: true, payment: currentPayment });
   } catch (error) {
     console.error("Ошибка получения платежа:", error);
     return res.status(500).json({ success: false });
