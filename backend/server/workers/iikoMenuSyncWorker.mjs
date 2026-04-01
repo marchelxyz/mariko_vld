@@ -2,6 +2,7 @@ import { db, queryMany } from "../postgresClient.mjs";
 import { createLogger } from "../utils/logger.mjs";
 import { syncRestaurantExternalMenu } from "../services/iikoMenuSyncService.mjs";
 import { reportIikoMenuSyncAlert } from "../services/iikoAlertService.mjs";
+import { hydrateRestaurantIntegrationSecrets } from "../services/restaurantIntegrationSecrets.mjs";
 
 const logger = createLogger("iiko-menu-sync-worker");
 
@@ -62,8 +63,8 @@ const markMenuSyncAlerted = ({ restaurantId, externalMenuName }) => {
   });
 };
 
-const fetchMenuSyncCandidates = async () =>
-  queryMany(
+const fetchMenuSyncCandidates = async () => {
+  const rows = await queryMany(
     `SELECT *
      FROM restaurant_integrations
      WHERE provider = 'iiko'
@@ -73,6 +74,9 @@ const fetchMenuSyncCandidates = async () =>
      LIMIT $1`,
     [MENU_SYNC_BATCH_LIMIT],
   );
+
+  return rows.map((row) => hydrateRestaurantIntegrationSecrets(row));
+};
 
 const maybeAlertMenuSyncFailure = async ({
   restaurantId,

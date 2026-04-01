@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-04-01 13:15
+**Последнее обновление:** 2026-04-01 14:35
 
 ---
 
@@ -3676,30 +3676,36 @@ if (req.query.key !== SECRET_KEY) {
 ```bash
 # Токен из .env.secrets
 TIMEWEB_TOKEN="your-token-here"
+TG_APP_ID="152623"
+VK_APP_ID="152601"
 
 # Список приложений
 curl -H "Authorization: Bearer ${TIMEWEB_TOKEN}" \
   "https://api.timeweb.cloud/api/v1/apps"
 
-# Информация о приложении
+# Информация о TG приложении
 curl -H "Authorization: Bearer ${TIMEWEB_TOKEN}" \
-  "https://api.timeweb.cloud/api/v1/apps/154595"
+  "https://api.timeweb.cloud/api/v1/apps/${TG_APP_ID}"
 
-# Логи
+# Логи TG
 curl -H "Authorization: Bearer ${TIMEWEB_TOKEN}" \
-  "https://api.timeweb.cloud/api/v1/apps/154595/logs?limit=100"
+  "https://api.timeweb.cloud/api/v1/apps/${TG_APP_ID}/logs?limit=100"
+
+# Логи VK
+curl -H "Authorization: Bearer ${TIMEWEB_TOKEN}" \
+  "https://api.timeweb.cloud/api/v1/apps/${VK_APP_ID}/logs?limit=100"
 
 # Список БД
 curl -H "Authorization: Bearer ${TIMEWEB_TOKEN}" \
   "https://api.timeweb.cloud/api/v1/dbs"
 
-# Редеплой
+# Редеплой TG
 COMMIT_SHA=$(git rev-parse HEAD)
 curl -X POST \
   -H "Authorization: Bearer ${TIMEWEB_TOKEN}" \
   -H "Content-Type: application/json" \
   -d "{\"commit_sha\":\"${COMMIT_SHA}\"}" \
-  "https://api.timeweb.cloud/api/v1/apps/154595/deploy"
+  "https://api.timeweb.cloud/api/v1/apps/${TG_APP_ID}/deploy"
 ```
 
 ### Проверить backend endpoints
@@ -3957,6 +3963,46 @@ open "http://127.0.0.1:4174/?smoke_platform=vk&smoke_role=admin#/admin"
 
 **Связанный commit:** `855bd8b`, последующий фикс от `2026-03-25`
 
+### ❌ Проблема: на prod Timeweb приложения были уже на новом коммите, но `iiko-menu-sync-worker` продолжал получать `401` от iiko Cloud
+
+**Дата:** 2026-04-01
+**Симптомы:**
+- read-only проверка через Timeweb API показала, что актуальные prod app id сейчас:
+  - `152623` для TG (`tg.marikorest.ru`);
+  - `152601` для VK (`vk.marikorest.ru`);
+- оба приложения находились в статусе `active`, оба были уже на коммите `804098c7c1e8d0b2978a0e05ae76b0d26e10ff25`;
+- публичные health-check'и `https://tg.marikorest.ru/tg/api/health` и `https://vk.marikorest.ru/vk/api/health` отвечали `{"status":"ok","database":true}`;
+- при этом в логах обоих prod app повторялись предупреждения `iiko-menu-sync-worker`:
+  - `iiko: Ошибка авторизации при получении access token`;
+  - `status: 401`;
+  - среди ресторанов в ошибке был и `zhukovsky-хачапури-марико`;
+- в TG-логах также кратковременно встречался `Telegram 409 Conflict` во время перезапуска после деплоя, после чего приложение корректно прошло graceful shutdown/start.
+
+**Причина:**
+- это не выглядело как проблема деплоя: код уже был выкачан и оба prod app были живы;
+- по журналам проблема находилась в runtime интеграции автосинка меню с iiko Cloud: worker ходил в `/api/1/access_token` и получал `401`;
+- точная причина оказалась в коде воркера:
+  - `backend/server/workers/iikoMenuSyncWorker.mjs` читал сырые строки из `restaurant_integrations`;
+  - поле `api_login` в этой таблице хранится как секрет и должно проходить через `hydrateRestaurantIntegrationSecrets(...)`;
+  - ручная синхронизация и обычная отправка заказа использовали `fetchRestaurantIntegrationConfig(...)`, где расшифровка уже есть;
+  - фоновой воркер расшифровку не делал и отправлял в iiko зашифрованный `api_login`, из-за чего `/api/1/access_token` стабильно отвечал `401`.
+
+**Решение:**
+- не путать эту ситуацию с “деплой не доехал”: сначала проверять `commit_sha`, `status` приложения и публичный `/api/health`;
+- исправить `backend/server/workers/iikoMenuSyncWorker.mjs`, чтобы строки из `restaurant_integrations` перед использованием проходили через `hydrateRestaurantIntegrationSecrets(...)`;
+- после этого воркер начинает использовать тот же расшифрованный `api_login`, что и остальные iiko-сценарии;
+- если после этой правки `401` сохранится, только тогда уже проверять сам Cloud API login в активной конфигурации ресторана.
+- если полевой тест доставки проводится до починки автосинка, отдельно подтверждать реальное создание заказа в терминале и возврат статусов, а не делать вывод по одному факту успешного деплоя.
+
+**Проверка:**
+- `GET https://api.timeweb.cloud/api/v1/apps` с prod-токеном должен показывать `152623` и `152601` в статусе `active` и на ожидаемом `commit_sha`;
+- `GET https://api.timeweb.cloud/api/v1/apps/152623/logs?limit=...` и `GET https://api.timeweb.cloud/api/v1/apps/152601/logs?limit=...` не должны содержать повторяющихся `iiko-menu-sync-worker` ошибок с `401` для нужного ресторана;
+- `GET https://tg.marikorest.ru/tg/api/health` и `GET https://vk.marikorest.ru/vk/api/health` должны отвечать `{"status":"ok","database":true}`;
+- `node --check backend/server/workers/iikoMenuSyncWorker.mjs` должен проходить локально;
+- после деплоя очередной запуск автосинка не должен падать на этапе получения `access_token`.
+
+**Связанный commit:** `N/A` (локальный фикс ещё не задеплоен на момент записи кейса)
+
 ---
 
 ## См. также
@@ -3968,5 +4014,5 @@ open "http://127.0.0.1:4174/?smoke_platform=vk&smoke_role=admin#/admin"
 
 ---
 
-**Последнее обновление:** 2026-03-25 16:02
+**Последнее обновление:** 2026-04-01 14:35
 **Автор:** Codex (GPT-5)
