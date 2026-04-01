@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-04-01 17:03
+**Последнее обновление:** 2026-04-01 19:26
 
 ---
 
@@ -1248,6 +1248,49 @@ curl https://your-test-app.example.com/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_
   - live-check `deliveries/by_id` для pickup-заказа с `whenPacked` должен нормализоваться в `packed`, а в приложении отображаться как `Готов к выдаче`.
 
 **Связанный commit:** `7bffc16` `fix(iiko): исправлен диспатч оплаченных заказов и статусы самовывоза`
+
+### ❌ Проблема: после частичного фикса статусы заказов в приложении всё ещё не обновлялись автоматически, а в iiko дублировались название блюда и адрес
+
+**Дата:** 2026-04-01
+**Симптомы:**
+- в prod Telegram Mini App пользователь менял статус заказа в iiko (`Готовится`, `Приготовлен` и дальше), но в приложении заказ продолжал висеть на `Принят`;
+- проблема воспроизводилась и для `pickup`, и для `delivery`, независимо от типа оплаты, хотя live iiko уже показывал `whenPacked` / `whenCookingCompleted`;
+- на кухонном чеке название блюда печаталось второй строкой как комментарий к той же позиции;
+- в delivery-заказах в iiko примечание к адресу могло содержать дублированный адрес.
+
+**Причина:**
+- предыдущий фикс `7bffc16` закрыл нормализацию raw-status и poll-dispatch оплаченного online-заказа, но backend всё ещё не имел автономного server-side polling по активным iiko-заказам;
+- в prod по проблемным заказам не приходили `iiko_webhook` события, а обновление статуса происходило только при клиентском чтении `GET /api/cart/user-orders`;
+- страница `Мои заказы` во frontend уже опрашивала backend каждые `15s`, но БД до этого не обновлялась сама, поэтому визуально казалось, что приложение "не автообновляет" статус;
+- в `backend/server/integrations/iiko-client.mjs` `buildIikoOrderItems()` отправлял `comment: item?.name`, из-за чего iiko печатал название блюда второй строкой на кухне;
+- delivery payload одновременно содержал неканонизированный адрес и дополнительный `deliveryPoint.comment`, что создавало дублирование адреса в iiko.
+
+**Решение:**
+1. Добавить фоновый воркер `backend/server/workers/iikoStatusSyncWorker.mjs`, который:
+   - выбирает все нефинальные заказы с `provider_order_id/iiko_order_id`;
+   - раз в `IIKO_STATUS_SYNC_INTERVAL_MS` подтягивает их статусы через `deliveries/by_id`;
+   - обновляет `cart_orders` через `applyIikoOrderStatusUpdate(...)`.
+2. Запускать этот воркер при старте `backend/server/cart-server.mjs`, чтобы статусы обновлялись server-side даже без webhook и без ручного чтения конкретного заказа.
+3. Удалить отправку `comment: item?.name` из `buildIikoOrderItems()`, чтобы кухня перестала получать дублированное название блюда в комментарии позиции.
+4. Нормализовать delivery-адрес на сохранении и при отправке в iiko:
+   - вынести нормализацию в `backend/server/utils/deliveryAddress.mjs`;
+   - убрать `deliveryPoint.comment`;
+   - передавать явный `orderTypeId` и координаты доставки.
+
+**Проверка:**
+- `node --check backend/server/workers/iikoStatusSyncWorker.mjs`
+- `node --check backend/server/cart-server.mjs`
+- `node --check backend/server/integrations/iiko-client.mjs`
+- `node --check backend/server/routes/cartRoutes.mjs`
+- `npm exec --prefix frontend tsc --noEmit --pretty false`
+- `git diff --check`
+- на prod TimeWeb app `152623` после деплоя commit `0db4d9a` подтверждено:
+  - приложение активно на `marchelxyz/mariko_vld`;
+  - в логах есть `iiko-status-sync-worker: запущен`;
+  - в логах идут повторяющиеся `iiko-status-sync-worker: статусы заказов синхронизированы`;
+  - последние 5 заказов Жуковского в БД получили реальные статусы `readyforpickup` / `readyforcourier`, а `status` обновился до `packed`.
+
+**Связанный commit:** `0db4d9a` `fix(iiko): исправлен автосинк статусов и delivery payload`
 
 ### ❌ Проблема: Cloud API настроен на внешнее меню, но backend всё равно получает полную номенклатуру
 
