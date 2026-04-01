@@ -1204,8 +1204,10 @@ const buildIikoDeliveryPayload = async (config, order, accessToken) => {
       transportToFrontTimeout: 40,
     },
     order: {
-      orderServiceType: orderTypeConfig.orderServiceType,
-      ...(orderTypeConfig.orderTypeId ? { orderTypeId: orderTypeConfig.orderTypeId } : {}),
+      // iiko /deliveries/create accepts either orderTypeId or orderServiceType, but not both.
+      ...(orderTypeConfig.orderTypeId
+        ? { orderTypeId: orderTypeConfig.orderTypeId }
+        : { orderServiceType: orderTypeConfig.orderServiceType }),
       sourceKey: config.source_key ?? undefined,
       phone,
       customer: {

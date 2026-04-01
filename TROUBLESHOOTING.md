@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-04-01 23:02
+**Последнее обновление:** 2026-04-01 23:04
 
 ---
 
@@ -1374,6 +1374,36 @@ curl https://your-test-app.example.com/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_
 - оформить новый `pickup` заказ и убедиться, что `create_order` больше не падает на `order.orderServiceType`;
 - оформить новый `delivery` заказ и убедиться, что `create_order` больше не падает на `street.city`;
 - в `integration_job_logs` убедиться, что при ошибке iiko сохраняется `payload.body`.
+
+**Связанный commit:** `в работе`
+
+### ❌ Проблема: после фикса `DeliveryByClient` и `street.city` новые заказы всё равно падали, потому что payload одновременно отправлял `orderTypeId` и `orderServiceType`
+
+**Дата:** 2026-04-01
+**Симптомы:**
+- после деплоя с фиксом `DeliveryByClient` и `street.city` новые `pickup` и `delivery` заказы Жуковского всё равно оставались в статусе `Ошибка отправки`;
+- в `cart_orders.provider_payload.body` для обоих типов заказа появилась одинаковая причина:
+  - `Only one of this fields required: orderTypeId or orderServiceType.`;
+- в request payload одновременно присутствовали:
+  - `orderTypeId = ...`
+  - `orderServiceType = ...`
+
+**Причина:**
+- в `backend/server/integrations/iiko-client.mjs` payload для `POST /api/1/deliveries/create` всегда включал `orderServiceType`;
+- при этом после добавления live `orderTypeId` backend начал докладывать и его;
+- Cloud API iiko принимает только одно из этих полей, а не оба сразу.
+
+**Решение:**
+1. В `backend/server/integrations/iiko-client.mjs` передавать только одно поле:
+   - `orderTypeId`, если он найден в live `order_types`;
+   - `orderServiceType` только как fallback, если `orderTypeId` отсутствует.
+2. Оставить подробное логирование `provider_payload.body`, чтобы следующие `HTTP 400` сразу показывали точную причину.
+
+**Проверка:**
+- `node --check backend/server/integrations/iiko-client.mjs`
+- `git diff --check`
+- оформить новый `pickup` заказ и убедиться, что `create_order` больше не падает на конфликт `orderTypeId` / `orderServiceType`;
+- оформить новый `delivery` заказ и убедиться, что `create_order` больше не падает по той же причине.
 
 **Связанный commit:** `в работе`
 
