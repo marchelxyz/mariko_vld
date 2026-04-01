@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-04-02 01:45
+**Последнее обновление:** 2026-04-02 02:23
 
 ---
 
@@ -1542,6 +1542,50 @@ curl https://your-test-app.example.com/api/db/setup-iiko?key=CHANGE_ME_DB_ADMIN_
   - сразу после создания `В обработке`;
   - после подтверждения в терминале `Принят`;
   - дальше только реальные стадии iiko.
+
+**Связанный commit:** `в работе`
+
+### ❌ Проблема: instant webhook из iiko не доходил до `prod`, поэтому статусы менялись только через polling
+
+**Дата:** 2026-04-02
+**Симптомы:**
+- статусы заказа в приложении менялись не сразу после нажатий в терминале iiko, а только через `status_worker`;
+- в live-логах `prod` были регулярные записи `iiko-status-sync-worker`, но не было входящих `iiko webhook`;
+- ручной внешний `POST` на `prod` webhook endpoint с корректным токеном успешно принимался и обрабатывался.
+
+**Причина:**
+- backend webhook route был рабочим, но реальных входящих webhook из iiko на него не приходило;
+- webhook URL и token не хранятся в `restaurant_integrations`, то есть их нужно поддерживать во внешней настройке iiko отдельно от нашей БД;
+- проверка показала:
+  - `https://tg.marikorest.ru/api/integrations/iiko/webhook` принимает запросы штатно;
+  - `https://tg.marikorest.ru/tg/api/integrations/iiko/webhook` тоже принимает запросы штатно;
+  - старый домен `https://apps.vhachapuri.ru/.../iiko/webhook` отвечает с проблемным TLS (`self-signed certificate`) и не должен использоваться для current prod webhook.
+
+**Решение:**
+1. Зафиксировать канонический prod URL для iiko webhook:
+   - `https://tg.marikorest.ru/api/integrations/iiko/webhook`
+2. В iiko использовать тот же секрет, что и на сервере в `IIKO_WEBHOOK_TOKEN`.
+3. Добавить в backend явные info-логи:
+   - `Webhook iiko принят`
+   - `Webhook iiko обработан`
+   чтобы сразу видеть восстановление instant-потока в live-логах.
+4. На время, пока webhook в iiko не перенастроен, ускорить fallback-обновление:
+   - фронтовой `OrdersPage` poll сократить до `5s`;
+   - на `prod` для `IIKO_STATUS_SYNC_INTERVAL_MS` выставить `5000`.
+
+**Проверка:**
+- внешний тест с токеном:
+```bash
+curl -X POST "https://tg.marikorest.ru/api/integrations/iiko/webhook" \
+  -H "Content-Type: application/json" \
+  -H "x-webhook-token: <IIKO_WEBHOOK_TOKEN>" \
+  -d '{"eventType":"DeliveryOrderStatusChanged","orderInfo":{"id":"test-order-123","deliveryStatus":"OnTheWay"}}'
+```
+- ожидаемо сервер отвечает `200` и возвращает `success: true`;
+- в live-логах `prod` после реального webhook должны появляться строки:
+  - `Webhook iiko принят`
+  - `Webhook iiko обработан`
+- если этих строк нет, а `status_worker` продолжает работать, значит webhook всё ещё не настроен или смотрит на старый URL/токен в iiko.
 
 **Связанный commit:** `в работе`
 

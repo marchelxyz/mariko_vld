@@ -98,6 +98,11 @@ export function createIikoWebhookRouter() {
     try {
       const payload = req.body ?? {};
       const events = extractIikoWebhookEvents(payload);
+      logger.info("Webhook iiko принят", {
+        ip: req.ip,
+        received: events.length,
+        contentType: req.get("content-type") ?? null,
+      });
       if (events.length === 0) {
         logger.warn("Webhook iiko не содержит событий", {
           rawType: Array.isArray(payload) ? "array" : typeof payload,
@@ -149,6 +154,19 @@ export function createIikoWebhookRouter() {
 
       const updated = results.filter((entry) => entry.status === "updated").length;
       const ignored = results.length - updated;
+      logger.info("Webhook iiko обработан", {
+        received: events.length,
+        updated,
+        ignored,
+        eventNames: results
+          .map((entry) => entry.eventName)
+          .filter(Boolean)
+          .slice(0, 10),
+        providerOrderIds: results
+          .map((entry) => entry.providerOrderId)
+          .filter(Boolean)
+          .slice(0, 10),
+      });
       logger.requestSuccess(req.method, req.path, Date.now() - startTime, 200);
       return res.status(200).json({
         success: true,

@@ -247,7 +247,7 @@ export default function OrdersPage() {
         limit: 20,
       }),
     enabled: hasIdentity,
-    refetchInterval: hasIdentity ? 15000 : false,
+    refetchInterval: hasIdentity ? 5000 : false,
     refetchIntervalInBackground: true,
   });
 
