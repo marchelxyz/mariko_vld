@@ -5,15 +5,13 @@ import { useNavigate } from "react-router-dom";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import type { CartItem } from "@/contexts";
 import { fetchMyOrdersWithStatus, type CartOrderRecord } from "@/shared/api/cart/ordersApi";
-import { cn } from "@shared/utils";
+import { cn, resolveEffectiveCartOrderStatus, sanitizeUserFacingMessage } from "@shared/utils";
 import { getPlatform, getUser } from "@/lib/platform";
 import { useProfile } from "@entities/user";
 import { getCleanPhoneNumber } from "@shared/hooks/usePhoneInput";
 
 const resolveStatus = (order: CartOrderRecord): string => {
-  const candidates = [order.status, order.iiko_status, order.provider_status];
-  const resolved = candidates.find((value) => typeof value === "string" && value.trim().length > 0);
-  return String(resolved ?? "processing").toLowerCase();
+  return resolveEffectiveCartOrderStatus(order);
 };
 
 const statusLabel = (order: CartOrderRecord, status: string): string => {
@@ -29,7 +27,8 @@ const statusLabel = (order: CartOrderRecord, status: string): string => {
     return isPickup ? "Готов к выдаче" : "Готовится";
   }
   if (["kitchen", "cooking"].includes(status)) return "Готовится";
-  if (["failed", "cancelled", "canceled", "rejected", "error"].includes(status)) return "Отменён";
+  if (["cancelled", "canceled", "rejected"].includes(status)) return "Отменён";
+  if (["failed", "error"].includes(status)) return "Ошибка отправки";
   return "Принят";
 };
 
@@ -117,6 +116,15 @@ const OrderCard = ({
       : order.payment_status
         ? "Ожидает оплаты"
         : null;
+  const failureMessage =
+    status === "failed"
+      ? sanitizeUserFacingMessage(
+          order.provider_error,
+          "Не удалось передать заказ в ресторан. Попробуйте позже.",
+        )
+      : status === "cancelled"
+        ? sanitizeUserFacingMessage(order.provider_error, "Заказ был отменён.")
+        : null;
 
   return (
     <div className="bg-white rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.08)] px-4 py-5 md:px-6 md:py-6">
@@ -145,6 +153,12 @@ const OrderCard = ({
           </span>
         )}
       </div>
+
+      {failureMessage && (
+        <div className="mt-3 rounded-2xl bg-red-50 px-3 py-2 text-sm text-red-800">
+          {failureMessage}
+        </div>
+      )}
 
       {items.length > 0 && (
         <div className="mt-4">

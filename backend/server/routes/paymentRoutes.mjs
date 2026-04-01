@@ -16,7 +16,11 @@ import {
   YOOKASSA_TEST_CALLBACK_URL,
   TELEGRAM_WEBAPP_RETURN_URL,
 } from "../config.mjs";
-import { fetchRestaurantIntegrationConfig, enqueueIikoOrder } from "../services/integrationService.mjs";
+import {
+  fetchRestaurantIntegrationConfig,
+  enqueueIikoOrder,
+  logIntegrationJob,
+} from "../services/integrationService.mjs";
 
 const router = express.Router();
 const FINAL_PAYMENT_STATUSES = new Set(["paid", "succeeded", "failed", "cancelled", "canceled"]);
@@ -65,20 +69,35 @@ router.post("/yookassa/create", async (req, res) => {
   const { orderId, restaurantId: restaurantIdBody, returnUrl: returnUrlFromBody, mode: rawMode } = req.body ?? {};
   const mode = typeof rawMode === "string" ? rawMode.toLowerCase() : "test";
   const useTest = mode !== "prod" && mode !== "real";
+  let order = null;
+  let restaurantId = null;
 
   if (!orderId) {
     return res.status(400).json({ success: false, message: "Нужен orderId" });
   }
 
   try {
-    const order = await findOrderById(orderId);
+    order = await findOrderById(orderId);
     if (!order) {
       return res.status(404).json({ success: false, message: "Заказ не найден" });
     }
-    const restaurantId = restaurantIdBody ?? order.restaurant_id;
+    restaurantId = restaurantIdBody ?? order.restaurant_id;
     if (!restaurantId) {
       return res.status(400).json({ success: false, message: "У заказа нет restaurantId" });
     }
+
+    await logIntegrationJob({
+      provider: "yookassa",
+      restaurantId,
+      orderId: order.id ?? null,
+      action: "payment_create_requested",
+      status: "pending",
+      payload: {
+        externalId: order.external_id ?? order.id,
+        mode: useTest ? "test" : "prod",
+        amount: Number(order.total ?? 0) || null,
+      },
+    });
 
     const dbConfig = await findRestaurantPaymentConfig(restaurantId);
     const testConfig =
@@ -99,6 +118,20 @@ router.post("/yookassa/create", async (req, res) => {
         : null;
 
     if (!paymentConfig || !paymentConfig.is_enabled) {
+      await logIntegrationJob({
+        provider: "yookassa",
+        restaurantId,
+        orderId: order.id ?? null,
+        action: "payment_create_failed",
+        status: "error",
+        payload: {
+          externalId: order.external_id ?? order.id,
+          mode: useTest ? "test" : "prod",
+        },
+        error: useTest
+          ? "test_payment_config_missing"
+          : "restaurant_payment_config_missing",
+      });
       return res.status(400).json({
         success: false,
         message: useTest
@@ -109,6 +142,18 @@ router.post("/yookassa/create", async (req, res) => {
 
     const amount = Number(order.total ?? 0);
     if (!Number.isFinite(amount) || amount <= 0) {
+      await logIntegrationJob({
+        provider: "yookassa",
+        restaurantId,
+        orderId: order.id ?? null,
+        action: "payment_create_failed",
+        status: "error",
+        payload: {
+          externalId: order.external_id ?? order.id,
+          amount,
+        },
+        error: "invalid_order_amount",
+      });
       return res.status(400).json({ success: false, message: "Некорректная сумма заказа" });
     }
 
@@ -120,6 +165,20 @@ router.post("/yookassa/create", async (req, res) => {
       currency: "RUB",
       description: `Оплата заказа ${order.external_id ?? order.id}`,
       metadata: { mode: useTest ? "test" : "prod" },
+    });
+
+    await logIntegrationJob({
+      provider: "yookassa",
+      restaurantId,
+      orderId: order.id ?? null,
+      action: "payment_record_created",
+      status: "success",
+      payload: {
+        externalId: order.external_id ?? order.id,
+        paymentId: paymentRecord.id,
+        amount,
+        mode: useTest ? "test" : "prod",
+      },
     });
 
     const resolvedReturnUrl =
@@ -155,6 +214,22 @@ router.post("/yookassa/create", async (req, res) => {
       );
     }
 
+    await logIntegrationJob({
+      provider: "yookassa",
+      restaurantId,
+      orderId: order.id ?? null,
+      action: "payment_created",
+      status: "success",
+      payload: {
+        externalId: order.external_id ?? order.id,
+        paymentId: paymentRecord.id,
+        providerPaymentId: ykResponse.paymentId ?? null,
+        paymentStatus: ykResponse.status ?? "pending",
+        mode: useTest ? "test" : "prod",
+        usedFallback: ykResponse.usedFallback === true,
+      },
+    });
+
     return res.json({
       success: true,
       paymentId: paymentRecord.id,
@@ -165,6 +240,18 @@ router.post("/yookassa/create", async (req, res) => {
     });
   } catch (error) {
     console.error("Ошибка создания платежа ЮKassa:", error);
+    await logIntegrationJob({
+      provider: "yookassa",
+      restaurantId,
+      orderId: order?.id ?? null,
+      action: "payment_create_failed",
+      status: "error",
+      payload: {
+        externalId: order?.external_id ?? orderId ?? null,
+        mode: useTest ? "test" : "prod",
+      },
+      error: error?.message ?? "payment_create_failed",
+    });
     return res.status(500).json({ success: false, message: "Не удалось создать платеж" });
   }
 });
@@ -201,12 +288,38 @@ router.post("/yookassa/webhook", express.json(), async (req, res) => {
       metadata: body,
     });
 
+    await logIntegrationJob({
+      provider: "yookassa",
+      restaurantId: payment.restaurant_id ?? null,
+      orderId: payment.order_id ?? null,
+      action: "payment_webhook_received",
+      status: "success",
+      payload: {
+        paymentId: payment.id,
+        providerPaymentId,
+        paymentStatus: updated?.status ?? statusRaw ?? null,
+      },
+    });
+
     // Если оплата прошла — отправляем заказ в iiko (по возможности)
     if (updated?.status === "paid" && updated.order_id && updated.restaurant_id) {
       const order = await findOrderById(updated.order_id);
       if (order) {
         const integrationConfig = await fetchRestaurantIntegrationConfig(updated.restaurant_id);
         if (integrationConfig) {
+          await logIntegrationJob({
+            provider: "yookassa",
+            restaurantId: updated.restaurant_id,
+            orderId: order.id ?? null,
+            action: "payment_paid_dispatch_requested",
+            status: "pending",
+            payload: {
+              source: "webhook",
+              paymentId: updated.id,
+              providerPaymentId,
+              externalId: order.external_id ?? order.id,
+            },
+          });
           const orderRecord = {
             ...order,
             id: order.id,
@@ -215,6 +328,20 @@ router.post("/yookassa/webhook", express.json(), async (req, res) => {
             meta: order.meta ?? {},
           };
           enqueueIikoOrder(integrationConfig, orderRecord);
+        } else {
+          await logIntegrationJob({
+            provider: "yookassa",
+            restaurantId: updated.restaurant_id,
+            orderId: order.id ?? null,
+            action: "payment_paid_dispatch_requested",
+            status: "error",
+            payload: {
+              source: "webhook",
+              paymentId: updated.id,
+              externalId: order.external_id ?? order.id,
+            },
+            error: "integration_config_missing",
+          });
         }
       }
     }
@@ -274,6 +401,19 @@ router.get("/:paymentId", async (req, res) => {
               metadata: { synced: true, raw: remote },
             });
             const refreshed = await findPaymentById(paymentId);
+            await logIntegrationJob({
+              provider: "yookassa",
+              restaurantId: payment.restaurant_id ?? null,
+              orderId: payment.order_id ?? null,
+              action: "payment_status_synced",
+              status: "success",
+              payload: {
+                paymentId: payment.id,
+                providerPaymentId: remote.id ?? payment.provider_payment_id ?? null,
+                paymentStatus: remoteStatus,
+                source: "poll",
+              },
+            });
             if (refreshed) {
               if (refreshed.order_id) {
                 await query(
@@ -313,6 +453,19 @@ router.get("/:paymentId", async (req, res) => {
           if (shouldSend) {
             const integrationConfig = await fetchRestaurantIntegrationConfig(order.restaurant_id);
             if (integrationConfig) {
+              await logIntegrationJob({
+                provider: "yookassa",
+                restaurantId: order.restaurant_id,
+                orderId: order.id ?? null,
+                action: "payment_paid_dispatch_requested",
+                status: "pending",
+                payload: {
+                  source: "order_sync",
+                  paymentId: updated.id,
+                  providerPaymentId: updated.provider_payment_id ?? null,
+                  externalId: order.external_id ?? order.id,
+                },
+              });
               const orderRecord = {
                 ...order,
                 id: order.id,
@@ -321,6 +474,20 @@ router.get("/:paymentId", async (req, res) => {
                 meta: order.meta ?? {},
               };
               enqueueIikoOrder(integrationConfig, orderRecord);
+            } else {
+              await logIntegrationJob({
+                provider: "yookassa",
+                restaurantId: order.restaurant_id,
+                orderId: order.id ?? null,
+                action: "payment_paid_dispatch_requested",
+                status: "error",
+                payload: {
+                  source: "order_sync",
+                  paymentId: updated.id,
+                  externalId: order.external_id ?? order.id,
+                },
+                error: "integration_config_missing",
+              });
             }
           }
         }

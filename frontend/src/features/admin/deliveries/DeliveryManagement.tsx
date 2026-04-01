@@ -6,6 +6,7 @@ import type { CartOrderRecord } from "@shared/api/cart";
 import { getAllCitiesAsync, type City } from "@shared/data";
 import { useAdmin } from "@shared/hooks";
 import { Permission, UserRole } from "@shared/types";
+import { resolveEffectiveCartOrderStatus, sanitizeAdminFacingMessage } from "@shared/utils";
 import {
   Button,
   Select,
@@ -23,7 +24,7 @@ const statusLabels: Record<string, string> = {
   delivery: "В пути",
   completed: "Завершён",
   cancelled: "Отменён",
-  failed: "Ошибка",
+  failed: "Ошибка отправки",
   draft: "Черновик",
 };
 
@@ -51,7 +52,7 @@ const formatPrice = (value?: number | null) => {
 };
 
 const getOrderStatusLabel = (order: CartOrderRecord): string => {
-  const normalized = String(order.status ?? "processing").toLowerCase();
+  const normalized = resolveEffectiveCartOrderStatus(order);
   const isPickup = order.order_type === "pickup";
 
   if (["completed", "delivered", "closed"].includes(normalized)) {
@@ -240,14 +241,22 @@ export function DeliveryManagement(): JSX.Element {
 }
 
 function OrderCard({ order }: { order: CartOrderRecord }) {
+  const status = resolveEffectiveCartOrderStatus(order);
   const icon =
-    order.status === "delivery" ? (
+    status === "delivery" ? (
       <Truck className="w-5 h-5" />
-    ) : order.status === "packed" ? (
+    ) : status === "packed" ? (
       <PackageCheck className="w-5 h-5" />
     ) : (
       <Bike className="w-5 h-5" />
     );
+  const errorMessage =
+    status === "failed"
+      ? sanitizeAdminFacingMessage(
+          order.provider_error,
+          "Не удалось передать заказ в iiko. Проверьте интеграцию ресторана.",
+        )
+      : null;
 
   return (
     <div className="bg-white/5 border border-white/10 rounded-2xl p-4 md:p-6 flex flex-col gap-3">
@@ -285,15 +294,29 @@ function OrderCard({ order }: { order: CartOrderRecord }) {
         </div>
       </div>
 
+      {errorMessage && (
+        <div className="rounded-2xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-100">
+          {errorMessage}
+        </div>
+      )}
+
     </div>
   );
 }
 
 function HistoryCard({ order }: { order: CartOrderRecord }) {
   const [expanded, setExpanded] = useState(false);
+  const status = resolveEffectiveCartOrderStatus(order);
   const subtotal = formatPrice(order.subtotal);
   const deliveryFee = formatPrice(order.delivery_fee);
   const total = formatPrice(order.total);
+  const errorMessage =
+    status === "failed"
+      ? sanitizeAdminFacingMessage(
+          order.provider_error,
+          "Не удалось передать заказ в iiko. Проверьте интеграцию ресторана.",
+        )
+      : null;
 
   return (
     <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col gap-3">
@@ -317,6 +340,12 @@ function HistoryCard({ order }: { order: CartOrderRecord }) {
           {expanded ? "Скрыть" : "Подробнее"}
         </Button>
       </div>
+
+      {errorMessage && (
+        <div className="rounded-2xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-100">
+          {errorMessage}
+        </div>
+      )}
 
       {expanded && (
         <div className="space-y-3 text-white/80 text-sm">

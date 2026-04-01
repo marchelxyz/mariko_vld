@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-03-29 16:04
+**Последнее обновление:** 2026-04-01 13:15
 
 ---
 
@@ -1897,6 +1897,101 @@ curl "https://<backend>/api/db/check-terminal-groups?key=CHANGE_ME_DB_ADMIN_ROUT
 - `cf417dd` — расширенная диагностика сетевых ошибок iiko
 - `71f7ca3` — добавлен вывод `resolv.conf` и raw egress-проверки
 - `17d8415` — добавлен endpoint `/api/db/fix-dns`
+
+### ❌ Проблема: заказ мог показывать ложный успех, а цены и статусы доставки брались не из серверного snapshot меню/iiko
+
+**Дата:** 2026-04-01
+**Симптомы:**
+- `POST /api/cart/submit` сохранял заказ и отвечал `Заказ принят`, даже если у ресторана не было активной `restaurant_integrations` записи;
+- при ошибке `createOrder` в iiko заказ мог остаться со статусом `processing`, а гость и админка продолжали показывать `Обработка`;
+- сервер принимал `item.price` из клиентского payload и с этой же ценой формировал payload для iiko;
+- из-за этого тестовый заказ мог выглядеть "принятым" в приложении, хотя до реального терминала не дошёл, а итоговые суммы зависели от фронтового состояния корзины.
+
+**Причина:**
+- submit-flow валидировал блюда и стоп-лист, но не делал жёсткий отказ при отсутствии активной iiko-конфигурации;
+- при `createOrder`-ошибке обновлялся только `provider_status`, а UI в первую очередь читал `order.status`;
+- сервер не гидратировал позиции заказа по БД перед сохранением и отправкой в iiko.
+
+**Решение:**
+1. В `backend/server/routes/cartRoutes.mjs` добавить серверную гидрацию позиций заказа из `menu_items`:
+   - брать `name`, `price`, `restaurant_id`, `iiko_product_id` из БД;
+   - пересчитывать `subtotal`, `delivery_fee` и `total` на сервере;
+   - использовать этот normalized snapshot и для сохранения заказа, и для отправки в iiko.
+2. В submit-flow делать ранний `503`, если для ресторана нет активной iiko-конфигурации, чтобы не создавать "успешный" заказ без маршрута в терминал.
+3. В `backend/server/services/integrationService.mjs` при `createOrder`-ошибке проставлять не только `provider_status = error`, но и `iiko_status = error`.
+4. В backend/admin и frontend вычислять эффективный статус заказа по связке:
+   - `status`
+   - `iiko_status`
+   - `provider_status`
+   чтобы `provider_status = error` больше не маскировался под `processing`.
+5. В пользовательском и админском UI показывать явное сообщение об ошибке передачи заказа вместо нейтрального `Обработка`.
+
+**Проверка:**
+- `node --check backend/server/routes/cartRoutes.mjs`
+- `node --check backend/server/routes/adminRoutes.mjs`
+- `node --check backend/server/services/integrationService.mjs`
+- `node --check backend/server/services/iikoOrderStatusService.mjs`
+- `npm exec --prefix frontend tsc --noEmit --pretty false`
+- `git diff --check`
+- ручная проверка:
+  1. попытаться оформить `cash`-заказ для ресторана без активной iiko-интеграции и убедиться, что backend возвращает ошибку, а не success;
+  2. отключить/сломать отправку в iiko на тестовом стенде и убедиться, что заказ уходит в `Ошибка отправки`, а не остаётся в `Обработка`;
+  3. изменить цену блюда на фронте через devtools и убедиться, что сохранённый заказ и payload в iiko используют цену из БД.
+
+**Связанный commit:** `N/A`
+
+### ❌ Проблема: перед полевыми тестами доставки не было единого таймлайна заказа по шагам `submit -> payment -> iiko -> status`
+
+**Дата:** 2026-04-01
+**Симптомы:**
+- после выездного теста приходилось собирать картину руками из разных мест: `cart_orders`, `payments`, `integration_job_logs`, терминала iiko и UI;
+- было трудно быстро ответить, на каком именно шаге остановился конкретный заказ:
+  - сохранился ли он;
+  - создался ли платёж;
+  - пришёл ли `paid`;
+  - был ли запрос на отправку в iiko;
+  - пришли ли обратно статусы;
+- для online-сценария не хватало единой ленты событий по одному `orderId`.
+
+**Причина:**
+- `integration_job_logs` уже существовала, но использовалась в основном для iiko create/status событий;
+- этапы сохранения заказа, ожидания оплаты, создания платежа и повторной отправки после `paid` не логировались в одном формате;
+- не было отдельного admin endpoint, который возвращал бы order snapshot, список платежей и все связанные timeline events одним запросом.
+
+**Решение:**
+1. Использовать `integration_job_logs` как единый timeline-store для заказа, не создавая новую таблицу.
+2. Логировать дополнительные этапы:
+   - `delivery_app/order_saved`
+   - `yookassa/awaiting_payment`
+   - `yookassa/payment_create_requested`
+   - `yookassa/payment_record_created`
+   - `yookassa/payment_created`
+   - `yookassa/payment_webhook_received`
+   - `yookassa/payment_status_synced`
+   - `yookassa/payment_paid_dispatch_requested`
+3. В `backend/server/services/integrationService.mjs` добавить helper чтения timeline events по `order_id`.
+4. В `backend/server/routes/adminRoutes.mjs` добавить endpoint:
+   - `GET /api/cart/admin/orders/:orderId/logs`
+   который возвращает:
+   - `order`
+   - `payments`
+   - `logs`
+5. В `frontend/src/shared/api/admin/adminServerApi.ts` добавить клиентский метод `getOrderLogs(orderId)` для последующего разбора.
+
+**Проверка:**
+- `node --check backend/server/routes/cartRoutes.mjs`
+- `node --check backend/server/routes/paymentRoutes.mjs`
+- `node --check backend/server/routes/adminRoutes.mjs`
+- `node --check backend/server/services/integrationService.mjs`
+- `npm exec --prefix frontend tsc --noEmit --pretty false`
+- `git diff --check`
+- ручная проверка:
+  1. оформить `cash` или `online` тестовый заказ;
+  2. после сохранения убедиться, что в `integration_job_logs` есть `order_saved`;
+  3. для `online` убедиться, что появляются `payment_create_requested`, `payment_created`, а после успешной оплаты ещё и `payment_webhook_received` / `payment_status_synced`;
+  4. запросить `GET /api/cart/admin/orders/:orderId/logs` и убедиться, что возвращается полный таймлайн по одному заказу.
+
+**Связанный commit:** `N/A`
 
 ---
 

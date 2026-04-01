@@ -1,5 +1,5 @@
 import { INTEGRATION_PROVIDER, INTEGRATION_CACHE_TTL_MS, CART_ORDERS_TABLE } from "../config.mjs";
-import { queryOne, query, db } from "../postgresClient.mjs";
+import { queryOne, queryMany, query, db } from "../postgresClient.mjs";
 import { iikoClient } from "../integrations/iiko-client.mjs";
 import { mergeCartOrderStatus, normalizeIikoOrderStatus } from "./iikoOrderStatusService.mjs";
 import { hydrateRestaurantIntegrationSecrets } from "./restaurantIntegrationSecrets.mjs";
@@ -138,6 +138,47 @@ export const logIntegrationJob = async ({ provider, restaurantId, orderId, actio
     );
   } catch (logError) {
     console.error("Ошибка записи integration_job_logs:", logError);
+  }
+};
+
+const parseJsonField = (value, fallback = null) => {
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+  if (typeof value === "object") {
+    return value;
+  }
+  if (typeof value !== "string") {
+    return fallback;
+  }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+};
+
+export const listOrderIntegrationLogs = async ({ orderId, limit = 200 } = {}) => {
+  if (!db || !orderId) {
+    return [];
+  }
+  try {
+    const safeLimit = Math.min(Math.max(Number.parseInt(String(limit ?? "200"), 10) || 200, 1), 500);
+    const rows = await queryMany(
+      `SELECT *
+       FROM integration_job_logs
+       WHERE order_id = $1
+       ORDER BY created_at ASC
+       LIMIT $2`,
+      [orderId, safeLimit],
+    );
+    return rows.map((row) => ({
+      ...row,
+      payload: parseJsonField(row.payload, {}),
+    }));
+  } catch (error) {
+    console.error("Ошибка загрузки integration_job_logs:", error);
+    return [];
   }
 };
 
@@ -389,6 +430,7 @@ export const enqueueIikoOrder = (integrationConfig, orderRecord) => {
     } else {
       await updateOrderIntegrationStatus(externalId, {
         provider_status: "error",
+        iiko_status: "error",
         provider_error: result.error ?? "iiko: неизвестная ошибка",
         provider_payload: result.response ?? null,
       });
@@ -414,6 +456,7 @@ export const enqueueIikoOrder = (integrationConfig, orderRecord) => {
     }).catch(() => {});
     updateOrderIntegrationStatus(externalId, {
       provider_status: "error",
+      iiko_status: "error",
       provider_error: error.message,
     });
   });

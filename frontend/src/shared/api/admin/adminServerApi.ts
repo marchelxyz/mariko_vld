@@ -128,6 +128,40 @@ export type AdminOrdersResponse = {
   orders: CartOrderRecord[];
 };
 
+export type AdminOrderTimelineLog = {
+  id: string;
+  provider: string;
+  restaurant_id: string | null;
+  order_id: string | null;
+  action: string;
+  status: string;
+  payload: Record<string, unknown> | null;
+  error: string | null;
+  created_at: string | null;
+};
+
+export type AdminOrderTimelinePayment = {
+  id: string;
+  order_id: string | null;
+  restaurant_id: string | null;
+  provider_code: string;
+  provider_payment_id: string | null;
+  amount: number | null;
+  currency: string | null;
+  status: string;
+  description: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type AdminOrderTimelineResponse = {
+  success: boolean;
+  order: CartOrderRecord;
+  payments: AdminOrderTimelinePayment[];
+  logs: AdminOrderTimelineLog[];
+};
+
 export type AdminBooking = {
   id: string;
   restaurantId: string;
@@ -781,6 +815,22 @@ export const adminServerApi = {
     );
     const data = await handleResponse<AdminOrdersResponse>(response);
     return data.orders ?? [];
+  },
+
+  async getOrderLogs(
+    orderId: string,
+    params: { logsLimit?: number } = {},
+  ): Promise<AdminOrderTimelineResponse> {
+    const search = new URLSearchParams();
+    if (params.logsLimit) {
+      search.set("logsLimit", String(params.logsLimit));
+    }
+    const response = await fetchAdmin(
+      `${ADMIN_API_BASE}/orders/${encodeURIComponent(orderId)}/logs${
+        search.toString() ? `?${search.toString()}` : ""
+      }`,
+    );
+    return handleResponse<AdminOrderTimelineResponse>(response);
   },
 
   async updateRestaurantStatus(restaurantId: string, isActive: boolean): Promise<void> {

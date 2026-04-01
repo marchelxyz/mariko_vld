@@ -8,7 +8,11 @@ import {
   mapProfileRowToClient,
 } from "../services/profileService.mjs";
 import { getAppSettings } from "../services/appSettingsService.mjs";
-import { fetchRestaurantIntegrationConfig, enqueueIikoOrder } from "../services/integrationService.mjs";
+import {
+  fetchRestaurantIntegrationConfig,
+  enqueueIikoOrder,
+  logIntegrationJob,
+} from "../services/integrationService.mjs";
 import { resolveDeliveryAccess } from "../services/deliveryAccessService.mjs";
 import { iikoClient } from "../integrations/iiko-client.mjs";
 import { normaliseNullableString } from "../utils.mjs";
@@ -93,11 +97,176 @@ const normalizePaymentMethod = (value) => {
   return "cash";
 };
 
+const DELIVERY_MIN_ORDER_AMOUNT = 500;
+const STANDARD_DELIVERY_FEE = 199;
+const FREE_DELIVERY_THRESHOLD = 2000;
+
 const normaliseIikoProductId = (value) => {
   if (value === null || value === undefined) {
     return "";
   }
   return String(value).trim();
+};
+
+const normalizeOrderQuantity = (value) => {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount > 0 ? amount : 1;
+};
+
+const normalizeCurrencyValue = (value) => {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount < 0) {
+    return 0;
+  }
+  return Math.round((amount + Number.EPSILON) * 100) / 100;
+};
+
+const calculateOrderPricing = ({ items, orderType = "delivery" } = {}) => {
+  const subtotal = normalizeCurrencyValue(
+    (Array.isArray(items) ? items : []).reduce((sum, item) => {
+      const price = normalizeCurrencyValue(item?.price);
+      const amount = normalizeOrderQuantity(item?.amount ?? item?.quantity);
+      return sum + price * amount;
+    }, 0),
+  );
+
+  const warnings = [];
+  const canSubmit = subtotal >= DELIVERY_MIN_ORDER_AMOUNT;
+  if (!canSubmit) {
+    warnings.push(`Минимальная сумма заказа ${DELIVERY_MIN_ORDER_AMOUNT}₽`);
+  }
+
+  const deliveryFee =
+    orderType === "delivery"
+      ? subtotal >= FREE_DELIVERY_THRESHOLD
+        ? 0
+        : STANDARD_DELIVERY_FEE
+      : 0;
+
+  return {
+    subtotal,
+    deliveryFee,
+    total: normalizeCurrencyValue(subtotal + deliveryFee),
+    minOrder: DELIVERY_MIN_ORDER_AMOUNT,
+    canSubmit,
+    warnings,
+  };
+};
+
+const summarizeOrderItemsForLog = (items) =>
+  (Array.isArray(items) ? items : []).map((item) => ({
+    id: item?.id ?? null,
+    name: item?.name ?? null,
+    amount: normalizeOrderQuantity(item?.amount ?? item?.quantity),
+    price: normalizeCurrencyValue(item?.price),
+    iikoProductId: normaliseIikoProductId(item?.iiko_product_id ?? item?.iikoProductId) || null,
+  }));
+
+const buildOrderValidationError = (status, message, details = null) => ({
+  status,
+  message,
+  details,
+});
+
+const hydrateOrderItemsFromMenu = async ({
+  rawOrderItems,
+  restaurantId,
+  requireIikoProductId = false,
+}) => {
+  const invalidOrderItems = rawOrderItems.filter(
+    (item) => !(typeof item?.id === "string" && item.id.trim().length),
+  );
+  if (invalidOrderItems.length > 0) {
+    return {
+      error: buildOrderValidationError(400, "В заказе есть некорректные позиции"),
+    };
+  }
+
+  const menuItemIds = Array.from(
+    new Set(
+      rawOrderItems
+        .map((item) => (typeof item?.id === "string" && item.id.trim().length ? item.id.trim() : null))
+        .filter(Boolean),
+    ),
+  );
+
+  const menuItems = await queryMany(
+    `SELECT
+        mi.id,
+        mi.name,
+        mi.price,
+        mc.restaurant_id,
+        COALESCE(NULLIF(TRIM(mi.iiko_product_id), ''), NULL) AS iiko_product_id
+     FROM menu_items mi
+     JOIN menu_categories mc ON mc.id = mi.category_id
+     WHERE mi.id = ANY($1::varchar[])`,
+    [menuItemIds],
+  );
+
+  const menuItemById = new Map(menuItems.map((menuItem) => [menuItem.id, menuItem]));
+  const unknownItemIds = menuItemIds.filter((itemId) => !menuItemById.has(itemId));
+
+  if (unknownItemIds.length > 0) {
+    return {
+      error: buildOrderValidationError(400, "В заказе есть несуществующие блюда", {
+        unknownItemIds,
+      }),
+    };
+  }
+
+  const foreignRestaurantItems = menuItems
+    .filter((menuItem) => menuItem.restaurant_id !== restaurantId)
+    .map((menuItem) => ({
+      id: menuItem.id,
+      name: menuItem.name,
+      restaurantId: menuItem.restaurant_id,
+    }));
+
+  if (foreignRestaurantItems.length > 0) {
+    return {
+      error: buildOrderValidationError(400, "В заказе есть блюда другого ресторана", {
+        foreignRestaurantItems,
+      }),
+    };
+  }
+
+  if (requireIikoProductId) {
+    const itemsWithoutIikoId = menuItems
+      .filter((menuItem) => !menuItem.iiko_product_id)
+      .map((menuItem) => ({
+        id: menuItem.id,
+        name: menuItem.name,
+      }));
+
+    if (itemsWithoutIikoId.length > 0) {
+      return {
+        error: buildOrderValidationError(
+          400,
+          "Некоторые блюда недоступны для заказа. Обновите меню и попробуйте снова.",
+          {
+            reason: "missing_iiko_product_id",
+            items: itemsWithoutIikoId,
+          },
+        ),
+      };
+    }
+  }
+
+  return {
+    normalizedItems: rawOrderItems.map((item) => {
+      const menuItem = menuItemById.get(String(item.id).trim());
+      const iikoProductId = menuItem?.iiko_product_id ?? null;
+      return {
+        ...item,
+        id: menuItem?.id ?? item.id,
+        name: menuItem?.name ?? item.name,
+        amount: normalizeOrderQuantity(item?.amount ?? item?.quantity),
+        price: normalizeCurrencyValue(menuItem?.price),
+        iiko_product_id: iikoProductId,
+        iikoProductId,
+      };
+    }),
+  };
 };
 
 const collectStopListBlockedItems = (items, stopListProductIds) => {
@@ -287,25 +456,45 @@ export function registerCartRoutes(app) {
   app.post("/api/cart/recalculate", async (req, res) => {
     const { items = [], orderType = "delivery", restaurantId: rawRestaurantId = null } = req.body ?? {};
     const restaurantId = normaliseNullableString(rawRestaurantId);
+    const normalizedOrderType =
+      orderType === "pickup" || orderType === "delivery" ? orderType : "delivery";
+    let normalizedItems = Array.isArray(items) ? items : [];
 
-    const subtotal = Array.isArray(items)
-      ? items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.amount || 0), 0)
-      : 0;
-
-    const minOrder = 500;
-    const warnings = [];
-    const canSubmit = subtotal >= minOrder;
-
-    if (!canSubmit) {
-      warnings.push(`Минимальная сумма заказа ${minOrder}₽`);
+    if (db && restaurantId && normalizedItems.length > 0) {
+      try {
+        const snapshot = await hydrateOrderItemsFromMenu({
+          rawOrderItems: normalizedItems,
+          restaurantId,
+          requireIikoProductId: false,
+        });
+        if (snapshot?.error) {
+          return res.status(snapshot.error.status).json({
+            success: false,
+            message: snapshot.error.message,
+            details: snapshot.error.details ?? undefined,
+          });
+        }
+        normalizedItems = snapshot.normalizedItems;
+      } catch (error) {
+        if (error?.code === "42703") {
+          console.error("Ошибка чтения цены menu_items:", error);
+          return res.status(500).json({
+            success: false,
+            message: "В БД не найдена колонка цены блюда. Выполните миграцию и повторите попытку.",
+          });
+        }
+        console.error("Ошибка пересчёта корзины:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Не удалось пересчитать заказ",
+        });
+      }
     }
 
-    let deliveryFee = 0;
-    if (orderType === "delivery") {
-      deliveryFee = subtotal >= 2000 ? 0 : 199;
-    }
-
-    const total = subtotal + deliveryFee;
+    const { subtotal, deliveryFee, total, minOrder, canSubmit, warnings } = calculateOrderPricing({
+      items: normalizedItems,
+      orderType: normalizedOrderType,
+    });
 
     let paymentMethods = null;
     if (restaurantId) {
@@ -761,162 +950,91 @@ export function registerCartRoutes(app) {
     let normalizedOrderItems = rawOrderItems;
 
     if (db) {
-      const subtotal = Number(orderPayload.subtotal ?? orderPayload.totalSum ?? 0);
-      const deliveryFee = Number(orderPayload.deliveryFee ?? 0);
-      const total = Number(orderPayload.total ?? orderPayload.totalSum ?? subtotal + deliveryFee);
-      const warnings = Array.isArray(orderPayload.warnings) ? orderPayload.warnings : [];
-
       try {
-        const invalidOrderItems = rawOrderItems.filter(
-          (item) => !(typeof item?.id === "string" && item.id.trim().length),
-        );
-        if (invalidOrderItems.length > 0) {
-          return res.status(400).json({
+        const snapshot = await hydrateOrderItemsFromMenu({
+          rawOrderItems,
+          restaurantId,
+          requireIikoProductId: true,
+        });
+        if (snapshot?.error) {
+          return res.status(snapshot.error.status).json({
             success: false,
-            message: "В заказе есть некорректные позиции",
+            message: snapshot.error.message,
+            details: snapshot.error.details ?? undefined,
           });
         }
+        normalizedOrderItems = snapshot.normalizedItems;
 
-        const menuItemIds = Array.from(
-          new Set(
-            rawOrderItems
-              .map((item) =>
-                typeof item?.id === "string" && item.id.trim().length ? item.id.trim() : null,
-              )
-              .filter(Boolean),
-          ),
-        );
-
-        const menuItems = await queryMany(
-          `SELECT
-              mi.id,
-              mi.name,
-              mc.restaurant_id,
-              COALESCE(NULLIF(TRIM(mi.iiko_product_id), ''), NULL) AS iiko_product_id
-           FROM menu_items mi
-           JOIN menu_categories mc ON mc.id = mi.category_id
-           WHERE mi.id = ANY($1::varchar[])`,
-          [menuItemIds],
-        );
-
-        const menuItemById = new Map(menuItems.map((menuItem) => [menuItem.id, menuItem]));
-        const unknownItemIds = menuItemIds.filter((itemId) => !menuItemById.has(itemId));
-
-        if (unknownItemIds.length > 0) {
-          return res.status(400).json({
-            success: false,
-            message: "В заказе есть несуществующие блюда",
-            details: {
-              unknownItemIds,
-            },
-          });
-        }
-
-        const foreignRestaurantItems = menuItems
-          .filter((menuItem) => menuItem.restaurant_id !== restaurantId)
-          .map((menuItem) => ({
-            id: menuItem.id,
-            name: menuItem.name,
-            restaurantId: menuItem.restaurant_id,
-          }));
-
-        if (foreignRestaurantItems.length > 0) {
-          return res.status(400).json({
-            success: false,
-            message: "В заказе есть блюда другого ресторана",
-            details: {
-              foreignRestaurantItems,
-            },
-          });
-        }
-
-        const itemsWithoutIikoId = menuItems
-          .filter((menuItem) => !menuItem.iiko_product_id)
-          .map((menuItem) => ({
-            id: menuItem.id,
-            name: menuItem.name,
-          }));
-
-        if (itemsWithoutIikoId.length > 0) {
-          return res.status(400).json({
-            success: false,
-            message: "Некоторые блюда недоступны для заказа. Обновите меню и попробуйте снова.",
-            details: {
-              reason: "missing_iiko_product_id",
-              items: itemsWithoutIikoId,
-            },
-          });
-        }
-
-        normalizedOrderItems = rawOrderItems.map((item) => {
-          const menuItem = menuItemById.get(String(item.id).trim());
-          const iikoProductId = menuItem?.iiko_product_id;
-          return {
-            ...item,
-            iiko_product_id: iikoProductId,
-            iikoProductId,
-          };
+        const { subtotal, deliveryFee, total, warnings } = calculateOrderPricing({
+          items: normalizedOrderItems,
+          orderType,
         });
 
         const integrationConfig = await fetchRestaurantIntegrationConfig(restaurantId);
-        if (integrationConfig) {
-          const availabilityResult = await iikoClient.getPaymentMethodAvailability(integrationConfig);
-          if (availabilityResult?.success) {
-            const selectedPaymentMethod =
-              availabilityResult.paymentMethods?.[paymentMethod] ?? null;
-            if (selectedPaymentMethod && selectedPaymentMethod.available === false) {
-              return res.status(400).json({
-                success: false,
-                code: "IIKO_PAYMENT_METHOD_UNAVAILABLE",
-                message:
-                  paymentMethod === "card"
-                    ? "Оплата картой при получении сейчас недоступна для этого ресторана."
-                    : paymentMethod === "online"
-                      ? "Онлайн-оплата сейчас недоступна для этого ресторана."
-                      : "Оплата наличными сейчас недоступна для этого ресторана.",
-              });
-            }
-          } else {
-            console.warn(
-              `⚠️ Не удалось проверить способы оплаты iiko для ресторана ${restaurantId}: ${availabilityResult?.error}`,
-            );
-          }
+        if (!integrationConfig) {
+          return res.status(503).json({
+            success: false,
+            code: "IIKO_INTEGRATION_UNAVAILABLE",
+            message: "Оформление заказа временно недоступно для выбранного ресторана.",
+          });
+        }
 
-          const stopListResult = await iikoClient.getStopList(integrationConfig);
-          if (stopListResult.success) {
-            const stopListProductIds = new Set(
-              (Array.isArray(stopListResult.productIds) ? stopListResult.productIds : [])
-                .map((id) => normaliseIikoProductId(id).toLowerCase())
-                .filter(Boolean),
-            );
-            const blockedItems = collectStopListBlockedItems(normalizedOrderItems, stopListProductIds);
-            if (blockedItems.length > 0) {
-              const blockedNames = Array.from(
-                new Set(
-                  blockedItems
-                    .map((item) => (typeof item?.name === "string" ? item.name.trim() : ""))
-                    .filter(Boolean),
-                ),
-              );
-              const blockedSummary =
-                blockedNames.length > 0
-                  ? `${blockedNames.slice(0, 3).join(", ")}${blockedNames.length > 3 ? " и другие" : ""}`
-                  : `${blockedItems.length} поз.`;
-              return res.status(409).json({
-                success: false,
-                code: "IIKO_STOP_LIST_BLOCK",
-                message: `Некоторые блюда сейчас недоступны (стоп-лист): ${blockedSummary}. Удалите их из корзины и попробуйте снова.`,
-                details: {
-                  blockedCount: blockedItems.length,
-                  blockedItems: blockedItems.slice(0, 20),
-                },
-              });
-            }
-          } else {
-            console.warn(
-              `⚠️ Не удалось проверить стоп-лист iiko для ресторана ${restaurantId}: ${stopListResult.error}`,
-            );
+        const availabilityResult = await iikoClient.getPaymentMethodAvailability(integrationConfig);
+        if (availabilityResult?.success) {
+          const selectedPaymentMethod =
+            availabilityResult.paymentMethods?.[paymentMethod] ?? null;
+          if (selectedPaymentMethod && selectedPaymentMethod.available === false) {
+            return res.status(400).json({
+              success: false,
+              code: "IIKO_PAYMENT_METHOD_UNAVAILABLE",
+              message:
+                paymentMethod === "card"
+                  ? "Оплата картой при получении сейчас недоступна для этого ресторана."
+                  : paymentMethod === "online"
+                    ? "Онлайн-оплата сейчас недоступна для этого ресторана."
+                    : "Оплата наличными сейчас недоступна для этого ресторана.",
+            });
           }
+        } else {
+          console.warn(
+            `⚠️ Не удалось проверить способы оплаты iiko для ресторана ${restaurantId}: ${availabilityResult?.error}`,
+          );
+        }
+
+        const stopListResult = await iikoClient.getStopList(integrationConfig);
+        if (stopListResult.success) {
+          const stopListProductIds = new Set(
+            (Array.isArray(stopListResult.productIds) ? stopListResult.productIds : [])
+              .map((id) => normaliseIikoProductId(id).toLowerCase())
+              .filter(Boolean),
+          );
+          const blockedItems = collectStopListBlockedItems(normalizedOrderItems, stopListProductIds);
+          if (blockedItems.length > 0) {
+            const blockedNames = Array.from(
+              new Set(
+                blockedItems
+                  .map((item) => (typeof item?.name === "string" ? item.name.trim() : ""))
+                  .filter(Boolean),
+              ),
+            );
+            const blockedSummary =
+              blockedNames.length > 0
+                ? `${blockedNames.slice(0, 3).join(", ")}${blockedNames.length > 3 ? " и другие" : ""}`
+                : `${blockedItems.length} поз.`;
+            return res.status(409).json({
+              success: false,
+              code: "IIKO_STOP_LIST_BLOCK",
+              message: `Некоторые блюда сейчас недоступны (стоп-лист): ${blockedSummary}. Удалите их из корзины и попробуйте снова.`,
+              details: {
+                blockedCount: blockedItems.length,
+                blockedItems: blockedItems.slice(0, 20),
+              },
+            });
+          }
+        } else {
+          console.warn(
+            `⚠️ Не удалось проверить стоп-лист iiko для ресторана ${restaurantId}: ${stopListResult.error}`,
+          );
         }
 
         console.log(`💾 Saving order ${orderId} to PostgreSQL`);
@@ -971,6 +1089,45 @@ export function registerCartRoutes(app) {
             .json({ success: false, message: "Не удалось сохранить заказ. Попробуйте позже." });
         }
         console.log(`✅ Order ${orderId} saved to PostgreSQL`);
+
+        await logIntegrationJob({
+          provider: "delivery_app",
+          restaurantId,
+          orderId: insertedOrder.id ?? null,
+          action: "order_saved",
+          status: "success",
+          payload: {
+            externalId: orderId,
+            orderType,
+            paymentMethod,
+            cityId: orderPayload.cityId ?? null,
+            totals: {
+              subtotal,
+              deliveryFee,
+              total,
+            },
+            itemCount: normalizedOrderItems.length,
+            items: summarizeOrderItemsForLog(normalizedOrderItems),
+            platform: composedMeta.platform ?? null,
+            deliveryAddressParts: composedMeta.deliveryAddressParts ?? null,
+          },
+        });
+
+        if (paymentMethod === "online") {
+          await logIntegrationJob({
+            provider: "yookassa",
+            restaurantId,
+            orderId: insertedOrder.id ?? null,
+            action: "awaiting_payment",
+            status: "pending",
+            payload: {
+              externalId: orderId,
+              orderType,
+              total,
+              paymentMethod,
+            },
+          });
+        }
 
         // Сохраняем последний адрес в профиле (если есть Telegram ID и адрес)
         if ((resolvedTelegramId || resolvedVkId) && orderType === "delivery") {
@@ -1040,7 +1197,7 @@ export function registerCartRoutes(app) {
       message: db
         ? paymentMethod === "online"
           ? "Заказ сохранён. Оплатите онлайн, после этого он будет отправлен в ресторан."
-          : "Заказ принят и отправляется в ресторан."
+          : "Заказ сохранён. Проверяем и передаём его в ресторан."
         : "Заказ принят mock-сервером. Подключите PostgreSQL/iiko позже.",
     });
   });

@@ -45,6 +45,8 @@ import {
   listAppErrorLogs,
   updateAppErrorLogStatus,
 } from "../services/appErrorLogService.mjs";
+import { resolveEffectiveCartOrderStatus } from "../services/iikoOrderStatusService.mjs";
+import { listOrderIntegrationLogs } from "../services/integrationService.mjs";
 
 const BOOKING_STATUS_VALUES = new Set(["created", "confirmed", "closed", "cancelled"]);
 const logger = createLogger("booking-status");
@@ -65,6 +67,23 @@ const buildAdminSeenKeys = (user) =>
 
 const normaliseAdminPlatform = (value) =>
   value === "telegram" || value === "vk" ? value : null;
+
+const parseJsonField = (value, fallback = null) => {
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+  if (typeof value === "object") {
+    return value;
+  }
+  if (typeof value !== "string") {
+    return fallback;
+  }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+};
 
 const pickProfileAdminRecordForPlatform = ({
   platform,
@@ -884,16 +903,13 @@ export function createAdminRouter() {
       typeof req.query?.restaurantId === "string" ? req.query.restaurantId.trim() : null;
     const fromDate = normalizeDateFilter(req.query?.fromDate);
     const toDate = normalizeDateFilter(req.query?.toDate);
+    const fetchLimit =
+      statusFilters && statusFilters.length > 0 ? Math.min(Math.max(limit * 3, limit), 500) : limit;
 
     try {
       let queryText = `SELECT * FROM ${CART_ORDERS_TABLE} WHERE 1=1`;
       const params = [];
       let paramIndex = 1;
-
-      if (statusFilters && statusFilters.length > 0) {
-        queryText += ` AND status = ANY($${paramIndex++})`;
-        params.push(statusFilters);
-      }
 
       if (restaurantFilter) {
         queryText += ` AND restaurant_id = $${paramIndex++}`;
@@ -909,7 +925,7 @@ export function createAdminRouter() {
       }
 
       queryText += ` ORDER BY created_at DESC LIMIT $${paramIndex++}`;
-      params.push(limit);
+      params.push(fetchLimit);
 
       const results = await queryMany(queryText, params);
       
@@ -930,18 +946,108 @@ export function createAdminRouter() {
             order.warnings = JSON.parse(order.warnings);
           } catch {}
         }
+        order.effective_status = resolveEffectiveCartOrderStatus({
+          status: order.status,
+          iikoStatus: order.iiko_status,
+          providerStatus: order.provider_status,
+        });
         return order;
       });
 
+      const filteredOrders =
+        statusFilters && statusFilters.length > 0
+          ? orders.filter((order) => statusFilters.includes(order.effective_status))
+          : orders;
+
       return res.json({
         success: true,
-        orders,
+        orders: filteredOrders.slice(0, limit),
       });
     } catch (error) {
       console.error("Ошибка получения заказов (admin):", error);
       return res
         .status(500)
         .json({ success: false, message: "Не удалось получить список заказов" });
+    }
+  });
+
+  router.get("/orders/:orderId/logs", async (req, res) => {
+    if (!ensureDatabase(res)) {
+      return;
+    }
+    const admin = await authoriseAdmin(req, res, ADMIN_PERMISSION.MANAGE_DELIVERIES);
+    if (!admin) {
+      return;
+    }
+
+    const rawOrderId = typeof req.params?.orderId === "string" ? req.params.orderId.trim() : "";
+    if (!rawOrderId) {
+      return res.status(400).json({ success: false, message: "orderId обязателен" });
+    }
+
+    const logsLimitRaw = Number.parseInt(req.query?.logsLimit ?? "", 10);
+    const logsLimit = Number.isFinite(logsLimitRaw) ? Math.min(Math.max(logsLimitRaw, 1), 500) : 200;
+
+    try {
+      const order = await queryOne(
+        `SELECT *
+         FROM ${CART_ORDERS_TABLE}
+         WHERE id::text = $1 OR external_id = $1
+         LIMIT 1`,
+        [rawOrderId],
+      );
+
+      if (!order?.id) {
+        return res.status(404).json({ success: false, message: "Заказ не найден" });
+      }
+
+      if (
+        admin.role !== "super_admin" &&
+        admin.role !== "admin" &&
+        (!admin.allowedRestaurants || !admin.allowedRestaurants.includes(order.restaurant_id))
+      ) {
+        return res.status(403).json({ success: false, message: "Нет доступа к этому заказу" });
+      }
+
+      order.items = parseJsonField(order.items, []);
+      order.meta = parseJsonField(order.meta, {});
+      order.warnings = parseJsonField(order.warnings, []);
+      order.effective_status = resolveEffectiveCartOrderStatus({
+        status: order.status,
+        iikoStatus: order.iiko_status,
+        providerStatus: order.provider_status,
+      });
+
+      const payments = (
+        await queryMany(
+          `SELECT *
+           FROM payments
+           WHERE order_id = $1
+           ORDER BY created_at ASC`,
+          [order.id],
+        )
+      ).map((payment) => ({
+        ...payment,
+        metadata: parseJsonField(payment.metadata, {}),
+      }));
+
+      const logs = await listOrderIntegrationLogs({
+        orderId: order.id,
+        limit: logsLimit,
+      });
+
+      return res.json({
+        success: true,
+        order,
+        payments,
+        logs,
+      });
+    } catch (error) {
+      console.error("Ошибка получения логов заказа (admin):", error);
+      return res.status(500).json({
+        success: false,
+        message: "Не удалось получить таймлайн заказа",
+      });
     }
   });
 

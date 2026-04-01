@@ -197,6 +197,29 @@ export const resolveIikoRawStatus = (payload) => pickFirstValue(payload, RAW_STA
 
 export const normalizeIikoOrderStatus = (rawStatus) => normalizeCartStatus(rawStatus);
 
+export const resolveEffectiveCartOrderStatus = ({
+  status = null,
+  iikoStatus = null,
+  providerStatus = null,
+} = {}) => {
+  const current = normalizeCartStatus(status);
+  const provider = normalizeCartStatus(iikoStatus) ?? normalizeCartStatus(providerStatus);
+
+  if (current === "completed" || current === "cancelled" || current === "failed") {
+    return current;
+  }
+  if (provider === "failed" || provider === "cancelled") {
+    return provider;
+  }
+  if (!current) {
+    return provider ?? "processing";
+  }
+  if (!provider) {
+    return current;
+  }
+  return mergeCartOrderStatus(current, provider) ?? current;
+};
+
 export const isFinalCartOrderStatus = (value) => {
   const normalized = normalizeCartStatus(value);
   return normalized ? FINAL_CART_STATUSES.has(normalized) : false;
