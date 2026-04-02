@@ -864,10 +864,6 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                 <p className="text-sm font-semibold text-mariko-dark/70 mb-2">Способ оплаты</p>
                 <div className="rounded-[16px] border border-mariko-primary/20 bg-mariko-primary/5 px-4 py-3">
                   <p className="text-sm font-semibold text-mariko-primary">Онлайн-оплата</p>
-                  <p className="mt-1 text-xs leading-relaxed text-mariko-dark/70">
-                    Другие способы оплаты в приложении временно отключены. После оформления заказа
-                    откроется безопасная оплата онлайн.
-                  </p>
                 </div>
               </div>
 
