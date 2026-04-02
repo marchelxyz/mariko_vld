@@ -286,6 +286,12 @@ const isSupportedIikoMenuProduct = (product) => {
   return true;
 };
 
+const hasUnsupportedRequiredGroupModifiers = (product) =>
+  asArray(product?.groupModifiers).some((group) => {
+    const minAmount = Number(group?.minAmount ?? 0);
+    return group?.required === true || (Number.isFinite(minAmount) && minAmount > 0);
+  });
+
 const normalisePatternList = (values) =>
   asArray(values)
     .map((value) => normaliseLowerText(value))
@@ -630,6 +636,7 @@ const buildMenuFromIikoNomenclature = ({ restaurantId, nomenclature, includeInac
   let fallbackCategoryIndex = 0;
   let fallbackItemIndex = 0;
   let skippedUnsupportedProducts = 0;
+  let skippedProductsWithRequiredModifiers = 0;
 
   const ensureCategory = (groupId, fallbackLabel = "Без категории") => {
     const key = groupId || `fallback-${fallbackCategoryIndex++}`;
@@ -660,6 +667,14 @@ const buildMenuFromIikoNomenclature = ({ restaurantId, nomenclature, includeInac
 
     if (!isSupportedIikoMenuProduct(product)) {
       skippedUnsupportedProducts += 1;
+      continue;
+    }
+
+    if (hasUnsupportedRequiredGroupModifiers(product)) {
+      skippedProductsWithRequiredModifiers += 1;
+      warnings.push(
+        `Пропущено блюдо "${productName}" (${productId || "без ID"}): в iiko требуется обязательный модификатор, который Mini App пока не поддерживает`,
+      );
       continue;
     }
 
@@ -723,6 +738,7 @@ const buildMenuFromIikoNomenclature = ({ restaurantId, nomenclature, includeInac
       categoriesReceived: categories.length,
       productsReceived: products.length,
       productsSkippedAsUnsupported: skippedUnsupportedProducts,
+      productsSkippedWithRequiredModifiers: skippedProductsWithRequiredModifiers,
       categoriesPrepared: categoriesResult.length,
       itemsPrepared: categoriesResult.reduce((acc, category) => acc + category.items.length, 0),
     },

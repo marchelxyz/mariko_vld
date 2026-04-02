@@ -37,6 +37,30 @@ const RAW_STATUS_PATHS = [
   "data.deliveryStatus",
 ];
 
+const CREATION_STATUS_PATHS = [
+  "order.creationStatus",
+  "orderInfo.creationStatus",
+  "eventInfo.creationStatus",
+  "data.order.creationStatus",
+  "creationStatus",
+];
+
+const ERROR_MESSAGE_PATHS = [
+  "order.errorInfo.message",
+  "order.errorInfo.description",
+  "orderInfo.errorInfo.message",
+  "orderInfo.errorInfo.description",
+  "eventInfo.errorInfo.message",
+  "eventInfo.errorInfo.description",
+  "data.order.errorInfo.message",
+  "data.order.errorInfo.description",
+  "errorInfo.message",
+  "errorInfo.description",
+  "message",
+  "description",
+  "error",
+];
+
 const PROVIDER_ORDER_ID_PATHS = [
   "order.id",
   "orderInfo.id",
@@ -208,6 +232,8 @@ const normalizeStatusKey = (value) =>
     .toLowerCase()
     .replace(/[\s_-]+/g, "");
 
+const resolveCreationStatus = (source) => normalizeStatusKey(pickFirstValue(source, CREATION_STATUS_PATHS));
+
 const resolveOrderServiceType = (source) => normalizeStatusKey(pickFirstValue(source, ORDER_SERVICE_TYPE_PATHS));
 
 const inferProgressStatus = (source) => {
@@ -348,7 +374,26 @@ const normalizeCartStatus = (value) => {
   return null;
 };
 
-export const resolveIikoRawStatus = (payload) => inferProgressStatus(payload) || pickFirstValue(payload, RAW_STATUS_PATHS);
+export const resolveIikoProviderErrorMessage = (payload) => pickFirstValue(payload, ERROR_MESSAGE_PATHS);
+
+export const resolveIikoRawStatus = (payload) => {
+  const inferredProgress = inferProgressStatus(payload);
+  if (inferredProgress) {
+    return inferredProgress;
+  }
+
+  const directStatus = pickFirstValue(payload, RAW_STATUS_PATHS);
+  if (directStatus) {
+    return directStatus;
+  }
+
+  const creationStatus = resolveCreationStatus(payload);
+  if (creationStatus === "error") {
+    return "error";
+  }
+
+  return "";
+};
 
 export const normalizeIikoOrderStatus = (rawStatus) => normalizeCartStatus(rawStatus);
 

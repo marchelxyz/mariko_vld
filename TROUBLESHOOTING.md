@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-04-02 18:03
+**Последнее обновление:** 2026-04-02 17:58
 
 ---
 
@@ -1665,6 +1665,39 @@ EOF
 - после деплоя оформить новый delivery-заказ с квартирой и проверить:
   - после `Подтвердить` в терминале в Mini App статус становится `Принят`;
   - в iiko заметка к адресу содержит квартиру.
+
+**Связанный commit:** `в работе`
+
+### ❌ Проблема: оплаченный заказ мог не появиться в терминале, если в составе были блюда с обязательными modifier-group, а Mini App оставлял такой заказ в `В обработке`
+
+**Дата:** 2026-04-02
+**Симптомы:**
+- пользователь оформлял и успешно оплачивал заказ в Mini App, но заказ не появлялся в терминале iiko;
+- в приложении карточка заказа продолжала висеть в `В обработке`, хотя в iiko сам заказ фактически не создавался;
+- live-проверка по заказу `mock-1775141231490` (`provider_order_id = c0d62951-9123-4331-bdd1-84224805f33d`) показала:
+  - `creationStatus = Error`;
+  - `errorReason = ModifierUsing`;
+  - `errorInfo.message` указывал на обязательный modifier-group у `Хинкали с бараниной`;
+  - в БД при этом оставались `provider_status = sent`, `status = pending_confirmation`.
+
+**Причина:**
+- часть блюд в live iiko номенклатуре имеет обязательные `groupModifiers` с `minAmount > 0` / `required = true`;
+- Mini App пока не поддерживает выбор модификаторов и отправляет такие блюда как обычные позиции без обязательной modifier-group;
+- iiko принимает `deliveries/create` асинхронно c `creationStatus = InProgress`, а затем при `deliveries/by_id` возвращает `creationStatus = Error`;
+- наш `status_worker` не трактовал `creationStatus = Error` как реальную ошибку и продолжал оставлять заказ в промежуточном статусе без `provider_error`.
+
+**Решение:**
+1. В `backend/server/services/iikoOrderStatusService.mjs` распознавать `creationStatus = Error` как `rawStatus = error`, но не возвращать `Success/InProgress` как жизненный статус заказа.
+2. Там же вытаскивать `errorInfo.message/description`, чтобы downstream-слой мог записать причину провайдера.
+3. В `backend/server/services/integrationService.mjs` при таком статусе переводить заказ в `failed` и сохранять `provider_error`.
+4. В `backend/server/routes/menuRoutes.mjs` на этапе iiko menu sync исключать блюда с обязательными `groupModifiers` из Mini App до появления полноценной поддержки модификаторов.
+
+**Проверка:**
+- live payload из `cart_orders.provider_payload` с `creationStatus = Error` должен резолвиться в:
+  - `resolveIikoRawStatus(...) -> "error"`;
+  - `normalizeIikoOrderStatus(...) -> "failed"`;
+- после деплоя новые заказы с такими блюдами не должны попадать в меню Mini App после синка;
+- уже созданные ошибочные заказы после повторной status-sync должны уходить из `В обработке` в `Ошибка отправки`.
 
 **Связанный commit:** `в работе`
 

@@ -1,7 +1,12 @@
 import { INTEGRATION_PROVIDER, INTEGRATION_CACHE_TTL_MS, CART_ORDERS_TABLE } from "../config.mjs";
 import { queryOne, queryMany, query, db } from "../postgresClient.mjs";
 import { iikoClient } from "../integrations/iiko-client.mjs";
-import { mergeCartOrderStatus, normalizeIikoOrderStatus, resolveIikoRawStatus } from "./iikoOrderStatusService.mjs";
+import {
+  mergeCartOrderStatus,
+  normalizeIikoOrderStatus,
+  resolveIikoProviderErrorMessage,
+  resolveIikoRawStatus,
+} from "./iikoOrderStatusService.mjs";
 import { hydrateRestaurantIntegrationSecrets } from "./restaurantIntegrationSecrets.mjs";
 
 const integrationConfigCache = new Map();
@@ -316,10 +321,16 @@ export const applyIikoOrderStatusUpdate = async ({
   }
 
   const normalizedIncomingStatus = normalizeIikoOrderStatus(resolvedRawStatus || normalizedRawStatus);
+  const resolvedProviderError = resolveIikoProviderErrorMessage(payloadStatusSource || payload);
   const nextOrderStatus = mergeCartOrderStatus(order.status, normalizedIncomingStatus);
   const nextFields = {
     provider_payload: payload ?? null,
-    provider_error: resolvedRawStatus || normalizedRawStatus ? null : undefined,
+    provider_error:
+      normalizedIncomingStatus === "failed"
+        ? resolvedProviderError || "iiko: не удалось создать заказ"
+        : resolvedRawStatus || normalizedRawStatus
+          ? null
+          : undefined,
   };
 
   if (normalizedProviderOrderId) {
