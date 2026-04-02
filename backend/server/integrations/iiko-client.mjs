@@ -286,12 +286,24 @@ const summarizeStopListEntries = (entries) => {
   };
 };
 
-const buildIikoOrderItems = (items) => {
+const resolveKitchenReceiptLabel = (orderType) => {
+  if (orderType === "delivery") {
+    return "MiniApp: доставка";
+  }
+  if (orderType === "pickup") {
+    return "MiniApp: самовывоз";
+  }
+  return "MiniApp";
+};
+
+const buildIikoOrderItems = (items, options = {}) => {
   if (!Array.isArray(items) || items.length === 0) {
     throw new Error("iiko: Заказ не содержит позиций");
   }
 
   const missingMappings = [];
+  const kitchenReceiptLabel = String(options?.kitchenReceiptLabel ?? "").trim();
+  let kitchenReceiptLabelApplied = false;
   const mappedItems = items.map((item, index) => {
     const productId = normaliseIikoProductId(item?.iiko_product_id ?? item?.iikoProductId);
     if (!productId) {
@@ -308,12 +320,19 @@ const buildIikoOrderItems = (items) => {
     const priceRaw = Number(item?.price ?? 0);
     const price = Number.isFinite(priceRaw) && priceRaw >= 0 ? priceRaw : 0;
 
-    return {
+    const mappedItem = {
       productId,
       type: "Product",
       amount,
       price,
     };
+
+    if (kitchenReceiptLabel && !kitchenReceiptLabelApplied) {
+      mappedItem.comment = kitchenReceiptLabel;
+      kitchenReceiptLabelApplied = true;
+    }
+
+    return mappedItem;
   });
 
   if (missingMappings.length > 0) {
@@ -1118,7 +1137,9 @@ const resolveIikoPaymentConfig = async (config, accessToken, paymentMethod) => {
 };
 
 const buildIikoDeliveryPayload = async (config, order, accessToken) => {
-  const items = buildIikoOrderItems(order.items ?? []);
+  const items = buildIikoOrderItems(order.items ?? [], {
+    kitchenReceiptLabel: resolveKitchenReceiptLabel(order.order_type),
+  });
 
   const phone = normalisePhone(order.customer_phone);
   const customerName = order.customer_name || order.customerName || "Гость";
