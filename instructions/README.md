@@ -67,6 +67,7 @@
 - [📘 iiko Cloud API Integration](./integrations/iiko/README.md) — **Полная интеграция с iiko**
   - [IIKO_COMPLETE_GUIDE.md](./integrations/iiko/IIKO_COMPLETE_GUIDE.md) — Комплексное руководство от настройки до production
   - [IIKO_MIGRATION_TO_TIMEWEB.md](./integrations/iiko/IIKO_MIGRATION_TO_TIMEWEB.md) — Миграция с Railway на TimeWeb
+  - [IIKO_NETWORK_CONFIGURATION_RUNBOOK.md](./integrations/iiko/IIKO_NETWORK_CONFIGURATION_RUNBOOK.md) — Подробный runbook по типам оплат, webhook и печати для всей сети
   - [🚀 МАСШТАБИРОВАНИЕ_СКРИПТ.md](./integrations/iiko/МАСШТАБИРОВАНИЕ_СКРИПТ.md) — **Краткая инструкция:** что написать и куда нажать
   - [NETWORK_ONBOARDING.md](./integrations/iiko/NETWORK_ONBOARDING.md) — Автоматизация подключения сети ресторанов
   - [NETWORK_ROLLOUT_3_RESTAURANTS_PLAYBOOK.md](./integrations/iiko/NETWORK_ROLLOUT_3_RESTAURANTS_PLAYBOOK.md) — Плейбук для запуска 3 ресторанов
