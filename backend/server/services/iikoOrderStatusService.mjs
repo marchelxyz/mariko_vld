@@ -109,6 +109,12 @@ const PACKED_TIMESTAMP_PATHS = [
   "data.whenCookingCompleted",
 ];
 
+const CONFIRMED_TIMESTAMP_PATHS = [
+  "order.whenConfirmed",
+  "whenConfirmed",
+  "data.whenConfirmed",
+];
+
 const KITCHEN_PROGRESS_PATHS = [
   "order.whenCookingStarted",
   "whenCookingStarted",
@@ -227,6 +233,9 @@ const inferProgressStatus = (source) => {
       return "readyforcourier";
     }
     return "ready";
+  }
+  if (hasValueAtPaths(source, CONFIRMED_TIMESTAMP_PATHS)) {
+    return "confirmed";
   }
   const itemStatuses = collectItemStatuses(source);
   if (itemStatuses.length > 0) {

@@ -47,7 +47,7 @@ export const normalizeDeliveryAddressParts = ({ city, street, house, apartment }
   const normalizedHouse = normaliseAddressValue(house);
   const normalizedApartment = normaliseAddressValue(apartment);
 
-  const line1 = [normalizedStreet, normalizedHouse].filter(Boolean).join(", ");
+  const line1 = [normalizedStreet, normalizedHouse, normalizedApartment].filter(Boolean).join(", ");
   const full = [[normalizedCity, normalizedStreet, normalizedHouse].filter(Boolean).join(", "), normalizedApartment]
     .filter(Boolean)
     .join(", ");

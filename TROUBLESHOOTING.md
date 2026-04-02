@@ -1589,6 +1589,43 @@ curl -X POST "https://tg.marikorest.ru/api/integrations/iiko/webhook" \
 
 **Связанный commit:** `в работе`
 
+### ❌ Проблема: после нажатия `Подтвердить` заказ продолжал висеть у клиента в `В обработке`, а в примечании к адресу не показывалась квартира
+
+**Дата:** 2026-04-02
+**Симптомы:**
+- в iiko у заказа уже появлялся `whenConfirmed`, но Mini App продолжал показывать `В обработке` вместо `Принят`;
+- это наблюдалось на свежих заказах Жуковского даже при корректной дальнейшей смене стадий;
+- в delivery-заказе квартира сохранялась в БД и в структурированном `deliveryPoint.address.flat`, но в примечании к адресу в iiko не показывалась;
+- live-проверка по заказам `mock-1775134160461` и `mock-1775134357541` показала:
+  - `whenConfirmed` заполнен;
+  - `deliveryPoint.address.flat = "8"`;
+  - `deliveryPoint.comment` и `line1` оставались без квартиры.
+
+**Причина:**
+- `iikoOrderStatusService` не считал `whenConfirmed` отдельным прогресс-сигналом, поэтому до стадии `packed` заказ мог оставаться в `pending_confirmation`;
+- `normalizeDeliveryAddressParts` собирал `line1` только из улицы и дома, без квартиры, а iiko использовал именно эту строку для заметки к адресу.
+
+**Решение:**
+1. В `backend/server/services/iikoOrderStatusService.mjs` добавить `whenConfirmed` как явный сигнал стадии `confirmed`, которая нормализуется в наш `processing`.
+2. В `backend/server/utils/deliveryAddress.mjs` включить квартиру в `line1`, чтобы iiko заметка к адресу получала строку вида `улица Гагарина, 23, 8` без возврата старого дубля адреса.
+
+**Проверка:**
+- локально:
+```bash
+node --input-type=module <<'EOF'
+import { resolveIikoRawStatus, normalizeIikoOrderStatus } from './backend/server/services/iikoOrderStatusService.mjs';
+console.log(resolveIikoRawStatus({ order: { status: 'Unconfirmed', whenConfirmed: '2026-04-02 15:52:48.209' } }));
+console.log(normalizeIikoOrderStatus('confirmed'));
+EOF
+```
+- ожидаемо: `confirmed` и затем `processing`;
+- проверить `normalizeDeliveryAddressParts(...)` и убедиться, что `line1` включает квартиру;
+- после деплоя оформить новый delivery-заказ с квартирой и проверить:
+  - после `Подтвердить` в терминале в Mini App статус становится `Принят`;
+  - в iiko заметка к адресу содержит квартиру.
+
+**Связанный commit:** `в работе`
+
 ### ❌ Проблема: Cloud API настроен на внешнее меню, но backend всё равно получает полную номенклатуру
 
 **Дата:** 2026-03-11
