@@ -1,5 +1,5 @@
 import { Minus, Plus, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart, useCityContext } from "@/contexts";
 import { recalculateCart, submitCartOrder } from "@/shared/api/cart";
@@ -152,8 +152,6 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   const [autoLocateAttempted, setAutoLocateAttempted] = useState(false);
   const [profileFromApi, setProfileFromApi] = useState<UserProfile | null>(null);
   const [profileHasAddress, setProfileHasAddress] = useState(false);
-  const [isKeyboardActionVisible, setIsKeyboardActionVisible] = useState(false);
-  const checkoutFormRef = useRef<HTMLFormElement | null>(null);
   const handleDecrease = (id: string) => {
     removeItem(id);
   };
@@ -217,7 +215,6 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
     if (isKeyboardEditableElement(activeElement)) {
       activeElement.blur();
     }
-    setIsKeyboardActionVisible(false);
   };
 
   const isFormValid =
@@ -819,39 +816,21 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
 
         {isCheckoutMode && (
           <form
-            ref={checkoutFormRef}
             className="flex-1 overflow-y-auto p-4 pt-4 pb-32 space-y-4"
             onSubmit={handleSubmit}
-            onFocusCapture={(event) => {
-              if (isKeyboardEditableElement(event.target)) {
-                setIsKeyboardActionVisible(true);
-              }
-            }}
-            onBlurCapture={() => {
-              if (typeof window === "undefined") {
+            onPointerDownCapture={(event) => {
+              const target = event.target;
+              if (!(target instanceof HTMLElement)) {
                 return;
               }
 
-              window.requestAnimationFrame(() => {
-                const activeElement = document.activeElement;
-                const isEditableInsideForm =
-                  isKeyboardEditableElement(activeElement) &&
-                  checkoutFormRef.current?.contains(activeElement);
-                setIsKeyboardActionVisible(Boolean(isEditableInsideForm));
-              });
+              if (target.closest("input, textarea, select, button, a, label")) {
+                return;
+              }
+
+              dismissKeyboard();
             }}
           >
-            {isKeyboardActionVisible && (
-              <div className="sticky top-0 z-10 -mx-4 -mt-4 mb-3 flex justify-end border-b border-mariko-field/70 bg-white/95 px-4 py-2 backdrop-blur">
-                <button
-                  type="button"
-                  className="rounded-full border border-mariko-field px-3 py-1.5 text-xs font-semibold text-mariko-primary transition-colors hover:bg-mariko-field/30"
-                  onClick={dismissKeyboard}
-                >
-                  Скрыть клавиатуру
-                </button>
-              </div>
-            )}
             <div className="pt-2">
               <p className="text-sm font-semibold text-mariko-dark/70 mb-2">Способ получения</p>
               <div className="flex items-center gap-2">
@@ -900,6 +879,8 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                   onChange={(event) => setCustomerName(event.target.value)}
                   className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
                   placeholder="Тётушка Марико"
+                  autoComplete="name"
+                  enterKeyHint="next"
                   required
                 />
               </label>
@@ -913,6 +894,8 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                   onChange={(event) => setPhoneDigits(parsePhoneInput(event.target.value))}
                   className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
                   placeholder="+7 (___) ___-__-__"
+                  autoComplete="tel"
+                  enterKeyHint={orderType === "delivery" ? "next" : "done"}
                   required
                 />
                 <span className="text-xs text-mariko-dark/60">
@@ -939,6 +922,8 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                         onBlur={() => setTimeout(() => setIsSuggestOpen(false), 100)}
                         className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
                         placeholder="Например, Жуковский, Гагарина 12"
+                        autoComplete="street-address"
+                        enterKeyHint="search"
                       />
                       {isSuggestLoading && (
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-mariko-dark/60">
@@ -975,6 +960,8 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                         }
                         className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
                         placeholder="Гагарина"
+                        autoComplete="address-line1"
+                        enterKeyHint="next"
                         required={orderType === "delivery"}
                       />
                     </label>
@@ -986,6 +973,8 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                         onChange={(event) => setAddressHouse(event.target.value)}
                         className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
                         placeholder="12"
+                        autoComplete="address-line2"
+                        enterKeyHint="next"
                         required={orderType === "delivery"}
                       />
                     </label>
@@ -999,6 +988,8 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                       onChange={(event) => setAddressApartment(event.target.value)}
                       className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
                       placeholder="Кв., подъезд, этаж"
+                      autoComplete="address-line2"
+                      enterKeyHint="next"
                     />
                   </label>
 
@@ -1019,6 +1010,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                   rows={3}
                   className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40 resize-none"
                   placeholder="Пожелания к заказу, домофон, подъезд"
+                  enterKeyHint="done"
                 />
               </label>
             </div>
