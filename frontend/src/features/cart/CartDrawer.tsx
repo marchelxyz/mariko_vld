@@ -7,7 +7,7 @@ import type { CartPaymentMethodAvailability } from "@/shared/api/cart";
 import { profileApi } from "@shared/api/profile";
 import type { UserProfile } from "@shared/types";
 import { getPlatform, getUser } from "@/lib/platform";
-import { sanitizeUserFacingMessage } from "@shared/utils";
+import { formatSelectedModifiersLabel, sanitizeUserFacingMessage } from "@shared/utils";
 
 type AddressSuggestion = {
   id: string;
@@ -802,6 +802,11 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                 <div key={item.id} className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">{item.name}</p>
+                    {formatSelectedModifiersLabel(item.selectedModifiers) && (
+                      <p className="text-sm text-mariko-dark/70">
+                        {formatSelectedModifiersLabel(item.selectedModifiers)}
+                      </p>
+                    )}
                     {(item.weight || item.calories) && (
                       <p className="text-sm text-mariko-dark/70">
                         {[item.weight, item.calories].filter(Boolean).join(' / ')}

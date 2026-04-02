@@ -9,6 +9,14 @@ import { useDeliveryAccess } from "@shared/hooks";
 import { getMenuByRestaurantId, type MenuItem, type RestaurantMenu } from "@shared/data";
 import { MenuItemComponent, DishCardSkeleton, DishDetailsFacts } from "@shared/ui";
 import { toast } from "@/hooks/use-toast";
+import {
+  createDefaultModifierSelectionMap,
+  formatSelectedModifiersLabel,
+  getMissingRequiredModifierGroups,
+  getModifierSelectionExtraPrice,
+  hasSelectableModifierGroups,
+  resolveSelectedModifiersFromMap,
+} from "@shared/utils";
 
 /**
  * Отображает меню выбранного ресторана с навигацией по категориям и карточками блюд.
@@ -34,6 +42,8 @@ const Menu = (): JSX.Element => {
   const [menu, setMenu] = useState<RestaurantMenu | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeDish, setActiveDish] = useState<MenuItem | null>(null);
+  const [activeDishModifierSelections, setActiveDishModifierSelections] = useState<Record<string, string>>({});
+  const [activeDishModifierError, setActiveDishModifierError] = useState<string | null>(null);
   const [dishModalImageFailed, setDishModalImageFailed] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -47,6 +57,8 @@ const Menu = (): JSX.Element => {
 
   useEffect(() => {
     setDishModalImageFailed(false);
+    setActiveDishModifierSelections(createDefaultModifierSelectionMap(activeDish));
+    setActiveDishModifierError(null);
   }, [activeDish]);
 
   // Загружаем меню для выбранного ресторана
@@ -178,6 +190,10 @@ const Menu = (): JSX.Element => {
         });
         return;
       }
+      if (hasSelectableModifierGroups(dish)) {
+        setActiveDish(dish);
+        return;
+      }
       const currentCount = getItemCount(dish.id);
       if (currentCount >= maxCartItemQuantity) {
         toast({
@@ -202,6 +218,53 @@ const Menu = (): JSX.Element => {
       maxCartItemQuantity,
     ],
   );
+
+  const handleAddActiveDishWithModifiers = useCallback(() => {
+    if (!activeDish) {
+      return;
+    }
+
+    const missingGroups = getMissingRequiredModifierGroups(
+      activeDish,
+      activeDishModifierSelections,
+    );
+    if (missingGroups.length > 0) {
+      setActiveDishModifierError(
+        `Выберите вариант для: ${missingGroups.map((group) => group.name).join(", ")}`,
+      );
+      return;
+    }
+
+    const currentCount = getItemCount(activeDish.id);
+    if (currentCount >= maxCartItemQuantity) {
+      toast({
+        title: "Лимит достигнут",
+        description: `Можно добавить не более ${maxCartItemQuantity} одинаковых блюд.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const selectedModifiers = resolveSelectedModifiersFromMap(
+      activeDish,
+      activeDishModifierSelections,
+    );
+    const modifierLabel = formatSelectedModifiersLabel(selectedModifiers);
+
+    addCartItem(activeDish, { selectedModifiers });
+    toast({
+      title: "В корзине",
+      description: modifierLabel ? `${activeDish.name} · ${modifierLabel}` : activeDish.name,
+      duration: 1300,
+    });
+    setActiveDish(null);
+  }, [
+    activeDish,
+    activeDishModifierSelections,
+    addCartItem,
+    getItemCount,
+    maxCartItemQuantity,
+  ]);
 
   const handleRemoveFromCart = useCallback(
     (dish: MenuItem) => {
@@ -243,6 +306,21 @@ const Menu = (): JSX.Element => {
   const activeDishOrderable = useMemo(
     () => (activeDish ? isDeliveryOrderingEnabled && isDishOrderable(activeDish) : false),
     [activeDish, isDeliveryOrderingEnabled, isDishOrderable],
+  );
+  const activeDishHasSelectableModifierGroups = useMemo(
+    () => hasSelectableModifierGroups(activeDish),
+    [activeDish],
+  );
+  const activeDishSelectedModifiers = useMemo(
+    () => resolveSelectedModifiersFromMap(activeDish, activeDishModifierSelections),
+    [activeDish, activeDishModifierSelections],
+  );
+  const activeDishResolvedPrice = useMemo(
+    () =>
+      activeDish
+        ? activeDish.price + getModifierSelectionExtraPrice(activeDishSelectedModifiers)
+        : 0,
+    [activeDish, activeDishSelectedModifiers],
   );
 
   // Индикатор загрузки - показываем скелетоны карточек блюд
@@ -410,7 +488,7 @@ const Menu = (): JSX.Element => {
           {itemsToRender.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
               {itemsToRender.map((item: MenuItem) => {
-                const quantity = getItemCount(item.id);
+                const quantity = hasSelectableModifierGroups(item) ? 0 : getItemCount(item.id);
                 const isOrderable = isDishOrderable(item);
                 return (
                   <MenuItemComponent
@@ -502,7 +580,7 @@ const Menu = (): JSX.Element => {
               <div className="space-y-4 overflow-y-auto px-5 pb-5 pt-4">
                 <div className="flex items-baseline justify-between gap-4">
                   <span className="font-el-messiri text-2xl font-bold text-mariko-secondary">
-                    {activeDish.price}₽
+                    {activeDishResolvedPrice}₽
                   </span>
                 </div>
 
@@ -538,6 +616,63 @@ const Menu = (): JSX.Element => {
                 <p className="text-base leading-relaxed text-gray-800">{activeDish.description}</p>
               )}
 
+              {activeDishHasSelectableModifierGroups && (
+                <div className="space-y-3 rounded-2xl border border-mariko-field/70 bg-mariko-field/20 p-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-mariko-dark">
+                      Выберите обязательные опции
+                    </p>
+                    <p className="text-xs text-mariko-dark/70">
+                      Без этого выбора заказ не получится отправить в ресторан.
+                    </p>
+                  </div>
+
+                  {activeDish.modifierGroups?.map((group) => (
+                    <div key={group.id} className="space-y-2">
+                      <p className="text-sm font-medium text-mariko-dark">
+                        {group.name}
+                        {group.required ? " *" : ""}
+                      </p>
+                      <div className="grid gap-2">
+                        {group.options.map((option) => {
+                          const isSelected = activeDishModifierSelections[group.id] === option.id;
+                          const optionPrice = Number(option.price ?? 0);
+                          return (
+                            <button
+                              key={option.id}
+                              type="button"
+                              onClick={() => {
+                                setActiveDishModifierSelections((prev) => ({
+                                  ...prev,
+                                  [group.id]: option.id,
+                                }));
+                                setActiveDishModifierError(null);
+                              }}
+                              className={`flex items-center justify-between rounded-xl border px-3 py-2 text-left transition-colors ${
+                                isSelected
+                                  ? "border-mariko-primary bg-mariko-primary/10 text-mariko-primary"
+                                  : "border-mariko-field text-mariko-dark hover:bg-mariko-field/30"
+                              }`}
+                            >
+                              <span>{option.name}</span>
+                              {optionPrice > 0 ? (
+                                <span className="text-sm font-medium">+{optionPrice}₽</span>
+                              ) : (
+                                <span className="text-sm text-mariko-dark/50">без доплаты</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+
+                  {activeDishModifierError && (
+                    <p className="text-sm text-red-700">{activeDishModifierError}</p>
+                  )}
+                </div>
+              )}
+
               <DishDetailsFacts
                 weight={activeDish.weight}
                 calories={activeDish.calories}
@@ -550,11 +685,39 @@ const Menu = (): JSX.Element => {
               <div className="space-y-3">
                 <p className="text-sm text-gray-600">
                   {activeDishOrderable
-                    ? "Добавьте блюдо в корзину для оформления заказа."
+                    ? activeDishHasSelectableModifierGroups
+                      ? "Сначала выберите вариант приготовления, затем добавьте блюдо в корзину."
+                      : "Добавьте блюдо в корзину для оформления заказа."
                     : "Это блюдо пока нельзя заказать."}
                 </p>
                 <div className="flex items-center gap-3">
-                  {getItemCount(activeDish.id) > 0 ? (
+                  {activeDishHasSelectableModifierGroups ? (
+                    <div className="w-full space-y-3">
+                      {getItemCount(activeDish.id) > 0 && (
+                        <p className="text-sm text-mariko-dark/70">
+                          В корзине: {getItemCount(activeDish.id)} шт.
+                          {formatSelectedModifiersLabel(activeDishSelectedModifiers)
+                            ? ` · ${formatSelectedModifiersLabel(activeDishSelectedModifiers)}`
+                            : ""}
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        className={`w-full rounded-xl px-4 py-3 text-center font-semibold text-white shadow-lg transition ${
+                          activeDishOrderable
+                            ? "bg-mariko-primary hover:brightness-110 active:scale-[0.99]"
+                            : "bg-gray-400 cursor-not-allowed"
+                        }`}
+                        disabled={!activeDishOrderable}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddActiveDishWithModifiers();
+                        }}
+                      >
+                        {activeDishOrderable ? "Добавить в корзину" : "Недоступно"}
+                      </button>
+                    </div>
+                  ) : getItemCount(activeDish.id) > 0 ? (
                     <>
                       <button
                         type="button"

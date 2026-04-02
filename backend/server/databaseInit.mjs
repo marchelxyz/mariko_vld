@@ -384,6 +384,7 @@ const SCHEMAS = {
       allergens JSONB DEFAULT '[]'::jsonb,
       image_url TEXT,
       iiko_product_id VARCHAR(255),
+      modifier_groups JSONB DEFAULT '[]'::jsonb,
       is_vegetarian BOOLEAN DEFAULT false,
       is_spicy BOOLEAN DEFAULT false,
       is_new BOOLEAN DEFAULT false,
@@ -1127,7 +1128,8 @@ export async function initializeDatabase() {
             'fats',
             'carbs',
             'allergens',
-            'iiko_product_id'
+            'iiko_product_id',
+            'modifier_groups'
           )
       `);
       const existingColumns = new Set(menuItemColumns.rows.map((row) => row.column_name));
@@ -1155,13 +1157,18 @@ export async function initializeDatabase() {
         await query(`ALTER TABLE menu_items ADD COLUMN iiko_product_id VARCHAR(255)`);
         console.log("✅ Поле iiko_product_id добавлено в таблицу menu_items");
       }
+      if (!existingColumns.has('modifier_groups')) {
+        await query(`ALTER TABLE menu_items ADD COLUMN modifier_groups JSONB DEFAULT '[]'::jsonb`);
+        console.log("✅ Поле modifier_groups добавлено в таблицу menu_items");
+      }
       if (
         existingColumns.has('calories') &&
         existingColumns.has('proteins') &&
         existingColumns.has('fats') &&
         existingColumns.has('carbs') &&
         existingColumns.has('allergens') &&
-        existingColumns.has('iiko_product_id')
+        existingColumns.has('iiko_product_id') &&
+        existingColumns.has('modifier_groups')
       ) {
         console.log("ℹ️  Nutrition-поля уже существуют в таблице menu_items");
       }

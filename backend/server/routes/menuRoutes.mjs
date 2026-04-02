@@ -5,11 +5,15 @@ import { createLogger } from "../utils/logger.mjs";
 import { ADMIN_PERMISSION, authoriseAdmin } from "../services/adminService.mjs";
 import { fetchRestaurantIntegrationConfig } from "../services/integrationService.mjs";
 import { iikoClient } from "../integrations/iiko-client.mjs";
+import {
+  extractSupportedIikoModifierGroups,
+  normalizeMenuModifierGroups,
+} from "../utils/menuModifiers.mjs";
 
 const logger = createLogger('menu');
 
 const MAX_ITEMS_PER_BATCH = 1000;
-const PARAMS_PER_ITEM = 19;
+const PARAMS_PER_ITEM = 20;
 const EXTERNAL_MENU_FILTER_PROFILES = {
   zhukovsky_delivery_food: {
     keepCategoryNames: [
@@ -285,12 +289,6 @@ const isSupportedIikoMenuProduct = (product) => {
 
   return true;
 };
-
-const hasUnsupportedRequiredGroupModifiers = (product) =>
-  asArray(product?.groupModifiers).some((group) => {
-    const minAmount = Number(group?.minAmount ?? 0);
-    return group?.required === true || (Number.isFinite(minAmount) && minAmount > 0);
-  });
 
 const normalisePatternList = (values) =>
   asArray(values)
@@ -612,12 +610,13 @@ export const buildMenuFromIikoExternalMenu = ({
   };
 };
 
-const buildMenuFromIikoNomenclature = ({ restaurantId, nomenclature, includeInactive = false }) => {
+export const buildMenuFromIikoNomenclature = ({ restaurantId, nomenclature, includeInactive = false }) => {
   const groups = Array.isArray(nomenclature?.groups) ? nomenclature.groups : [];
   const categories = Array.isArray(nomenclature?.categories) ? nomenclature.categories : [];
   const products = Array.isArray(nomenclature?.products) ? nomenclature.products : [];
 
   const groupNameById = new Map();
+  const productMetaById = new Map();
   for (const group of groups) {
     const id = normaliseText(group?.id);
     if (!id) continue;
@@ -630,13 +629,23 @@ const buildMenuFromIikoNomenclature = ({ restaurantId, nomenclature, includeInac
     const name = normaliseText(category?.name) || "Без категории";
     groupNameById.set(id, name);
   }
+  for (const product of products) {
+    const id = normaliseText(product?.id);
+    if (!id || productMetaById.has(id)) {
+      continue;
+    }
+    productMetaById.set(id, {
+      name: normaliseText(product?.name) || "",
+      price: extractProductPrice(product),
+    });
+  }
 
   const categoryMap = new Map();
   const warnings = [];
   let fallbackCategoryIndex = 0;
   let fallbackItemIndex = 0;
   let skippedUnsupportedProducts = 0;
-  let skippedProductsWithRequiredModifiers = 0;
+  let skippedProductsWithUnsupportedRequiredModifiers = 0;
 
   const ensureCategory = (groupId, fallbackLabel = "Без категории") => {
     const key = groupId || `fallback-${fallbackCategoryIndex++}`;
@@ -670,12 +679,30 @@ const buildMenuFromIikoNomenclature = ({ restaurantId, nomenclature, includeInac
       continue;
     }
 
-    if (hasUnsupportedRequiredGroupModifiers(product)) {
-      skippedProductsWithRequiredModifiers += 1;
+    const { modifierGroups, unsupportedGroups } = extractSupportedIikoModifierGroups(product, {
+      resolveGroupName: (groupId) => groupNameById.get(groupId) || "",
+      resolveModifierName: (modifierId) => productMetaById.get(modifierId)?.name || "",
+      resolveModifierPrice: (modifierId) => productMetaById.get(modifierId)?.price,
+    });
+    const hasUnsupportedRequiredModifierGroups = unsupportedGroups.some(
+      (group) => group?.required === true,
+    );
+
+    if (hasUnsupportedRequiredModifierGroups) {
+      skippedProductsWithUnsupportedRequiredModifiers += 1;
       warnings.push(
-        `Пропущено блюдо "${productName}" (${productId || "без ID"}): в iiko требуется обязательный модификатор, который Mini App пока не поддерживает`,
+        `Пропущено блюдо "${productName}" (${productId || "без ID"}): в iiko есть обязательный модификатор со сложной схемой, которую Mini App пока не поддерживает`,
       );
       continue;
+    }
+
+    if (unsupportedGroups.length > 0) {
+      warnings.push(
+        `Для блюда "${productName}" (${productId || "без ID"}) проигнорированы неподдерживаемые необязательные модификаторы: ${unsupportedGroups
+          .map((group) => group.name || group.id || "без названия")
+          .filter(Boolean)
+          .join(", ")}`,
+      );
     }
 
     const isDeleted = Boolean(product?.isDeleted);
@@ -706,6 +733,7 @@ const buildMenuFromIikoNomenclature = ({ restaurantId, nomenclature, includeInac
       allergens: extractIikoAllergens(product),
       imageUrl: extractProductImageUrl(product),
       iikoProductId: productId || undefined,
+      modifierGroups,
       isVegetarian: false,
       isSpicy: false,
       isNew: false,
@@ -738,7 +766,7 @@ const buildMenuFromIikoNomenclature = ({ restaurantId, nomenclature, includeInac
       categoriesReceived: categories.length,
       productsReceived: products.length,
       productsSkippedAsUnsupported: skippedUnsupportedProducts,
-      productsSkippedWithRequiredModifiers: skippedProductsWithRequiredModifiers,
+      productsSkippedWithRequiredModifiers: skippedProductsWithUnsupportedRequiredModifiers,
       categoriesPrepared: categoriesResult.length,
       itemsPrepared: categoriesResult.reduce((acc, category) => acc + category.items.length, 0),
     },
@@ -849,6 +877,10 @@ export const mergePreparedMenuWithExisting = (menu, existingByIikoId) => {
           Array.isArray(item.allergens) && item.allergens.length > 0
             ? item.allergens
             : normaliseAllergenList(existing.allergens),
+        modifierGroups:
+          Array.isArray(item.modifierGroups) && item.modifierGroups.length > 0
+            ? item.modifierGroups
+            : normalizeMenuModifierGroups(existing.modifier_groups),
         isVegetarian: existing.is_vegetarian ?? item.isVegetarian ?? false,
         isSpicy: existing.is_spicy ?? item.isSpicy ?? false,
         isNew: existing.is_new ?? item.isNew ?? false,
@@ -922,7 +954,7 @@ export const persistRestaurantMenu = async (restaurantId, menu) => {
       const item = category.items[itemIndex];
       const itemId = item.id || `${categoryId}-item-${itemIndex}`;
 
-      itemValues.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7}, $${paramIndex + 8}, $${paramIndex + 9}, $${paramIndex + 10}, $${paramIndex + 11}, $${paramIndex + 12}, $${paramIndex + 13}, $${paramIndex + 14}, $${paramIndex + 15}, $${paramIndex + 16}, $${paramIndex + 17}, $${paramIndex + 18}, NOW(), NOW())`);
+      itemValues.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7}, $${paramIndex + 8}, $${paramIndex + 9}, $${paramIndex + 10}, $${paramIndex + 11}, $${paramIndex + 12}, $${paramIndex + 13}, $${paramIndex + 14}, $${paramIndex + 15}, $${paramIndex + 16}, $${paramIndex + 17}, $${paramIndex + 18}, $${paramIndex + 19}, NOW(), NOW())`);
       itemParams.push(
         itemId,
         categoryId,
@@ -937,6 +969,7 @@ export const persistRestaurantMenu = async (restaurantId, menu) => {
         JSON.stringify(Array.isArray(item.allergens) ? item.allergens : []),
         item.imageUrl || null,
         item.iikoProductId || null,
+        JSON.stringify(Array.isArray(item.modifierGroups) ? item.modifierGroups : []),
         !!item.isVegetarian,
         !!item.isSpicy,
         !!item.isNew,
@@ -960,7 +993,7 @@ export const persistRestaurantMenu = async (restaurantId, menu) => {
 
     for (let j = 0; j < batchSize; j++) {
       const itemIndex = i + j;
-      batchValues.push(`($${batchParamIndex}, $${batchParamIndex + 1}, $${batchParamIndex + 2}, $${batchParamIndex + 3}, $${batchParamIndex + 4}, $${batchParamIndex + 5}, $${batchParamIndex + 6}, $${batchParamIndex + 7}, $${batchParamIndex + 8}, $${batchParamIndex + 9}, $${batchParamIndex + 10}, $${batchParamIndex + 11}, $${batchParamIndex + 12}, $${batchParamIndex + 13}, $${batchParamIndex + 14}, $${batchParamIndex + 15}, $${batchParamIndex + 16}, $${batchParamIndex + 17}, $${batchParamIndex + 18}, NOW(), NOW())`);
+      batchValues.push(`($${batchParamIndex}, $${batchParamIndex + 1}, $${batchParamIndex + 2}, $${batchParamIndex + 3}, $${batchParamIndex + 4}, $${batchParamIndex + 5}, $${batchParamIndex + 6}, $${batchParamIndex + 7}, $${batchParamIndex + 8}, $${batchParamIndex + 9}, $${batchParamIndex + 10}, $${batchParamIndex + 11}, $${batchParamIndex + 12}, $${batchParamIndex + 13}, $${batchParamIndex + 14}, $${batchParamIndex + 15}, $${batchParamIndex + 16}, $${batchParamIndex + 17}, $${batchParamIndex + 18}, $${batchParamIndex + 19}, NOW(), NOW())`);
       batchParams.push(...itemParams.slice(itemIndex * PARAMS_PER_ITEM, (itemIndex + 1) * PARAMS_PER_ITEM));
       batchParamIndex += PARAMS_PER_ITEM;
     }
@@ -968,7 +1001,7 @@ export const persistRestaurantMenu = async (restaurantId, menu) => {
     await query(
       `INSERT INTO menu_items (
         id, category_id, name, description, price, weight, calories, proteins, fats, carbs, allergens, image_url,
-        iiko_product_id, is_vegetarian, is_spicy, is_new, is_recommended, is_active, display_order,
+        iiko_product_id, modifier_groups, is_vegetarian, is_spicy, is_new, is_recommended, is_active, display_order,
         created_at, updated_at
       )
       VALUES ${batchValues.join(', ')}`,
@@ -1096,6 +1129,7 @@ export function createMenuRouter() {
           allergens: normaliseAllergenList(item.allergens),
           imageUrl,
           iikoProductId: iikoProductId || undefined,
+          modifierGroups: normalizeMenuModifierGroups(item.modifier_groups),
           isOrderable,
           isVegetarian: !!item.is_vegetarian,
           isSpicy: !!item.is_spicy,

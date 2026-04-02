@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-04-02 17:58
+**Последнее обновление:** 2026-04-02 18:32
 
 ---
 
@@ -1682,7 +1682,10 @@ EOF
 
 **Причина:**
 - часть блюд в live iiko номенклатуре имеет обязательные `groupModifiers` с `minAmount > 0` / `required = true`;
-- Mini App пока не поддерживает выбор модификаторов и отправляет такие блюда как обычные позиции без обязательной modifier-group;
+- `childModifiers` в iiko номенклатуре приходят только с `id`, без `name`, поэтому до полноценной поддержки modifiers Mini App не умел:
+  - показать обязательный выбор пользователю;
+  - сохранить выбранный вариант в корзине и заказе;
+  - передать `modifiers[]` в `deliveries/create`;
 - iiko принимает `deliveries/create` асинхронно c `creationStatus = InProgress`, а затем при `deliveries/by_id` возвращает `creationStatus = Error`;
 - наш `status_worker` не трактовал `creationStatus = Error` как реальную ошибку и продолжал оставлять заказ в промежуточном статусе без `provider_error`.
 
@@ -1690,13 +1693,21 @@ EOF
 1. В `backend/server/services/iikoOrderStatusService.mjs` распознавать `creationStatus = Error` как `rawStatus = error`, но не возвращать `Success/InProgress` как жизненный статус заказа.
 2. Там же вытаскивать `errorInfo.message/description`, чтобы downstream-слой мог записать причину провайдера.
 3. В `backend/server/services/integrationService.mjs` при таком статусе переводить заказ в `failed` и сохранять `provider_error`.
-4. В `backend/server/routes/menuRoutes.mjs` на этапе iiko menu sync исключать блюда с обязательными `groupModifiers` из Mini App до появления полноценной поддержки модификаторов.
+4. Добавить полноценную поддержку обязательных modifiers:
+   - хранить `modifier_groups` в `menu_items`;
+   - при iiko menu sync поднимать single-choice modifier groups в Mini App и резолвить названия child-модификаторов по `id` через номенклатуру;
+   - на frontend требовать выбор обязательного варианта перед добавлением блюда в корзину;
+   - хранить выбранные modifiers в cart/order payload;
+   - в `backend/server/integrations/iiko-client.mjs` отправлять их в `order.items[].modifiers`.
+5. Временное скрытие таких блюд из меню считать только аварийным обходом. После выката поддержки modifiers вернуть позиции через iiko menu sync.
 
 **Проверка:**
 - live payload из `cart_orders.provider_payload` с `creationStatus = Error` должен резолвиться в:
   - `resolveIikoRawStatus(...) -> "error"`;
   - `normalizeIikoOrderStatus(...) -> "failed"`;
-- после деплоя новые заказы с такими блюдами не должны попадать в меню Mini App после синка;
+- после деплоя блюда с обязательным single-choice modifier снова доступны в меню Mini App и требуют явного выбора;
+- в корзине и истории заказа виден выбранный вариант (`Жареные` / `Вареные`);
+- в payload `deliveries/create` для таких позиций появляется `items[].modifiers[]` с `productId` и `productGroupId`;
 - уже созданные ошибочные заказы после повторной status-sync должны уходить из `В обработке` в `Ошибка отправки`.
 
 **Связанный commit:** `в работе`
@@ -4504,5 +4515,5 @@ open "http://127.0.0.1:4174/?smoke_platform=vk&smoke_role=admin#/admin"
 
 ---
 
-**Последнее обновление:** 2026-04-01 17:03
+**Последнее обновление:** 2026-04-02 18:32
 **Автор:** Codex (GPT-5)

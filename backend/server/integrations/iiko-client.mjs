@@ -6,6 +6,7 @@ import {
   normalizeDeliveryAddressParts,
   normalizeDeliveryCoordinates,
 } from "../utils/deliveryAddress.mjs";
+import { normalizeSelectedOrderModifiers } from "../utils/menuModifiers.mjs";
 
 const IIKO_BASE_URL = process.env.IIKO_BASE_URL || "https://api-ru.iiko.services";
 const IIKO_TIMEOUT_MS = Number.parseInt(process.env.IIKO_TIMEOUT_MS ?? "", 10) || 15000;
@@ -414,12 +415,23 @@ const buildIikoOrderItems = (items, options = {}) => {
     const amount = Number.isFinite(amountRaw) && amountRaw > 0 ? amountRaw : 1;
     const priceRaw = Number(item?.price ?? 0);
     const price = Number.isFinite(priceRaw) && priceRaw >= 0 ? priceRaw : 0;
+    const modifiers = normalizeSelectedOrderModifiers(
+      item?.selected_modifiers ?? item?.selectedModifiers,
+    )
+      .map((modifier) => ({
+        productId: modifier.optionId,
+        productGroupId: modifier.groupId,
+        amount: 1,
+        price: Number.isFinite(Number(modifier.price)) ? Number(modifier.price) : 0,
+      }))
+      .filter((modifier) => modifier.productId && modifier.productGroupId);
 
     const mappedItem = {
       productId,
       type: "Product",
       amount,
       price,
+      ...(modifiers.length > 0 ? { modifiers } : {}),
     };
 
     return {

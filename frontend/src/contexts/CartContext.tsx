@@ -1,17 +1,24 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { logger } from "@/lib/logger";
 import { getInitData, getPlatform, getUser } from "@/lib/platform";
-import type { MenuItem } from "@/shared/data/menuTypes";
+import type { MenuItem, SelectedMenuItemModifier } from "@/shared/data/menuTypes";
 import { buildPlatformAuthHeaders } from "@/shared/api/platformAuth";
+import {
+  buildModifierSelectionKey,
+  getModifierSelectionExtraPrice,
+} from "@/shared/utils";
 
 export type CartItem = {
   id: string;
+  menuItemId?: string;
   name: string;
   price: number;
   amount: number;
   iikoProductId?: string;
   weight?: string;
+  calories?: string;
   imageUrl?: string;
+  selectedModifiers?: SelectedMenuItemModifier[];
 };
 
 type CartContextValue = {
@@ -19,14 +26,20 @@ type CartContextValue = {
   totalCount: number;
   totalPrice: number;
   maxCartItemQuantity: number;
-  addItem: (item: {
-    id: string;
-    name: string;
-    price: number;
-    iikoProductId?: string;
-    weight?: string;
-    imageUrl?: string;
-  }) => void;
+  addItem: (
+    item: {
+      id: string;
+      name: string;
+      price: number;
+      iikoProductId?: string;
+      weight?: string;
+      calories?: string;
+      imageUrl?: string;
+    },
+    options?: {
+      selectedModifiers?: SelectedMenuItemModifier[];
+    },
+  ) => void;
   increaseItem: (itemId: string) => void;
   removeItem: (itemId: string) => void;
   getItemCount: (itemId: string) => number;
@@ -186,6 +199,14 @@ const saveCartToStorage = (items: CartItem[]) => {
   }
 };
 
+const buildCartLineId = (
+  menuItemId: string,
+  selectedModifiers?: SelectedMenuItemModifier[],
+): string => {
+  const modifierKey = buildModifierSelectionKey(selectedModifiers);
+  return modifierKey === "base" ? menuItemId : `${menuItemId}::${modifierKey}`;
+};
+
 export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element => {
   const [items, setItems] = useState<CartItem[]>(() => loadCartFromStorage());
   const [isLoadingFromDb, setIsLoadingFromDb] = useState(true);
@@ -245,32 +266,39 @@ export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element
     }
   }, [items, isLoadingFromDb]);
 
-  const addItem = useCallback((item: MenuItem) => {
-    logger.userAction('cart_add_item', { itemId: item.id, itemName: item.name });
+  const addItem = useCallback((item: MenuItem, options?: { selectedModifiers?: SelectedMenuItemModifier[] }) => {
+    const selectedModifiers = Array.isArray(options?.selectedModifiers)
+      ? options.selectedModifiers
+      : [];
+    const lineId = buildCartLineId(item.id, selectedModifiers);
+    logger.userAction('cart_add_item', { itemId: item.id, lineId, itemName: item.name });
     setItems((prev) => {
-      const existing = prev.find((entry) => entry.id === item.id);
+      const existing = prev.find((entry) => entry.id === lineId);
       if (existing) {
         // Ограничение: максимум maxCartItemQuantity одинаковых блюд
         if (existing.amount >= maxCartItemQuantity) {
-          logger.debug('cart', 'Достигнут лимит количества товара', { itemId: item.id, currentAmount: existing.amount });
+          logger.debug('cart', 'Достигнут лимит количества товара', { itemId: item.id, lineId, currentAmount: existing.amount });
           return prev;
         }
-        logger.debug('cart', 'Увеличено количество товара в корзине', { itemId: item.id, newAmount: existing.amount + 1 });
+        logger.debug('cart', 'Увеличено количество товара в корзине', { itemId: item.id, lineId, newAmount: existing.amount + 1 });
         return prev.map((entry) =>
-          entry.id === item.id ? { ...entry, amount: entry.amount + 1 } : entry,
+          entry.id === lineId ? { ...entry, amount: entry.amount + 1 } : entry,
         );
       }
-      logger.debug('cart', 'Добавлен новый товар в корзину', { itemId: item.id });
+      logger.debug('cart', 'Добавлен новый товар в корзину', { itemId: item.id, lineId });
       return [
         ...prev,
         {
-          id: item.id,
+          id: lineId,
+          menuItemId: item.id,
           name: item.name,
-          price: item.price,
+          price: item.price + getModifierSelectionExtraPrice(selectedModifiers),
           amount: 1,
           iikoProductId: item.iikoProductId,
           weight: item.weight,
+          calories: item.calories,
           imageUrl: item.imageUrl,
+          selectedModifiers,
         },
       ];
     });
@@ -324,8 +352,12 @@ export const CartProvider = ({ children }: { children: ReactNode }): JSX.Element
 
   const getItemCount = useCallback(
     (itemId: string) => {
-      const found = items.find((entry) => entry.id === itemId);
-      return found?.amount ?? 0;
+      return items.reduce((sum, entry) => {
+        if (entry.id === itemId || entry.menuItemId === itemId) {
+          return sum + entry.amount;
+        }
+        return sum;
+      }, 0);
     },
     [items],
   );

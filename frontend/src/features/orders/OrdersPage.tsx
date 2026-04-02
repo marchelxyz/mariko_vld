@@ -5,7 +5,12 @@ import { useNavigate } from "react-router-dom";
 import { BottomNavigation, Header, PageHeader } from "@shared/ui/widgets";
 import type { CartItem } from "@/contexts";
 import { fetchMyOrdersWithStatus, type CartOrderRecord } from "@/shared/api/cart/ordersApi";
-import { cn, resolveEffectiveCartOrderStatus, sanitizeUserFacingMessage } from "@shared/utils";
+import {
+  cn,
+  formatSelectedModifiersLabel,
+  resolveEffectiveCartOrderStatus,
+  sanitizeUserFacingMessage,
+} from "@shared/utils";
 import { getPlatform, getUser } from "@/lib/platform";
 import { useProfile } from "@entities/user";
 import { getCleanPhoneNumber } from "@shared/hooks/usePhoneInput";
@@ -204,6 +209,11 @@ const OrderCard = ({
                 <div key={`${order.id}-${item.id}`} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
                   <div className="min-w-0">
                     <p className="font-medium text-mariko-dark truncate">{item.name}</p>
+                    {formatSelectedModifiersLabel(item.selectedModifiers) && (
+                      <p className="text-sm text-mariko-dark/60 truncate">
+                        {formatSelectedModifiersLabel(item.selectedModifiers)}
+                      </p>
+                    )}
                     <p className="text-sm text-mariko-dark/60">Количество: {item.amount}</p>
                   </div>
                   <p className="font-semibold text-mariko-dark whitespace-nowrap">{item.price * item.amount}₽</p>

@@ -20,6 +20,10 @@ import { addressService } from "../services/addressService.mjs";
 import { normalizeDeliveryAddressParts } from "../utils/deliveryAddress.mjs";
 import { serializeCartOrderTimestamps } from "../utils/moscowTimestamp.mjs";
 import {
+  normalizeSelectedOrderModifiers,
+  validateSelectedOrderModifiers,
+} from "../utils/menuModifiers.mjs";
+import {
   shouldRequireVerifiedTelegramInitData,
   verifyTelegramInitData,
 } from "../utils/telegramAuth.mjs";
@@ -158,11 +162,20 @@ const calculateOrderPricing = ({ items, orderType = "delivery" } = {}) => {
 const summarizeOrderItemsForLog = (items) =>
   (Array.isArray(items) ? items : []).map((item) => ({
     id: item?.id ?? null,
+    menuItemId: item?.menu_item_id ?? item?.menuItemId ?? item?.id ?? null,
     name: item?.name ?? null,
     categoryName: item?.category_name ?? item?.categoryName ?? null,
     amount: normalizeOrderQuantity(item?.amount ?? item?.quantity),
     price: normalizeCurrencyValue(item?.price),
     iikoProductId: normaliseIikoProductId(item?.iiko_product_id ?? item?.iikoProductId) || null,
+    selectedModifiers: normalizeSelectedOrderModifiers(
+      item?.selected_modifiers ?? item?.selectedModifiers,
+    ).map((entry) => ({
+      groupId: entry.groupId,
+      groupName: entry.groupName ?? null,
+      optionId: entry.optionId,
+      optionName: entry.optionName ?? null,
+    })),
   }));
 
 const buildOrderValidationError = (status, message, details = null) => ({
@@ -171,13 +184,51 @@ const buildOrderValidationError = (status, message, details = null) => ({
   details,
 });
 
+const formatModifierValidationIssues = (errors, groups) => {
+  const safeErrors = Array.isArray(errors) ? errors : [];
+  const safeGroups = Array.isArray(groups) ? groups : [];
+  const groupNameById = new Map(safeGroups.map((group) => [group.id, group.name]));
+
+  const messages = [];
+  for (const error of safeErrors) {
+    if (error?.reason === "missing_required_modifier_group") {
+      const groupName = error.groupName || groupNameById.get(error.groupId) || "обязательный выбор";
+      messages.push(`не выбран обязательный вариант "${groupName}"`);
+      continue;
+    }
+
+    if (error?.reason === "unknown_modifier_option") {
+      const groupName = error.groupName || groupNameById.get(error.groupId) || "группа модификаторов";
+      messages.push(`выбран неизвестный вариант для "${groupName}"`);
+      continue;
+    }
+
+    if (error?.reason === "unknown_modifier_group") {
+      messages.push("выбрана неизвестная группа модификаторов");
+      continue;
+    }
+
+    if (error?.reason === "duplicate_modifier_group") {
+      const groupName = error.groupName || groupNameById.get(error.groupId) || "группа модификаторов";
+      messages.push(`вариант для "${groupName}" выбран несколько раз`);
+    }
+  }
+
+  return Array.from(new Set(messages));
+};
+
 const hydrateOrderItemsFromMenu = async ({
   rawOrderItems,
   restaurantId,
   requireIikoProductId = false,
 }) => {
   const invalidOrderItems = rawOrderItems.filter(
-    (item) => !(typeof item?.id === "string" && item.id.trim().length),
+    (item) =>
+      !(
+        (typeof item?.menuItemId === "string" && item.menuItemId.trim().length) ||
+        (typeof item?.menu_item_id === "string" && item.menu_item_id.trim().length) ||
+        (typeof item?.id === "string" && item.id.trim().length)
+      ),
   );
   if (invalidOrderItems.length > 0) {
     return {
@@ -188,7 +239,15 @@ const hydrateOrderItemsFromMenu = async ({
   const menuItemIds = Array.from(
     new Set(
       rawOrderItems
-        .map((item) => (typeof item?.id === "string" && item.id.trim().length ? item.id.trim() : null))
+        .map((item) => {
+          if (typeof item?.menuItemId === "string" && item.menuItemId.trim().length) {
+            return item.menuItemId.trim();
+          }
+          if (typeof item?.menu_item_id === "string" && item.menu_item_id.trim().length) {
+            return item.menu_item_id.trim();
+          }
+          return typeof item?.id === "string" && item.id.trim().length ? item.id.trim() : null;
+        })
         .filter(Boolean),
     ),
   );
@@ -198,6 +257,7 @@ const hydrateOrderItemsFromMenu = async ({
         mi.id,
         mi.name,
         mi.price,
+        mi.modifier_groups,
         mc.restaurant_id,
         mc.name AS category_name,
         COALESCE(NULLIF(TRIM(mi.iiko_product_id), ''), NULL) AS iiko_product_id
@@ -256,22 +316,66 @@ const hydrateOrderItemsFromMenu = async ({
     }
   }
 
-  return {
-    normalizedItems: rawOrderItems.map((item) => {
-      const menuItem = menuItemById.get(String(item.id).trim());
-      const iikoProductId = menuItem?.iiko_product_id ?? null;
+  const normalizedItems = [];
+
+  for (const item of rawOrderItems) {
+    const menuItemId =
+      (typeof item?.menuItemId === "string" && item.menuItemId.trim()) ||
+      (typeof item?.menu_item_id === "string" && item.menu_item_id.trim()) ||
+      (typeof item?.id === "string" && item.id.trim()) ||
+      "";
+    const menuItem = menuItemById.get(menuItemId);
+    const iikoProductId = menuItem?.iiko_product_id ?? null;
+    const modifierValidation = validateSelectedOrderModifiers({
+      modifierGroups: menuItem?.modifier_groups,
+      rawSelectedModifiers: item?.selected_modifiers ?? item?.selectedModifiers,
+    });
+
+    if (modifierValidation.errors.length > 0) {
       return {
-        ...item,
-        id: menuItem?.id ?? item.id,
-        name: menuItem?.name ?? item.name,
-        category_name: menuItem?.category_name ?? item?.category_name ?? item?.categoryName ?? null,
-        categoryName: menuItem?.category_name ?? item?.categoryName ?? item?.category_name ?? null,
-        amount: normalizeOrderQuantity(item?.amount ?? item?.quantity),
-        price: normalizeCurrencyValue(menuItem?.price),
-        iiko_product_id: iikoProductId,
-        iikoProductId,
+        error: buildOrderValidationError(
+          400,
+          `Некорректные опции для блюда "${menuItem?.name ?? item?.name ?? "Без названия"}"`,
+          {
+            reason: "invalid_modifier_selection",
+            itemId: menuItem?.id ?? item?.id ?? null,
+            itemName: menuItem?.name ?? item?.name ?? null,
+            issues: formatModifierValidationIssues(
+              modifierValidation.errors,
+              modifierValidation.modifierGroups,
+            ),
+          },
+        ),
       };
-    }),
+    }
+
+    const normalizedSelectedModifiers = modifierValidation.normalizedSelectedModifiers;
+    const finalPrice = normalizeCurrencyValue(
+      Number(menuItem?.price ?? 0) + modifierValidation.totalModifierPrice,
+    );
+
+    normalizedItems.push({
+      ...item,
+      id:
+        (typeof item?.id === "string" && item.id.trim()) ||
+        menuItem?.id ||
+        menuItemId,
+      menu_item_id: menuItem?.id ?? menuItemId,
+      menuItemId: menuItem?.id ?? menuItemId,
+      name: menuItem?.name ?? item?.name,
+      category_name: menuItem?.category_name ?? item?.category_name ?? item?.categoryName ?? null,
+      categoryName: menuItem?.category_name ?? item?.categoryName ?? item?.category_name ?? null,
+      amount: normalizeOrderQuantity(item?.amount ?? item?.quantity),
+      price: finalPrice,
+      iiko_product_id: iikoProductId,
+      iikoProductId,
+      selected_modifiers: normalizedSelectedModifiers,
+      selectedModifiers: normalizedSelectedModifiers,
+    });
+  }
+
+  return {
+    normalizedItems,
   };
 };
 
@@ -282,17 +386,35 @@ const collectStopListBlockedItems = (items, stopListProductIds) => {
   return items
     .map((item, index) => {
       const iikoProductId = normaliseIikoProductId(item?.iiko_product_id ?? item?.iikoProductId);
-      if (!iikoProductId) {
+      const selectedModifiers = normalizeSelectedOrderModifiers(
+        item?.selected_modifiers ?? item?.selectedModifiers,
+      );
+      const blockedModifierOptions = selectedModifiers.filter((entry) =>
+        stopListProductIds.has(entry.optionId.toLowerCase()),
+      );
+
+      if (!iikoProductId && blockedModifierOptions.length === 0) {
         return null;
       }
-      if (!stopListProductIds.has(iikoProductId.toLowerCase())) {
+
+      const baseItemBlocked =
+        iikoProductId && stopListProductIds.has(iikoProductId.toLowerCase());
+
+      if (!baseItemBlocked && blockedModifierOptions.length === 0) {
         return null;
       }
       return {
         index: index + 1,
         itemId: item?.id ?? null,
+        menuItemId: item?.menu_item_id ?? item?.menuItemId ?? null,
         name: item?.name ?? null,
-        iikoProductId,
+        iikoProductId: iikoProductId || null,
+        blockedModifierOptions: blockedModifierOptions.map((entry) => ({
+          groupId: entry.groupId,
+          groupName: entry.groupName ?? null,
+          optionId: entry.optionId,
+          optionName: entry.optionName ?? null,
+        })),
       };
     })
     .filter(Boolean);
