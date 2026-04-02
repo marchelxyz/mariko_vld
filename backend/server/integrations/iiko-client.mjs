@@ -342,8 +342,7 @@ const buildIikoOrderItems = (items, options = {}) => {
 
   const missingMappings = [];
   const kitchenReceiptLabel = String(options?.kitchenReceiptLabel ?? "").trim();
-  const kitchenReceiptBucketsApplied = new Set();
-  const mappedItems = items.map((item, index) => {
+  const mappedEntries = items.map((item, index) => {
     const productId = normaliseIikoProductId(item?.iiko_product_id ?? item?.iikoProductId);
     if (!productId) {
       missingMappings.push({
@@ -366,16 +365,10 @@ const buildIikoOrderItems = (items, options = {}) => {
       price,
     };
 
-    const kitchenReceiptBucket = resolveKitchenReceiptBucket(
-      item?.category_name ?? item?.categoryName ?? null,
-    );
-
-    if (kitchenReceiptLabel && !kitchenReceiptBucketsApplied.has(kitchenReceiptBucket)) {
-      mappedItem.comment = kitchenReceiptLabel;
-      kitchenReceiptBucketsApplied.add(kitchenReceiptBucket);
-    }
-
-    return mappedItem;
+    return {
+      item: mappedItem,
+      kitchenReceiptBucket: resolveKitchenReceiptBucket(item?.category_name ?? item?.categoryName ?? null),
+    };
   });
 
   if (missingMappings.length > 0) {
@@ -388,7 +381,19 @@ const buildIikoOrderItems = (items, options = {}) => {
     );
   }
 
-  return mappedItems.filter(Boolean);
+  const validEntries = mappedEntries.filter(Boolean);
+
+  if (kitchenReceiptLabel) {
+    const lastEntryIndexByBucket = new Map();
+    validEntries.forEach((entry, index) => {
+      lastEntryIndexByBucket.set(entry.kitchenReceiptBucket, index);
+    });
+    lastEntryIndexByBucket.forEach((index) => {
+      validEntries[index].item.comment = kitchenReceiptLabel;
+    });
+  }
+
+  return validEntries.map((entry) => entry.item);
 };
 
 const requestJson = async (url, options = {}) => {
