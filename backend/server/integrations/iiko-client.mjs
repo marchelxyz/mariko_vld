@@ -301,6 +301,11 @@ const normalizeKitchenCategoryName = (value) =>
     .trim()
     .toLowerCase();
 
+const normalizeKitchenItemName = (value) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase();
+
 const BAR_CATEGORY_PATTERNS = [
   "бар",
   "напит",
@@ -315,21 +320,73 @@ const BAR_CATEGORY_PATTERNS = [
   "сок",
 ];
 
+const KHINKALI_ITEM_PATTERNS = ["хинкали"];
+const BAKERY_CATEGORY_PATTERNS = ["выпеч"];
+const BAKERY_ITEM_PATTERNS = ["хачапур", "кубдари", "чебурек", "шотис"];
 const COLD_CATEGORY_PATTERNS = ["салат", "холод", "десерт", "соус"];
-const HOT_CATEGORY_PATTERNS = ["суп", "горяч", "выпеч", "детск"];
+const COLD_ITEM_PATTERNS = ["салат", "с-т", "соус", "пхали", "рулетик", "тарелк", "солень", "сациви"];
+const HOT_CATEGORY_PATTERNS = ["суп", "горяч", "детск"];
+const HOT_ITEM_PATTERNS = [
+  "суп",
+  "харчо",
+  "шурпа",
+  "уха",
+  "хашлама",
+  "долма",
+  "лобио",
+  "картофель",
+  "пюре",
+  "котлет",
+  "пельмеш",
+  "макарон",
+  "сосиск",
+  "жаркое",
+  "оджахури",
+  "чакапули",
+  "чахохбили",
+  "чашушули",
+  "цыцила",
+  "гурули",
+  "кучмачи",
+  "кахури",
+  "форель",
+  "семга",
+  "баран",
+  "язык",
+];
 
-const resolveKitchenReceiptBucket = (categoryName) => {
+const matchesAnyKitchenPattern = (value, patterns) =>
+  patterns.some((pattern) => value.includes(pattern));
+
+const resolveKitchenReceiptBucket = (categoryName, itemName) => {
   const normalized = normalizeKitchenCategoryName(categoryName);
-  if (!normalized) {
-    return "default";
-  }
-  if (BAR_CATEGORY_PATTERNS.some((pattern) => normalized.includes(pattern))) {
+  const normalizedItem = normalizeKitchenItemName(itemName);
+
+  if (
+    matchesAnyKitchenPattern(normalized, BAR_CATEGORY_PATTERNS) ||
+    matchesAnyKitchenPattern(normalizedItem, BAR_CATEGORY_PATTERNS)
+  ) {
     return "bar";
   }
-  if (COLD_CATEGORY_PATTERNS.some((pattern) => normalized.includes(pattern))) {
+  if (matchesAnyKitchenPattern(normalizedItem, KHINKALI_ITEM_PATTERNS)) {
+    return "khinkali";
+  }
+  if (
+    matchesAnyKitchenPattern(normalized, BAKERY_CATEGORY_PATTERNS) ||
+    matchesAnyKitchenPattern(normalizedItem, BAKERY_ITEM_PATTERNS)
+  ) {
+    return "bakery";
+  }
+  if (
+    matchesAnyKitchenPattern(normalized, COLD_CATEGORY_PATTERNS) ||
+    matchesAnyKitchenPattern(normalizedItem, COLD_ITEM_PATTERNS)
+  ) {
     return "cold";
   }
-  if (HOT_CATEGORY_PATTERNS.some((pattern) => normalized.includes(pattern))) {
+  if (
+    matchesAnyKitchenPattern(normalized, HOT_CATEGORY_PATTERNS) ||
+    matchesAnyKitchenPattern(normalizedItem, HOT_ITEM_PATTERNS)
+  ) {
     return "hot";
   }
   return "default";
@@ -367,7 +424,10 @@ const buildIikoOrderItems = (items, options = {}) => {
 
     return {
       item: mappedItem,
-      kitchenReceiptBucket: resolveKitchenReceiptBucket(item?.category_name ?? item?.categoryName ?? null),
+      kitchenReceiptBucket: resolveKitchenReceiptBucket(
+        item?.category_name ?? item?.categoryName ?? null,
+        item?.name ?? null,
+      ),
     };
   });
 
