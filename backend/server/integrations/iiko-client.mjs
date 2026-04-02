@@ -1303,6 +1303,7 @@ const buildIikoDeliveryPayload = async (config, order, accessToken) => {
   const deliveryHouse = normalizedDelivery.house || null;
   const deliveryApartment = normalizedDelivery.apartment || null;
   const deliveryLine1 = normalizedDelivery.line1 || null;
+  const deliveryPointComment = deliveryApartment ? `Квартира / подъезд: ${deliveryApartment}` : null;
   const deliveryLocation = normalizeDeliveryCoordinates(
     meta?.deliveryLocation ?? order.deliveryLocation ?? null,
   );
@@ -1368,6 +1369,7 @@ const buildIikoDeliveryPayload = async (config, order, accessToken) => {
     }
     payload.order.deliveryPoint = {
       ...(deliveryLocation ? { coordinates: deliveryLocation } : {}),
+      ...(deliveryPointComment ? { comment: deliveryPointComment } : {}),
       address: {
         ...(deliveryLine1 ? { line1: deliveryLine1 } : {}),
         street: {

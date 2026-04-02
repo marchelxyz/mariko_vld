@@ -1,5 +1,5 @@
 import { Minus, Plus, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart, useCityContext } from "@/contexts";
 import { recalculateCart, submitCartOrder } from "@/shared/api/cart";
@@ -27,11 +27,13 @@ const MIN_ADDRESS_LENGTH = 3;
 type PaymentMethod = "cash" | "card" | "online";
 type PaymentMethodAvailabilityMap = Record<PaymentMethod, CartPaymentMethodAvailability>;
 
-const PAYMENT_METHOD_OPTIONS: Array<{ value: PaymentMethod; label: string }> = [
-  { value: "cash", label: "Наличными при получении" },
-  { value: "card", label: "Картой при получении" },
-  { value: "online", label: "Онлайн-оплата" },
-];
+const isKeyboardEditableElement = (value: EventTarget | null): value is HTMLElement => {
+  if (!(value instanceof HTMLElement)) {
+    return false;
+  }
+
+  return ["INPUT", "TEXTAREA", "SELECT"].includes(value.tagName) || value.isContentEditable;
+};
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -109,7 +111,7 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   })();
   const [isCheckoutMode, setIsCheckoutMode] = useState(false);
   const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("online");
   const [customerName, setCustomerName] = useState("");
   const [phoneDigits, setPhoneDigits] = useState("");
   const [addressLine, setAddressLine] = useState("");
@@ -147,21 +149,11 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   const [isCalculating, setIsCalculating] = useState(false);
   const [prefillAttempted, setPrefillAttempted] = useState(false);
   const [addressInitialized, setAddressInitialized] = useState(false);
-  const visiblePaymentMethodOptions = useMemo(() => {
-    const paymentMethods = calculation?.paymentMethods;
-    if (!paymentMethods) {
-      return PAYMENT_METHOD_OPTIONS;
-    }
-
-    const available = PAYMENT_METHOD_OPTIONS.filter(
-      (option) => paymentMethods[option.value]?.available !== false,
-    );
-
-    return available.length > 0 ? available : PAYMENT_METHOD_OPTIONS;
-  }, [calculation?.paymentMethods]);
   const [autoLocateAttempted, setAutoLocateAttempted] = useState(false);
   const [profileFromApi, setProfileFromApi] = useState<UserProfile | null>(null);
   const [profileHasAddress, setProfileHasAddress] = useState(false);
+  const [isKeyboardActionVisible, setIsKeyboardActionVisible] = useState(false);
+  const checkoutFormRef = useRef<HTMLFormElement | null>(null);
   const handleDecrease = (id: string) => {
     removeItem(id);
   };
@@ -216,6 +208,17 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
 
   const hasStreetAndHouse = Boolean(addressStreet.trim() && addressHouse.trim());
   const isDeliveryAddressFilled = orderType === "pickup" || hasStreetAndHouse;
+  const dismissKeyboard = () => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const activeElement = document.activeElement;
+    if (isKeyboardEditableElement(activeElement)) {
+      activeElement.blur();
+    }
+    setIsKeyboardActionVisible(false);
+  };
 
   const isFormValid =
     items.length > 0 &&
@@ -447,13 +450,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
     const selectedPaymentAvailability = calculation?.paymentMethods?.[paymentMethod] ?? null;
     if (selectedPaymentAvailability && selectedPaymentAvailability.available === false) {
       setLastSubmitStatus("error");
-      setLastSubmitMessage(
-        paymentMethod === "card"
-          ? "Оплата картой при получении сейчас недоступна для этого ресторана."
-          : paymentMethod === "online"
-            ? "Онлайн-оплата сейчас недоступна для этого ресторана."
-            : "Оплата наличными сейчас недоступна для этого ресторана.",
-      );
+      setLastSubmitMessage("Онлайн-оплата сейчас недоступна для этого ресторана.");
       return;
     }
 
@@ -546,7 +543,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
       setAddressCity("");
       setAddressCoords(null);
       setComment("");
-      setPaymentMethod("cash");
+      setPaymentMethod("online");
       // Перенаправляем на отдельную страницу успеха заказа
       navigate("/order-success", {
         state: {
@@ -621,25 +618,6 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
 
     return () => controller.abort();
   }, [isCheckoutMode, items, orderType, resolvedDeliveryAddress, selectedRestaurant?.id, isOpen]);
-
-  useEffect(() => {
-    if (!isCheckoutMode) {
-      return;
-    }
-    const paymentMethods = calculation?.paymentMethods;
-    if (!paymentMethods) {
-      return;
-    }
-    if (paymentMethods[paymentMethod]?.available) {
-      return;
-    }
-    const firstAvailable = PAYMENT_METHOD_OPTIONS.find(
-      (option) => paymentMethods[option.value]?.available,
-    );
-    if (firstAvailable && firstAvailable.value !== paymentMethod) {
-      setPaymentMethod(firstAvailable.value);
-    }
-  }, [calculation?.paymentMethods, isCheckoutMode, paymentMethod]);
 
   useEffect(() => {
     if (!isOpen || prefillAttempted) {
@@ -840,7 +818,40 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
         )}
 
         {isCheckoutMode && (
-          <form className="flex-1 overflow-y-auto p-4 pt-4 pb-32 space-y-4" onSubmit={handleSubmit}>
+          <form
+            ref={checkoutFormRef}
+            className="flex-1 overflow-y-auto p-4 pt-4 pb-32 space-y-4"
+            onSubmit={handleSubmit}
+            onFocusCapture={(event) => {
+              if (isKeyboardEditableElement(event.target)) {
+                setIsKeyboardActionVisible(true);
+              }
+            }}
+            onBlurCapture={() => {
+              if (typeof window === "undefined") {
+                return;
+              }
+
+              window.requestAnimationFrame(() => {
+                const activeElement = document.activeElement;
+                const isEditableInsideForm =
+                  isKeyboardEditableElement(activeElement) &&
+                  checkoutFormRef.current?.contains(activeElement);
+                setIsKeyboardActionVisible(Boolean(isEditableInsideForm));
+              });
+            }}
+          >
+            {isKeyboardActionVisible && (
+              <div className="sticky top-0 z-10 -mx-4 -mt-4 mb-3 flex justify-end border-b border-mariko-field/70 bg-white/95 px-4 py-2 backdrop-blur">
+                <button
+                  type="button"
+                  className="rounded-full border border-mariko-field px-3 py-1.5 text-xs font-semibold text-mariko-primary transition-colors hover:bg-mariko-field/30"
+                  onClick={dismissKeyboard}
+                >
+                  Скрыть клавиатуру
+                </button>
+              </div>
+            )}
             <div className="pt-2">
               <p className="text-sm font-semibold text-mariko-dark/70 mb-2">Способ получения</p>
               <div className="flex items-center gap-2">
@@ -872,33 +883,12 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
             <div className="grid grid-cols-1 gap-3">
               <div>
                 <p className="text-sm font-semibold text-mariko-dark/70 mb-2">Способ оплаты</p>
-                <div className="grid grid-cols-1 gap-2">
-                  {visiblePaymentMethodOptions.map((option) => {
-                    const optionAvailability = calculation?.paymentMethods?.[option.value] ?? null;
-                    const isUnavailable = optionAvailability?.available === false;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        disabled={isUnavailable}
-                        onClick={() => setPaymentMethod(option.value)}
-                        className={`w-full rounded-[12px] border px-3 py-2 text-left text-sm font-semibold transition-colors ${
-                          paymentMethod === option.value
-                            ? "border-mariko-primary bg-mariko-primary text-white"
-                            : isUnavailable
-                              ? "cursor-not-allowed border-mariko-field/80 bg-mariko-field/20 text-mariko-dark/45"
-                              : "border-mariko-field text-mariko-dark hover:bg-mariko-field/30"
-                        }`}
-                      >
-                        <span className="block">{option.label}</span>
-                        {isUnavailable && (
-                          <span className="mt-1 block text-xs font-medium opacity-80">
-                            Недоступно для этого ресторана
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
+                <div className="rounded-[16px] border border-mariko-primary/20 bg-mariko-primary/5 px-4 py-3">
+                  <p className="text-sm font-semibold text-mariko-primary">Онлайн-оплата</p>
+                  <p className="mt-1 text-xs leading-relaxed text-mariko-dark/70">
+                    Другие способы оплаты в приложении временно отключены. После оформления заказа
+                    откроется безопасная оплата онлайн.
+                  </p>
                 </div>
               </div>
 
@@ -1078,17 +1068,12 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                 disabled={!isFormValid || isSubmitting || isCalculating}
                 className="flex-1 rounded-full bg-mariko-primary text-white py-3 font-el-messiri text-lg font-semibold disabled:bg-mariko-primary/40 disabled:cursor-not-allowed"
               >
-                {isSubmitting
-                  ? "Отправляем..."
-                  : isCalculating
-                    ? "Ждём расчёт…"
-                    : paymentMethod === "online"
-                      ? "Перейти к оплате"
-                      : "Оформить заказ"}
+                {isSubmitting ? "Отправляем..." : isCalculating ? "Ждём расчёт…" : "Перейти к оплате"}
               </button>
             </div>
             <p className="text-xs text-mariko-dark/60">
-              При онлайн-оплате вы сначала перейдёте к оплате, затем заказ будет передан в обработку.
+              В приложении доступна только онлайн-оплата. После успешной оплаты заказ будет
+              передан в ресторан.
             </p>
             {lastSubmitStatus !== "idle" && (
               <p

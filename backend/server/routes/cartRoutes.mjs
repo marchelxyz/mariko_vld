@@ -100,7 +100,33 @@ const normalizePaymentMethod = (value) => {
   if (normalized === "cash" || normalized === "card" || normalized === "online") {
     return normalized;
   }
-  return "cash";
+  return "online";
+};
+
+const CHECKOUT_PAYMENT_METHOD = "online";
+const CHECKOUT_PAYMENT_METHOD_UNAVAILABLE_MESSAGE =
+  "В приложении сейчас доступна только онлайн-оплата.";
+const buildCheckoutPaymentMethods = (paymentMethods) => {
+  if (!paymentMethods || typeof paymentMethods !== "object") {
+    return null;
+  }
+
+  return {
+    cash: {
+      ...(paymentMethods.cash ?? {}),
+      available: false,
+      error: CHECKOUT_PAYMENT_METHOD_UNAVAILABLE_MESSAGE,
+    },
+    card: {
+      ...(paymentMethods.card ?? {}),
+      available: false,
+      error: CHECKOUT_PAYMENT_METHOD_UNAVAILABLE_MESSAGE,
+    },
+    online: paymentMethods.online ?? {
+      available: false,
+      error: "Онлайн-оплата сейчас недоступна для этого ресторана.",
+    },
+  };
 };
 
 const DELIVERY_MIN_ORDER_AMOUNT = 500;
@@ -631,7 +657,7 @@ export function registerCartRoutes(app) {
         if (integrationConfig) {
           const availabilityResult = await iikoClient.getPaymentMethodAvailability(integrationConfig);
           if (availabilityResult?.success) {
-            paymentMethods = availabilityResult.paymentMethods ?? null;
+            paymentMethods = buildCheckoutPaymentMethods(availabilityResult.paymentMethods ?? null);
           } else {
             console.warn(
               `⚠️ Не удалось определить доступные способы оплаты iiko для ресторана ${restaurantId}: ${availabilityResult?.error}`,
@@ -967,6 +993,13 @@ export function registerCartRoutes(app) {
       orderPayload?.paymentMethod ?? orderPayload?.payment_method,
     );
 
+    if (paymentMethod !== CHECKOUT_PAYMENT_METHOD) {
+      return res.status(400).json({
+        success: false,
+        message: CHECKOUT_PAYMENT_METHOD_UNAVAILABLE_MESSAGE,
+      });
+    }
+
     if (!restaurantId) {
       return res.status(400).json({ success: false, message: "Не указан restaurantId" });
     }
@@ -1126,23 +1159,22 @@ export function registerCartRoutes(app) {
           });
         }
 
-        const availabilityResult = await iikoClient.getPaymentMethodAvailability(integrationConfig);
-        if (availabilityResult?.success) {
-          const selectedPaymentMethod =
-            availabilityResult.paymentMethods?.[paymentMethod] ?? null;
-          if (selectedPaymentMethod && selectedPaymentMethod.available === false) {
-            return res.status(400).json({
-              success: false,
-              code: "IIKO_PAYMENT_METHOD_UNAVAILABLE",
-              message:
-                paymentMethod === "card"
-                  ? "Оплата картой при получении сейчас недоступна для этого ресторана."
-                  : paymentMethod === "online"
+          const availabilityResult = await iikoClient.getPaymentMethodAvailability(integrationConfig);
+          if (availabilityResult?.success) {
+            const selectedPaymentMethod =
+              buildCheckoutPaymentMethods(availabilityResult.paymentMethods ?? null)?.[paymentMethod] ??
+              null;
+            if (selectedPaymentMethod && selectedPaymentMethod.available === false) {
+              return res.status(400).json({
+                success: false,
+                code: "IIKO_PAYMENT_METHOD_UNAVAILABLE",
+                message:
+                  paymentMethod === "online"
                     ? "Онлайн-оплата сейчас недоступна для этого ресторана."
-                    : "Оплата наличными сейчас недоступна для этого ресторана.",
-            });
-          }
-        } else {
+                    : CHECKOUT_PAYMENT_METHOD_UNAVAILABLE_MESSAGE,
+              });
+            }
+          } else {
           console.warn(
             `⚠️ Не удалось проверить способы оплаты iiko для ресторана ${restaurantId}: ${availabilityResult?.error}`,
           );
@@ -1343,9 +1375,7 @@ export function registerCartRoutes(app) {
       orderId,
       paymentMethod,
       message: db
-        ? paymentMethod === "online"
-          ? "Заказ сохранён. Оплатите онлайн, после этого он будет отправлен в ресторан."
-          : "Заказ сохранён. Проверяем и передаём его в ресторан."
+        ? "Заказ сохранён. Оплатите онлайн, после этого он будет отправлен в ресторан."
         : "Заказ принят mock-сервером. Подключите PostgreSQL/iiko позже.",
     });
   });
