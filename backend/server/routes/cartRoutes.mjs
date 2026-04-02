@@ -159,6 +159,7 @@ const summarizeOrderItemsForLog = (items) =>
   (Array.isArray(items) ? items : []).map((item) => ({
     id: item?.id ?? null,
     name: item?.name ?? null,
+    categoryName: item?.category_name ?? item?.categoryName ?? null,
     amount: normalizeOrderQuantity(item?.amount ?? item?.quantity),
     price: normalizeCurrencyValue(item?.price),
     iikoProductId: normaliseIikoProductId(item?.iiko_product_id ?? item?.iikoProductId) || null,
@@ -198,6 +199,7 @@ const hydrateOrderItemsFromMenu = async ({
         mi.name,
         mi.price,
         mc.restaurant_id,
+        mc.name AS category_name,
         COALESCE(NULLIF(TRIM(mi.iiko_product_id), ''), NULL) AS iiko_product_id
      FROM menu_items mi
      JOIN menu_categories mc ON mc.id = mi.category_id
@@ -262,6 +264,8 @@ const hydrateOrderItemsFromMenu = async ({
         ...item,
         id: menuItem?.id ?? item.id,
         name: menuItem?.name ?? item.name,
+        category_name: menuItem?.category_name ?? item?.category_name ?? item?.categoryName ?? null,
+        categoryName: menuItem?.category_name ?? item?.categoryName ?? item?.category_name ?? null,
         amount: normalizeOrderQuantity(item?.amount ?? item?.quantity),
         price: normalizeCurrencyValue(menuItem?.price),
         iiko_product_id: iikoProductId,

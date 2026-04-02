@@ -296,6 +296,45 @@ const resolveKitchenReceiptLabel = (orderType) => {
   return "MiniApp";
 };
 
+const normalizeKitchenCategoryName = (value) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase();
+
+const BAR_CATEGORY_PATTERNS = [
+  "бар",
+  "напит",
+  "кофе",
+  "чай",
+  "лимонад",
+  "вода",
+  "алког",
+  "пиво",
+  "вино",
+  "коктей",
+  "сок",
+];
+
+const COLD_CATEGORY_PATTERNS = ["салат", "холод", "десерт", "соус"];
+const HOT_CATEGORY_PATTERNS = ["суп", "горяч", "выпеч", "детск"];
+
+const resolveKitchenReceiptBucket = (categoryName) => {
+  const normalized = normalizeKitchenCategoryName(categoryName);
+  if (!normalized) {
+    return "default";
+  }
+  if (BAR_CATEGORY_PATTERNS.some((pattern) => normalized.includes(pattern))) {
+    return "bar";
+  }
+  if (COLD_CATEGORY_PATTERNS.some((pattern) => normalized.includes(pattern))) {
+    return "cold";
+  }
+  if (HOT_CATEGORY_PATTERNS.some((pattern) => normalized.includes(pattern))) {
+    return "hot";
+  }
+  return "default";
+};
+
 const buildIikoOrderItems = (items, options = {}) => {
   if (!Array.isArray(items) || items.length === 0) {
     throw new Error("iiko: Заказ не содержит позиций");
@@ -303,7 +342,7 @@ const buildIikoOrderItems = (items, options = {}) => {
 
   const missingMappings = [];
   const kitchenReceiptLabel = String(options?.kitchenReceiptLabel ?? "").trim();
-  let kitchenReceiptLabelApplied = false;
+  const kitchenReceiptBucketsApplied = new Set();
   const mappedItems = items.map((item, index) => {
     const productId = normaliseIikoProductId(item?.iiko_product_id ?? item?.iikoProductId);
     if (!productId) {
@@ -327,9 +366,13 @@ const buildIikoOrderItems = (items, options = {}) => {
       price,
     };
 
-    if (kitchenReceiptLabel && !kitchenReceiptLabelApplied) {
+    const kitchenReceiptBucket = resolveKitchenReceiptBucket(
+      item?.category_name ?? item?.categoryName ?? null,
+    );
+
+    if (kitchenReceiptLabel && !kitchenReceiptBucketsApplied.has(kitchenReceiptBucket)) {
       mappedItem.comment = kitchenReceiptLabel;
-      kitchenReceiptLabelApplied = true;
+      kitchenReceiptBucketsApplied.add(kitchenReceiptBucket);
     }
 
     return mappedItem;
