@@ -322,9 +322,22 @@ const BAR_CATEGORY_PATTERNS = [
 ];
 
 const KHINKALI_ITEM_PATTERNS = ["хинкали"];
-const BAKERY_CATEGORY_PATTERNS = ["выпеч"];
-const BAKERY_ITEM_PATTERNS = ["хачапур", "кубдари", "чебурек", "шотис"];
-const COLD_CATEGORY_PATTERNS = ["салат", "холод", "десерт", "соус"];
+const BAKERY_CATEGORY_PATTERNS = ["выпеч", "десерт"];
+const BAKERY_ITEM_PATTERNS = [
+  "хачапур",
+  "кубдари",
+  "чебурек",
+  "шотис",
+  "штруд",
+  "чизкейк",
+  "торт",
+  "пахлав",
+  "медовик",
+  "наполеон",
+  "эклер",
+  "брауни",
+];
+const COLD_CATEGORY_PATTERNS = ["салат", "холод", "соус"];
 const COLD_ITEM_PATTERNS = ["салат", "с-т", "соус", "пхали", "рулетик", "тарелк", "солень", "сациви"];
 const HOT_CATEGORY_PATTERNS = ["суп", "горяч", "детск"];
 const HOT_ITEM_PATTERNS = [
@@ -1297,13 +1310,21 @@ const buildIikoDeliveryPayload = async (config, order, accessToken) => {
       order.deliveryApartment ||
       deliveryParts.apartment ||
       null,
+    entrance:
+      order.delivery_entrance ||
+      order.deliveryEntrance ||
+      deliveryParts.entrance ||
+      null,
   });
   const deliveryCity = normalizedDelivery.city || null;
   const deliveryStreet = normalizedDelivery.street || null;
   const deliveryHouse = normalizedDelivery.house || null;
   const deliveryApartment = normalizedDelivery.apartment || null;
+  const deliveryEntrance = normalizedDelivery.entrance || null;
   const deliveryLine1 = normalizedDelivery.line1 || null;
-  const deliveryPointComment = deliveryApartment ? `Квартира / подъезд: ${deliveryApartment}` : null;
+  const deliveryPointComment = [deliveryApartment ? `Квартира: ${deliveryApartment}` : null, deliveryEntrance ? `Подъезд: ${deliveryEntrance}` : null]
+    .filter(Boolean)
+    .join("\n") || null;
   const deliveryLocation = normalizeDeliveryCoordinates(
     meta?.deliveryLocation ?? order.deliveryLocation ?? null,
   );

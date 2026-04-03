@@ -1065,10 +1065,12 @@ export function registerCartRoutes(app) {
         parsedFromDeliveryAddress.house ??
         "",
       apartment: orderPayload?.deliveryApartment ?? orderPayload?.delivery_apartment ?? "",
+      entrance: orderPayload?.deliveryEntrance ?? orderPayload?.delivery_entrance ?? "",
     });
     const deliveryStreet = normalizedDeliveryAddress.street;
     const deliveryHouse = normalizedDeliveryAddress.house;
     const deliveryApartment = normalizedDeliveryAddress.apartment;
+    const deliveryEntrance = normalizedDeliveryAddress.entrance;
     const canonicalDeliveryAddress =
       orderType === "delivery"
         ? normalizedDeliveryAddress.full ||
@@ -1124,6 +1126,7 @@ export function registerCartRoutes(app) {
         street: deliveryStreet || null,
         house: deliveryHouse || null,
         apartment: deliveryApartment || null,
+        entrance: deliveryEntrance || null,
       },
     };
 

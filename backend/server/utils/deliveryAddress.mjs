@@ -41,11 +41,12 @@ export const stripLeadingCityFromStreet = (streetValue, cityValue) => {
   return street;
 };
 
-export const normalizeDeliveryAddressParts = ({ city, street, house, apartment } = {}) => {
+export const normalizeDeliveryAddressParts = ({ city, street, house, apartment, entrance } = {}) => {
   const normalizedCity = normaliseAddressValue(city);
   const normalizedStreet = stripLeadingCityFromStreet(street, normalizedCity);
   const normalizedHouse = normaliseAddressValue(house);
   const normalizedApartment = normaliseAddressValue(apartment);
+  const normalizedEntrance = normaliseAddressValue(entrance);
 
   const line1 = [normalizedStreet, normalizedHouse, normalizedApartment].filter(Boolean).join(", ");
   const full = [[normalizedCity, normalizedStreet, normalizedHouse].filter(Boolean).join(", "), normalizedApartment]
@@ -57,6 +58,7 @@ export const normalizeDeliveryAddressParts = ({ city, street, house, apartment }
     street: normalizedStreet,
     house: normalizedHouse,
     apartment: normalizedApartment,
+    entrance: normalizedEntrance,
     line1,
     full,
   };

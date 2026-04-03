@@ -21,6 +21,7 @@ export type CartOrderPayload = {
   deliveryStreet?: string;
   deliveryHouse?: string;
   deliveryApartment?: string;
+  deliveryEntrance?: string;
   comment?: string;
   items: CartItem[];
   subtotal?: number;

@@ -119,6 +119,7 @@ export const CartDrawer = ({ isOpen, onClose }: CartDrawerProps): JSX.Element | 
   const [addressStreet, setAddressStreet] = useState("");
   const [addressHouse, setAddressHouse] = useState("");
   const [addressApartment, setAddressApartment] = useState("");
+  const [addressEntrance, setAddressEntrance] = useState("");
   const [addressCoords, setAddressCoords] = useState<{
     lat: number;
     lon: number;
@@ -474,6 +475,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
         street: addressStreet || undefined,
         house: addressHouse || undefined,
         apartment: addressApartment || undefined,
+        entrance: addressEntrance || undefined,
       },
       deliveryLocation: addressCoords ?? undefined,
     };
@@ -498,6 +500,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
         deliveryStreet: addressStreet || undefined,
         deliveryHouse: addressHouse || undefined,
         deliveryApartment: addressApartment || undefined,
+        deliveryEntrance: addressEntrance || undefined,
         comment: comment.trim() || undefined,
         items,
         subtotal: calculation?.subtotal ?? totalPrice,
@@ -536,6 +539,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
       setAddressStreet("");
       setAddressHouse("");
       setAddressApartment("");
+      setAddressEntrance("");
       setAddressLine("");
       setAddressCity("");
       setAddressCoords(null);
@@ -976,18 +980,35 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                     </label>
                   </div>
 
-                  <label className="text-sm font-semibold text-mariko-dark/80">
-                    Квартира / подъезд
-                    <input
-                      type="text"
-                      value={addressApartment}
-                      onChange={(event) => setAddressApartment(event.target.value)}
-                      className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
-                      placeholder="Кв., подъезд, этаж"
-                      autoComplete="address-line2"
-                      enterKeyHint="next"
-                    />
-                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="text-sm font-semibold text-mariko-dark/80">
+                      Квартира
+                      <input
+                        type="text"
+                        value={addressApartment}
+                        onChange={(event) => setAddressApartment(event.target.value)}
+                        className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
+                        placeholder="Например, 8"
+                        autoComplete="address-line2"
+                        enterKeyHint="next"
+                      />
+                    </label>
+                    <label className="text-sm font-semibold text-mariko-dark/80">
+                      Подъезд
+                      <input
+                        type="text"
+                        value={addressEntrance}
+                        onChange={(event) => setAddressEntrance(event.target.value)}
+                        className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40"
+                        placeholder="Если нет, укажите 0"
+                        autoComplete="off"
+                        enterKeyHint="next"
+                      />
+                      <span className="mt-1 block text-xs font-medium text-mariko-dark/60">
+                        Если подъезда нет, можно указать 0
+                      </span>
+                    </label>
+                  </div>
 
                   {!hasStreetAndHouse && (
                     <p className="text-xs text-amber-700">
@@ -1005,7 +1026,7 @@ const parseYandexAddress = (geoObject: YandexGeoObject) => {
                   onChange={(event) => setComment(event.target.value)}
                   rows={3}
                   className="mt-1 w-full rounded-[12px] border border-mariko-field px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mariko-primary/40 resize-none"
-                  placeholder="Пожелания к заказу, домофон, подъезд"
+                  placeholder="Пожелания к заказу, домофон"
                   enterKeyHint="done"
                 />
               </label>
