@@ -31,7 +31,7 @@ if [[ -f "$DEPLOY_ENV_FILE" ]]; then
 fi
 
 # === CONFIG =====
-SERVER_HOST="${SERVER_HOST:-root@YOUR_TIMEWEB_SERVER}"
+SERVER_HOST="${SERVER_HOST:-}"
 SSH_OPTS=${SSH_OPTS:-"-o StrictHostKeyChecking=no"}
 SSH_PASS=${SSH_PASS:-""}
 WEB_ROOT="${WEB_ROOT:-/var/www/html}"
@@ -46,6 +46,10 @@ require_cmd() {
 }
 
 require_cmd ssh
+if [[ -z "${SERVER_HOST:-}" ]]; then
+  err "Отсутствует SERVER_HOST. Задайте его в $DEPLOY_ENV_FILE или окружении."
+  exit 1
+fi
 
 # Настраиваем команды SSH
 if [[ -n "$SSH_PASS" ]]; then

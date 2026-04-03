@@ -273,7 +273,7 @@ TELEGRAM_WEBAPP_RETURN_URL=https://t.me/HachapuriMariko_BOT/app
 #### На Timeweb (через панель или API)
 ```env
 YOOKASSA_TEST_SHOP_ID=123456
-YOOKASSA_TEST_SECRET_KEY=test_LVQz-TgLNql1nag4zdjquBХEWx3OrQtIGipkmU1ktvM
+YOOKASSA_TEST_SECRET_KEY=test_your_secret_key_here
 YOOKASSA_TEST_CALLBACK_URL=https://your-test-app.example.com/api/payments/yookassa/webhook
 TELEGRAM_WEBAPP_RETURN_URL=https://t.me/HachapuriMariko_BOT/app
 ```

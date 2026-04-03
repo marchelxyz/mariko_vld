@@ -63,7 +63,6 @@ const DEFAULT_CORS_ALLOWED_ORIGINS = [
   "https://tg.marikorest.ru",
   "https://mariko-vld.vercel.app",
   "https://mariko-vld-vk.vercel.app",
-  "https://your-timeweb-app.example.com",
   "https://apps.vhachapuri.ru",
   "https://vk.com",
   "https://m.vk.com",

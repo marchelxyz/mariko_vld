@@ -1,5 +1,7 @@
 # Logs
 logs
+core
+core.*
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -11,6 +13,8 @@ node_modules
 dist
 dist-ssr
 *.local
+.envrc
+.npmrc
 
 # Editor directories and files
 .vscode/*
@@ -23,8 +27,13 @@ dist-ssr
 *.sln
 *.sw?
 .env
-.env.secrets
-.env.deploy
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!.env.*.example
+!**/.env.example
+!**/.env.*.example
 
 
 # Удалённые папки (для предотвращения повторного добавления)
@@ -45,6 +54,30 @@ deploy.sh
 
 backend/bot/.env
 frontend/.env
+documentation/templates/*.env.local
+
+# Приватные заметки и handover-файлы
+instructions/reports/*ACCESS*.md
+instructions/reports/*HANDOVER*.md
+instructions/**/PRIVATE_*.md
+instructions/**/private/
+
+# Ключи / сертификаты / приватные артефакты
+*.pem
+*.key
+*.crt
+*.cer
+*.csr
+*.p12
+*.pfx
+*.p8
+*.jks
+*.keystore
+*.mobileprovision
+*.ovpn
+*.secret
+*.secrets
+*.credentials
 
 # iiko production configs
 documentation/templates/iiko-network-restaurants.prod.json

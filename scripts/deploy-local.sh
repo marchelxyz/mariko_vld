@@ -28,11 +28,11 @@ if [[ -f "$DEPLOY_ENV_FILE" ]]; then
 fi
 
 # === CONFIG (можно переопределить через .env.deploy или окружение) =====
-SERVER_HOST="${SERVER_HOST:-root@YOUR_TIMEWEB_SERVER}"
+SERVER_HOST="${SERVER_HOST:-}"
 WEB_ROOT="${WEB_ROOT:-/var/www/html}"
 BOT_NAME="${BOT_NAME:-hachapuri-bot}"
 CART_SERVER_NAME="${CART_SERVER_NAME:-cart-server}"
-REMOTE_PROJECT_ROOT="${REMOTE_PROJECT_ROOT:-/opt/mariko-app}"
+REMOTE_PROJECT_ROOT="${REMOTE_PROJECT_ROOT:-}"
 REMOTE_BACKEND_DIR="${REMOTE_BACKEND_DIR:-$REMOTE_PROJECT_ROOT/backend}"
 REMOTE_BOT_DIR="${REMOTE_BOT_DIR:-$REMOTE_PROJECT_ROOT/backend/bot}"
 REMOTE_SERVER_DIR="${REMOTE_SERVER_DIR:-$REMOTE_PROJECT_ROOT/backend/server}"
