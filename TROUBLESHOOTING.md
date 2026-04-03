@@ -3,7 +3,7 @@
 База знаний проблем и их решений для проекта Mariko VLD.
 
 **Дата создания:** 2026-02-11
-**Последнее обновление:** 2026-04-03 15:16
+**Последнее обновление:** 2026-04-04 00:43
 
 ---
 
@@ -31,6 +31,7 @@
 4. [Timeweb Deployment](#timeweb-deployment)
 5. [Database Issues](#database-issues)
 6. [API Endpoints](#api-endpoints)
+7. [Repository Hygiene](#repository-hygiene)
 
 ---
 
@@ -4588,6 +4589,50 @@ open "http://127.0.0.1:4174/?smoke_platform=vk&smoke_role=admin#/admin"
 
 **Связанный commit:** `2c9c9b8`
 
+## Repository Hygiene
+
+### ❌ Проблема: публичные GitHub-репозитории содержали реальные тестовые ключи, внутренние хосты деплоя и служебные core/env-артефакты
+
+**Дата:** 2026-04-04
+**Симптомы:**
+- в публичном репозитории лежали реальные тестовые значения YooKassa в документации;
+- в docs и deploy-скриптах были зашиты внутренние TimeWeb/VPS хосты, пути проекта и test-домены;
+- в индексе git находился лишний `core`-дамп;
+- `.gitignore` закрывал часть env-файлов, но не был достаточно строгим для вложенных `.env.*`, приватных handover-заметок и ключевых файлов.
+
+**Причина:**
+- часть документации писалась на основе реальной операционной среды без последующей санитизации перед коммитом;
+- deploy-скрипты и шаблоны содержали hardcoded defaults под конкретный сервер;
+- репозиторий считался приватным, поэтому санитарный контроль публичного контура не применялся;
+- `.gitignore` не блокировал целый класс приватных файлов и сертификатов.
+
+**Решение:**
+1. Заменить реальные значения в tracked docs и шаблонах на безопасные placeholders:
+   - тестовые ключи YooKassa;
+   - реальные `api_login` iiko;
+   - TimeWeb test-домены, IP и серверные пути.
+2. Убрать из скриптов жёсткие defaults для `SERVER_HOST` и `REMOTE_PROJECT_ROOT`, оставив только явную конфигурацию через `.env.deploy` или окружение.
+3. Удалить из индекса случайно закоммиченный `core`-дамп.
+4. Усилить `.gitignore`:
+   - вложенные `.env` и `.env.*` с исключением только для `*.example`;
+   - локальные/private handover-файлы;
+   - сертификаты, ключи, keystore-артефакты и credential-файлы.
+5. После санитизации прогнать повторный tracked-only скан по `git ls-files`, а не по всей локальной файловой системе.
+
+**Проверка:**
+- `git diff --check` проходит без ошибок;
+- `bash -n scripts/deploy-local.sh scripts/push-env.sh scripts/diagnose-timeweb.sh scripts/setup-timeweb-caddy.sh scripts/setup-timeweb-domain-nginx.sh scripts/setup-timeweb-nginx.sh` проходит;
+- `node --check backend/server/cart-server.mjs` проходит;
+- tracked-only скан по `git ls-files` не находит старые значения:
+  - `IP_TIMEWEB`
+  - `/opt/mariko-app`
+  - `your-test-app.example.com`
+  - `your-timeweb-app.example.com`
+  - `test_your_secret_key_here`
+  - реальные `api_login` iiko.
+
+**Связанный commit:** `3f36dda`
+
 ---
 
 ## См. также
@@ -4599,5 +4644,5 @@ open "http://127.0.0.1:4174/?smoke_platform=vk&smoke_role=admin#/admin"
 
 ---
 
-**Последнее обновление:** 2026-04-03 00:00
+**Последнее обновление:** 2026-04-04 00:43
 **Автор:** Codex (GPT-5)
